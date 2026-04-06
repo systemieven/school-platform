@@ -57,14 +57,14 @@ export default function Navbar() {
                 </Link>
               </div>
             </div>
-            <a href="#sobre" className="nav-link">Sobre</a>
-            <a href="#estrutura" className="nav-link">Estrutura</a>
-            <a href="#contato" className="nav-link">Contato</a>
+            <Link to="/sobre" className="nav-link">Sobre</Link>
+            <Link to="/estrutura" className="nav-link">Estrutura</Link>
+            <Link to="/sobre" className="nav-link">Contato</Link>
             <Link
               to="/matricula"
               className="bg-[#ffd700] text-[#003876] px-6 py-2 rounded-full font-semibold transition-all duration-300 hover:bg-[#003876] hover:text-[#ffd700] hover:shadow-[0_0_20px_rgba(255,215,0,0.3)] transform hover:scale-105"
             >
-              Matrícula 2025
+              Matrícula 2026
             </Link>
           </div>
 
@@ -105,21 +105,21 @@ export default function Navbar() {
                 Ensino Médio
               </Link>
             </div>
-            <a href="#sobre" onClick={closeMobileMenu} className="text-[#003876] hover:text-[#ffd700] transition-colors">
+            <Link to="/sobre" onClick={closeMobileMenu} className="text-[#003876] hover:text-[#ffd700] transition-colors">
               Sobre
-            </a>
-            <a href="#estrutura" onClick={closeMobileMenu} className="text-[#003876] hover:text-[#ffd700] transition-colors">
+            </Link>
+            <Link to="/estrutura" onClick={closeMobileMenu} className="text-[#003876] hover:text-[#ffd700] transition-colors">
               Estrutura
-            </a>
-            <a href="#contato" onClick={closeMobileMenu} className="text-[#003876] hover:text-[#ffd700] transition-colors">
+            </Link>
+            <Link to="/sobre" onClick={closeMobileMenu} className="text-[#003876] hover:text-[#ffd700] transition-colors">
               Contato
-            </a>
+            </Link>
             <Link
               to="/matricula"
               onClick={closeMobileMenu}
               className="bg-[#ffd700] text-[#003876] px-6 py-2 rounded-full font-semibold w-full text-center"
             >
-              Matrícula 2025
+              Matrícula 2026
             </Link>
           </div>
         </div>

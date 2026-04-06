@@ -76,7 +76,7 @@ const Matricula = () => {
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-[#003876] mb-4">Matrícula 2025</h1>
+            <h1 className="text-4xl font-bold text-[#003876] mb-4">Matrícula 2026</h1>
             <p className="text-gray-600 mb-6">
               A inscrição deve ser feita por um responsável legal do estudante.
             </p>
