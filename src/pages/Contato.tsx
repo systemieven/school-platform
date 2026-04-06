@@ -177,14 +177,14 @@ export default function Contato() {
     { value: 'educacao_infantil' as Segment, label: 'Educação Infantil', sub: '2 a 5 anos' },
     { value: 'fundamental_1'    as Segment, label: 'Fundamental I',      sub: '1º ao 5º ano' },
     { value: 'fundamental_2'    as Segment, label: 'Fundamental II',     sub: '6º ao 9º ano' },
-    { value: 'ensino_medio'     as Segment, label: 'Ensino Médio',       sub: '1ª a 3ª série' },
+    { value: 'ensino_medio'     as Segment, label: 'Ensino Médio',       sub: '1º a 3º ano' },
   ];
 
   return (
     <div className="min-h-screen">
 
       {/* ── Hero ──────────────────────────────────────────────────── */}
-      <section className="relative h-[42vh] min-h-[320px] overflow-hidden grain-overlay">
+      <section className="relative h-[55vh] min-h-[400px] overflow-hidden">
         <div className="absolute inset-0">
           <img
             src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=2070"
@@ -194,23 +194,24 @@ export default function Contato() {
           <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/80 to-[#002855]/70" />
         </div>
 
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
+
         <div className="relative z-[5] container mx-auto px-4 h-full flex items-center">
-          <div className="max-w-2xl">
-            <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-6">
+          <div className="max-w-3xl">
+            <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
               <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">Fale conosco</span>
             </div>
-            <h1 className="hero-text-1 font-display text-5xl md:text-6xl font-bold text-white leading-tight mb-4">
-              Entre em <em className="not-italic text-[#ffd700]">Contato</em>
+            <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
+              Entre em{' '}
+              <span className="italic text-[#ffd700]">Contato</span>
             </h1>
-            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-5" style={{ width: 0 }} />
-            <p className="hero-text-2 text-white/80 text-lg max-w-lg leading-relaxed">
+            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
+            <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
               Tire suas dúvidas, agende uma visita ou solicite informações sobre matrículas.
             </p>
           </div>
         </div>
-
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
       </section>
 
       {/* ── Body ──────────────────────────────────────────────────── */}

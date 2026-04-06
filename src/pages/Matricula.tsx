@@ -12,6 +12,7 @@ import {
   XCircle,
   Copy,
   Mail,
+  ArrowRight,
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { supabase } from '../lib/supabase';
@@ -709,25 +710,75 @@ export default function Matricula() {
   const tabs = ['Dados do Responsável', 'Dados do Aluno', 'Documentação'];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen">
+
+      {/* ── Hero ── */}
+      <section className="relative h-[55vh] min-h-[400px] overflow-hidden">
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&q=80&w=2070"
+            alt="Matrícula Colégio Batista"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/80 to-[#002855]/70" />
+        </div>
+
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
+
+        <div className="relative z-[5] container mx-auto px-4 h-full flex items-center">
+          <div className="max-w-3xl">
+            <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
+              <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
+              <span className="text-white/90 text-sm font-medium tracking-wide">
+                Matrículas 2026 abertas
+              </span>
+            </div>
+            <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
+              Faça sua{' '}
+              <span className="italic text-[#ffd700]">Matrícula</span>
+            </h1>
+            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
+            <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
+              Garanta a vaga do seu filho em uma das melhores escolas de Caruaru.
+              Preencha o formulário abaixo para iniciar o processo.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Formulário ── */}
+      <section className="py-16 bg-[var(--surface)]">
       <div className="container mx-auto px-4">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10">
-            <h1 className="text-4xl font-bold text-[#003876] mb-3">Matrícula 2026</h1>
-            <p className="text-gray-500 mb-6">
+            <p className="text-sm font-semibold tracking-[0.2em] uppercase text-[#ffd700] mb-3">
+              Inscrição online
+            </p>
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-[#003876] mb-3">
+              Preencha os <span className="italic">dados abaixo</span>
+            </h2>
+            <div className="section-divider mx-auto mt-4 mb-6" />
+            <p className="text-gray-500 mb-6 text-sm">
               A inscrição deve ser feita por um responsável legal do estudante.
             </p>
-            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-left">
+            <div className="bg-white border border-[#ffd700]/30 p-4 rounded-xl text-sm text-left shadow-sm">
               <p className="font-semibold mb-2 flex items-center gap-2 text-[#003876]">
-                <AlertCircle className="w-4 h-4" /> Tenha em mãos:
+                <AlertCircle className="w-4 h-4 text-[#ffd700]" /> Tenha em mãos:
               </p>
-              <ul className="list-disc list-inside space-y-1 text-gray-600">
-                <li>Certidão de Nascimento do candidato</li>
-                <li>Declaração de Escolaridade da escola de origem</li>
-                <li>Cópia do Boletim Final e Parcial</li>
+              <ul className="space-y-1.5 text-gray-600">
+                {[
+                  'Certidão de Nascimento do candidato',
+                  'Declaração de Escolaridade da escola de origem',
+                  'Cópia do Boletim Final e Parcial',
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <ArrowRight className="w-3.5 h-3.5 text-[#ffd700] shrink-0" />
+                    {item}
+                  </li>
+                ))}
               </ul>
               <p className="mt-3 text-xs text-gray-400">
-                Arquivos: JPG, PNG, PDF — máx. 5 MB por arquivo
+                Arquivos aceitos: JPG, PNG, PDF — máx. 5 MB por arquivo
               </p>
             </div>
           </div>
@@ -1158,6 +1209,7 @@ export default function Matricula() {
           </form>
         </div>
       </div>
+      </section>
     </div>
   );
 }

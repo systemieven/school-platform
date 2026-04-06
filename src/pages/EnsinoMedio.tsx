@@ -79,7 +79,7 @@ export default function EnsinoMedio() {
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
               <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">
-                Ensino Médio · 1ª a 3ª série
+                Ensino Médio · 1º a 3º ano
               </span>
             </div>
 
