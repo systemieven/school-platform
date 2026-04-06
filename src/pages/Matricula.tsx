@@ -369,6 +369,8 @@ function CPFParentField({
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function Matricula() {
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsChecked, setTermsChecked]   = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [errors, setErrors] = useState<Errors>({});
   const [cepLoading, setCepLoading] = useState<'responsavel' | 'aluno' | null>(null);
@@ -750,38 +752,141 @@ export default function Matricula() {
       <section className="py-16 bg-[var(--surface)]">
       <div className="container mx-auto px-4">
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-10">
-            <p className="text-sm font-semibold tracking-[0.2em] uppercase text-[#ffd700] mb-3">
-              Inscrição online
-            </p>
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-[#003876] mb-3">
-              Preencha os <span className="italic">dados abaixo</span>
-            </h2>
-            <div className="section-divider mx-auto mt-4 mb-6" />
-            <p className="text-gray-500 mb-6 text-sm">
-              A inscrição deve ser feita por um responsável legal do estudante.
-            </p>
-            <div className="bg-white border border-[#ffd700]/30 p-4 rounded-xl text-sm text-left shadow-sm">
-              <p className="font-semibold mb-2 flex items-center gap-2 text-[#003876]">
-                <AlertCircle className="w-4 h-4 text-[#ffd700]" /> Tenha em mãos:
-              </p>
-              <ul className="space-y-1.5 text-gray-600">
-                {[
-                  'Certidão de Nascimento do candidato',
-                  'Declaração de Escolaridade da escola de origem',
-                  'Cópia do Boletim Final e Parcial',
-                ].map((item) => (
-                  <li key={item} className="flex items-center gap-2">
-                    <ArrowRight className="w-3.5 h-3.5 text-[#ffd700] shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 text-xs text-gray-400">
-                Arquivos aceitos: JPG, PNG, PDF — máx. 5 MB por arquivo
-              </p>
+          {/* ── Gate: termos de responsabilidade ── */}
+          {!termsAccepted ? (
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+
+              {/* Cabeçalho */}
+              <div className="bg-[#003876] px-8 py-7">
+                <p className="text-xs font-bold tracking-[0.2em] uppercase text-[#ffd700] mb-2">
+                  Antes de começar
+                </p>
+                <h2 className="font-display text-2xl md:text-3xl font-bold text-white leading-tight">
+                  Confirme que você é o{' '}
+                  <span className="italic text-[#ffd700]">responsável legal</span>
+                </h2>
+                <p className="text-white/70 text-sm mt-2 leading-relaxed">
+                  A inscrição só pode ser realizada por um responsável legal do candidato.
+                  Verifique também se você tem os dados e documentos listados abaixo.
+                </p>
+              </div>
+
+              <div className="px-8 py-8 space-y-8">
+
+                {/* Dados necessários */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-8 h-8 bg-[#003876]/10 rounded-lg flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-[#003876]" />
+                      </div>
+                      <h3 className="font-bold text-[#003876] text-sm">Dados necessários</h3>
+                    </div>
+                    <ul className="space-y-2.5">
+                      {[
+                        { label: 'Responsável legal', sub: 'Nome completo, CPF e celular' },
+                        { label: 'Endereço do responsável', sub: 'CEP, rua, número e bairro' },
+                        { label: 'Dados do candidato', sub: 'Nome, data de nascimento e CPF' },
+                        { label: 'Dados dos pais', sub: 'Nome, CPF e celular de pai e/ou mãe' },
+                        { label: 'Histórico escolar', sub: 'Série atual ou última série cursada' },
+                      ].map(({ label, sub }) => (
+                        <li key={label} className="flex items-start gap-2.5">
+                          <span className="mt-0.5 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
+                          </span>
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{label}</p>
+                            <p className="text-xs text-gray-400">{sub}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-8 h-8 bg-[#003876]/10 rounded-lg flex items-center justify-center">
+                        <Upload className="w-4 h-4 text-[#003876]" />
+                      </div>
+                      <h3 className="font-bold text-[#003876] text-sm">Documentos necessários</h3>
+                    </div>
+                    <ul className="space-y-2.5">
+                      {[
+                        { label: 'Certidão de Nascimento', sub: 'Do candidato (foto ou scan)' },
+                        { label: 'Declaração de Escolaridade', sub: 'Emitida pela escola de origem' },
+                        { label: 'Boletim Escolar', sub: 'Cópia do boletim final e parcial' },
+                      ].map(({ label, sub }) => (
+                        <li key={label} className="flex items-start gap-2.5">
+                          <span className="mt-0.5 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
+                          </span>
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{label}</p>
+                            <p className="text-xs text-gray-400">{sub}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-4 text-xs text-gray-400 flex items-center gap-1.5 pl-0.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-[#ffd700] shrink-0" />
+                      Formatos aceitos: JPG, PNG, PDF — máx. 5 MB por arquivo
+                    </p>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-100" />
+
+                {/* Checkbox + botão */}
+                <div className="space-y-5">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <div className="relative mt-0.5 shrink-0">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={termsChecked}
+                        onChange={(e) => setTermsChecked(e.target.checked)}
+                      />
+                      <div className={[
+                        'w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200',
+                        termsChecked
+                          ? 'bg-[#003876] border-[#003876]'
+                          : 'bg-white border-gray-300 group-hover:border-[#003876]/50',
+                      ].join(' ')}>
+                        {termsChecked && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      Declaro que sou o <strong className="text-[#003876]">responsável legal</strong> do candidato,
+                      que as informações prestadas são verdadeiras e que tenho em mãos os documentos
+                      listados acima para anexar ao formulário.
+                    </p>
+                  </label>
+
+                  <button
+                    type="button"
+                    disabled={!termsChecked}
+                    onClick={() => setTermsAccepted(true)}
+                    className={[
+                      'w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all duration-300',
+                      termsChecked
+                        ? 'bg-[#ffd700] text-[#003876] hover:bg-[#ffe44d] hover:shadow-lg hover:shadow-[#ffd700]/30 active:scale-[0.99]'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed',
+                    ].join(' ')}
+                  >
+                    <ArrowRight className="w-5 h-5" />
+                    Prosseguir com a inscrição
+                  </button>
+                </div>
+
+              </div>
             </div>
-          </div>
+          ) : (
+          <>
 
           {/* Tabs */}
           <div className="flex mb-8 bg-white rounded-xl shadow-sm overflow-hidden">
@@ -1207,6 +1312,10 @@ export default function Matricula() {
               )}
             </div>
           </form>
+
+          </> /* fim do bloco condicional termsAccepted */
+          )}
+
         </div>
       </div>
       </section>
