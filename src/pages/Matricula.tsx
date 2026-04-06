@@ -13,6 +13,7 @@ import {
   Copy,
   Mail,
 } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import { supabase } from '../lib/supabase';
 
 // ── Masks ──────────────────────────────────────────────────────────────────
@@ -91,7 +92,12 @@ interface FormData {
   cpfMae: string;
   celularMae: string;
   emailMae: string;
-  documentos: File[];
+  documentos: DocumentEntry[];
+}
+
+interface DocumentEntry {
+  file: File;
+  originalSize?: number; // definido apenas quando houve compressão
 }
 
 type Errors = Partial<Record<string, string>>;
@@ -369,6 +375,8 @@ export default function Matricula() {
   const [responsavelUsedBy, setResponsavelUsedBy] = useState<'mae' | 'pai' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<'success' | 'error' | null>(null);
+  const [compressing, setCompressing] = useState(false);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
     nomeResponsavel: '',
@@ -391,7 +399,7 @@ export default function Matricula() {
     cpfMae: '',
     celularMae: '',
     emailMae: '',
-    documentos: [],
+    documentos: [] as DocumentEntry[],
   });
 
   const setField = (name: keyof FormData, value: string) => {
@@ -559,20 +567,61 @@ export default function Matricula() {
     });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).filter(
-      (f) =>
-        ['image/jpeg', 'image/png', 'application/pdf'].includes(f.type) &&
-        f.size <= 5 * 1024 * 1024,
-    );
-    setFormData((prev) => ({ ...prev, documentos: [...prev.documentos, ...files] }));
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!picked.length) return;
+
+    setCompressing(true);
+    setFileErrors([]);
+
+    const accepted: DocumentEntry[] = [];
+    const rejected: string[] = [];
+
+    for (const f of picked) {
+      if (!['image/jpeg', 'image/png', 'application/pdf'].includes(f.type)) {
+        rejected.push(`${f.name}: formato não suportado`);
+        continue;
+      }
+
+      if (f.type === 'application/pdf') {
+        if (f.size > 5 * 1024 * 1024) {
+          rejected.push(`${f.name}: PDF excede 5 MB — compacte-o antes de enviar`);
+        } else {
+          accepted.push({ file: f });
+        }
+        continue;
+      }
+
+      // imagem — comprimir
+      try {
+        const compressed = await imageCompression(f, {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+        });
+        accepted.push({
+          file: new File([compressed], f.name, { type: f.type }),
+          originalSize: f.size,
+        });
+      } catch {
+        rejected.push(`${f.name}: erro ao compactar imagem`);
+      }
+    }
+
+    if (accepted.length)
+      setFormData((prev) => ({ ...prev, documentos: [...prev.documentos, ...accepted] }));
+    if (rejected.length) setFileErrors(rejected);
+    setCompressing(false);
   };
 
-  const removeFile = (i: number) =>
+  const removeFile = (i: number) => {
     setFormData((prev) => ({
       ...prev,
       documentos: prev.documentos.filter((_, idx) => idx !== i),
     }));
+    setFileErrors([]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -625,7 +674,8 @@ export default function Matricula() {
       if (enrollmentError) throw enrollmentError;
 
       // 2. Upload de documentos
-      for (const file of formData.documentos) {
+      for (const entry of formData.documentos) {
+        const { file } = entry;
         const storagePath = `${enrollment.id}/${Date.now()}_${file.name}`;
 
         const { error: uploadError } = await supabase.storage
@@ -1005,24 +1055,51 @@ export default function Matricula() {
                   </div>
                 </div>
 
-                <label className="block border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-[#003876]/40 hover:bg-gray-50 transition-colors">
-                  <Upload className="mx-auto h-10 w-10 text-gray-300 mb-3" />
+                <label className={[
+                  'block border-2 border-dashed rounded-xl p-8 text-center transition-colors',
+                  compressing ? 'opacity-60 cursor-wait border-gray-200' : 'cursor-pointer hover:border-[#003876]/40 hover:bg-gray-50 border-gray-200',
+                ].join(' ')}>
+                  {compressing
+                    ? <Loader2 className="mx-auto h-10 w-10 text-[#003876] animate-spin mb-3" />
+                    : <Upload className="mx-auto h-10 w-10 text-gray-300 mb-3" />}
                   <p className="text-sm font-medium text-gray-600 mb-1">
-                    Clique ou arraste arquivos aqui
+                    {compressing ? 'Compactando imagens...' : 'Clique ou arraste arquivos aqui'}
                   </p>
-                  <p className="text-xs text-gray-400">JPG, PNG, PDF — máx. 5 MB</p>
-                  <input type="file" className="sr-only" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} />
+                  <p className="text-xs text-gray-400">
+                    JPG/PNG compactados automaticamente · PDF máx. 5 MB
+                  </p>
+                  <input type="file" className="sr-only" multiple accept=".pdf,.jpg,.jpeg,.png" disabled={compressing} onChange={handleFileChange} />
                 </label>
+
+                {fileErrors.length > 0 && (
+                  <ul className="space-y-1">
+                    {fileErrors.map((msg, i) => (
+                      <li key={i} className="text-xs text-red-500 flex items-center gap-1">
+                        <XCircle className="w-3 h-3 shrink-0" /> {msg}
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 {formData.documentos.length > 0 && (
                   <ul className="space-y-2">
-                    {formData.documentos.map((file, i) => (
+                    {formData.documentos.map((entry, i) => (
                       <li key={i} className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-4 py-2">
-                        <span className="flex items-center gap-2 text-gray-700">
-                          <FileText className="w-4 h-4 text-gray-400" />
-                          {file.name}
+                        <span className="flex items-center gap-2 text-gray-700 min-w-0">
+                          <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="truncate">{entry.file.name}</span>
+                          {entry.originalSize && (
+                            <span className="shrink-0 text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
+                              {(entry.originalSize / 1024 / 1024).toFixed(1)} MB → {(entry.file.size / 1024 / 1024).toFixed(1)} MB
+                            </span>
+                          )}
+                          {!entry.originalSize && (
+                            <span className="shrink-0 text-xs text-gray-400">
+                              {(entry.file.size / 1024 / 1024).toFixed(1)} MB
+                            </span>
+                          )}
                         </span>
-                        <button type="button" onClick={() => removeFile(i)} className="text-red-400 hover:text-red-600 transition-colors ml-4">
+                        <button type="button" onClick={() => removeFile(i)} className="text-red-400 hover:text-red-600 transition-colors ml-4 shrink-0">
                           <XCircle className="w-4 h-4" />
                         </button>
                       </li>
