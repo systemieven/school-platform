@@ -43,16 +43,12 @@ function validateCPF(cpf: string): boolean {
   const digits = cpf.replace(/\D/g, '');
   if (digits.length !== 11) return false;
   if (/^(\d)\1{10}$/.test(digits)) return false;
-
   const calc = (len: number) => {
     let sum = 0;
-    for (let i = 0; i < len; i++) {
-      sum += parseInt(digits[i]) * (len + 1 - i);
-    }
+    for (let i = 0; i < len; i++) sum += parseInt(digits[i]) * (len + 1 - i);
     const rem = (sum * 10) % 11;
     return rem === 10 || rem === 11 ? 0 : rem;
   };
-
   return calc(9) === parseInt(digits[9]) && calc(10) === parseInt(digits[10]);
 }
 
@@ -72,7 +68,6 @@ interface FormData {
   cpfResponsavel: string;
   celularResponsavel: string;
   enderecoResponsavel: Endereco;
-
   nomeAluno: string;
   dataNascimento: string;
   cpfAluno: string;
@@ -81,29 +76,30 @@ interface FormData {
   cpfPai: string;
   nomeMae: string;
   cpfMae: string;
-
   documentos: File[];
 }
 
 type Errors = Partial<Record<string, string>>;
 
 const emptyEndereco = (): Endereco => ({
-  cep: '',
-  rua: '',
-  numero: '',
-  bairro: '',
-  cidade: '',
-  estado: '',
-  complemento: '',
+  cep: '', rua: '', numero: '', bairro: '', cidade: '', estado: '', complemento: '',
 });
 
-// ── Reusable Field ─────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────
+function inputCls(hasIcon: boolean, error?: string) {
+  return [
+    'w-full py-3 pr-4 rounded-lg border text-sm transition-colors',
+    hasIcon ? 'pl-10' : 'pl-3',
+    error
+      ? 'border-red-400 focus:ring-red-300 bg-red-50'
+      : 'border-gray-200 focus:ring-[#003876] bg-white',
+    'focus:outline-none focus:ring-2 focus:border-transparent',
+  ].join(' ');
+}
+
+// ── Field Wrapper ──────────────────────────────────────────────────────────
 function Field({
-  label,
-  required,
-  error,
-  icon: Icon,
-  children,
+  label, required, error, icon: Icon, children,
 }: {
   label: string;
   required?: boolean;
@@ -131,18 +127,163 @@ function Field({
   );
 }
 
-function inputCls(hasIcon: boolean, error?: string) {
-  return [
-    'w-full py-3 pr-4 rounded-lg border text-sm transition-colors',
-    hasIcon ? 'pl-10' : 'pl-3',
-    error
-      ? 'border-red-400 focus:ring-red-300 bg-red-50'
-      : 'border-gray-200 focus:ring-[#003876] bg-white',
-    'focus:outline-none focus:ring-2 focus:border-transparent',
-  ].join(' ');
+// ── Address Block (defined OUTSIDE Matricula to preserve focus) ────────────
+interface AddressBlockProps {
+  end: Endereco;
+  endKey: 'enderecoResponsavel' | 'enderecoAluno';
+  errors: Errors;
+  isLoading: boolean;
+  cepOk: boolean | undefined;
+  onCEPChange: (value: string) => void;
+  onFieldChange: (field: keyof Endereco, value: string) => void;
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
+function AddressBlock({
+  end, endKey, errors, isLoading, cepOk, onCEPChange, onFieldChange,
+}: AddressBlockProps) {
+  return (
+    <div className="space-y-4">
+      <Field label="CEP" required icon={MapPin} error={errors[`${endKey}.cep`]}>
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="00000-000"
+          maxLength={9}
+          className={inputCls(true, errors[`${endKey}.cep`])}
+          value={end.cep}
+          onChange={(e) => onCEPChange(e.target.value)}
+        />
+        <span className="absolute right-3 top-1/2 -translate-y-1/2">
+          {isLoading && <Loader2 className="w-4 h-4 text-[#003876] animate-spin" />}
+          {!isLoading && cepOk === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+          {!isLoading && cepOk === false && <XCircle className="w-4 h-4 text-red-500" />}
+        </span>
+      </Field>
+
+      <Field label="Rua / Logradouro" required error={errors[`${endKey}.rua`]}>
+        <input
+          type="text"
+          className={inputCls(false, errors[`${endKey}.rua`])}
+          value={end.rua}
+          onChange={(e) => onFieldChange('rua', e.target.value)}
+        />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Número" required error={errors[`${endKey}.numero`]}>
+          <input
+            type="text"
+            placeholder="Ex: 99"
+            className={inputCls(false, errors[`${endKey}.numero`])}
+            value={end.numero}
+            onChange={(e) => onFieldChange('numero', e.target.value)}
+          />
+        </Field>
+        <Field label="Complemento">
+          <input
+            type="text"
+            placeholder="Apto, bloco... (opcional)"
+            className={inputCls(false)}
+            value={end.complemento}
+            onChange={(e) => onFieldChange('complemento', e.target.value)}
+          />
+        </Field>
+      </div>
+
+      <Field label="Bairro" required error={errors[`${endKey}.bairro`]}>
+        <input
+          type="text"
+          className={inputCls(false, errors[`${endKey}.bairro`])}
+          value={end.bairro}
+          onChange={(e) => onFieldChange('bairro', e.target.value)}
+        />
+      </Field>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-2">
+          <Field label="Cidade" required error={errors[`${endKey}.cidade`]}>
+            <input
+              type="text"
+              className={inputCls(false, errors[`${endKey}.cidade`])}
+              value={end.cidade}
+              onChange={(e) => onFieldChange('cidade', e.target.value)}
+            />
+          </Field>
+        </div>
+        <Field label="Estado" required error={errors[`${endKey}.estado`]}>
+          <input
+            type="text"
+            maxLength={2}
+            placeholder="UF"
+            className={inputCls(false, errors[`${endKey}.estado`])}
+            value={end.estado}
+            onChange={(e) => onFieldChange('estado', e.target.value.toUpperCase())}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+// ── CPF Parent Field (defined OUTSIDE Matricula to preserve focus) ─────────
+interface CPFParentFieldProps {
+  parent: 'mae' | 'pai';
+  nomeValue: string;
+  cpfValue: string;
+  nomeError?: string;
+  cpfError?: string;
+  onNomeChange: (v: string) => void;
+  onCpfChange: (v: string) => void;
+  onCpfBlur: () => void;
+  onUsarResponsavel: () => void;
+}
+
+function CPFParentField({
+  parent, nomeValue, cpfValue, nomeError, cpfError,
+  onNomeChange, onCpfChange, onCpfBlur, onUsarResponsavel,
+}: CPFParentFieldProps) {
+  const label = parent === 'mae' ? 'Mãe' : 'Pai';
+  const artigo = parent === 'mae' ? 'a' : 'o';
+
+  return (
+    <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm font-semibold text-[#003876]">{label}</span>
+        <button
+          type="button"
+          onClick={onUsarResponsavel}
+          className="inline-flex items-center gap-1.5 text-xs text-[#003876] border border-[#003876]/30 bg-white px-3 py-1 rounded-full hover:bg-[#003876] hover:text-white transition-colors"
+        >
+          <Copy className="w-3 h-3" /> Usar dados do responsável
+        </button>
+      </div>
+
+      <Field label={`Nome completo d${artigo} ${label}`} required error={nomeError}>
+        <input
+          type="text"
+          className={inputCls(false, nomeError)}
+          value={nomeValue}
+          onChange={(e) => onNomeChange(e.target.value)}
+        />
+      </Field>
+
+      <Field label={`CPF d${artigo} ${label}`} required icon={FileText} error={cpfError}>
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="000.000.000-00"
+          maxLength={14}
+          className={inputCls(true, cpfError)}
+          value={cpfValue}
+          onChange={(e) => onCpfChange(maskCPF(e.target.value))}
+          onBlur={onCpfBlur}
+        />
+      </Field>
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────
 export default function Matricula() {
   const [activeTab, setActiveTab] = useState(0);
   const [errors, setErrors] = useState<Errors>({});
@@ -165,10 +306,9 @@ export default function Matricula() {
     documentos: [],
   });
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
   const setField = (name: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((e) => ({ ...e, [name]: undefined }));
+    setErrors((e) => ({ ...e, [name]: undefined }));
   };
 
   const setEndereco = (
@@ -176,27 +316,19 @@ export default function Matricula() {
     field: keyof Endereco,
     value: string,
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [prefix]: { ...prev[prefix], [field]: value },
-    }));
-    const key = `${prefix}.${field}`;
-    if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
+    setFormData((prev) => ({ ...prev, [prefix]: { ...prev[prefix], [field]: value } }));
+    setErrors((e) => ({ ...e, [`${prefix}.${field}`]: undefined }));
   };
 
-  // ── CEP Lookup ───────────────────────────────────────────────────────────
   const buscarCEP = async (cep: string, prefix: 'responsavel' | 'aluno') => {
     const digits = cep.replace(/\D/g, '');
     if (digits.length !== 8) return;
-
     const endKey = prefix === 'responsavel' ? 'enderecoResponsavel' : 'enderecoAluno';
     setCepLoading(prefix);
     setCepStatus((s) => ({ ...s, [prefix]: undefined }));
-
     try {
       const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
       const data = await res.json();
-
       if (data.erro) {
         setCepStatus((s) => ({ ...s, [prefix]: false }));
         setErrors((e) => ({ ...e, [`${endKey}.cep`]: 'CEP não encontrado' }));
@@ -223,10 +355,7 @@ export default function Matricula() {
     }
   };
 
-  const handleCEPChange = (
-    value: string,
-    prefix: 'responsavel' | 'aluno',
-  ) => {
+  const handleCEPChange = (value: string, prefix: 'responsavel' | 'aluno') => {
     const masked = maskCEP(value);
     const endKey = prefix === 'responsavel' ? 'enderecoResponsavel' : 'enderecoAluno';
     setEndereco(endKey, 'cep', masked);
@@ -234,22 +363,14 @@ export default function Matricula() {
     if (masked.replace(/\D/g, '').length === 8) buscarCEP(masked, prefix);
   };
 
-  // ── Tab Validation ────────────────────────────────────────────────────────
   const validateTab0 = (): boolean => {
     const errs: Errors = {};
-    if (!formData.nomeResponsavel.trim())
-      errs.nomeResponsavel = 'Nome obrigatório';
-
-    if (!formData.cpfResponsavel.trim())
-      errs.cpfResponsavel = 'CPF obrigatório';
-    else if (!validateCPF(formData.cpfResponsavel))
-      errs.cpfResponsavel = 'CPF inválido';
-
-    if (!formData.celularResponsavel.trim())
-      errs.celularResponsavel = 'Celular obrigatório';
+    if (!formData.nomeResponsavel.trim()) errs.nomeResponsavel = 'Nome obrigatório';
+    if (!formData.cpfResponsavel.trim()) errs.cpfResponsavel = 'CPF obrigatório';
+    else if (!validateCPF(formData.cpfResponsavel)) errs.cpfResponsavel = 'CPF inválido';
+    if (!formData.celularResponsavel.trim()) errs.celularResponsavel = 'Celular obrigatório';
     else if (formData.celularResponsavel.replace(/\D/g, '').length < 11)
       errs.celularResponsavel = 'Celular incompleto (DDD + 9 dígitos)';
-
     const end = formData.enderecoResponsavel;
     if (!end.cep.trim() || end.cep.replace(/\D/g, '').length < 8)
       errs['enderecoResponsavel.cep'] = 'CEP obrigatório';
@@ -258,7 +379,6 @@ export default function Matricula() {
     if (!end.bairro.trim()) errs['enderecoResponsavel.bairro'] = 'Bairro obrigatório';
     if (!end.cidade.trim()) errs['enderecoResponsavel.cidade'] = 'Cidade obrigatória';
     if (!end.estado.trim()) errs['enderecoResponsavel.estado'] = 'Estado obrigatório';
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -267,10 +387,8 @@ export default function Matricula() {
     const errs: Errors = {};
     if (!formData.nomeAluno.trim()) errs.nomeAluno = 'Nome obrigatório';
     if (!formData.dataNascimento) errs.dataNascimento = 'Data de nascimento obrigatória';
-
     if (formData.cpfAluno.trim() && !validateCPF(formData.cpfAluno))
       errs.cpfAluno = 'CPF inválido';
-
     const end = formData.enderecoAluno;
     if (!end.cep.trim() || end.cep.replace(/\D/g, '').length < 8)
       errs['enderecoAluno.cep'] = 'CEP obrigatório';
@@ -279,15 +397,12 @@ export default function Matricula() {
     if (!end.bairro.trim()) errs['enderecoAluno.bairro'] = 'Bairro obrigatório';
     if (!end.cidade.trim()) errs['enderecoAluno.cidade'] = 'Cidade obrigatória';
     if (!end.estado.trim()) errs['enderecoAluno.estado'] = 'Estado obrigatório';
-
     if (!formData.nomeMae.trim()) errs.nomeMae = 'Nome da mãe obrigatório';
     if (!formData.cpfMae.trim()) errs.cpfMae = 'CPF da mãe obrigatório';
     else if (!validateCPF(formData.cpfMae)) errs.cpfMae = 'CPF inválido';
-
     if (!formData.nomePai.trim()) errs.nomePai = 'Nome do pai obrigatório';
     if (!formData.cpfPai.trim()) errs.cpfPai = 'CPF do pai obrigatório';
     else if (!validateCPF(formData.cpfPai)) errs.cpfPai = 'CPF inválido';
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -298,7 +413,6 @@ export default function Matricula() {
     setActiveTab((t) => t + 1);
   };
 
-  // ── Auto-fill from responsável ────────────────────────────────────────────
   const usarDadosResponsavel = (parent: 'mae' | 'pai') => {
     const cpfField = parent === 'mae' ? 'cpfMae' : 'cpfPai';
     const nomeField = parent === 'mae' ? 'nomeMae' : 'nomePai';
@@ -333,184 +447,17 @@ export default function Matricula() {
 
   const tabs = ['Dados do Responsável', 'Dados do Aluno', 'Documentação'];
 
-  // ── Address Block ─────────────────────────────────────────────────────────
-  const AddressBlock = ({
-    prefix,
-    endKey,
-  }: {
-    prefix: 'responsavel' | 'aluno';
-    endKey: 'enderecoResponsavel' | 'enderecoAluno';
-  }) => {
-    const end = formData[endKey];
-    const isLoading = cepLoading === prefix;
-    const ok = cepStatus[prefix];
-
-    return (
-      <div className="space-y-4">
-        {/* CEP */}
-        <Field
-          label="CEP"
-          required
-          icon={MapPin}
-          error={errors[`${endKey}.cep`]}
-        >
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="00000-000"
-            maxLength={9}
-            className={inputCls(true, errors[`${endKey}.cep`])}
-            value={end.cep}
-            onChange={(e) => handleCEPChange(e.target.value, prefix)}
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2">
-            {isLoading && <Loader2 className="w-4 h-4 text-[#003876] animate-spin" />}
-            {!isLoading && ok === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-            {!isLoading && ok === false && <XCircle className="w-4 h-4 text-red-500" />}
-          </span>
-        </Field>
-
-        {/* Rua */}
-        <Field label="Rua / Logradouro" required error={errors[`${endKey}.rua`]}>
-          <input
-            type="text"
-            className={inputCls(false, errors[`${endKey}.rua`])}
-            value={end.rua}
-            readOnly={!!end.rua && ok === true}
-            onChange={(e) => setEndereco(endKey, 'rua', e.target.value)}
-          />
-        </Field>
-
-        {/* Número + Complemento */}
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Número" required error={errors[`${endKey}.numero`]}>
-            <input
-              type="text"
-              placeholder="Ex: 99"
-              className={inputCls(false, errors[`${endKey}.numero`])}
-              value={end.numero}
-              onChange={(e) => setEndereco(endKey, 'numero', e.target.value)}
-            />
-          </Field>
-          <Field label="Complemento">
-            <input
-              type="text"
-              placeholder="Apto, bloco... (opcional)"
-              className={inputCls(false)}
-              value={end.complemento}
-              onChange={(e) => setEndereco(endKey, 'complemento', e.target.value)}
-            />
-          </Field>
-        </div>
-
-        {/* Bairro */}
-        <Field label="Bairro" required error={errors[`${endKey}.bairro`]}>
-          <input
-            type="text"
-            className={inputCls(false, errors[`${endKey}.bairro`])}
-            value={end.bairro}
-            readOnly={!!end.bairro && ok === true}
-            onChange={(e) => setEndereco(endKey, 'bairro', e.target.value)}
-          />
-        </Field>
-
-        {/* Cidade + Estado */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
-            <Field label="Cidade" required error={errors[`${endKey}.cidade`]}>
-              <input
-                type="text"
-                className={inputCls(false, errors[`${endKey}.cidade`])}
-                value={end.cidade}
-                readOnly={!!end.cidade && ok === true}
-                onChange={(e) => setEndereco(endKey, 'cidade', e.target.value)}
-              />
-            </Field>
-          </div>
-          <Field label="Estado" required error={errors[`${endKey}.estado`]}>
-            <input
-              type="text"
-              maxLength={2}
-              placeholder="UF"
-              className={inputCls(false, errors[`${endKey}.estado`])}
-              value={end.estado}
-              readOnly={!!end.estado && ok === true}
-              onChange={(e) => setEndereco(endKey, 'estado', e.target.value.toUpperCase())}
-            />
-          </Field>
-        </div>
-      </div>
-    );
-  };
-
-  // ── CPF Field with "usar responsável" button ───────────────────────────────
-  const CPFParentField = ({ parent }: { parent: 'mae' | 'pai' }) => {
-    const nomeField = parent === 'mae' ? 'nomeMae' : 'nomePai';
-    const cpfField = parent === 'mae' ? 'cpfMae' : 'cpfPai';
-    const label = parent === 'mae' ? 'Mãe' : 'Pai';
-
-    return (
-      <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-sm font-semibold text-[#003876]">{label}</span>
-          <button
-            type="button"
-            onClick={() => usarDadosResponsavel(parent)}
-            className="inline-flex items-center gap-1.5 text-xs text-[#003876] border border-[#003876]/30 bg-white px-3 py-1 rounded-full hover:bg-[#003876] hover:text-white transition-colors"
-          >
-            <Copy className="w-3 h-3" /> Usar dados do responsável
-          </button>
-        </div>
-
-        <Field label={`Nome completo d${parent === 'mae' ? 'a' : 'o'} ${label}`} required error={errors[nomeField]}>
-          <input
-            type="text"
-            className={inputCls(false, errors[nomeField])}
-            value={formData[nomeField]}
-            onChange={(e) => {
-              setFormData((prev) => ({ ...prev, [nomeField]: e.target.value }));
-              setErrors((err) => ({ ...err, [nomeField]: undefined }));
-            }}
-          />
-        </Field>
-
-        <Field label={`CPF d${parent === 'mae' ? 'a' : 'o'} ${label}`} required icon={FileText} error={errors[cpfField]}>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="000.000.000-00"
-            maxLength={14}
-            className={inputCls(true, errors[cpfField])}
-            value={formData[cpfField]}
-            onChange={(e) => {
-              const masked = maskCPF(e.target.value);
-              setFormData((prev) => ({ ...prev, [cpfField]: masked }));
-              setErrors((err) => ({ ...err, [cpfField]: undefined }));
-            }}
-            onBlur={() => {
-              if (formData[cpfField] && !validateCPF(formData[cpfField]))
-                setErrors((err) => ({ ...err, [cpfField]: 'CPF inválido' }));
-            }}
-          />
-        </Field>
-      </div>
-    );
-  };
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-4">
         <div className="max-w-3xl mx-auto">
-
-          {/* Header */}
           <div className="text-center mb-10">
             <h1 className="text-4xl font-bold text-[#003876] mb-3">Matrícula 2026</h1>
             <p className="text-gray-500 mb-6">
               A inscrição deve ser feita por um responsável legal do estudante.
             </p>
-            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-[#003876] text-left">
-              <p className="font-semibold mb-2 flex items-center gap-2">
+            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-left">
+              <p className="font-semibold mb-2 flex items-center gap-2 text-[#003876]">
                 <AlertCircle className="w-4 h-4" /> Tenha em mãos:
               </p>
               <ul className="list-disc list-inside space-y-1 text-gray-600">
@@ -530,43 +477,30 @@ export default function Matricula() {
               <button
                 key={i}
                 type="button"
-                onClick={() => {
-                  if (i < activeTab) setActiveTab(i);
-                }}
+                onClick={() => { if (i < activeTab) setActiveTab(i); }}
                 className={[
                   'flex-1 py-4 text-sm font-medium transition-all relative',
-                  activeTab === i
-                    ? 'text-[#003876] bg-white'
-                    : i < activeTab
-                    ? 'text-gray-400 hover:text-gray-600 cursor-pointer'
-                    : 'text-gray-300 cursor-default',
+                  activeTab === i ? 'text-[#003876] bg-white' :
+                  i < activeTab ? 'text-gray-400 hover:text-gray-600 cursor-pointer' :
+                  'text-gray-300 cursor-default',
                 ].join(' ')}
               >
                 <span className="flex items-center justify-center gap-2">
-                  <span
-                    className={[
-                      'w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold',
-                      activeTab === i
-                        ? 'bg-[#003876] text-white'
-                        : i < activeTab
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-200 text-gray-400',
-                    ].join(' ')}
-                  >
+                  <span className={[
+                    'w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold',
+                    activeTab === i ? 'bg-[#003876] text-white' :
+                    i < activeTab ? 'bg-green-500 text-white' :
+                    'bg-gray-200 text-gray-400',
+                  ].join(' ')}>
                     {i < activeTab ? '✓' : i + 1}
                   </span>
                   <span className="hidden sm:inline">{tab}</span>
                 </span>
-                <div
-                  className={`absolute bottom-0 left-0 right-0 h-0.5 ${
-                    activeTab === i ? 'bg-[#003876]' : 'bg-transparent'
-                  }`}
-                />
+                <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${activeTab === i ? 'bg-[#003876]' : 'bg-transparent'}`} />
               </button>
             ))}
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-8">
 
             {/* ── Tab 0: Responsável ── */}
@@ -617,7 +551,15 @@ export default function Matricula() {
 
                 <div className="pt-2">
                   <p className="text-sm font-semibold text-[#003876] mb-3">Endereço</p>
-                  <AddressBlock prefix="responsavel" endKey="enderecoResponsavel" />
+                  <AddressBlock
+                    end={formData.enderecoResponsavel}
+                    endKey="enderecoResponsavel"
+                    errors={errors}
+                    isLoading={cepLoading === 'responsavel'}
+                    cepOk={cepStatus.responsavel}
+                    onCEPChange={(v) => handleCEPChange(v, 'responsavel')}
+                    onFieldChange={(field, value) => setEndereco('enderecoResponsavel', field, value)}
+                  />
                 </div>
               </div>
             </div>
@@ -667,15 +609,42 @@ export default function Matricula() {
 
                 <div className="pt-2">
                   <p className="text-sm font-semibold text-[#003876] mb-3">Endereço do Aluno</p>
-                  <AddressBlock prefix="aluno" endKey="enderecoAluno" />
+                  <AddressBlock
+                    end={formData.enderecoAluno}
+                    endKey="enderecoAluno"
+                    errors={errors}
+                    isLoading={cepLoading === 'aluno'}
+                    cepOk={cepStatus.aluno}
+                    onCEPChange={(v) => handleCEPChange(v, 'aluno')}
+                    onFieldChange={(field, value) => setEndereco('enderecoAluno', field, value)}
+                  />
                 </div>
 
-                {/* Pai e Mãe */}
                 <div className="pt-4">
                   <p className="text-sm font-semibold text-[#003876] mb-3">Dados dos Pais</p>
                   <div className="space-y-4">
-                    <CPFParentField parent="mae" />
-                    <CPFParentField parent="pai" />
+                    <CPFParentField
+                      parent="mae"
+                      nomeValue={formData.nomeMae}
+                      cpfValue={formData.cpfMae}
+                      nomeError={errors.nomeMae}
+                      cpfError={errors.cpfMae}
+                      onNomeChange={(v) => { setFormData((p) => ({ ...p, nomeMae: v })); setErrors((e) => ({ ...e, nomeMae: undefined })); }}
+                      onCpfChange={(v) => { setFormData((p) => ({ ...p, cpfMae: v })); setErrors((e) => ({ ...e, cpfMae: undefined })); }}
+                      onCpfBlur={() => { if (formData.cpfMae && !validateCPF(formData.cpfMae)) setErrors((e) => ({ ...e, cpfMae: 'CPF inválido' })); }}
+                      onUsarResponsavel={() => usarDadosResponsavel('mae')}
+                    />
+                    <CPFParentField
+                      parent="pai"
+                      nomeValue={formData.nomePai}
+                      cpfValue={formData.cpfPai}
+                      nomeError={errors.nomePai}
+                      cpfError={errors.cpfPai}
+                      onNomeChange={(v) => { setFormData((p) => ({ ...p, nomePai: v })); setErrors((e) => ({ ...e, nomePai: undefined })); }}
+                      onCpfChange={(v) => { setFormData((p) => ({ ...p, cpfPai: v })); setErrors((e) => ({ ...e, cpfPai: undefined })); }}
+                      onCpfBlur={() => { if (formData.cpfPai && !validateCPF(formData.cpfPai)) setErrors((e) => ({ ...e, cpfPai: 'CPF inválido' })); }}
+                      onUsarResponsavel={() => usarDadosResponsavel('pai')}
+                    />
                   </div>
                 </div>
               </div>
@@ -705,31 +674,18 @@ export default function Matricula() {
                     Clique ou arraste arquivos aqui
                   </p>
                   <p className="text-xs text-gray-400">JPG, PNG, PDF — máx. 5 MB</p>
-                  <input
-                    type="file"
-                    className="sr-only"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handleFileChange}
-                  />
+                  <input type="file" className="sr-only" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} />
                 </label>
 
                 {formData.documentos.length > 0 && (
                   <ul className="space-y-2">
                     {formData.documentos.map((file, i) => (
-                      <li
-                        key={i}
-                        className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-4 py-2"
-                      >
+                      <li key={i} className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-4 py-2">
                         <span className="flex items-center gap-2 text-gray-700">
                           <FileText className="w-4 h-4 text-gray-400" />
                           {file.name}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(i)}
-                          className="text-red-400 hover:text-red-600 transition-colors ml-4"
-                        >
+                        <button type="button" onClick={() => removeFile(i)} className="text-red-400 hover:text-red-600 transition-colors ml-4">
                           <XCircle className="w-4 h-4" />
                         </button>
                       </li>
@@ -742,32 +698,18 @@ export default function Matricula() {
             {/* Navigation */}
             <div className="mt-8 flex justify-between items-center pt-6 border-t border-gray-100">
               {activeTab > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab((t) => t - 1)}
-                  className="text-sm text-gray-500 hover:text-[#003876] transition-colors font-medium"
-                >
+                <button type="button" onClick={() => setActiveTab((t) => t - 1)} className="text-sm text-gray-500 hover:text-[#003876] transition-colors font-medium">
                   ← Voltar
                 </button>
-              ) : (
-                <span />
-              )}
+              ) : <span />}
 
               {activeTab < tabs.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="bg-[#003876] text-white px-8 py-3 rounded-xl font-semibold hover:bg-[#002855] transition-colors"
-                >
+                <button type="button" onClick={handleNext} className="bg-[#003876] text-white px-8 py-3 rounded-xl font-semibold hover:bg-[#002855] transition-colors">
                   Próximo →
                 </button>
               ) : (
-                <button
-                  type="submit"
-                  className="bg-[#ffd700] text-[#003876] px-8 py-3 rounded-xl font-bold hover:bg-[#ffe44d] transition-colors flex items-center gap-2"
-                >
-                  Enviar Inscrição
-                  <FileText className="w-4 h-4" />
+                <button type="submit" className="bg-[#ffd700] text-[#003876] px-8 py-3 rounded-xl font-bold hover:bg-[#ffe44d] transition-colors flex items-center gap-2">
+                  Enviar Inscrição <FileText className="w-4 h-4" />
                 </button>
               )}
             </div>
