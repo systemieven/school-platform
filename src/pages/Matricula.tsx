@@ -289,6 +289,7 @@ export default function Matricula() {
   const [errors, setErrors] = useState<Errors>({});
   const [cepLoading, setCepLoading] = useState<'responsavel' | 'aluno' | null>(null);
   const [cepStatus, setCepStatus] = useState<{ responsavel?: boolean; aluno?: boolean }>({});
+  const [responsavelUsedBy, setResponsavelUsedBy] = useState<'mae' | 'pai' | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     nomeResponsavel: '',
@@ -416,12 +417,36 @@ export default function Matricula() {
   const usarDadosResponsavel = (parent: 'mae' | 'pai') => {
     const cpfField = parent === 'mae' ? 'cpfMae' : 'cpfPai';
     const nomeField = parent === 'mae' ? 'nomeMae' : 'nomePai';
+    const other = parent === 'mae' ? 'pai' : 'mae';
+    const otherCpf = other === 'mae' ? 'cpfMae' : 'cpfPai';
+    const otherNome = other === 'mae' ? 'nomeMae' : 'nomePai';
+
+    setFormData((prev) => {
+      const next = { ...prev, [cpfField]: prev.cpfResponsavel, [nomeField]: prev.nomeResponsavel };
+      // Clear the other parent if they're currently holding responsável data
+      if (responsavelUsedBy === other) {
+        next[otherCpf] = '';
+        next[otherNome] = '';
+      }
+      return next;
+    });
+    setErrors((e) => ({ ...e, [cpfField]: undefined, [nomeField]: undefined }));
+    setResponsavelUsedBy(parent);
+  };
+
+  const usarEnderecoResponsavel = () => {
     setFormData((prev) => ({
       ...prev,
-      [cpfField]: prev.cpfResponsavel,
-      [nomeField]: prev.nomeResponsavel,
+      enderecoAluno: { ...prev.enderecoResponsavel },
     }));
-    setErrors((e) => ({ ...e, [cpfField]: undefined, [nomeField]: undefined }));
+    setCepStatus((s) => ({ ...s, aluno: s.responsavel }));
+    setErrors((e) => {
+      const next = { ...e };
+      (['cep', 'rua', 'numero', 'bairro', 'cidade', 'estado'] as const).forEach((f) => {
+        delete next[`enderecoAluno.${f}`];
+      });
+      return next;
+    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -608,7 +633,16 @@ export default function Matricula() {
                 </div>
 
                 <div className="pt-2">
-                  <p className="text-sm font-semibold text-[#003876] mb-3">Endereço do Aluno</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold text-[#003876]">Endereço do Aluno</p>
+                    <button
+                      type="button"
+                      onClick={usarEnderecoResponsavel}
+                      className="inline-flex items-center gap-1.5 text-xs text-[#003876] border border-[#003876]/30 bg-white px-3 py-1 rounded-full hover:bg-[#003876] hover:text-white transition-colors"
+                    >
+                      <Copy className="w-3 h-3" /> Usar endereço do responsável
+                    </button>
+                  </div>
                   <AddressBlock
                     end={formData.enderecoAluno}
                     endKey="enderecoAluno"
