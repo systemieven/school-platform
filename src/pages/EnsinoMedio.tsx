@@ -417,7 +417,7 @@ export default function EnsinoMedio() {
               portas das melhores universidades do Brasil.
             </p>
             <Link
-              to="/matricula"
+              to="/contato"
               className="inline-flex items-center gap-2 px-10 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-sm tracking-wide hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-lg shadow-yellow-200/60"
             >
               Agende uma Visita

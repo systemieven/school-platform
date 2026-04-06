@@ -436,7 +436,7 @@ export default function EnsinoFundamental2() {
               Prepare seu filho para os desafios do futuro com uma educação de qualidade.
             </p>
             <Link
-              to="/matricula"
+              to="/contato"
               className="inline-flex items-center gap-2 px-10 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-sm tracking-wide hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-xl shadow-black/30"
             >
               Agende uma Visita

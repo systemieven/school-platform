@@ -437,12 +437,12 @@ export default function EducacaoInfantil() {
                 >
                   Agende uma Visita
                 </Link>
-                <a
-                  href="tel:+558137214787"
+                <Link
+                  to="/contato"
                   className="inline-flex items-center px-8 py-4 border-2 border-[#003876] text-[#003876] rounded-full font-semibold hover:bg-[#003876] hover:text-white transition-all duration-300"
                 >
                   Fale Conosco
-                </a>
+                </Link>
               </div>
             </div>
           </div>

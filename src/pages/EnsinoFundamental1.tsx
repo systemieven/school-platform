@@ -43,7 +43,7 @@ export default function EnsinoFundamental1() {
 
             <div className="hero-text-3">
               <Link
-                to="/matricula"
+                to="/contato"
                 className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-bold text-base hover:bg-[#ffe44d] transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
                 Agende uma Visita
@@ -320,7 +320,7 @@ export default function EnsinoFundamental1() {
                 Agende uma visita e conheça nossa estrutura e proposta pedagógica.
               </p>
               <Link
-                to="/matricula"
+                to="/contato"
                 className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-bold hover:bg-[#ffe44d] transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
                 Agende uma Visita
