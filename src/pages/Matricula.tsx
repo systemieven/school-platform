@@ -75,8 +75,10 @@ interface FormData {
   enderecoAluno: Endereco;
   nomePai: string;
   cpfPai: string;
+  celularPai: string;
   nomeMae: string;
   cpfMae: string;
+  celularMae: string;
   documentos: File[];
 }
 
@@ -238,17 +240,21 @@ interface CPFParentFieldProps {
   parent: 'mae' | 'pai';
   nomeValue: string;
   cpfValue: string;
+  celularValue: string;
   nomeError?: string;
   cpfError?: string;
+  celularError?: string;
   onNomeChange: (v: string) => void;
   onCpfChange: (v: string) => void;
   onCpfBlur: () => void;
+  onCelularChange: (v: string) => void;
   onUsarResponsavel: () => void;
 }
 
 function CPFParentField({
-  parent, nomeValue, cpfValue, nomeError, cpfError,
-  onNomeChange, onCpfChange, onCpfBlur, onUsarResponsavel,
+  parent, nomeValue, cpfValue, celularValue,
+  nomeError, cpfError, celularError,
+  onNomeChange, onCpfChange, onCpfBlur, onCelularChange, onUsarResponsavel,
 }: CPFParentFieldProps) {
   const label = parent === 'mae' ? 'Mãe' : 'Pai';
   const artigo = parent === 'mae' ? 'a' : 'o';
@@ -275,18 +281,32 @@ function CPFParentField({
         />
       </Field>
 
-      <Field label={`CPF d${artigo} ${label}`} required icon={FileText} error={cpfError}>
-        <input
-          type="text"
-          inputMode="numeric"
-          placeholder="000.000.000-00"
-          maxLength={14}
-          className={inputCls(true, cpfError)}
-          value={cpfValue}
-          onChange={(e) => onCpfChange(maskCPF(e.target.value))}
-          onBlur={onCpfBlur}
-        />
-      </Field>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label={`CPF d${artigo} ${label}`} required icon={FileText} error={cpfError}>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="000.000.000-00"
+            maxLength={14}
+            className={inputCls(true, cpfError)}
+            value={cpfValue}
+            onChange={(e) => onCpfChange(maskCPF(e.target.value))}
+            onBlur={onCpfBlur}
+          />
+        </Field>
+
+        <Field label={`Celular d${artigo} ${label}`} required icon={Phone} error={celularError}>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="(00) 00000-0000"
+            maxLength={15}
+            className={inputCls(true, celularError)}
+            value={celularValue}
+            onChange={(e) => onCelularChange(maskPhone(e.target.value))}
+          />
+        </Field>
+      </div>
     </div>
   );
 }
@@ -312,8 +332,10 @@ export default function Matricula() {
     enderecoAluno: emptyEndereco(),
     nomePai: '',
     cpfPai: '',
+    celularPai: '',
     nomeMae: '',
     cpfMae: '',
+    celularMae: '',
     documentos: [],
   });
 
@@ -411,9 +433,13 @@ export default function Matricula() {
     if (!formData.nomeMae.trim()) errs.nomeMae = 'Nome da mãe obrigatório';
     if (!formData.cpfMae.trim()) errs.cpfMae = 'CPF da mãe obrigatório';
     else if (!validateCPF(formData.cpfMae)) errs.cpfMae = 'CPF inválido';
+    if (!formData.celularMae.trim()) errs.celularMae = 'Celular obrigatório';
+    else if (formData.celularMae.replace(/\D/g, '').length < 11) errs.celularMae = 'Celular incompleto';
     if (!formData.nomePai.trim()) errs.nomePai = 'Nome do pai obrigatório';
     if (!formData.cpfPai.trim()) errs.cpfPai = 'CPF do pai obrigatório';
     else if (!validateCPF(formData.cpfPai)) errs.cpfPai = 'CPF inválido';
+    if (!formData.celularPai.trim()) errs.celularPai = 'Celular obrigatório';
+    else if (formData.celularPai.replace(/\D/g, '').length < 11) errs.celularPai = 'Celular incompleto';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -431,16 +457,24 @@ export default function Matricula() {
     const otherCpf = other === 'mae' ? 'cpfMae' : 'cpfPai';
     const otherNome = other === 'mae' ? 'nomeMae' : 'nomePai';
 
+    const celularField = parent === 'mae' ? 'celularMae' : 'celularPai';
+    const otherCelular = other === 'mae' ? 'celularMae' : 'celularPai';
+
     setFormData((prev) => {
-      const next = { ...prev, [cpfField]: prev.cpfResponsavel, [nomeField]: prev.nomeResponsavel };
-      // Clear the other parent if they're currently holding responsável data
+      const next = {
+        ...prev,
+        [nomeField]:    prev.nomeResponsavel,
+        [cpfField]:     prev.cpfResponsavel,
+        [celularField]: prev.celularResponsavel,
+      };
       if (responsavelUsedBy === other) {
-        next[otherCpf] = '';
-        next[otherNome] = '';
+        next[otherNome]    = '';
+        next[otherCpf]     = '';
+        next[otherCelular] = '';
       }
       return next;
     });
-    setErrors((e) => ({ ...e, [cpfField]: undefined, [nomeField]: undefined }));
+    setErrors((e) => ({ ...e, [cpfField]: undefined, [nomeField]: undefined, [celularField]: undefined }));
     setResponsavelUsedBy(parent);
   };
 
@@ -508,8 +542,10 @@ export default function Matricula() {
           student_state:         formData.enderecoAluno.estado,
           father_name:           formData.nomePai,
           father_cpf:            formData.cpfPai,
+          father_phone:          formData.celularPai,
           mother_name:           formData.nomeMae,
           mother_cpf:            formData.cpfMae,
+          mother_phone:          formData.celularMae,
         })
         .select('id')
         .single();
@@ -739,22 +775,28 @@ export default function Matricula() {
                       parent="mae"
                       nomeValue={formData.nomeMae}
                       cpfValue={formData.cpfMae}
+                      celularValue={formData.celularMae}
                       nomeError={errors.nomeMae}
                       cpfError={errors.cpfMae}
+                      celularError={errors.celularMae}
                       onNomeChange={(v) => { setFormData((p) => ({ ...p, nomeMae: v })); setErrors((e) => ({ ...e, nomeMae: undefined })); }}
                       onCpfChange={(v) => { setFormData((p) => ({ ...p, cpfMae: v })); setErrors((e) => ({ ...e, cpfMae: undefined })); }}
                       onCpfBlur={() => { if (formData.cpfMae && !validateCPF(formData.cpfMae)) setErrors((e) => ({ ...e, cpfMae: 'CPF inválido' })); }}
+                      onCelularChange={(v) => { setFormData((p) => ({ ...p, celularMae: v })); setErrors((e) => ({ ...e, celularMae: undefined })); }}
                       onUsarResponsavel={() => usarDadosResponsavel('mae')}
                     />
                     <CPFParentField
                       parent="pai"
                       nomeValue={formData.nomePai}
                       cpfValue={formData.cpfPai}
+                      celularValue={formData.celularPai}
                       nomeError={errors.nomePai}
                       cpfError={errors.cpfPai}
+                      celularError={errors.celularPai}
                       onNomeChange={(v) => { setFormData((p) => ({ ...p, nomePai: v })); setErrors((e) => ({ ...e, nomePai: undefined })); }}
                       onCpfChange={(v) => { setFormData((p) => ({ ...p, cpfPai: v })); setErrors((e) => ({ ...e, cpfPai: undefined })); }}
                       onCpfBlur={() => { if (formData.cpfPai && !validateCPF(formData.cpfPai)) setErrors((e) => ({ ...e, cpfPai: 'CPF inválido' })); }}
+                      onCelularChange={(v) => { setFormData((p) => ({ ...p, celularPai: v })); setErrors((e) => ({ ...e, celularPai: undefined })); }}
                       onUsarResponsavel={() => usarDadosResponsavel('pai')}
                     />
                   </div>
