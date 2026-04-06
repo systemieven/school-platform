@@ -1,4 +1,4 @@
-import { Phone, MapPin, Clock, Instagram } from 'lucide-react';
+import { Phone, MapPin, Clock } from 'lucide-react';
 
 export default function Header() {
   return (
@@ -18,17 +18,6 @@ export default function Header() {
               <Clock size={16} className="mr-2" />
               <span>Seg - Sex: 7h às 17h</span>
             </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <a
-              href="https://instagram.com/colegiobatistacaruarupe"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-[#ffd700] transition-colors"
-            >
-              <Instagram size={20} />
-              <span className="sr-only">Instagram</span>
-            </a>
           </div>
         </div>
       </div>

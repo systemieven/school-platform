@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Instagram } from 'lucide-react';
 
 const WA_HREF = 'https://wa.me/5581991398203?text=Olá, vim do site e queria mais informações';
 const FB_HREF = 'https://www.facebook.com/colegiobatistacaruarupe/?locale=pt_BR';
@@ -18,6 +19,15 @@ export default function TopBar() {
           <span className="w-px h-3.5 bg-[#003876]/20" />
 
           {/* Social icons */}
+          <a
+            href="https://instagram.com/colegiobatistacaruarupe"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Instagram"
+            className="hover:text-[#003876]/70 transition-colors"
+          >
+            <Instagram size={16} />
+          </a>
           <a
             href={WA_HREF}
             target="_blank"
