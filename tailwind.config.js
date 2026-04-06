@@ -12,6 +12,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
+        display: ['Playfair Display', 'Georgia', 'serif'],
       },
       boxShadow: {
         'hover': '0 10px 40px -10px rgba(0, 56, 118, 0.3)',

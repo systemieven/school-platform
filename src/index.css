@@ -4,7 +4,11 @@
 
 :root {
   --primary: #003876;
+  --primary-dark: #002855;
   --secondary: #ffd700;
+  --secondary-light: #ffe44d;
+  --surface: #f8f7f4;
+  --surface-warm: #f3f1ec;
 }
 
 @layer base {
@@ -64,61 +68,180 @@
   }
 }
 
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
+/* ── Scroll Reveal System ── */
+[data-reveal] {
+  opacity: 0;
+  will-change: transform, opacity;
+  transition:
+    opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-reveal="up"] {
+  transform: translateY(48px);
+}
+
+[data-reveal="down"] {
+  transform: translateY(-48px);
+}
+
+[data-reveal="left"] {
+  transform: translateX(-60px);
+}
+
+[data-reveal="right"] {
+  transform: translateX(60px);
+}
+
+[data-reveal="scale"] {
+  transform: scale(0.9);
+}
+
+[data-reveal="fade"] {
+  transform: none;
+}
+
+[data-reveal].revealed {
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
+}
+
+/* Stagger delays via CSS custom property */
+[data-reveal][style*="--delay"] {
+  transition-delay: var(--delay);
+}
+
+/* ── Hero Animations ── */
+@keyframes heroVideoZoom {
+  from { transform: scale(1.15); }
+  to { transform: scale(1.05); }
+}
+
+@keyframes heroTextSlideUp {
+  from { opacity: 0; transform: translateY(40px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-100px); }
-  to { opacity: 1; transform: translateX(0); }
+@keyframes heroAccentLine {
+  from { width: 0; }
+  to { width: 80px; }
 }
 
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(100px); }
-  to { opacity: 1; transform: translateX(0); }
+@keyframes heroBadgeFade {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.8); }
-  to { opacity: 1; transform: scale(1); }
+.hero-video {
+  animation: heroVideoZoom 12s ease-out forwards;
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.8s ease-out forwards;
-}
-
-.animate-fade-in-delay {
-  animation: fadeIn 0.8s ease-out 0.3s forwards;
+.hero-text-1 {
   opacity: 0;
+  animation: heroTextSlideUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
 }
 
-.animate-fade-in-delay-2 {
-  animation: fadeIn 0.8s ease-out 0.6s forwards;
+.hero-text-2 {
   opacity: 0;
+  animation: heroTextSlideUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards;
 }
 
-.scroll-animate {
+.hero-text-3 {
   opacity: 0;
-  transition: all 1s ease-out;
+  animation: heroTextSlideUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.9s forwards;
 }
 
-.scroll-animate.slide-left {
-  transform: translateX(-100px);
+.hero-text-4 {
+  opacity: 0;
+  animation: heroTextSlideUp 1s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards;
 }
 
-.scroll-animate.slide-right {
-  transform: translateX(100px);
+.hero-accent-line {
+  width: 0;
+  animation: heroAccentLine 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards;
 }
 
-.scroll-animate.scale-up {
-  transform: scale(0.8);
+.hero-badge {
+  opacity: 0;
+  animation: heroBadgeFade 0.8s ease-out 1.5s forwards;
 }
 
-.scroll-animate.active {
-  opacity: 1;
-  transform: translate(0) scale(1);
+/* ── Card 3D Perspective ── */
+.card-3d {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.card-3d-inner {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease;
+}
+
+.card-3d:hover .card-3d-inner {
+  transform: translateY(-8px) rotateX(2deg);
+  box-shadow:
+    0 20px 60px -15px rgba(0, 56, 118, 0.25),
+    0 0 0 1px rgba(255, 215, 0, 0.15);
+}
+
+/* ── Gold Accent Hover Line ── */
+.gold-line-hover {
+  position: relative;
+}
+
+.gold-line-hover::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  background: linear-gradient(90deg, #ffd700, #ffe44d);
+  border-radius: 2px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gold-line-hover:hover::after {
+  width: 100%;
+}
+
+/* ── Stat Counter Style ── */
+.stat-number {
+  background: linear-gradient(135deg, #003876, #004a9e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Section Divider ── */
+.section-divider {
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, #ffd700, #ffe44d);
+  border-radius: 2px;
+}
+
+/* ── Grain Overlay ── */
+.grain-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Image Zoom on Hover ── */
+.img-zoom {
+  overflow: hidden;
+}
+
+.img-zoom img {
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.img-zoom:hover img {
+  transform: scale(1.08);
 }
 
 /* Reduced motion */
@@ -130,5 +253,10 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
