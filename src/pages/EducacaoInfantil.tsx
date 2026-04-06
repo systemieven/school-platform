@@ -1,5 +1,5 @@
-import React from 'react';
-import { Heart, Brain, Users, Star, CheckCircle, Award, Lightbulb, Palette, Music, Book, Puzzle, Plane as Plant } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Heart, Brain, Users, Palette, Music, Book, Puzzle, Plane as Plant } from 'lucide-react';
 
 const EducacaoInfantil = () => {
   return (
@@ -21,13 +21,12 @@ const EducacaoInfantil = () => {
               Um ambiente acolhedor e estimulante para o desenvolvimento integral do seu filho.
               Aqui, cada criança é única e especial.
             </p>
-            <a 
-              href="/matricula" 
+            <Link
+              to="/matricula"
               className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold hover:bg-white transition-all duration-300 transform hover:scale-105"
             >
               Agende uma Visita
-              <i data-lucide="chevron-right" className="ml-2 w-5 h-5"></i>
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -295,13 +294,12 @@ const EducacaoInfantil = () => {
             Agende uma visita e conheça de perto nossa proposta pedagógica e estrutura completa.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <a 
-              href="/matricula" 
+            <Link
+              to="/matricula"
               className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold hover:bg-white transition-all duration-300 transform hover:scale-105"
             >
               Agende uma Visita
-              <i data-lucide="chevron-right" className="ml-2 w-5 h-5"></i>
-            </a>
+            </Link>
             <a 
               href="tel:+558137214787"
               className="inline-flex items-center px-8 py-4 border-2 border-white text-white rounded-full font-semibold hover:bg-white hover:text-[#003876] transition-all duration-300"

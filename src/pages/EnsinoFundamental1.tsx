@@ -1,4 +1,4 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
 import { BookOpen, Target, Users, Star, CheckCircle, Award, Lightbulb, Clock } from 'lucide-react';
 
 const EnsinoFundamental1 = () => {
@@ -193,15 +193,12 @@ const EnsinoFundamental1 = () => {
           <p className="text-white/90 mb-8 max-w-2xl mx-auto">
             Agende uma visita e conheça nossa estrutura e proposta pedagógica.
           </p>
-          <a 
-            href="/matricula" 
+          <Link
+            to="/matricula"
             className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold hover:bg-white transition-all duration-300 transform hover:scale-105"
           >
             Agende uma Visita
-            <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
+          </Link>
         </div>
       </section>
     </div>

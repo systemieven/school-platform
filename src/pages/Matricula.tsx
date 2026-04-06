@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Mail, Phone, MapPin, Calendar, FileText, Upload, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { User, Phone, MapPin, Calendar, FileText, Upload, AlertCircle } from 'lucide-react';
 
 interface FormData {
   // Dados do Responsável
@@ -96,7 +96,7 @@ const Matricula = () => {
 
           {/* Tabs Navigation */}
           <div className="flex mb-8">
-            {tabs.map((tab, index) => (
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}

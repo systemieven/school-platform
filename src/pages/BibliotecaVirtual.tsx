@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Star, StarHalf, ChevronRight, Download, Eye, BookOpen, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Star, StarHalf, Download, Eye, BookOpen, TrendingUp } from 'lucide-react';
 
 interface Book {
   id: number;
