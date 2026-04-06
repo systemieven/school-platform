@@ -7,21 +7,21 @@ const PILLARS = [
     icon: BookOpen,
     title: 'Aprendizagem Ativa',
     desc: 'Metodologias inovadoras que estimulam o protagonismo e a curiosidade do aluno.',
-    stat: '95%',
-    statLabel: 'engajamento dos alunos',
+    stat: '90%+',
+    statLabel: 'aprovação vestibular',
   },
   {
     icon: Target,
     title: 'Objetivos Claros',
     desc: 'Metas de aprendizagem definidas e acompanhamento personalizado de cada aluno.',
-    stat: '15',
+    stat: '~20',
     statLabel: 'alunos por turma',
   },
   {
     icon: Users,
     title: 'Valores Cristãos',
     desc: 'Formação integral baseada em princípios éticos, morais e no respeito ao próximo.',
-    stat: '50+',
+    stat: '20+',
     statLabel: 'anos de tradição',
   },
   {
@@ -108,9 +108,9 @@ export default function EnsinoFundamental1() {
 
             <div className="hero-text-4 flex flex-wrap gap-8 mt-14 pt-8 border-t border-white/15">
               {[
-                { value: '50+', label: 'Anos de história' },
-                { value: '15',  label: 'Alunos por turma' },
-                { value: '95%', label: 'Aprovação vestibular' },
+                { value: '920+', label: 'ENEM' },
+                { value: '20+',  label: 'Anos de história' },
+                { value: '90%+', label: 'Aprovação vestibular' },
               ].map((s) => (
                 <div key={s.label}>
                   <p className="text-3xl md:text-4xl font-display font-bold text-[#ffd700]">{s.value}</p>

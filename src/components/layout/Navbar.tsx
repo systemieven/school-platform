@@ -87,7 +87,7 @@ export default function Navbar() {
             <Link to="/contato" className="nav-link">Contato</Link>
             <Link
               to="/matricula"
-              className="bg-[#ffd700] text-[#003876] px-6 py-2 rounded-full font-semibold transition-all duration-300 hover:bg-[#003876] hover:text-[#ffd700] hover:shadow-[0_0_20px_rgba(255,215,0,0.3)] transform hover:scale-105"
+              className="btn-matricula-nav bg-[#ffd700] text-[#003876] px-6 py-2 rounded-full font-semibold transition-all duration-300 hover:bg-[#003876] hover:text-[#ffd700] hover:[animation:none] hover:shadow-[0_0_20px_rgba(255,215,0,0.4)] transform hover:scale-105"
             >
               Matrícula 2026
             </Link>

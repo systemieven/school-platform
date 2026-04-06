@@ -14,14 +14,14 @@ const PILLARS = [
     icon: Brain,
     title: 'Cognição',
     desc: 'Estimulamos a curiosidade e o pensamento crítico através de experiências significativas.',
-    stat: '15',
+    stat: '~20',
     statLabel: 'alunos por turma',
   },
   {
     icon: Users,
     title: 'Socialização',
     desc: 'Desenvolvemos habilidades sociais e emocionais através da interação e cooperação.',
-    stat: '25+',
+    stat: '20+',
     statLabel: 'anos de experiência',
   },
   {
@@ -29,7 +29,7 @@ const PILLARS = [
     title: 'Valores',
     desc: 'Cultivamos valores cristãos e éticos que formam o caráter e a cidadania.',
     stat: '100%',
-    statLabel: 'prof. especializados',
+    statLabel: 'professores qualificados',
   },
 ];
 
@@ -121,9 +121,9 @@ export default function EducacaoInfantil() {
 
             <div className="hero-text-4 flex flex-wrap gap-8 mt-14 pt-8 border-t border-white/15">
               {[
-                { value: '25+', label: 'Anos de experiência' },
-                { value: '15',  label: 'Alunos por turma' },
-                { value: '100%', label: 'Prof. especializados' },
+                { value: '20+',  label: 'Anos de experiência' },
+                { value: '~20',  label: 'Alunos por turma' },
+                { value: '100%', label: 'Prof. qualificados' },
               ].map((s) => (
                 <div key={s.label}>
                   <p className="text-3xl md:text-4xl font-display font-bold text-[#ffd700]">{s.value}</p>

@@ -132,6 +132,15 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes matriculaRing {
+  0%, 70%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.55); }
+  40%            { box-shadow: 0 0 0 8px rgba(255, 215, 0, 0); }
+}
+
+.btn-matricula-nav {
+  animation: matriculaRing 3s ease-in-out infinite;
+}
+
 .hero-video {
   animation: heroVideoZoom 12s ease-out forwards;
 }

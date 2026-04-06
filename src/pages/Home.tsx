@@ -49,14 +49,14 @@ const FEATURES = [
     icon: GraduationCap,
     title: 'Excelência Acadêmica',
     desc: 'Educação de qualidade com resultados comprovados em vestibulares e ENEM',
-    stat: '95%',
+    stat: '90%+',
     statLabel: 'aprovação em vestibulares',
   },
   {
     icon: Heart,
     title: 'Valores Cristãos',
     desc: 'Formação integral baseada em princípios éticos e morais',
-    stat: '50+',
+    stat: '20+',
     statLabel: 'anos de tradição',
   },
   {
@@ -69,8 +69,8 @@ const FEATURES = [
   {
     icon: Trophy,
     title: 'Tradição e Qualidade',
-    desc: 'Mais de 50 anos de história na educação de Caruaru',
-    stat: '750+',
+    desc: 'Mais de 20 anos de história na educação de Caruaru',
+    stat: '920+',
     statLabel: 'média ENEM',
   },
 ];
@@ -145,7 +145,7 @@ export default function Home() {
             <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
 
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed mb-10">
-              Há mais de 50 anos formando cidadãos com excelência acadêmica
+              Há mais de 20 anos formando cidadãos com excelência acadêmica
               e valores cristãos em Caruaru.
             </p>
 
@@ -168,9 +168,9 @@ export default function Home() {
             {/* Stats row */}
             <div className="hero-text-4 flex flex-wrap gap-8 mt-14 pt-8 border-t border-white/15">
               {[
-                { value: '50+', label: 'Anos de história' },
-                { value: '95%', label: 'Aprovação vestibular' },
-                { value: '750+', label: 'Média ENEM' },
+                { value: '920+', label: 'ENEM' },
+                { value: '20+',  label: 'Anos de história' },
+                { value: '90%+', label: 'Aprovação vestibular' },
               ].map((s) => (
                 <div key={s.label}>
                   <p className="text-3xl md:text-4xl font-display font-bold text-[#ffd700]">

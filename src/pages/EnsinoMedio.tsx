@@ -7,14 +7,14 @@ const PILLARS = [
     icon: Trophy,
     title: 'Excelência',
     desc: 'Alto índice de aprovação em vestibulares das universidades mais concorridas do Brasil.',
-    stat: '95%',
+    stat: '90%+',
     statLabel: 'aprovação vestibulares',
   },
   {
     icon: Brain,
     title: 'Metodologia',
     desc: 'Aprendizagem ativa e personalizada que respeita o ritmo de cada estudante.',
-    stat: '750+',
+    stat: '920+',
     statLabel: 'média ENEM',
   },
   {
@@ -28,7 +28,7 @@ const PILLARS = [
     icon: Users,
     title: 'Mentoria',
     desc: 'Orientação vocacional e acadêmica para ajudar cada aluno a encontrar seu caminho.',
-    stat: '50+',
+    stat: '20+',
     statLabel: 'anos de tradição',
   },
 ];
@@ -114,8 +114,8 @@ export default function EnsinoMedio() {
 
             <div className="hero-text-4 flex flex-wrap gap-8 mt-14 pt-8 border-t border-white/15">
               {[
-                { value: '95%',  label: 'Aprovação vestibulares' },
-                { value: '750+', label: 'Média ENEM' },
+                { value: '90%+', label: 'Aprovação vestibulares' },
+                { value: '920+', label: 'Média ENEM' },
                 { value: '100+', label: 'Aprovações em federais' },
               ].map((s) => (
                 <div key={s.label}>
@@ -234,10 +234,10 @@ export default function EnsinoMedio() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { value: '95%',  label: 'Aprovação em vestibulares' },
-              { value: '750+', label: 'Média no ENEM' },
+              { value: '90%+', label: 'Aprovação em vestibulares' },
+              { value: '920+', label: 'Média no ENEM' },
               { value: '100+', label: 'Aprovações em federais' },
-              { value: '50+',  label: 'Anos de tradição' },
+              { value: '20+',  label: 'Anos de tradição' },
             ].map(({ value, label }, i) => (
               <div
                 key={label}

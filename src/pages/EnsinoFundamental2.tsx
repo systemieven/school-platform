@@ -7,7 +7,7 @@ const PILLARS = [
     icon: Brain,
     title: 'Pensamento Crítico',
     desc: 'Desenvolvimento do raciocínio lógico e análise crítica para resolver problemas reais.',
-    stat: '95%',
+    stat: '90%+',
     statLabel: 'aprovação vestibulares',
   },
   {
@@ -21,14 +21,14 @@ const PILLARS = [
     icon: Users,
     title: 'Protagonismo',
     desc: 'Desenvolvimento da autonomia e liderança com projetos que estimulam o protagonismo juvenil.',
-    stat: '15',
+    stat: '~20',
     statLabel: 'alunos por turma',
   },
   {
     icon: Target,
     title: 'Preparação',
     desc: 'Base sólida para o Ensino Médio e os grandes desafios que estão por vir.',
-    stat: '50+',
+    stat: '20+',
     statLabel: 'anos de tradição',
   },
 ];
@@ -132,9 +132,9 @@ export default function EnsinoFundamental2() {
 
             <div className="hero-text-4 flex flex-wrap gap-8 mt-14 pt-8 border-t border-white/15">
               {[
-                { value: '50+', label: 'Anos de história' },
-                { value: '15',  label: 'Alunos por turma' },
-                { value: '95%', label: 'Aprovação vestibular' },
+                { value: '920+', label: 'ENEM' },
+                { value: '20+',  label: 'Anos de história' },
+                { value: '90%+', label: 'Aprovação vestibular' },
               ].map((s) => (
                 <div key={s.label}>
                   <p className="text-3xl md:text-4xl font-display font-bold text-[#ffd700]">{s.value}</p>
