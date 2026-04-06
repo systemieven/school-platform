@@ -12,6 +12,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import Testimonials from '../components/Testimonials';
 
 const SEGMENTS = [
   {
@@ -319,6 +320,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ── Testimonials ── */}
+      <Testimonials />
 
       {/* ── CTA Band ── */}
       <section className="relative py-20 bg-[#003876] overflow-hidden">
