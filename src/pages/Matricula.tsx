@@ -72,6 +72,9 @@ interface FormData {
   nomeAluno: string;
   dataNascimento: string;
   cpfAluno: string;
+  primeiraEscola: boolean;
+  ultimaSerie: string;
+  nomeEscolaAnterior: string;
   enderecoAluno: Endereco;
   nomePai: string;
   cpfPai: string;
@@ -87,6 +90,30 @@ type Errors = Partial<Record<string, string>>;
 const emptyEndereco = (): Endereco => ({
   cep: '', rua: '', numero: '', bairro: '', cidade: '', estado: '', complemento: '',
 });
+
+function calcAge(birthDate: string): number {
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+const GRADES = [
+  { group: 'Ensino Infantil', options: ['Maternal I', 'Maternal II', 'Jardim I', 'Jardim II'] },
+  { group: 'Fundamental I',   options: ['1º ano', '2º ano', '3º ano', '4º ano', '5º ano'] },
+  { group: 'Fundamental II',  options: ['6º ano', '7º ano', '8º ano', '9º ano'] },
+  { group: 'Ensino Médio',    options: ['1º ano ', '2º ano ', '3º ano '] },
+] as const;
+
+// Séries a partir das quais "nome da escola anterior" aparece
+const SHOW_PREV_SCHOOL_FROM = new Set([
+  'Maternal II', 'Jardim I', 'Jardim II',
+  '1º ano', '2º ano', '3º ano', '4º ano', '5º ano',
+  '6º ano', '7º ano', '8º ano', '9º ano',
+  '1º ano ', '2º ano ', '3º ano ',
+]);
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function inputCls(hasIcon: boolean, error?: string) {
@@ -329,6 +356,9 @@ export default function Matricula() {
     nomeAluno: '',
     dataNascimento: '',
     cpfAluno: '',
+    primeiraEscola: false,
+    ultimaSerie: '',
+    nomeEscolaAnterior: '',
     enderecoAluno: emptyEndereco(),
     nomePai: '',
     cpfPai: '',
@@ -420,6 +450,9 @@ export default function Matricula() {
     const errs: Errors = {};
     if (!formData.nomeAluno.trim()) errs.nomeAluno = 'Nome obrigatório';
     if (!formData.dataNascimento) errs.dataNascimento = 'Data de nascimento obrigatória';
+    if (!formData.primeiraEscola && !formData.ultimaSerie) errs.ultimaSerie = 'Selecione a última série cursada';
+    if (!formData.primeiraEscola && SHOW_PREV_SCHOOL_FROM.has(formData.ultimaSerie) && !formData.nomeEscolaAnterior.trim())
+      errs.nomeEscolaAnterior = 'Nome da escola anterior obrigatório';
     if (formData.cpfAluno.trim() && !validateCPF(formData.cpfAluno))
       errs.cpfAluno = 'CPF inválido';
     const end = formData.enderecoAluno;
@@ -533,6 +566,9 @@ export default function Matricula() {
           student_name:          formData.nomeAluno,
           student_birth_date:    formData.dataNascimento,
           student_cpf:           formData.cpfAluno || null,
+          first_school:          formData.primeiraEscola,
+          last_grade:            formData.primeiraEscola ? null : (formData.ultimaSerie || null),
+          previous_school_name:  formData.primeiraEscola ? null : (formData.nomeEscolaAnterior || null),
           student_zip_code:      formData.enderecoAluno.cep,
           student_street:        formData.enderecoAluno.rua,
           student_number:        formData.enderecoAluno.numero,
@@ -744,6 +780,95 @@ export default function Matricula() {
                       }}
                     />
                   </Field>
+                </div>
+
+                {/* ── Dados Educacionais ── */}
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
+                  <p className="text-sm font-semibold text-[#003876]">Dados Educacionais</p>
+
+                  {/* Toggle primeira escola */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">Primeira escola da criança</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!formData.primeiraEscola) {
+                          // tentando ativar
+                          if (!formData.dataNascimento) {
+                            setErrors((e) => ({ ...e, primeiraEscola: 'Preencha a data de nascimento antes de continuar' }));
+                            return;
+                          }
+                          if (calcAge(formData.dataNascimento) < 2) {
+                            setErrors((e) => ({ ...e, primeiraEscola: 'A criança precisa ter pelo menos 2 anos completos para se matricular' }));
+                            return;
+                          }
+                          setFormData((p) => ({ ...p, primeiraEscola: true, ultimaSerie: '', nomeEscolaAnterior: '' }));
+                          setErrors((e) => ({ ...e, primeiraEscola: undefined, ultimaSerie: undefined, nomeEscolaAnterior: undefined }));
+                        } else {
+                          setFormData((p) => ({ ...p, primeiraEscola: false }));
+                          setErrors((e) => ({ ...e, primeiraEscola: undefined }));
+                        }
+                      }}
+                      className={[
+                        'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
+                        formData.primeiraEscola ? 'bg-[#003876]' : 'bg-gray-200',
+                      ].join(' ')}
+                      role="switch"
+                      aria-checked={formData.primeiraEscola}
+                    >
+                      <span
+                        className={[
+                          'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform',
+                          formData.primeiraEscola ? 'translate-x-5' : 'translate-x-0',
+                        ].join(' ')}
+                      />
+                    </button>
+                  </div>
+                  {errors.primeiraEscola && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 -mt-2">
+                      <XCircle className="w-3 h-3" /> {errors.primeiraEscola}
+                    </p>
+                  )}
+
+                  {/* Série + escola anterior */}
+                  {!formData.primeiraEscola && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field label="Última série completa" required error={errors.ultimaSerie}>
+                        <select
+                          className={inputCls(false, errors.ultimaSerie) + ' cursor-pointer'}
+                          value={formData.ultimaSerie}
+                          onChange={(e) => {
+                            setFormData((p) => ({ ...p, ultimaSerie: e.target.value, nomeEscolaAnterior: '' }));
+                            setErrors((ev) => ({ ...ev, ultimaSerie: undefined, nomeEscolaAnterior: undefined }));
+                          }}
+                        >
+                          <option value="">Selecione...</option>
+                          {GRADES.map(({ group, options }) => (
+                            <optgroup key={group} label={group}>
+                              {options.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </Field>
+
+                      {SHOW_PREV_SCHOOL_FROM.has(formData.ultimaSerie) && (
+                        <Field label="Nome da escola anterior" required error={errors.nomeEscolaAnterior}>
+                          <input
+                            type="text"
+                            placeholder="Ex: Escola Municipal..."
+                            className={inputCls(false, errors.nomeEscolaAnterior)}
+                            value={formData.nomeEscolaAnterior}
+                            onChange={(e) => {
+                              setFormData((p) => ({ ...p, nomeEscolaAnterior: e.target.value }));
+                              setErrors((ev) => ({ ...ev, nomeEscolaAnterior: undefined }));
+                            }}
+                          />
+                        </Field>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-2">
