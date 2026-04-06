@@ -84,7 +84,7 @@ export default function Navbar() {
 
             <Link to="/sobre" className="nav-link">Sobre</Link>
             <Link to="/estrutura" className="nav-link">Estrutura</Link>
-            <Link to="/sobre" className="nav-link">Contato</Link>
+            <Link to="/contato" className="nav-link">Contato</Link>
             <Link
               to="/matricula"
               className="bg-[#ffd700] text-[#003876] px-6 py-2 rounded-full font-semibold transition-all duration-300 hover:bg-[#003876] hover:text-[#ffd700] hover:shadow-[0_0_20px_rgba(255,215,0,0.3)] transform hover:scale-105"
@@ -136,7 +136,7 @@ export default function Navbar() {
             <Link to="/estrutura" onClick={closeMobileMenu} className="text-[#003876] hover:text-[#ffd700] transition-colors">
               Estrutura
             </Link>
-            <Link to="/sobre" onClick={closeMobileMenu} className="text-[#003876] hover:text-[#ffd700] transition-colors">
+            <Link to="/contato" onClick={closeMobileMenu} className="text-[#003876] hover:text-[#ffd700] transition-colors">
               Contato
             </Link>
             <Link
