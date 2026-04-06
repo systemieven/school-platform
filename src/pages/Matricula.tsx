@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   XCircle,
   Copy,
+  Mail,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -37,6 +38,11 @@ function maskPhone(v: string) {
     .slice(0, 11)
     .replace(/(\d{2})(\d)/, '($1) $2')
     .replace(/(\d{5})(\d)/, '$1-$2');
+}
+
+// ── Email Validation ───────────────────────────────────────────────────────
+function validateEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 // ── CPF Validation ─────────────────────────────────────────────────────────
@@ -68,6 +74,7 @@ interface FormData {
   nomeResponsavel: string;
   cpfResponsavel: string;
   celularResponsavel: string;
+  emailResponsavel: string;
   enderecoResponsavel: Endereco;
   nomeAluno: string;
   dataNascimento: string;
@@ -79,9 +86,11 @@ interface FormData {
   nomePai: string;
   cpfPai: string;
   celularPai: string;
+  emailPai: string;
   nomeMae: string;
   cpfMae: string;
   celularMae: string;
+  emailMae: string;
   documentos: File[];
 }
 
@@ -268,20 +277,23 @@ interface CPFParentFieldProps {
   nomeValue: string;
   cpfValue: string;
   celularValue: string;
+  emailValue: string;
   nomeError?: string;
   cpfError?: string;
   celularError?: string;
+  emailError?: string;
   onNomeChange: (v: string) => void;
   onCpfChange: (v: string) => void;
   onCpfBlur: () => void;
   onCelularChange: (v: string) => void;
+  onEmailChange: (v: string) => void;
   onUsarResponsavel: () => void;
 }
 
 function CPFParentField({
-  parent, nomeValue, cpfValue, celularValue,
-  nomeError, cpfError, celularError,
-  onNomeChange, onCpfChange, onCpfBlur, onCelularChange, onUsarResponsavel,
+  parent, nomeValue, cpfValue, celularValue, emailValue,
+  nomeError, cpfError, celularError, emailError,
+  onNomeChange, onCpfChange, onCpfBlur, onCelularChange, onEmailChange, onUsarResponsavel,
 }: CPFParentFieldProps) {
   const label = parent === 'mae' ? 'Mãe' : 'Pai';
   const artigo = parent === 'mae' ? 'a' : 'o';
@@ -334,6 +346,16 @@ function CPFParentField({
           />
         </Field>
       </div>
+
+      <Field label={`E-mail d${artigo} ${label}`} icon={Mail} error={emailError}>
+        <input
+          type="email"
+          placeholder="email@exemplo.com (opcional)"
+          className={inputCls(true, emailError)}
+          value={emailValue}
+          onChange={(e) => onEmailChange(e.target.value)}
+        />
+      </Field>
     </div>
   );
 }
@@ -352,6 +374,7 @@ export default function Matricula() {
     nomeResponsavel: '',
     cpfResponsavel: '',
     celularResponsavel: '',
+    emailResponsavel: '',
     enderecoResponsavel: emptyEndereco(),
     nomeAluno: '',
     dataNascimento: '',
@@ -363,9 +386,11 @@ export default function Matricula() {
     nomePai: '',
     cpfPai: '',
     celularPai: '',
+    emailPai: '',
     nomeMae: '',
     cpfMae: '',
     celularMae: '',
+    emailMae: '',
     documentos: [],
   });
 
@@ -434,6 +459,8 @@ export default function Matricula() {
     if (!formData.celularResponsavel.trim()) errs.celularResponsavel = 'Celular obrigatório';
     else if (formData.celularResponsavel.replace(/\D/g, '').length < 11)
       errs.celularResponsavel = 'Celular incompleto (DDD + 9 dígitos)';
+    if (formData.emailResponsavel.trim() && !validateEmail(formData.emailResponsavel))
+      errs.emailResponsavel = 'E-mail inválido';
     const end = formData.enderecoResponsavel;
     if (!end.cep.trim() || end.cep.replace(/\D/g, '').length < 8)
       errs['enderecoResponsavel.cep'] = 'CEP obrigatório';
@@ -468,11 +495,13 @@ export default function Matricula() {
     else if (!validateCPF(formData.cpfMae)) errs.cpfMae = 'CPF inválido';
     if (!formData.celularMae.trim()) errs.celularMae = 'Celular obrigatório';
     else if (formData.celularMae.replace(/\D/g, '').length < 11) errs.celularMae = 'Celular incompleto';
+    if (formData.emailMae.trim() && !validateEmail(formData.emailMae)) errs.emailMae = 'E-mail inválido';
     if (!formData.nomePai.trim()) errs.nomePai = 'Nome do pai obrigatório';
     if (!formData.cpfPai.trim()) errs.cpfPai = 'CPF do pai obrigatório';
     else if (!validateCPF(formData.cpfPai)) errs.cpfPai = 'CPF inválido';
     if (!formData.celularPai.trim()) errs.celularPai = 'Celular obrigatório';
     else if (formData.celularPai.replace(/\D/g, '').length < 11) errs.celularPai = 'Celular incompleto';
+    if (formData.emailPai.trim() && !validateEmail(formData.emailPai)) errs.emailPai = 'E-mail inválido';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -491,7 +520,9 @@ export default function Matricula() {
     const otherNome = other === 'mae' ? 'nomeMae' : 'nomePai';
 
     const celularField = parent === 'mae' ? 'celularMae' : 'celularPai';
+    const emailField   = parent === 'mae' ? 'emailMae'   : 'emailPai';
     const otherCelular = other === 'mae' ? 'celularMae' : 'celularPai';
+    const otherEmail   = other === 'mae' ? 'emailMae'   : 'emailPai';
 
     setFormData((prev) => {
       const next = {
@@ -499,15 +530,17 @@ export default function Matricula() {
         [nomeField]:    prev.nomeResponsavel,
         [cpfField]:     prev.cpfResponsavel,
         [celularField]: prev.celularResponsavel,
+        [emailField]:   prev.emailResponsavel,
       };
       if (responsavelUsedBy === other) {
         next[otherNome]    = '';
         next[otherCpf]     = '';
         next[otherCelular] = '';
+        next[otherEmail]   = '';
       }
       return next;
     });
-    setErrors((e) => ({ ...e, [cpfField]: undefined, [nomeField]: undefined, [celularField]: undefined }));
+    setErrors((e) => ({ ...e, [cpfField]: undefined, [nomeField]: undefined, [celularField]: undefined, [emailField]: undefined }));
     setResponsavelUsedBy(parent);
   };
 
@@ -556,6 +589,7 @@ export default function Matricula() {
           guardian_name:         formData.nomeResponsavel,
           guardian_cpf:          formData.cpfResponsavel,
           guardian_phone:        formData.celularResponsavel,
+          guardian_email:        formData.emailResponsavel || null,
           guardian_zip_code:     formData.enderecoResponsavel.cep,
           guardian_street:       formData.enderecoResponsavel.rua,
           guardian_number:       formData.enderecoResponsavel.numero,
@@ -579,9 +613,11 @@ export default function Matricula() {
           father_name:           formData.nomePai,
           father_cpf:            formData.cpfPai,
           father_phone:          formData.celularPai,
+          father_email:          formData.emailPai || null,
           mother_name:           formData.nomeMae,
           mother_cpf:            formData.cpfMae,
           mother_phone:          formData.celularMae,
+          mother_email:          formData.emailMae || null,
         })
         .select('id')
         .single();
@@ -723,6 +759,22 @@ export default function Matricula() {
                     />
                   </Field>
                 </div>
+
+                <Field label="E-mail" icon={Mail} error={errors.emailResponsavel}>
+                  <input
+                    type="email"
+                    placeholder="email@exemplo.com (opcional)"
+                    className={inputCls(true, errors.emailResponsavel)}
+                    value={formData.emailResponsavel}
+                    onChange={(e) => {
+                      setField('emailResponsavel', e.target.value);
+                    }}
+                    onBlur={() => {
+                      if (formData.emailResponsavel.trim() && !validateEmail(formData.emailResponsavel))
+                        setErrors((e) => ({ ...e, emailResponsavel: 'E-mail inválido' }));
+                    }}
+                  />
+                </Field>
 
                 <div className="pt-2">
                   <p className="text-sm font-semibold text-[#003876] mb-3">Endereço</p>
@@ -901,13 +953,16 @@ export default function Matricula() {
                       nomeValue={formData.nomeMae}
                       cpfValue={formData.cpfMae}
                       celularValue={formData.celularMae}
+                      emailValue={formData.emailMae}
                       nomeError={errors.nomeMae}
                       cpfError={errors.cpfMae}
                       celularError={errors.celularMae}
+                      emailError={errors.emailMae}
                       onNomeChange={(v) => { setFormData((p) => ({ ...p, nomeMae: v })); setErrors((e) => ({ ...e, nomeMae: undefined })); }}
                       onCpfChange={(v) => { setFormData((p) => ({ ...p, cpfMae: v })); setErrors((e) => ({ ...e, cpfMae: undefined })); }}
                       onCpfBlur={() => { if (formData.cpfMae && !validateCPF(formData.cpfMae)) setErrors((e) => ({ ...e, cpfMae: 'CPF inválido' })); }}
                       onCelularChange={(v) => { setFormData((p) => ({ ...p, celularMae: v })); setErrors((e) => ({ ...e, celularMae: undefined })); }}
+                      onEmailChange={(v) => { setFormData((p) => ({ ...p, emailMae: v })); setErrors((e) => ({ ...e, emailMae: undefined })); }}
                       onUsarResponsavel={() => usarDadosResponsavel('mae')}
                     />
                     <CPFParentField
@@ -915,13 +970,16 @@ export default function Matricula() {
                       nomeValue={formData.nomePai}
                       cpfValue={formData.cpfPai}
                       celularValue={formData.celularPai}
+                      emailValue={formData.emailPai}
                       nomeError={errors.nomePai}
                       cpfError={errors.cpfPai}
                       celularError={errors.celularPai}
+                      emailError={errors.emailPai}
                       onNomeChange={(v) => { setFormData((p) => ({ ...p, nomePai: v })); setErrors((e) => ({ ...e, nomePai: undefined })); }}
                       onCpfChange={(v) => { setFormData((p) => ({ ...p, cpfPai: v })); setErrors((e) => ({ ...e, cpfPai: undefined })); }}
                       onCpfBlur={() => { if (formData.cpfPai && !validateCPF(formData.cpfPai)) setErrors((e) => ({ ...e, cpfPai: 'CPF inválido' })); }}
                       onCelularChange={(v) => { setFormData((p) => ({ ...p, celularPai: v })); setErrors((e) => ({ ...e, celularPai: undefined })); }}
+                      onEmailChange={(v) => { setFormData((p) => ({ ...p, emailPai: v })); setErrors((e) => ({ ...e, emailPai: undefined })); }}
                       onUsarResponsavel={() => usarDadosResponsavel('pai')}
                     />
                   </div>
