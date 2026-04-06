@@ -12,6 +12,7 @@ import {
   XCircle,
   Copy,
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 // ── Masks ──────────────────────────────────────────────────────────────────
 function maskCPF(v: string) {
@@ -297,6 +298,8 @@ export default function Matricula() {
   const [cepLoading, setCepLoading] = useState<'responsavel' | 'aluno' | null>(null);
   const [cepStatus, setCepStatus] = useState<{ responsavel?: boolean; aluno?: boolean }>({});
   const [responsavelUsedBy, setResponsavelUsedBy] = useState<'mae' | 'pai' | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<'success' | 'error' | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     nomeResponsavel: '',
@@ -471,10 +474,78 @@ export default function Matricula() {
       documentos: prev.documentos.filter((_, idx) => idx !== i),
     }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateTab1()) { setActiveTab(1); return; }
-    console.log('Submitted:', formData);
+
+    setSubmitting(true);
+    setSubmitResult(null);
+
+    try {
+      // 1. Inserir matrícula
+      const { data: enrollment, error: enrollmentError } = await supabase
+        .from('enrollments')
+        .insert({
+          guardian_name:         formData.nomeResponsavel,
+          guardian_cpf:          formData.cpfResponsavel,
+          guardian_phone:        formData.celularResponsavel,
+          guardian_zip_code:     formData.enderecoResponsavel.cep,
+          guardian_street:       formData.enderecoResponsavel.rua,
+          guardian_number:       formData.enderecoResponsavel.numero,
+          guardian_complement:   formData.enderecoResponsavel.complemento || null,
+          guardian_neighborhood: formData.enderecoResponsavel.bairro,
+          guardian_city:         formData.enderecoResponsavel.cidade,
+          guardian_state:        formData.enderecoResponsavel.estado,
+          student_name:          formData.nomeAluno,
+          student_birth_date:    formData.dataNascimento,
+          student_cpf:           formData.cpfAluno || null,
+          student_zip_code:      formData.enderecoAluno.cep,
+          student_street:        formData.enderecoAluno.rua,
+          student_number:        formData.enderecoAluno.numero,
+          student_complement:    formData.enderecoAluno.complemento || null,
+          student_neighborhood:  formData.enderecoAluno.bairro,
+          student_city:          formData.enderecoAluno.cidade,
+          student_state:         formData.enderecoAluno.estado,
+          father_name:           formData.nomePai,
+          father_cpf:            formData.cpfPai,
+          mother_name:           formData.nomeMae,
+          mother_cpf:            formData.cpfMae,
+        })
+        .select('id')
+        .single();
+
+      if (enrollmentError) throw enrollmentError;
+
+      // 2. Upload de documentos
+      for (const file of formData.documentos) {
+        const storagePath = `${enrollment.id}/${Date.now()}_${file.name}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('enrollment-documents')
+          .upload(storagePath, file, { contentType: file.type });
+
+        if (uploadError) throw uploadError;
+
+        const { error: docError } = await supabase
+          .from('enrollment_documents')
+          .insert({
+            enrollment_id: enrollment.id,
+            file_name:     file.name,
+            storage_path:  storagePath,
+            mime_type:     file.type,
+            file_size:     file.size,
+          });
+
+        if (docError) throw docError;
+      }
+
+      setSubmitResult('success');
+    } catch (err) {
+      console.error('Erro ao enviar matrícula:', err);
+      setSubmitResult('error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const tabs = ['Dados do Responsável', 'Dados do Aluno', 'Documentação'];
@@ -736,6 +807,26 @@ export default function Matricula() {
               </div>
             </div>
 
+            {/* Submit feedback */}
+            {submitResult === 'success' && (
+              <div className="mt-6 flex items-start gap-3 bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800">
+                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Inscrição enviada com sucesso!</p>
+                  <p className="mt-0.5 text-green-700">Em breve nossa equipe entrará em contato pelo celular informado.</p>
+                </div>
+              </div>
+            )}
+            {submitResult === 'error' && (
+              <div className="mt-6 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
+                <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Erro ao enviar a inscrição.</p>
+                  <p className="mt-0.5 text-red-700">Verifique sua conexão e tente novamente.</p>
+                </div>
+              </div>
+            )}
+
             {/* Navigation */}
             <div className="mt-8 flex justify-between items-center pt-6 border-t border-gray-100">
               {activeTab > 0 ? (
@@ -749,8 +840,16 @@ export default function Matricula() {
                   Próximo →
                 </button>
               ) : (
-                <button type="submit" className="bg-[#ffd700] text-[#003876] px-8 py-3 rounded-xl font-bold hover:bg-[#ffe44d] transition-colors flex items-center gap-2">
-                  Enviar Inscrição <FileText className="w-4 h-4" />
+                <button
+                  type="submit"
+                  disabled={submitting || submitResult === 'success'}
+                  className="bg-[#ffd700] text-[#003876] px-8 py-3 rounded-xl font-bold hover:bg-[#ffe44d] transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {submitting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
+                  ) : (
+                    <>Enviar Inscrição <FileText className="w-4 h-4" /></>
+                  )}
                 </button>
               )}
             </div>
