@@ -41,12 +41,18 @@ export default function EnsinoFundamental1() {
               Construindo bases sólidas para o futuro através de uma educação integral e inovadora.
             </p>
 
-            <div className="hero-text-3">
+            <div className="hero-text-3 flex flex-wrap gap-4">
               <Link
                 to="/contato"
                 className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-bold text-base hover:bg-[#ffe44d] transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
                 Agende uma Visita
+              </Link>
+              <Link
+                to="/matricula"
+                className="inline-flex items-center px-8 py-4 border-2 border-white/60 text-white rounded-full font-semibold text-base hover:bg-white hover:text-[#003876] transition-all duration-300"
+              >
+                Fazer Matrícula
               </Link>
             </div>
           </div>
@@ -313,18 +319,26 @@ export default function EnsinoFundamental1() {
                 Próximo passo
               </p>
               <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-4">
-                Venha conhecer nossa escola
+                Venha Conhecer Nossa Escola
               </h2>
               <div className="section-divider mx-auto mt-6 mb-6" />
               <p className="text-white/80 leading-relaxed mb-10">
-                Agende uma visita e conheça nossa estrutura e proposta pedagógica.
+                Agende uma visita e conheça de perto nossa proposta pedagógica e estrutura completa.
               </p>
-              <Link
-                to="/contato"
-                className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-bold hover:bg-[#ffe44d] transition-all duration-300 transform hover:scale-105 shadow-lg"
-              >
-                Agende uma Visita
-              </Link>
+              <div className="flex flex-wrap justify-center gap-4">
+                <Link
+                  to="/contato"
+                  className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-bold hover:bg-[#ffe44d] transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  Agende uma Visita
+                </Link>
+                <Link
+                  to="/matricula"
+                  className="inline-flex items-center px-8 py-4 border-2 border-white/50 text-white rounded-full font-semibold hover:bg-white hover:text-[#003876] transition-all duration-300"
+                >
+                  Fazer Matrícula
+                </Link>
+              </div>
             </div>
           </div>
         </div>

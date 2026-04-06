@@ -34,7 +34,7 @@ export default function EnsinoMedio() {
             </div>
 
             {/* Heading */}
-            <h1 className="font-display text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-[1.02] mb-6">
+            <h1 className="hero-text-1 font-display text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-[1.02] mb-6">
               Sua rota para
               <br />
               o{' '}
@@ -43,25 +43,25 @@ export default function EnsinoMedio() {
 
             <div className="hero-accent-line mb-6" />
 
-            <p className="hero-text-3 text-white/80 text-lg leading-relaxed mb-10 max-w-xl">
+            <p className="hero-text-2 text-white/85 text-lg md:text-xl leading-relaxed mb-10 max-w-xl">
               Excelência acadêmica e preparação completa para o sucesso no ENEM e
               vestibulares das melhores universidades do país.
             </p>
 
             {/* Dual CTA */}
-            <div className="flex flex-wrap gap-4 mb-16">
+            <div className="hero-text-3 flex flex-wrap gap-4 mb-16">
+              <Link
+                to="/contato"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-base hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-lg shadow-black/25"
+              >
+                Agende uma Visita
+              </Link>
               <Link
                 to="/matricula"
-                className="inline-flex items-center gap-2 px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-sm tracking-wide hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-lg shadow-black/25"
+                className="inline-flex items-center gap-2 px-8 py-4 border-2 border-white/50 text-white rounded-full font-semibold text-base hover:border-white hover:bg-white hover:text-[#003876] transition-all duration-300"
               >
                 Fazer Matrícula
               </Link>
-              <a
-                href="#programa"
-                className="inline-flex items-center gap-2 px-8 py-4 border-2 border-white/50 text-white rounded-full font-semibold text-sm tracking-wide hover:border-white hover:bg-white/10 transition-all duration-300"
-              >
-                Conheça o Programa
-              </a>
             </div>
 
             {/* Stats row */}
@@ -409,19 +409,26 @@ export default function EnsinoMedio() {
               Próximo passo
             </p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-[#003876] leading-tight mb-4">
-              Construa seu futuro conosco
+              Venha Conhecer Nossa Escola
             </h2>
             <div className="section-divider mx-auto mt-0 mb-8" />
             <p className="text-gray-600 text-lg leading-relaxed mb-10">
-              Prepare-se para o sucesso com uma educação de excelência que abre as
-              portas das melhores universidades do Brasil.
+              Agende uma visita e conheça de perto nossa proposta pedagógica e estrutura completa.
             </p>
-            <Link
-              to="/contato"
-              className="inline-flex items-center gap-2 px-10 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-sm tracking-wide hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-lg shadow-yellow-200/60"
-            >
-              Agende uma Visita
-            </Link>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link
+                to="/contato"
+                className="inline-flex items-center gap-2 px-10 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-sm tracking-wide hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-lg shadow-yellow-200/60"
+              >
+                Agende uma Visita
+              </Link>
+              <Link
+                to="/matricula"
+                className="inline-flex items-center gap-2 px-10 py-4 border-2 border-[#003876] text-[#003876] rounded-full font-semibold text-sm tracking-wide hover:bg-[#003876] hover:text-white transition-all duration-300"
+              >
+                Fazer Matrícula
+              </Link>
+            </div>
           </div>
         </div>
       </section>

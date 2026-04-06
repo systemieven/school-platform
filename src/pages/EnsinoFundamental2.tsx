@@ -34,7 +34,7 @@ export default function EnsinoFundamental2() {
             </div>
 
             {/* Heading */}
-            <h1 className="font-display text-6xl md:text-7xl font-bold text-white leading-[1.05] mb-6">
+            <h1 className="hero-text-1 font-display text-6xl md:text-7xl font-bold text-white leading-[1.05] mb-6">
               Construindo o{' '}
               <em className="not-italic text-[#ffd700]">Futuro</em>
               <br />
@@ -43,17 +43,25 @@ export default function EnsinoFundamental2() {
 
             <div className="hero-accent-line mb-6" />
 
-            <p className="hero-text-3 text-white/80 text-lg leading-relaxed mb-10 max-w-lg">
+            <p className="hero-text-2 text-white/85 text-lg md:text-xl leading-relaxed mb-10 max-w-lg">
               Preparando jovens para os desafios do futuro com excelência acadêmica
               e valores sólidos que duram para toda a vida.
             </p>
 
-            <Link
-              to="/matricula"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-sm tracking-wide hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-lg shadow-black/20"
-            >
-              Fazer Matrícula
-            </Link>
+            <div className="hero-text-3 flex flex-wrap gap-4">
+              <Link
+                to="/contato"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-base hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-lg shadow-black/20"
+              >
+                Agende uma Visita
+              </Link>
+              <Link
+                to="/matricula"
+                className="inline-flex items-center gap-2 px-8 py-4 border-2 border-white/60 text-white rounded-full font-semibold text-base hover:bg-white hover:text-[#003876] transition-all duration-300"
+              >
+                Fazer Matrícula
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -426,21 +434,29 @@ export default function EnsinoFundamental2() {
         <div className="relative z-20 container mx-auto px-6" ref={ctaRef}>
           <div className="text-center max-w-2xl mx-auto" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-[#ffd700] mb-4">
-              Vagas Limitadas
+              Próximo passo
             </p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
-              Faça parte do nosso time de vencedores
+              Venha Conhecer Nossa Escola
             </h2>
             <div className="section-divider mx-auto mt-0 mb-8" />
             <p className="text-white/75 text-lg mb-10 leading-relaxed">
-              Prepare seu filho para os desafios do futuro com uma educação de qualidade.
+              Agende uma visita e conheça de perto nossa proposta pedagógica e estrutura completa.
             </p>
-            <Link
-              to="/contato"
-              className="inline-flex items-center gap-2 px-10 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-sm tracking-wide hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-xl shadow-black/30"
-            >
-              Agende uma Visita
-            </Link>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link
+                to="/contato"
+                className="inline-flex items-center gap-2 px-10 py-4 bg-[#ffd700] text-[#003876] rounded-full font-semibold text-sm tracking-wide hover:bg-[#ffe44d] transition-all duration-300 hover:scale-105 shadow-xl shadow-black/30"
+              >
+                Agende uma Visita
+              </Link>
+              <Link
+                to="/matricula"
+                className="inline-flex items-center gap-2 px-10 py-4 border-2 border-white/50 text-white rounded-full font-semibold text-sm tracking-wide hover:bg-white hover:text-[#003876] transition-all duration-300"
+              >
+                Fazer Matrícula
+              </Link>
+            </div>
           </div>
         </div>
       </section>
