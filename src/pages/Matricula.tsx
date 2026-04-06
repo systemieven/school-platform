@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   User,
   Phone,
@@ -141,6 +141,12 @@ interface AddressBlockProps {
 function AddressBlock({
   end, endKey, errors, isLoading, cepOk, onCEPChange, onFieldChange,
 }: AddressBlockProps) {
+  const numeroRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (cepOk === true) numeroRef.current?.focus();
+  }, [cepOk]);
+
   return (
     <div className="space-y-4">
       <Field label="CEP" required icon={MapPin} error={errors[`${endKey}.cep`]}>
@@ -172,6 +178,7 @@ function AddressBlock({
       <div className="grid grid-cols-2 gap-4">
         <Field label="Número" required error={errors[`${endKey}.numero`]}>
           <input
+            ref={numeroRef}
             type="text"
             placeholder="Ex: 99"
             className={inputCls(false, errors[`${endKey}.numero`])}
