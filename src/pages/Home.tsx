@@ -5,12 +5,16 @@ export default function Home() {
     <>
       {/* Hero Section */}
       <section className="relative h-[80vh]">
-        <div className="absolute inset-0">
-          <img
-            src="https://s3.ibotcloud.com.br/colegiobatista/imagens/colegio-cima.jpeg"
-            alt="Colégio Batista em Caruaru"
-            className="w-full h-full object-cover filter blur-[2px]"
-          />
+        <div className="absolute inset-0 overflow-hidden">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover scale-105 blur-sm"
+          >
+            <source src="https://s3.ibotcloud.com.br/colegiobatista/imagens/site/video-inicio.mp4" type="video/mp4" />
+          </video>
           <div className="absolute inset-0 bg-gradient-to-r from-[#003876]/90 to-[#003876]/70"></div>
         </div>
         <div className="relative container mx-auto px-4 h-full flex items-center">
