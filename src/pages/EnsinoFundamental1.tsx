@@ -1,76 +1,138 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, Target, Users, Lightbulb, Star, Award, Clock } from 'lucide-react';
+import { BookOpen, Target, Users, Lightbulb, Star, Award, Clock, ArrowRight } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 
+const PILLARS = [
+  {
+    icon: BookOpen,
+    title: 'Aprendizagem Ativa',
+    desc: 'Metodologias inovadoras que estimulam o protagonismo e a curiosidade do aluno.',
+    stat: '95%',
+    statLabel: 'engajamento dos alunos',
+  },
+  {
+    icon: Target,
+    title: 'Objetivos Claros',
+    desc: 'Metas de aprendizagem definidas e acompanhamento personalizado de cada aluno.',
+    stat: '15',
+    statLabel: 'alunos por turma',
+  },
+  {
+    icon: Users,
+    title: 'Valores Cristãos',
+    desc: 'Formação integral baseada em princípios éticos, morais e no respeito ao próximo.',
+    stat: '50+',
+    statLabel: 'anos de tradição',
+  },
+  {
+    icon: Lightbulb,
+    title: 'Criatividade',
+    desc: 'Estímulo ao pensamento criativo e à resolução de problemas de forma inovadora.',
+    stat: '100%',
+    statLabel: 'prof. especializados',
+  },
+];
+
+const DIFERENCIAIS = [
+  {
+    icon: Star,
+    title: 'Programa Acadêmico',
+    items: ['Material didático de excelência', 'Projetos interdisciplinares', 'Acompanhamento personalizado'],
+  },
+  {
+    icon: Award,
+    title: 'Atividades Complementares',
+    items: ['Oficinas de tecnologia', 'Práticas esportivas', 'Iniciação científica'],
+  },
+];
+
 export default function EnsinoFundamental1() {
-  const overviewRef = useScrollReveal();
+  const pillarsRef     = useScrollReveal();
   const diferenciaisRef = useScrollReveal();
-  const horariosRef = useScrollReveal();
-  const ctaRef = useScrollReveal();
+  const horariosRef    = useScrollReveal();
+  const ctaRef         = useScrollReveal();
 
   return (
     <div className="min-h-screen">
 
-      {/* ─── Hero ─── */}
-      <section className="relative h-[75vh] min-h-[520px] overflow-hidden">
+      {/* ── Hero ── */}
+      <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
           <img
             src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=2070"
             alt="Alunos em sala de aula"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#003876]/95 via-[#003876]/80 to-[#003876]/50" />
-          <div className="grain-overlay absolute inset-0" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/80 to-[#002855]/70" />
         </div>
 
-        <div className="relative z-10 container mx-auto px-6 h-full flex items-center">
-          <div className="max-w-2xl">
-            <div className="hero-badge inline-flex items-center gap-2 mb-8">
-              Fundamental I · 1º ao 5º ano
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
+
+        <div className="relative z-[5] container mx-auto px-4 h-full flex items-center">
+          <div className="max-w-3xl">
+            <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
+              <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
+              <span className="text-white/90 text-sm font-medium tracking-wide">
+                Fundamental I · 1º ao 5º ano
+              </span>
             </div>
 
-            <h1 className="hero-text-1 font-display text-6xl md:text-7xl font-bold text-white leading-tight mb-6">
+            <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
               Construindo as{' '}
-              <em className="not-italic text-[#ffd700]">Bases</em>{' '}
-              do Futuro
+              <span className="italic text-[#ffd700]">Bases</span>
+              <br />do Futuro
             </h1>
 
-            <div className="hero-accent-line" />
+            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
 
-            <p className="hero-text-2 text-white/85 text-lg md:text-xl leading-relaxed mb-10 max-w-xl">
-              Construindo bases sólidas para o futuro através de uma educação integral e inovadora.
+            <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed mb-10">
+              Bases sólidas para o futuro através de uma educação integral,
+              inovadora e com valores cristãos.
             </p>
 
             <div className="hero-text-3 flex flex-wrap gap-4">
               <Link
                 to="/contato"
-                className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-bold text-base hover:bg-[#ffe44d] transition-all duration-300 transform hover:scale-105 shadow-lg"
+                className="group inline-flex items-center gap-3 bg-[#ffd700] text-[#003876] px-8 py-4 rounded-full font-semibold transition-all duration-500 hover:bg-white hover:shadow-[0_0_40px_rgba(255,215,0,0.4)] active:scale-95"
               >
                 Agende uma Visita
+                <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
               </Link>
               <Link
                 to="/matricula"
-                className="inline-flex items-center px-8 py-4 border-2 border-white/60 text-white rounded-full font-semibold text-base hover:bg-white hover:text-[#003876] transition-all duration-300"
+                className="group inline-flex items-center gap-3 border-2 border-white/60 text-white px-8 py-4 rounded-full font-semibold transition-all duration-500 hover:bg-white hover:text-[#003876] hover:border-white hover:shadow-[0_0_40px_rgba(255,255,255,0.3)] active:scale-95"
               >
                 Fazer Matrícula
               </Link>
             </div>
+
+            <div className="hero-text-4 flex flex-wrap gap-8 mt-14 pt-8 border-t border-white/15">
+              {[
+                { value: '50+', label: 'Anos de história' },
+                { value: '15',  label: 'Alunos por turma' },
+                { value: '95%', label: 'Aprovação vestibular' },
+              ].map((s) => (
+                <div key={s.label}>
+                  <p className="text-3xl md:text-4xl font-display font-bold text-[#ffd700]">{s.value}</p>
+                  <p className="text-sm text-white/60 mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-
-        {/* diagonal slice — white bg because next section is white */}
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-white [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
       </section>
 
-      {/* ─── Overview ─── */}
-      <section className="py-24 bg-white">
-        <div className="container mx-auto px-6" ref={overviewRef}>
-          <div className="text-center mb-6" data-reveal="up">
+      {/* ── Pilares ── */}
+      <section className="py-24 bg-[var(--surface)] relative overflow-hidden">
+        <div className="absolute -right-40 -top-40 w-[500px] h-[500px] rounded-full bg-[#003876]/[0.02]" />
+        <div className="relative container mx-auto px-4" ref={pillarsRef}>
+          <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-[#ffd700] mb-3">
               Nossa proposta
             </p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-[#003876]">
-              Formação Integral e Desenvolvimento Pleno
+              Formação Integral e{' '}
+              <span className="italic">Desenvolvimento Pleno</span>
             </h2>
             <div className="section-divider mx-auto mt-6" />
           </div>
@@ -84,262 +146,152 @@ export default function EnsinoFundamental1() {
             os alunos para os desafios futuros com uma base acadêmica sólida e valores cristãos.
           </p>
 
-          <div className="grid md:grid-cols-4 gap-6">
-            <div
-              className="card-3d"
-              data-reveal="up"
-              style={{ '--delay': '0.05s' } as React.CSSProperties}
-            >
-              <div className="card-3d-inner bg-white rounded-2xl p-8 shadow-lg h-full">
-                <div className="w-14 h-14 bg-[#003876] rounded-xl flex items-center justify-center mb-6">
-                  <BookOpen className="h-7 w-7 text-white" />
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {PILLARS.map((p, i) => (
+              <div
+                key={p.title}
+                className="group relative bg-white rounded-2xl p-8 transition-all duration-500 hover:bg-[#003876] hover:shadow-[0_20px_60px_-15px_rgba(0,56,118,0.3)]"
+                data-reveal="up"
+                style={{ '--delay': `${i * 0.1}s` } as React.CSSProperties}
+              >
+                <p className="font-display text-5xl font-bold text-[#003876]/10 group-hover:text-white/15 transition-colors duration-500 absolute top-4 right-6">
+                  {p.stat}
+                </p>
+                <div className="w-14 h-14 bg-[#003876] group-hover:bg-[#ffd700] rounded-xl flex items-center justify-center mb-6 transition-all duration-500 group-hover:rotate-6 group-hover:scale-110">
+                  <p.icon className="w-7 h-7 text-white group-hover:text-[#003876] transition-colors duration-500" />
                 </div>
-                <h3 className="font-display text-xl font-bold text-[#003876] mb-3">Aprendizagem Ativa</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Metodologias inovadoras que estimulam o protagonismo do aluno.
+                <h3 className="text-lg font-bold text-[#003876] group-hover:text-white mb-3 transition-colors duration-500">
+                  {p.title}
+                </h3>
+                <p className="text-gray-500 group-hover:text-white/70 text-sm leading-relaxed mb-4 transition-colors duration-500">
+                  {p.desc}
+                </p>
+                <p className="text-xs font-semibold text-[#ffd700] tracking-wide uppercase">
+                  {p.statLabel}
                 </p>
               </div>
-            </div>
-
-            <div
-              className="card-3d"
-              data-reveal="up"
-              style={{ '--delay': '0.15s' } as React.CSSProperties}
-            >
-              <div className="card-3d-inner bg-white rounded-2xl p-8 shadow-lg h-full">
-                <div className="w-14 h-14 bg-[#003876] rounded-xl flex items-center justify-center mb-6">
-                  <Target className="h-7 w-7 text-white" />
-                </div>
-                <h3 className="font-display text-xl font-bold text-[#003876] mb-3">Objetivos Claros</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Metas de aprendizagem definidas e acompanhamento personalizado.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="card-3d"
-              data-reveal="up"
-              style={{ '--delay': '0.25s' } as React.CSSProperties}
-            >
-              <div className="card-3d-inner bg-white rounded-2xl p-8 shadow-lg h-full">
-                <div className="w-14 h-14 bg-[#003876] rounded-xl flex items-center justify-center mb-6">
-                  <Users className="h-7 w-7 text-white" />
-                </div>
-                <h3 className="font-display text-xl font-bold text-[#003876] mb-3">Valores Cristãos</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Formação integral baseada em princípios éticos e morais.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="card-3d"
-              data-reveal="up"
-              style={{ '--delay': '0.35s' } as React.CSSProperties}
-            >
-              <div className="card-3d-inner bg-white rounded-2xl p-8 shadow-lg h-full">
-                <div className="w-14 h-14 bg-[#003876] rounded-xl flex items-center justify-center mb-6">
-                  <Lightbulb className="h-7 w-7 text-white" />
-                </div>
-                <h3 className="font-display text-xl font-bold text-[#003876] mb-3">Criatividade</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Estímulo ao pensamento criativo e resolução de problemas.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ─── Diferenciais ─── */}
-      <section className="py-24 bg-[var(--surface)]">
-        <div className="container mx-auto px-6" ref={diferenciaisRef}>
+      {/* ── Diferenciais ── */}
+      <section className="py-24 bg-white">
+        <div className="container mx-auto px-4" ref={diferenciaisRef}>
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-[#ffd700] mb-3">
               Por que o Batista
             </p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-[#003876]">
-              Nossos Diferenciais
+              Nossos <span className="italic">Diferenciais</span>
             </h2>
             <div className="section-divider mx-auto mt-6" />
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            <div
-              className="bg-white rounded-2xl p-8 shadow-lg"
-              data-reveal="up"
-              style={{ '--delay': '0.05s' } as React.CSSProperties}
-            >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-[#ffd700]/15 rounded-xl flex items-center justify-center shrink-0">
-                  <Star className="h-6 w-6 text-[#ffd700]" />
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {DIFERENCIAIS.map((d, i) => (
+              <div
+                key={d.title}
+                className="group bg-[var(--surface)] rounded-2xl p-8 border border-transparent hover:border-[#ffd700]/30 transition-all duration-500 hover:shadow-lg"
+                data-reveal="up"
+                style={{ '--delay': `${i * 0.12}s` } as React.CSSProperties}
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-[#003876] rounded-xl flex items-center justify-center group-hover:rotate-3 transition-transform duration-500">
+                    <d.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#003876]">{d.title}</h3>
                 </div>
-                <h3 className="font-display text-xl font-bold text-[#003876]">Programa Acadêmico</h3>
+                <ul className="space-y-3">
+                  {d.items.map((item) => (
+                    <li key={item} className="flex items-center gap-3 text-gray-600 text-sm">
+                      <span className="w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
-                  </span>
-                  <span className="text-gray-600 text-sm">Material didático de excelência</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
-                  </span>
-                  <span className="text-gray-600 text-sm">Projetos interdisciplinares</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
-                  </span>
-                  <span className="text-gray-600 text-sm">Acompanhamento personalizado</span>
-                </li>
-              </ul>
-            </div>
-
-            <div
-              className="bg-white rounded-2xl p-8 shadow-lg"
-              data-reveal="up"
-              style={{ '--delay': '0.15s' } as React.CSSProperties}
-            >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-[#ffd700]/15 rounded-xl flex items-center justify-center shrink-0">
-                  <Award className="h-6 w-6 text-[#ffd700]" />
-                </div>
-                <h3 className="font-display text-xl font-bold text-[#003876]">Atividades Complementares</h3>
-              </div>
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
-                  </span>
-                  <span className="text-gray-600 text-sm">Oficinas de tecnologia</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
-                  </span>
-                  <span className="text-gray-600 text-sm">Práticas esportivas</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
-                  </span>
-                  <span className="text-gray-600 text-sm">Iniciação científica</span>
-                </li>
-              </ul>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ─── Horários ─── */}
-      <section className="py-24 bg-white">
-        <div className="container mx-auto px-6" ref={horariosRef}>
+      {/* ── Horários ── */}
+      <section className="py-24 bg-[var(--surface)]">
+        <div className="container mx-auto px-4" ref={horariosRef}>
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-[#ffd700] mb-3">
               Organização
             </p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-[#003876]">
-              Rotina Escolar
+              Rotina <span className="italic">Escolar</span>
             </h2>
             <div className="section-divider mx-auto mt-6" />
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-            <div
-              className="bg-[var(--surface)] rounded-2xl p-8 border border-gray-100"
-              data-reveal="up"
-              style={{ '--delay': '0.05s' } as React.CSSProperties}
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-[#003876]/10 rounded-xl flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-[#003876]" />
+            {[
+              { label: 'Turno Matutino',   times: [{ l: 'Entrada', t: '7h00' }, { l: 'Intervalo', t: '9h30 – 9h50' }, { l: 'Saída', t: '11h30' }] },
+              { label: 'Turno Vespertino', times: [{ l: 'Entrada', t: '13h00' }, { l: 'Intervalo', t: '15h30 – 15h50' }, { l: 'Saída', t: '17h30' }] },
+            ].map((turno, i) => (
+              <div
+                key={turno.label}
+                className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm"
+                data-reveal="up"
+                style={{ '--delay': `${i * 0.12}s` } as React.CSSProperties}
+              >
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-[#003876] rounded-xl flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-white" />
+                  </div>
+                  <h3 className="font-display text-xl font-bold text-[#003876]">{turno.label}</h3>
                 </div>
-                <h3 className="font-display text-xl font-bold text-[#003876]">Turno Matutino</h3>
+                <ul>
+                  {turno.times.map(({ l, t }) => (
+                    <li key={l} className="flex justify-between items-center py-3.5 border-b border-gray-100 last:border-0">
+                      <span className="text-gray-600 text-sm">{l}</span>
+                      <span className="text-[#003876] font-bold text-sm">{t}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul>
-                <li className="flex justify-between py-3 border-b border-gray-100">
-                  <span className="text-gray-700 font-medium text-sm">Entrada</span>
-                  <span className="text-[#003876] font-semibold text-sm">7h00</span>
-                </li>
-                <li className="flex justify-between py-3 border-b border-gray-100">
-                  <span className="text-gray-700 font-medium text-sm">Intervalo</span>
-                  <span className="text-[#003876] font-semibold text-sm">9h30 – 9h50</span>
-                </li>
-                <li className="flex justify-between py-3 last:border-0">
-                  <span className="text-gray-700 font-medium text-sm">Saída</span>
-                  <span className="text-[#003876] font-semibold text-sm">11h30</span>
-                </li>
-              </ul>
-            </div>
-
-            <div
-              className="bg-[var(--surface)] rounded-2xl p-8 border border-gray-100"
-              data-reveal="up"
-              style={{ '--delay': '0.15s' } as React.CSSProperties}
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-[#003876]/10 rounded-xl flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-[#003876]" />
-                </div>
-                <h3 className="font-display text-xl font-bold text-[#003876]">Turno Vespertino</h3>
-              </div>
-              <ul>
-                <li className="flex justify-between py-3 border-b border-gray-100">
-                  <span className="text-gray-700 font-medium text-sm">Entrada</span>
-                  <span className="text-[#003876] font-semibold text-sm">13h00</span>
-                </li>
-                <li className="flex justify-between py-3 border-b border-gray-100">
-                  <span className="text-gray-700 font-medium text-sm">Intervalo</span>
-                  <span className="text-[#003876] font-semibold text-sm">15h30 – 15h50</span>
-                </li>
-                <li className="flex justify-between py-3 last:border-0">
-                  <span className="text-gray-700 font-medium text-sm">Saída</span>
-                  <span className="text-[#003876] font-semibold text-sm">17h30</span>
-                </li>
-              </ul>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ─── CTA ─── */}
-      <section className="relative py-24 bg-[#003876] overflow-hidden">
-        {/* diagonal top slice */}
-        <div className="absolute top-0 left-0 right-0 h-20 bg-white [clip-path:polygon(0_0,100%_100%,0_100%)] z-10" />
-        <div className="grain-overlay absolute inset-0" />
-
-        <div className="relative z-20 container mx-auto px-6" ref={ctaRef}>
-          <div className="text-center max-w-2xl mx-auto">
-            <div data-reveal="up">
-              <p className="text-sm font-semibold tracking-[0.2em] uppercase text-[#ffd700] mb-4">
-                Próximo passo
-              </p>
-              <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-4">
-                Venha Conhecer Nossa Escola
-              </h2>
-              <div className="section-divider mx-auto mt-6 mb-6" />
-              <p className="text-white/80 leading-relaxed mb-10">
-                Agende uma visita e conheça de perto nossa proposta pedagógica e estrutura completa.
-              </p>
-              <div className="flex flex-wrap justify-center gap-4">
-                <Link
-                  to="/contato"
-                  className="inline-flex items-center px-8 py-4 bg-[#ffd700] text-[#003876] rounded-full font-bold hover:bg-[#ffe44d] transition-all duration-300 transform hover:scale-105 shadow-lg"
-                >
-                  Agende uma Visita
-                </Link>
-                <Link
-                  to="/matricula"
-                  className="inline-flex items-center px-8 py-4 border-2 border-white/50 text-white rounded-full font-semibold hover:bg-white hover:text-[#003876] transition-all duration-300"
-                >
-                  Fazer Matrícula
-                </Link>
-              </div>
-            </div>
+      {/* ── CTA ── */}
+      <section className="relative py-20 bg-[#003876] overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.04]">
+          <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-[#ffd700]" />
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full bg-white" />
+        </div>
+        <div ref={ctaRef} className="relative container mx-auto px-4 text-center" data-reveal="scale">
+          <p className="text-[#ffd700] text-sm font-semibold tracking-[0.2em] uppercase mb-4">
+            Próximo passo
+          </p>
+          <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-6">
+            Venha Conhecer <span className="italic">Nossa Escola</span>
+          </h2>
+          <p className="text-white/70 max-w-xl mx-auto mb-10 leading-relaxed">
+            Agende uma visita e conheça de perto nossa proposta pedagógica e estrutura completa.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link
+              to="/contato"
+              className="group inline-flex items-center gap-3 bg-[#ffd700] text-[#003876] px-10 py-5 rounded-full font-bold text-lg transition-all duration-500 hover:bg-white hover:shadow-[0_0_60px_rgba(255,215,0,0.4)] active:scale-95"
+            >
+              Agende uma Visita
+              <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
+            </Link>
+            <Link
+              to="/matricula"
+              className="inline-flex items-center gap-3 border-2 border-white/60 text-white px-10 py-5 rounded-full font-bold text-lg transition-all duration-500 hover:bg-white hover:text-[#003876] active:scale-95"
+            >
+              Fazer Matrícula
+            </Link>
           </div>
         </div>
       </section>
