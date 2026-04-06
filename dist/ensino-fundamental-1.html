@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="no-js">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Ensino Fundamental I no Colégio Batista em Caruaru">
+  <title>Ensino Fundamental I - Colégio Batista em Caruaru</title>
+  <link rel="icon" type="image/jpeg" href="https://s3.ibotcloud.com.br/colegiobatista/imagens/Logo-Nova.jpeg">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+  <script type="module" crossorigin src="/assets/main.2W4nv4nw.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/styles.BpPVn22V.css">
+</head>
+<body class="min-h-screen">
+  <!-- Skip to main content link for accessibility -->
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-white text-[#003876] p-4 z-50">
+    Pular para o conteúdo principal
+  </a>
+
+  <!-- Top Bar -->
+  <div class="bg-[#ffd700] text-[#003876] py-1">
+    <div class="container mx-auto px-4">
+      <div class="flex justify-end items-center space-x-4 text-sm">
+        <a href="#" class="hover:text-[#003876]/80 transition-colors">Portal do Aluno</a>
+        <a href="/biblioteca-virtual.html" class="hover:text-[#003876]/80 transition-colors">Biblioteca Virtual</a>
+        <a href="#" class="hover:text-[#003876]/80 transition-colors">Área do Professor</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="bg-[#003876] text-white">
+    <div class="container mx-auto px-4">
+      <div class="flex justify-between items-center py-2 text-sm">
+        <div class="flex items-center space-x-6">
+          <div class="flex items-center">
+            <i data-lucide="phone" class="w-4 h-4 mr-2"></i>
+            <span>(81) 3721-4787</span>
+          </div>
+          <div class="flex items-center">
+            <i data-lucide="map-pin" class="w-4 h-4 mr-2"></i>
+            <span>Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE</span>
+          </div>
+          <div class="flex items-center">
+            <i data-lucide="clock" class="w-4 h-4 mr-2"></i>
+            <span>Seg - Sex: 7h às 17h</span>
+          </div>
+        </div>
+        <div class="flex items-center space-x-4">
+          <a href="https://instagram.com/colegiobatistacaruarupe" target="_blank" rel="noopener noreferrer" class="hover:text-[#ffd700] transition-colors">
+            <i data-lucide="instagram" class="w-5 h-5"></i>
+            <span class="sr-only">Instagram</span>
+          </a>
+          <a href="https://facebook.com/colegiobatistacaruarupe" target="_blank" rel="noopener noreferrer" class="hover:text-[#ffd700] transition-colors">
+            <i data-lucide="facebook" class="w-5 h-5"></i>
+            <span class="sr-only">Facebook</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Navigation -->
+  <nav class="bg-white sticky top-0 z-50 transition-all duration-300" id="mainNav">
+    <div class="container mx-auto px-4">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center">
+          <a href="/">
+            <img 
+              src="https://s3.ibotcloud.com.br/colegiobatista/imagens/Logo-Nova.jpeg" 
+              alt="Colégio Batista em Caruaru" 
+              class="h-16 w-auto"
+              width="64"
+              height="64"
+            >
+          </a>
+        </div>
+        <div class="hidden md:flex items-center space-x-8">
+          <a href="/" class="nav-link">Início</a>
+          <div class="relative group">
+            <button class="nav-link flex items-center">
+              Segmentos
+              <i data-lucide="chevron-down" class="ml-1 w-4 h-4"></i>
+            </button>
+            <div class="absolute left-0 mt-2 w-64 bg-white rounded-lg shadow-xl py-2 hidden group-hover:block">
+              <a href="/educacao-infantil.html" class="block px-4 py-2 text-[#003876] hover:bg-gray-50">
+                Educação Infantil
+              </a>
+              <a href="/ensino-fundamental-1.html" class="block px-4 py-2 text-[#003876] hover:bg-gray-50">
+                Ensino Fundamental I
+              </a>
+              <a href="/ensino-fundamental-2.html" class="block px-4 py-2 text-[#003876] hover:bg-gray-50">
+                Ensino Fundamental II
+              </a>
+              <a href="/ensino-medio.html" class="block px-4 py-2 text-[#003876] hover:bg-gray-50">
+                Ensino Médio
+              </a>
+            </div>
+          </div>
+          <div class="relative group">
+            <button class="nav-link flex items-center">
+              Sobre
+              <i data-lucide="chevron-down" class="ml-1 w-4 h-4"></i>
+            </button>
+            <div class="absolute left-0 mt-2 w-64 bg-white rounded-lg shadow-xl py-2 hidden group-hover:block">
+              <a href="/estrutura.html" class="block px-4 py-2 text-[#003876] hover:bg-gray-50">
+                Estrutura
+              </a>
+            </div>
+          </div>
+          <div class="relative group">
+            <button class="nav-link flex items-center">
+              Governança
+              <i data-lucide="chevron-down" class="ml-1 w-4 h-4"></i>
+            </button>
+            <div class="absolute left-0 mt-2 w-64 bg-white rounded-lg shadow-xl py-2 hidden group-hover:block">
+              <a href="/sustentabilidade.html" class="block px-4 py-2 text-[#003876] hover:bg-gray-50">
+                Sustentabilidade
+              </a>
+            </div>
+          </div>          
+          <a href="/matricula.html" class="btn-primary">
+            Matrícula 2025
+          </a>
+        </div>
+        <button 
+          class="md:hidden"
+          aria-label="Menu"
+          aria-expanded="false"
+          aria-controls="mobile-menu"
+        >
+          <i data-lucide="menu" class="h-6 w-6 text-[#003876]"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile Menu -->
+  <div id="mobile-menu" class="md:hidden hidden bg-white">
+    <div class="container mx-auto px-4 py-4">
+      <nav class="flex flex-col space-y-4">
+        <a href="/" class="text-[#003876] hover:text-[#ffd700] transition-colors">Início</a>
+        <div class="pl-4 space-y-2 border-l-2 border-gray-200">
+          <a href="/educacao-infantil.html" class="block text-[#003876] hover:text-[#ffd700] transition-colors">
+            Educação Infantil
+          </a>
+          <a href="/ensino-fundamental-1.html" class="block text-[#003876] hover:text-[#ffd700] transition-colors">
+            Ensino Fundamental I
+          </a>
+          <a href="/ensino-fundamental-2.html" class="block text-[#003876] hover:text-[#ffd700] transition-colors">
+            Ensino Fundamental II
+          </a>
+          <a href="/ensino-medio.html" class="block text-[#003876] hover:text-[#ffd700] transition-colors">
+            Ensino Médio
+          </a>
+        </div>
+        <a href="#sobre" class="text-[#003876] hover:text-[#ffd700] transition-colors">Sobre</a>
+        <a href="#estrutura" class="text-[#003876] hover:text-[#ffd700] transition-colors">Estrutura</a>
+        <a href="#contato" class="text-[#003876] hover:text-[#ffd700] transition-colors">Contato</a>
+        <a href="/matricula.html" class="btn-primary inline-block text-center">
+          Matrícula 2025
+        </a>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main id="main-content">
+    <!-- Hero Section -->
+    <section class="relative h-[80vh]" aria-label="Banner Principal">
+      <div class="absolute inset-0 overflow-hidden">
+        <video 
+          autoplay 
+          loop 
+          muted 
+          playsinline
+          class="w-full h-full object-cover scale-105 filter blur-sm"
+          style="transform: scale(1.05)"
+        >
+          <source src="https://s3.ibotcloud.com.br/colegiobatista/imagens/site/video-ensino-fundamental-1.mp4" type="video/mp4">
+        </video>
+        <div class="absolute inset-0 bg-gradient-to-r from-[#003876]/90 to-[#003876]/70"></div>
+      </div>
+      <div class="relative container mx-auto px-4 h-full flex items-center">
+        <div class="max-w-2xl text-white">
+          <h1 class="text-5xl font-bold mb-6 animate-fade-in">
+            Ensino Fundamental I
+          </h1>
+          <p class="text-xl mb-8 animate-fade-in-delay">
+            Construindo bases sólidas para o futuro através de uma educação integral e inovadora.
+            Aqui, cada aluno desenvolve seu potencial único.
+          </p>
+          <div class="flex flex-wrap gap-4">
+            <a 
+              href="/agendamento.html" 
+              class="btn-hero"
+            >
+              Agende uma Visita
+              <i data-lucide="chevron-right" class="ml-2 w-5 h-5"></i>
+            </a>
+            <a 
+              href="tel:+558137214787"
+              class="btn-hero-outline"
+            >
+              Fale Conosco
+              <i data-lucide="phone" class="ml-2 w-5 h-5"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Overview Section -->
+    <section class="py-16 bg-white">
+      <div class="container mx-auto px-4">
+        <div class="max-w-3xl mx-auto text-center">
+          <h2 class="text-3xl font-bold text-[#003876] mb-6 scroll-animate scale-up">
+            Formação Integral e Desenvolvimento Pleno
+          </h2>
+          <p class="text-gray-600 text-lg mb-8 scroll-animate fade-in">
+            No Ensino Fundamental I, focamos no desenvolvimento das habilidades 
+            essenciais, preparando os alunos para os desafios futuros com uma 
+            base acadêmica sólida e valores cristãos.
+          </p>
+          <div class="grid md:grid-cols-3 gap-8">
+            <div class="text-center scroll-animate slide-left">
+              <div class="text-4xl font-bold text-[#003876] mb-2">20</div>
+              <p class="text-gray-600">Alunos por turma</p>
+            </div>
+            <div class="text-center scroll-animate scale-up">
+              <div class="text-4xl font-bold text-[#003876] mb-2">100%</div>
+              <p class="text-gray-600">Professores especializados</p>
+            </div>
+            <div class="text-center scroll-animate slide-right">
+              <div class="text-4xl font-bold text-[#003876] mb-2">20+</div>
+              <p class="text-gray-600">Anos de tradição</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-16 bg-gray-50">
+      <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center text-[#003876] mb-12 scroll-animate scale-up">
+          Nossos Diferenciais
+        </h2>
+
+        <div class="grid md:grid-cols-2 gap-8">
+          <div class="bg-white rounded-xl p-8 shadow-lg scroll-animate slide-left">
+            <i data-lucide="star" class="h-10 w-10 text-[#ffd700] mb-4"></i>
+            <h3 class="text-xl font-semibold mb-4">Programa Acadêmico</h3>
+            <ul class="space-y-3">
+              <li class="flex items-start">
+                <i data-lucide="check-circle" class="h-5 w-5 text-green-500 mt-1 mr-2"></i>
+                <span>Material didático de excelência</span>
+              </li>
+              <li class="flex items-start">
+                <i data-lucide="check-circle" class="h-5 w-5 text-green-500 mt-1 mr-2"></i>
+                <span>Projetos interdisciplinares</span>
+              </li>
+              <li class="flex items-start">
+                <i data-lucide="check-circle" class="h-5 w-5 text-green-500 mt-1 mr-2"></i>
+                <span>Acompanhamento personalizado</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-white rounded-xl p-8 shadow-lg scroll-animate slide-right">
+            <i data-lucide="award" class="h-10 w-10 text-[#ffd700] mb-4"></i>
+            <h3 class="text-xl font-semibold mb-4">Atividades Complementares</h3>
+            <ul class="space-y-3">
+              <li class="flex items-start">
+                <i data-lucide="check-circle" class="h-5 w-5 text-green-500 mt-1 mr-2"></i>
+                <span>Oficinas de tecnologia</span>
+              </li>
+              <li class="flex items-start">
+                <i data-lucide="check-circle" class="h-5 w-5 text-green-500 mt-1 mr-2"></i>
+                <span>Práticas esportivas</span>
+              </li>
+              <li class="flex items-start">
+                <i data-lucide="check-circle" class="h-5 w-5 text-green-500 mt-1 mr-2"></i>
+                <span>Iniciação científica</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Activities Section -->
+    <section class="py-16 bg-white">
+      <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center text-[#003876] mb-12 scroll-animate scale-up">
+          Atividades especiais
+        </h2>
+
+        <div class="grid md:grid-cols-3 gap-8">
+          <div class="relative group overflow-hidden rounded-xl scroll-animate slide-left">
+            <img 
+              src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=1000"
+              alt="Atividade de laboratório" 
+              class="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
+            >
+            <div class="absolute inset-0 bg-gradient-to-t from-[#003876] to-transparent opacity-90">
+              <div class="absolute bottom-0 p-6 text-white">
+                <h3 class="text-xl font-semibold mb-2">Laboratório de ciências</h3>
+                <p class="text-sm opacity-90">
+                  Experimentos práticos e descobertas científicas
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="relative group overflow-hidden rounded-xl scroll-animate scale-up">
+            <img 
+              src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=1000"
+              alt="Atividade esportiva" 
+              class="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
+            >
+            <div class="absolute inset-0 bg-gradient-to-t from-[#003876] to-transparent opacity-90">
+              <div class="absolute bottom-0 p-6 text-white">
+                <h3 class="text-xl font-semibold mb-2">Práticas esportivas</h3>
+                <p class="text-sm opacity-90">
+                  Desenvolvimento físico e trabalho em equipe
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="relative group overflow-hidden rounded-xl scroll-animate slide-right">
+            <img 
+              src="https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&q=80&w=1000"
+              alt="Atividade tecnológica" 
+              class="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
+            >
+            <div class="absolute inset-0 bg-gradient-to-t from-[#003876] to-transparent opacity-90">
+              <div class="absolute bottom-0 p-6 text-white">
+                <h3 class="text-xl font-semibold mb-2">Matific</h3>
+                <p class="text-sm opacity-90">
+                  Pensamento computacional
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Schedule Section -->
+    <section class="py-16 bg-gray-50">
+      <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center text-[#003876] mb-12 scroll-animate scale-up">
+          Horários
+        </h2>
+
+        <div class="grid md:grid-cols-2 gap-8">
+          <div class="bg-white rounded-xl p-8 shadow-lg scroll-animate slide-left">
+            <div class="flex items-center mb-6">
+              <i data-lucide="clock" class="h-8 w-8 text-[#003876] mr-3"></i>
+              <h3 class="text-xl font-semibold">Turno Matutino</h3>
+            </div>
+            <ul class="space-y-4">
+              <li class="flex items-center justify-between">
+                <span class="font-medium">Entrada</span>
+                <span>7h20</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span class="font-medium">Intervalo</span>
+                <span>9h - 9h20</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span class="font-medium">Saída</span>
+                <span>11h50</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-white rounded-xl p-8 shadow-lg scroll-animate slide-right">
+            <div class="flex items-center mb-6">
+              <i data-lucide="clock" class="h-8 w-8 text-[#003876] mr-3"></i>
+              <h3 class="text-xl font-semibold">Turno Vespertino</h3>
+            </div>
+            <ul class="space-y-4">
+              <li class="flex items-center justify-between">
+                <span class="font-medium">Entrada</span>
+                <span>13h20</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span class="font-medium">Intervalo</span>
+                <span>15h - 15h20</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span class="font-medium">Saída</span>
+                <span>17h50</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-16 bg-[#003876]">
+      <div class="container mx-auto px-4 text-center">
+        <h2 class="text-3xl font-bold text-white mb-8 scroll-animate scale-up">
+          Venha conhecer nossa escola
+        </h2>
+        <p class="text-white/90 mb-8 max-w-2xl mx-auto scroll-animate fade-in">
+          Agende uma visita e conheça nossa estrutura e proposta pedagógica.
+        </p>
+        <div class="flex flex-wrap justify-center gap-4">
+          <a 
+            href="/agendamento.html" 
+            class="btn-hero"
+          >
+            Agende uma Visita
+            <i data-lucide="chevron-right" class="ml-2 w-5 h-5"></i>
+          </a>
+          <a 
+            href="tel:+558137214787"
+            class="btn-hero-outline"
+          >
+            Fale Conosco
+            <i data-lucide="phone" class="ml-2 w-5 h-5"></i>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-[#003876] text-white py-16">
+    <div class="container mx-auto px-4">
+      <div class="grid md:grid-cols-4 gap-12">
+        <div>
+          <h3 class="text-xl font-semibold mb-6">Sobre Nós</h3>
+          <p class="text-sm text-white/80 mb-4">
+            Há mais de 20 anos formando cidadãos com excelência acadêmica e valores cristãos em Caruaru.
+          </p>
+          <div class="flex items-center space-x-4">
+            <a 
+              href="https://instagram.com/colegiobatistacaruarupe" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="hover:text-[#ffd700] transition-colors"
+              aria-label="Siga-nos no Instagram"
+            >
+              <i data-lucide="instagram" class="w-6 h-6"></i>
+            </a>
+            <a 
+              href="https://facebook.com/colegiobatistacaruarupe" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="hover:text-[#ffd700] transition-colors"
+              aria-label="Curta nossa página no Facebook"
+            >
+              <i data-lucide="facebook" class="w-6 h-6"></i>
+            </a>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xl font-semibold mb-6">Segmentos</h3>
+          <ul class="space-y-3">
+            <li>
+              <a href="/educacao-infantil.html" class="hover:text-[#ffd700] transition-colors flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 mr-2"></i>
+                Educação Infantil
+              </a>
+            </li>
+            <li>
+              <a href="/ensino-fundamental-1.html" class="hover:text-[#ffd700] transition-colors flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 mr-2"></i>
+                Ensino Fundamental I
+              </a>
+            </li>
+            <li>
+              <a href="/ensino-fundamental-2.html" class="hover:text-[#ffd700] transition-colors flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 mr-2"></i>
+                Ensino Fundamental II
+              </a>
+            </li>
+            <li>
+              <a href="/ensino-medio.html" class="hover:text-[#ffd700] transition-colors flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 mr-2"></i>
+                Ensino Médio
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xl font-semibold mb-6">Links Rápidos</h3>
+          <ul class="space-y-3">
+            <li>
+              <a href="#sobre" class="hover:text-[#ffd700] transition-colors flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 mr-2"></i>
+                Sobre
+              </a>
+            </li>
+            <li>
+              <a href="#estrutura" class="hover:text-[#ffd700] transition-colors flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 mr-2"></i>
+                Estrutura
+              </a>
+            </li>
+            <li>
+              <a href="/biblioteca-virtual.html" class="hover:text-[#ffd700] transition-colors flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 mr-2"></i>
+                Biblioteca Virtual
+              </a>
+            </li>
+            <li>
+              <a href="/matricula.html" class="hover:text-[#ffd700] transition-colors flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 mr-2"></i>
+                Matrícula 2025
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xl font-semibold mb-6">Contato</h3>
+          <ul class="space-y-3">
+            <li class="flex items-center">
+              <i data-lucide="phone" class="w-4 h-4 mr-2"></i>
+              (81) 3721-4787
+            </li>
+            <li class="flex items-start">
+              <i data-lucide="map-pin" class="w-4 h-4 mr-2 mt-1"></i>
+              <span>
+                Rua Marcílio Dias, 99<br>
+                São Francisco, Caruaru/PE
+              </span>
+            </li>
+            <li class="flex items-center">
+              <i data-lucide="clock" class="w-4 h-4 mr-2"></i>
+              Seg - Sex: 7h às 17h
+            </li>
+            <li class="flex items-center">
+              <i data-lucide="mail" class="w-4 h-4 mr-2"></i>
+              contato@colegiobatistaemcaruaru.com.br
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="border-t border-white/10 mt-12 pt-8 text-center text-sm opacity-80">
+        <p>&copy; 2024 Colégio Batista em Caruaru. Todos os direitos reservados.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Cookie Consent Banner -->
+  <div id="cookieConsent" class="fixed bottom-0 left-0 right-0 bg-gray-900 text-white py-4 px-4 z-50 transform transition-transform duration-300 translate-y-full">
+    <div class="container mx-auto flex flex-col md:flex-row items-center justify-between">
+      <div class="mb-4 md:mb-0 text-center md:text-left">
+        <p class="text-sm">
+          Utilizamos cookies para melhorar sua experiência em nosso site. Ao continuar navegando, você concorda com nossa 
+          <a href="/politica-privacidade" class="text-[#ffd700] hover:underline">Política de Privacidade</a>.
+        </p>
+      </div>
+      <div class="flex gap-4">
+        <button 
+          onclick="acceptCookies()"
+          class="bg-[#ffd700] text-[#003876] px-6 py-2 rounded-lg font-medium hover:bg-white transition-colors"
+        >
+          Aceitar
+        </button>
+        <button 
+          onclick="rejectCookies()"
+          class="border border-white text-white px-6 py-2 rounded-lg font-medium hover:bg-white hover:text-gray-900 transition-colors"
+        >
+          Rejeitar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WhatsApp Button -->
+  <a 
+    href="https://wa.me/558191398203" 
+    target="_blank" 
+    rel="noopener noreferrer" 
+    class="fixed bottom-6 right-6 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:bg-[#128C7E] transition-colors z-40 group"
+    aria-label="Contato via WhatsApp"
+  >
+    <i data-lucide="message-circle" class="w-6 h-6"></i>
+    <span class="absolute right-full mr-3 bg-white text-gray-800 px-4 py-2 rounded-lg shadow-lg invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-300 whitespace-nowrap">
+      Fale conosco no WhatsApp
+    </span>
+  </a>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Cookie consent handling
+    function showCookieConsent() {
+      const banner = document.getElementById('cookieConsent');
+      if (!Cookies.get('cookieConsent')) {
+        banner.classList.remove('translate-y-full');
+      }
+    }
+
+    function acceptCookies() {
+      Cookies.set('cookieConsent', 'accepted', { expires: 365 });
+      document.getElementById('cookieConsent').classList.add('translate-y-full');
+    }
+
+    function rejectCookies() {
+      Cookies.set('cookieConsent', 'rejected', { expires: 7 });
+      document.getElementById('cookieConsent').classList.add('translate-y-full');
+    }
+
+    // Show cookie consent banner on page load
+    window.addEventListener('load', showCookieConsent);
+
+    // Mobile menu toggle
+    const mobileMenuButton = document.querySelector('button[aria-controls="mobile-menu"]');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    mobileMenuButton.addEventListener('click', () => {
+      const isExpanded = mobileMenuButton.getAttribute('aria-expanded') === 'true';
+      mobileMenuButton.setAttribute('aria-expanded', !isExpanded);
+      mobileMenu.classList.toggle('hidden');
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+
+    // Scroll animations
+    const handleScroll = () => {
+      const scrollElements = document.querySelectorAll('.scroll-animate');
+      const mainNav = document.getElementById('mainNav');
+      
+      // Add shadow to nav on scroll
+      if (window.scrollY > 0) {
+        mainNav.classList.add('shadow-lg');
+      } else {
+        mainNav.classList.remove('shadow-lg');
+      }
+      
+      scrollElements.forEach(element => {
+        const elementTop = element.getBoundingClientRect().top;
+        const elementBottom = element.getBoundingClientRect().bottom;
+        
+        if (elementTop < window.innerHeight - 100 && elementBottom > 0) {
+          element.classList.add('active');
+        }
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+  </script>
+</body>
+</html>
