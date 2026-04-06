@@ -736,13 +736,13 @@ export default function Matricula() {
               </span>
             </div>
             <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
-              Faça sua{' '}
-              <span className="italic text-[#ffd700]">Matrícula</span>
+              Matricule seu{' '}
+              <span className="italic text-[#ffd700]">Filho</span>
             </h1>
             <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
               Garanta a vaga do seu filho em uma das melhores escolas de Caruaru.
-              Preencha o formulário abaixo para iniciar o processo.
+              O processo é simples e feito pelo responsável legal do candidato.
             </p>
           </div>
         </div>
