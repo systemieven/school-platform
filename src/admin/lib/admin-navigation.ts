@@ -40,6 +40,25 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'WhatsApp',
+    items: [
+      {
+        key: 'wa-templates',
+        label: 'Templates',
+        icon: 'LayoutTemplate',
+        path: '/admin/whatsapp/templates',
+        roles: ['super_admin', 'admin', 'coordinator'],
+      },
+      {
+        key: 'wa-messages',
+        label: 'Histórico',
+        icon: 'Send',
+        path: '/admin/whatsapp/mensagens',
+        roles: ['super_admin', 'admin', 'coordinator'],
+      },
+    ],
+  },
+  {
     label: 'Sistema',
     items: [
       {

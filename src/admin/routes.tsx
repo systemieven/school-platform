@@ -9,6 +9,8 @@ import SettingsPage from './pages/settings/SettingsPage';
 import AppointmentsPage from './pages/appointments/AppointmentsPage';
 import EnrollmentsPage from './pages/enrollments/EnrollmentsPage';
 import ContactsPage from './pages/contacts/ContactsPage';
+import TemplatesPage from './pages/whatsapp/TemplatesPage';
+import MessageLogPage from './pages/whatsapp/MessageLogPage';
 
 export default function AdminRoutes() {
   return (
@@ -29,6 +31,10 @@ export default function AdminRoutes() {
           <Route path="agendamentos" element={<AppointmentsPage />} />
           <Route path="matriculas"   element={<EnrollmentsPage />} />
           <Route path="contatos"     element={<ContactsPage />} />
+
+          {/* WhatsApp */}
+          <Route path="whatsapp/templates" element={<TemplatesPage />} />
+          <Route path="whatsapp/mensagens" element={<MessageLogPage />} />
 
           <Route
             path="usuarios"

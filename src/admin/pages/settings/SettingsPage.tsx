@@ -1,11 +1,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { checkUazApiStatus } from '../../lib/uazapi';
 import type { SystemSetting } from '../../types/admin.types';
+import type { UazApiStatus } from '../../lib/uazapi';
 import {
   Settings, Save, Loader2, Check, Building2, MessageCircle,
   CalendarCheck, GraduationCap, MessageSquare, Bell, Palette,
-  Eye, EyeOff, AlertCircle, Wifi, WifiOff,
-  PanelLeftClose, PanelLeftOpen,
+  Eye, EyeOff, AlertCircle, Wifi, WifiOff, RefreshCw,
+  PanelLeftClose, PanelLeftOpen, Smartphone, Battery, CheckCircle2,
 } from 'lucide-react';
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
@@ -224,6 +226,8 @@ export default function SettingsPage() {
     );
   }
 
+  // ── WhatsApp connection test panel ────────────────────────────────────────
+
   return (
     <div>
       {/* ── Page header ── */}
@@ -372,6 +376,11 @@ export default function SettingsPage() {
 
             {/* Fields */}
             <div className="p-6">
+              {/* WhatsApp connection test panel */}
+              {activeTab === 'whatsapp' && tabSettings.length > 0 && (
+                <WhatsAppConnectionPanel />
+              )}
+
               {tabSettings.length === 0 ? (
                 <EmptyTabState tab={currentTab} />
               ) : (
@@ -399,6 +408,102 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── WhatsApp Connection Panel ─────────────────────────────────────────────────
+function WhatsAppConnectionPanel() {
+  const [testing, setTesting]   = useState(false);
+  const [result, setResult]     = useState<{ connected: boolean; status?: UazApiStatus; error?: string } | null>(null);
+
+  const handleTest = async () => {
+    setTesting(true);
+    setResult(null);
+    const res = await checkUazApiStatus();
+    setResult(res);
+    setTesting(false);
+  };
+
+  return (
+    <div className="mb-6 bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+            <Smartphone className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+            Teste de Conexão
+          </h3>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Verifique se a instância UazAPI está acessível com as credenciais salvas.
+          </p>
+        </div>
+        <button
+          onClick={handleTest}
+          disabled={testing}
+          className="inline-flex items-center gap-2 bg-[#003876] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors disabled:opacity-60"
+        >
+          {testing
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <RefreshCw className="w-4 h-4" />
+          }
+          {testing ? 'Testando…' : 'Testar conexão'}
+        </button>
+      </div>
+
+      {result && (
+        <div className={`mt-4 rounded-xl p-4 border ${
+          result.connected
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'
+        }`}>
+          {result.connected && result.status ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium text-sm">
+                <CheckCircle2 className="w-4 h-4" />
+                Instância conectada ao WhatsApp
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 mt-1">
+                {result.status.name && (
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-gray-400">Dispositivo: </span>
+                    <span className="font-medium">{String(result.status.name)}</span>
+                  </div>
+                )}
+                {result.status.phone && (
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-gray-400">Número: </span>
+                    <span className="font-medium">{String(result.status.phone)}</span>
+                  </div>
+                )}
+                {result.status.battery !== undefined && (
+                  <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                    <Battery className="w-3 h-3 text-gray-400" />
+                    <span className="font-medium">{String(result.status.battery)}%</span>
+                    {result.status.plugged && <span className="text-gray-400">(carregando)</span>}
+                  </div>
+                )}
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <span className="text-gray-400">Estado: </span>
+                  <span className="font-medium capitalize">{String(result.status.state)}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 text-red-600 dark:text-red-400 text-sm">
+              <WifiOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">Falha na conexão</p>
+                {result.error && (
+                  <p className="text-xs text-red-500 dark:text-red-400/80 mt-1 font-mono">{result.error}</p>
+                )}
+                <p className="text-xs text-red-400 mt-1">
+                  Verifique se a URL da instância e o token estão corretos e salvas.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

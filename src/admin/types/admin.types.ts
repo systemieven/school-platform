@@ -162,6 +162,61 @@ export interface Notification {
   created_at: string;
 }
 
+// ── WhatsApp Template ──
+export type TemplateCategory = 'agendamento' | 'matricula' | 'contato' | 'geral' | 'boas_vindas';
+export type MessageType      = 'text' | 'media' | 'buttons' | 'list';
+
+export interface TemplateContent {
+  body?:          string;
+  media_url?:     string;
+  media_type?:    'image' | 'video' | 'document' | 'audio';
+  buttons?:       Array<{ id: string; text: string }>;
+  list_title?:    string;
+  list_sections?: Array<{
+    title: string;
+    rows: Array<{ id: string; title: string; description?: string }>;
+  }>;
+}
+
+export interface WhatsAppTemplate {
+  id:                    string;
+  name:                  string;
+  category:              TemplateCategory;
+  message_type:          MessageType;
+  content:               TemplateContent;
+  variables:             string[];
+  trigger_event:         'on_create' | 'on_status_change' | 'on_reminder' | null;
+  trigger_conditions:    Record<string, unknown> | null;
+  trigger_delay_minutes: number;
+  is_active:             boolean;
+  created_by:            string | null;
+  created_at:            string;
+  updated_at:            string;
+}
+
+// ── WhatsApp Message Log ──
+export type MessageLogStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed';
+
+export interface WhatsAppMessageLog {
+  id:               string;
+  template_id:      string | null;
+  recipient_phone:  string;
+  recipient_name:   string | null;
+  rendered_content: { body?: string; type?: string };
+  status:           MessageLogStatus;
+  error_message:    string | null;
+  sent_at:          string | null;
+  delivered_at:     string | null;
+  read_at:          string | null;
+  sent_by:          string | null;
+  related_module:   string | null;
+  related_record_id: string | null;
+  created_at:       string;
+  // joined
+  template?:          { name: string; category: string } | null;
+  sent_by_profile?:   { full_name: string } | null;
+}
+
 // ── Navigation ──
 export interface NavItem {
   key: string;

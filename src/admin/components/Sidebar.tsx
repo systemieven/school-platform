@@ -13,6 +13,8 @@ import {
   LogOut,
   Moon,
   Sun,
+  LayoutTemplate,
+  Send,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -23,6 +25,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   MessageSquare,
   Users,
   Settings,
+  LayoutTemplate,
+  Send,
 };
 
 interface Props {
