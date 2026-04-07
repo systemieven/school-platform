@@ -1228,7 +1228,7 @@ function WaPrivacySection() {
 
       {loaded && (
         <>
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {PRIVACY_FIELDS.map(({ key, label, options }) => (
               <div key={key}>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{label}</label>
