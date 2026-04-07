@@ -4,6 +4,7 @@ import {
   User, Phone, Mail, Clock, MapPin, MessageSquare,
   CheckCircle2, XCircle, Loader2, Send, ChevronRight,
   Sunrise, Sunset, PhoneCall, MessageCircle,
+  GraduationCap, Building2, HelpCircle, Lightbulb, AlertCircle, Handshake, Calendar, MoreHorizontal,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
@@ -22,12 +23,13 @@ function validateEmail(email: string) {
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type BestTime    = 'morning' | 'afternoon' | null;
-type ContactVia  = 'phone_call' | 'whatsapp' | 'email' | null;
-type Segment     = 'educacao_infantil' | 'fundamental_1' | 'fundamental_2' | 'ensino_medio' | null;
-type HowFound    = 'indicacao' | 'redes_sociais' | 'google' | 'passou_na_frente' | 'outro' | null;
-type Count       = '1' | '2' | '3+' | null;
-type Errors      = Partial<Record<string, string>>;
+type BestTime      = 'morning' | 'afternoon' | null;
+type ContactVia    = 'phone_call' | 'whatsapp' | 'email' | null;
+type ContactReason = 'matricula' | 'conhecer_estrutura' | 'duvidas' | 'sugestoes' | 'reclamacoes' | 'parcerias' | 'eventos' | 'outro' | null;
+type Segment       = 'educacao_infantil' | 'fundamental_1' | 'fundamental_2' | 'ensino_medio' | null;
+type HowFound      = 'indicacao' | 'redes_sociais' | 'google' | 'passou_na_frente' | 'outro' | null;
+type Count         = '1' | '2' | '3+' | null;
+type Errors        = Partial<Record<string, string>>;
 
 interface FormState {
   name: string;
@@ -35,6 +37,7 @@ interface FormState {
   email: string;
   bestTime: BestTime;
   contactVia: ContactVia;
+  contactReason: ContactReason;
   segmentInterest: Segment;
   studentCount: Count;
   howFoundUs: HowFound;
@@ -126,8 +129,8 @@ export default function Contato() {
 
   const [form, setForm] = useState<FormState>({
     name: '', phone: '', email: '',
-    bestTime: null, contactVia: null, segmentInterest: null,
-    studentCount: null, howFoundUs: null,
+    bestTime: null, contactVia: null, contactReason: null,
+    segmentInterest: null, studentCount: null, howFoundUs: null,
     wantsVisit: false, message: '',
   });
   const [errors,       setErrors]       = useState<Errors>({});
@@ -166,6 +169,7 @@ export default function Contato() {
         email:            form.email || null,
         best_time:        form.bestTime,
         contact_via:      form.contactVia,
+        contact_reason:   form.contactReason,
         segment_interest: form.segmentInterest,
         student_count:    form.studentCount,
         how_found_us:     form.howFoundUs,
@@ -394,6 +398,42 @@ export default function Contato() {
                               : []),
                           ]}
                         />
+
+                        {/* Motivo do contato */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2.5">
+                            Motivo do contato
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {([
+                              { value: 'matricula',          label: 'Interesse em matrícula',   icon: GraduationCap },
+                              { value: 'conhecer_estrutura', label: 'Conhecer a estrutura',     icon: Building2 },
+                              { value: 'duvidas',            label: 'Dúvidas',                  icon: HelpCircle },
+                              { value: 'sugestoes',          label: 'Sugestões',                icon: Lightbulb },
+                              { value: 'reclamacoes',        label: 'Reclamações',              icon: AlertCircle },
+                              { value: 'parcerias',          label: 'Parcerias',                icon: Handshake },
+                              { value: 'eventos',            label: 'Eventos',                  icon: Calendar },
+                              { value: 'outro',              label: 'Outro assunto',            icon: MoreHorizontal },
+                            ] as const).map(({ value, label, icon: Icon }) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => set('contactReason', value)}
+                                className={[
+                                  'flex items-center gap-2.5 px-4 py-3 rounded-xl border text-left text-sm transition-all duration-200',
+                                  form.contactReason === value
+                                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876]/40 hover:text-[#003876]',
+                                ].join(' ')}
+                              >
+                                <Icon className={`w-4 h-4 shrink-0 ${
+                                  form.contactReason === value ? 'text-[#ffd700]' : 'text-gray-400'
+                                }`} />
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
