@@ -19,6 +19,7 @@ export interface UazApiStatus {
   qrcode?: string;
   pairingCode?: string;
   loggedIn?: boolean;
+  profilePicUrl?: string;
   [key: string]: unknown;
 }
 
@@ -90,9 +91,10 @@ export async function checkUazApiStatus(): Promise<{
     state:      connected ? 'connected' : 'disconnected',
     name:       String(raw['profileName'] || raw['name'] || ''),
     phone:      phone || undefined,
-    loggedIn:   d?.status?.['loggedIn'] as boolean | undefined,
-    qrcode:     String(raw['qrcode'] || '') || undefined,
-    pairingCode: String(raw['paircode'] || '') || undefined,
+    loggedIn:      d?.status?.['loggedIn'] as boolean | undefined,
+    profilePicUrl: String(raw['profilePicUrl'] || '') || undefined,
+    qrcode:        String(raw['qrcode'] || '') || undefined,
+    pairingCode:   String(raw['paircode'] || '') || undefined,
   };
 
   return { connected, status };
@@ -202,6 +204,63 @@ export async function sendWhatsAppText(opts: SendTextOptions): Promise<SendResul
       .eq('id', logId);
     return { success: false, error: message };
   }
+}
+
+// ── Profile management ────────────────────────────────────────────────────────
+
+export interface ProfileUpdateResult {
+  success: boolean;
+  error?: string;
+}
+
+/** Update the WhatsApp display name. */
+export async function updateProfileName(name: string): Promise<ProfileUpdateResult> {
+  const { error } = await callProxy('/profile/name', 'POST', { name });
+  if (error) return { success: false, error };
+  return { success: true };
+}
+
+/** Update the profile photo.
+ *  `image` = base64 data-URL, http(s) URL, or "remove" / "delete".
+ *  Image must be JPEG 640×640. */
+export async function updateProfileImage(image: string): Promise<ProfileUpdateResult> {
+  const { error } = await callProxy('/profile/image', 'POST', { image });
+  if (error) return { success: false, error };
+  return { success: true };
+}
+
+// ── Privacy settings ──────────────────────────────────────────────────────────
+
+export interface PrivacySettings {
+  groupadd?:    'all' | 'contacts' | 'contact_blacklist' | 'none';
+  last?:        'all' | 'contacts' | 'contact_blacklist' | 'none';
+  status?:      'all' | 'contacts' | 'contact_blacklist' | 'none';
+  profile?:     'all' | 'contacts' | 'contact_blacklist' | 'none';
+  readreceipts?:'all' | 'none';
+  online?:      'all' | 'match_last_seen';
+  calladd?:     'all' | 'known';
+}
+
+export async function getPrivacy(): Promise<{ data: PrivacySettings | null; error?: string }> {
+  const { data, error } = await callProxy('/instance/privacy', 'GET');
+  if (error) return { data: null, error };
+  return { data: data as PrivacySettings };
+}
+
+export async function updatePrivacy(settings: PrivacySettings): Promise<ProfileUpdateResult> {
+  const { error } = await callProxy('/instance/privacy', 'POST', settings);
+  if (error) return { success: false, error };
+  return { success: true };
+}
+
+// ── Presence ──────────────────────────────────────────────────────────────────
+
+export async function updatePresence(
+  presence: 'available' | 'unavailable',
+): Promise<ProfileUpdateResult> {
+  const { error } = await callProxy('/instance/presence', 'POST', { presence });
+  if (error) return { success: false, error };
+  return { success: true };
 }
 
 // ── Template rendering ────────────────────────────────────────────────────────
