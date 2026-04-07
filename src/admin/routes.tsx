@@ -11,6 +11,8 @@ import EnrollmentsPage from './pages/enrollments/EnrollmentsPage';
 import ContactsPage from './pages/contacts/ContactsPage';
 import KanbanPage from './pages/leads/KanbanPage';
 import ReportsPage from './pages/reports/ReportsPage';
+import SegmentsPage from './pages/school/SegmentsPage';
+import StudentsPage from './pages/school/StudentsPage';
 
 export default function AdminRoutes() {
   return (
@@ -36,6 +38,10 @@ export default function AdminRoutes() {
           <Route path="leads/kanban" element={<KanbanPage />} />
 
           <Route path="relatorios" element={<ReportsPage />} />
+
+          {/* School */}
+          <Route path="segmentos" element={<SegmentsPage />} />
+          <Route path="alunos"    element={<StudentsPage />} />
 
           <Route
             path="usuarios"

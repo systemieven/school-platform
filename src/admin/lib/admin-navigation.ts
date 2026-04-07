@@ -59,6 +59,25 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'Escola',
+    items: [
+      {
+        key: 'segments',
+        label: 'Segmentos e Turmas',
+        icon: 'School',
+        path: '/admin/segmentos',
+        roles: ['super_admin', 'admin', 'coordinator'],
+      },
+      {
+        key: 'students',
+        label: 'Alunos',
+        icon: 'UserCheck',
+        path: '/admin/alunos',
+        roles: ['super_admin', 'admin', 'coordinator'],
+      },
+    ],
+  },
+  {
     label: 'Sistema',
     items: [
       {

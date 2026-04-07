@@ -76,7 +76,24 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
       patch.archived_at = new Date().toISOString();
     }
     const { error } = await supabase.from('enrollments').update(patch).eq('id', enr.id);
-    if (!error) onUpdate(enr.id, patch as Partial<Enrollment>);
+    if (!error) {
+      // When confirmed, auto-create student record
+      if (newStatus === 'confirmed') {
+        const enrollNum = `MAT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+        await supabase.from('students').insert({
+          enrollment_id: enr.id,
+          enrollment_number: enrollNum,
+          full_name: enr.student_name,
+          birth_date: enr.student_birth_date || null,
+          cpf: enr.student_cpf || null,
+          guardian_name: enr.guardian_name,
+          guardian_phone: enr.guardian_phone,
+          guardian_email: enr.guardian_email || null,
+          status: 'active',
+        });
+      }
+      onUpdate(enr.id, patch as Partial<Enrollment>);
+    }
     setSaving(false);
     setNewStatus('');
   }

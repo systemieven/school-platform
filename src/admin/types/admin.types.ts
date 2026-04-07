@@ -231,3 +231,69 @@ export interface NavGroup {
   label: string;
   items: NavItem[];
 }
+
+// ── School Segment ──
+export interface SchoolSegment {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  coordinator_ids: string[];
+  position: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── School Class ──
+export type Shift = 'morning' | 'afternoon' | 'full';
+
+export interface SchoolClass {
+  id: string;
+  segment_id: string;
+  name: string;
+  year: number;
+  shift: Shift | null;
+  max_students: number | null;
+  teacher_ids: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Student ──
+export type StudentStatus = 'active' | 'transferred' | 'graduated' | 'inactive';
+
+export interface Student {
+  id: string;
+  user_id: string | null;
+  enrollment_number: string;
+  enrollment_id: string | null;
+  class_id: string | null;
+  full_name: string;
+  birth_date: string | null;
+  cpf: string | null;
+  guardian_name: string;
+  guardian_phone: string;
+  guardian_email: string | null;
+  status: StudentStatus;
+  enrolled_at: string;
+  created_at: string;
+  updated_at: string;
+  // joined
+  class?: SchoolClass | null;
+  segment?: SchoolSegment | null;
+}
+
+export const SHIFT_LABELS: Record<Shift, string> = {
+  morning: 'Manhã',
+  afternoon: 'Tarde',
+  full: 'Integral',
+};
+
+export const STUDENT_STATUS_LABELS: Record<StudentStatus, string> = {
+  active: 'Ativo',
+  transferred: 'Transferido',
+  graduated: 'Formado',
+  inactive: 'Inativo',
+};
