@@ -12,7 +12,7 @@ import {
   CalendarCheck, GraduationCap, MessageSquare, Bell, Palette,
   Eye, EyeOff, AlertCircle, Wifi, WifiOff,
   PanelLeftClose, PanelLeftOpen, Plus, Star, Pencil,
-  LayoutTemplate, Send,
+  LayoutTemplate, Send, X,
 } from 'lucide-react';
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
@@ -404,14 +404,17 @@ export default function SettingsPage() {
               ) : tabSettings.length === 0 ? (
                 <EmptyTabState tab={currentTab} />
               ) : (
-                <SettingsFieldGroup
-                  settings={tabSettings}
-                  editValues={editValues}
-                  toStr={toStr}
-                  onChange={(id, val) =>
-                    setEditValues((prev) => ({ ...prev, [id]: val }))
-                  }
-                />
+                <>
+                  <SettingsFieldGroup
+                    settings={tabSettings}
+                    editValues={editValues}
+                    toStr={toStr}
+                    onChange={(id, val) =>
+                      setEditValues((prev) => ({ ...prev, [id]: val }))
+                    }
+                  />
+                  {activeTab === 'visits' && <ReminderChainSection />}
+                </>
               )}
             </div>
           </div>
@@ -797,6 +800,153 @@ function SettingsFieldGroup({ settings, editValues, toStr, onChange }: {
             );
           })}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Reminder Chain Section ─────────────────────────────────────────────────
+interface ReminderEntry { minutes_before: number }
+
+const REMINDER_PRESETS = [
+  { label: '24h',   minutes: 1440 },
+  { label: '2h',    minutes: 120  },
+  { label: '1h',    minutes: 60   },
+  { label: '30min', minutes: 30   },
+  { label: '15min', minutes: 15   },
+];
+
+function formatMinutes(m: number): string {
+  if (m >= 1440 && m % 1440 === 0) return `${m / 1440}d antes`;
+  if (m >= 60   && m % 60   === 0) return `${m / 60}h antes`;
+  return `${m}min antes`;
+}
+
+function ReminderChainSection() {
+  const [reminders, setReminders] = useState<ReminderEntry[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const [customMin, setCustomMin] = useState('');
+  const [settingId, setSettingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('system_settings')
+      .select('id, value')
+      .eq('category', 'visit')
+      .eq('key', 'reminder_schedule')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setSettingId(data.id);
+          try {
+            const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+            setReminders(Array.isArray(parsed) ? parsed : []);
+          } catch { setReminders([]); }
+        } else {
+          setReminders([{ minutes_before: 1440 }, { minutes_before: 60 }]);
+        }
+        setLoading(false);
+      });
+  }, []);
+
+  async function save(updated: ReminderEntry[]) {
+    setSaving(true);
+    const sorted = [...updated].sort((a, b) => b.minutes_before - a.minutes_before);
+    if (settingId) {
+      await supabase.from('system_settings').update({ value: JSON.stringify(sorted) }).eq('id', settingId);
+    } else {
+      const { data } = await supabase.from('system_settings')
+        .upsert({ category: 'visit', key: 'reminder_schedule', value: JSON.stringify(sorted) })
+        .select('id').single();
+      if (data) setSettingId(data.id);
+    }
+    setReminders(sorted);
+    setSaving(false);
+  }
+
+  function addPreset(minutes: number) {
+    if (reminders.some((r) => r.minutes_before === minutes)) return;
+    save([...reminders, { minutes_before: minutes }]);
+  }
+
+  function addCustom() {
+    const m = parseInt(customMin);
+    if (!m || m <= 0) return;
+    if (reminders.some((r) => r.minutes_before === m)) { setCustomMin(''); return; }
+    save([...reminders, { minutes_before: m }]);
+    setCustomMin('');
+  }
+
+  function remove(minutes: number) {
+    save(reminders.filter((r) => r.minutes_before !== minutes));
+  }
+
+  return (
+    <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h4 className="text-sm font-semibold text-gray-800 dark:text-white">Lembretes Automáticos</h4>
+          <p className="text-xs text-gray-400 mt-0.5">Cadeia de lembretes enviada antes da visita (requer template com trigger <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">on_reminder</code>).</p>
+        </div>
+        {saving && <Loader2 className="w-4 h-4 animate-spin text-[#003876]" />}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+      ) : (
+        <>
+          {/* Active reminders */}
+          <div className="space-y-2 mb-4">
+            {reminders.length === 0 && (
+              <p className="text-xs text-gray-400 italic">Nenhum lembrete configurado.</p>
+            )}
+            {reminders.map((r) => (
+              <div key={r.minutes_before} className="flex items-center gap-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/40 rounded-xl">
+                <Bell className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">{formatMinutes(r.minutes_before)}</span>
+                <span className="text-xs text-gray-400">{r.minutes_before} min antes</span>
+                <button onClick={() => remove(r.minutes_before)} className="p-1 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Preset quick-add */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            {REMINDER_PRESETS.map(({ label, minutes }) => (
+              <button
+                key={minutes}
+                onClick={() => addPreset(minutes)}
+                disabled={reminders.some((r) => r.minutes_before === minutes)}
+                className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                + {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Custom input */}
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              value={customMin}
+              onChange={(e) => setCustomMin(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addCustom()}
+              placeholder="Minutos personalizados..."
+              className="flex-1 text-xs px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 outline-none focus:border-amber-400"
+            />
+            <button
+              onClick={addCustom}
+              disabled={!customMin}
+              className="text-xs px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-40 transition-colors"
+            >
+              Adicionar
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

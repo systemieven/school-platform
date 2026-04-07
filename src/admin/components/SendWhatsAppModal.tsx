@@ -3,7 +3,7 @@
  * Reusable modal for sending WhatsApp messages from any module drawer.
  * Loads templates for the given module, renders variables, and calls sendWhatsAppText.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { sendWhatsAppText, renderTemplate } from '../lib/whatsapp-api';
 import type { WhatsAppTemplate } from '../types/admin.types';
@@ -47,6 +47,21 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
   const [sending, setSending]    = useState(false);
   const [error, setError]        = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function insertVariable(key: string) {
+    const el = textareaRef.current;
+    if (!el) { setMessage((m) => m + `{{${key}}}`); return; }
+    const start = el.selectionStart ?? message.length;
+    const end = el.selectionEnd ?? message.length;
+    const snippet = `{{${key}}}`;
+    const next = message.slice(0, start) + snippet + message.slice(end);
+    setMessage(next);
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + snippet.length, start + snippet.length);
+    }, 0);
+  }
 
   const category = MODULE_CATEGORY[module];
 
@@ -248,12 +263,30 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
                   </div>
                 ) : (
                   <textarea
+                    ref={textareaRef}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={6}
                     placeholder="Digite a mensagem..."
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-green-400 focus:ring-2 focus:ring-green-400/20 transition-all resize-y font-mono leading-relaxed"
                   />
+                )}
+
+                {/* Variable chips */}
+                {!showPreview && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <span className="text-[10px] text-gray-400 self-center mr-1">Variáveis:</span>
+                    {Object.keys(variables).map((key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => insertVariable(key)}
+                        className="text-[10px] font-mono px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-green-100 dark:hover:bg-green-900/30 hover:text-green-700 dark:hover:text-green-400 rounded-md transition-colors"
+                      >
+                        {`{{${key}}}`}
+                      </button>
+                    ))}
+                  </div>
                 )}
 
                 {/* Char count */}
