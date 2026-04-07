@@ -114,7 +114,7 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
     { n: 3, label: 'Confirmação' },
   ];
   return (
-    <div className="flex items-center justify-center gap-3 mb-10">
+    <div className="flex items-center justify-center gap-3">
       {steps.map(({ n, label }, i) => (
         <div key={n} className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -380,8 +380,6 @@ export default function AgendarVisita() {
         <div ref={bodyRef} className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto" data-reveal="up">
 
-            <StepIndicator current={step} />
-
             <div className="grid lg:grid-cols-[280px_1fr] gap-8">
 
               {/* ── Sidebar — Resumo ── */}
@@ -460,6 +458,11 @@ export default function AgendarVisita() {
 
               {/* ── Main ── */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-[#003876]/5 overflow-hidden">
+
+                {/* Step indicator inside card */}
+                <div className="px-6 md:px-10 pt-8 pb-6 border-b border-gray-100">
+                  <StepIndicator current={step} />
+                </div>
 
                 {/* ═══════════ STEP 1: Dados pessoais ═══════════ */}
                 {step === 1 && (
