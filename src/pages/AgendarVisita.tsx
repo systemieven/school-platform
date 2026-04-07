@@ -18,7 +18,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   User, Phone, Mail, CalendarDays, Clock, MapPin, ChevronLeft,
   ChevronRight, ArrowRight, ArrowLeft, CheckCircle, Plus, X,
-  Users, FileText, Loader2, Building2,
+  Users, FileText, Loader2, Building2, AlertTriangle, Edit3,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
@@ -187,6 +187,69 @@ export default function AgendarVisita() {
   const [submitted, setSubmitted]     = useState(false);
   const [legalConsent, setLegalConsent] = useState(false);
 
+  // ── Existing appointment state ──
+  type ExistingAppointment = {
+    id: string;
+    visitor_name: string;
+    visitor_phone: string;
+    visitor_email: string | null;
+    visit_reason: string;
+    companions: string[];
+    appointment_date: string;
+    appointment_time: string;
+    status: string;
+  };
+  const [existingAppt, setExistingAppt]   = useState<ExistingAppointment | null>(null);
+  const [lookingUp, setLookingUp]         = useState(false);
+  const [editMode, setEditMode]           = useState(false);
+  const [showExistingBanner, setShowExistingBanner] = useState(false);
+  const [checkedPhone, setCheckedPhone]   = useState('');
+
+  // ── Lookup existing appointment by phone ──
+  const lookupByPhone = useCallback(async (rawPhone: string) => {
+    const digits = rawPhone.replace(/\D/g, '');
+    if (digits.length < 11 || digits === checkedPhone) return;
+
+    setLookingUp(true);
+    const { data } = await supabase
+      .from('visit_appointments')
+      .select('id, visitor_name, visitor_phone, visitor_email, visit_reason, companions, appointment_date, appointment_time, status')
+      .eq('visitor_phone', rawPhone.trim())
+      .in('status', ['pending', 'confirmed'])
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    setLookingUp(false);
+    setCheckedPhone(digits);
+
+    if (data && data.length > 0) {
+      setExistingAppt(data[0] as ExistingAppointment);
+      setShowExistingBanner(true);
+    } else {
+      setExistingAppt(null);
+      setShowExistingBanner(false);
+    }
+  }, [checkedPhone]);
+
+  // ── Enter edit mode: pre-fill fields with existing data ──
+  const enterEditMode = useCallback(() => {
+    if (!existingAppt) return;
+    setEditMode(true);
+    setShowExistingBanner(false);
+    setName(existingAppt.visitor_name);
+    setPhone(existingAppt.visitor_phone);
+    setEmail(existingAppt.visitor_email ?? '');
+    setReason(existingAppt.visit_reason);
+    setCompanions(existingAppt.companions?.length ? existingAppt.companions : []);
+  }, [existingAppt]);
+
+  // ── Dismiss banner: continue as new appointment ──
+  const dismissBanner = () => {
+    setShowExistingBanner(false);
+    setExistingAppt(null);
+    setEditMode(false);
+  };
+
   // ── Pre-fill from /contato ──
   useEffect(() => {
     const state = location.state as Record<string, string> | null;
@@ -289,22 +352,43 @@ export default function AgendarVisita() {
     if (validateStep1()) setStep(2);
   };
 
-  // ── Submit ──
+  // ── Submit (insert or update) ──
   const handleSubmit = async () => {
     if (!selectedDate || !selectedTime) return;
     setSubmitting(true);
 
-    const { error } = await supabase.from('visit_appointments').insert({
-      visitor_name:    name.trim(),
-      visitor_phone:   phone.trim(),
-      visitor_email:   email.trim() || null,
-      visit_reason:    reason,
-      companions:      companions.filter((c) => c.trim()),
-      appointment_date: dateKey(selectedDate),
-      appointment_time: selectedTime + ':00',
-      duration_minutes: VISIT_DURATION,
-      status:          'pending',
-    });
+    let error;
+
+    if (editMode && existingAppt) {
+      // UPDATE existing appointment
+      const { error: updateErr } = await supabase
+        .from('visit_appointments')
+        .update({
+          visitor_name:     name.trim(),
+          visitor_email:    email.trim() || null,
+          visit_reason:     reason,
+          companions:       companions.filter((c) => c.trim()),
+          appointment_date: dateKey(selectedDate),
+          appointment_time: selectedTime + ':00',
+          status:           'pending', // reset to pending on reschedule
+        })
+        .eq('id', existingAppt.id);
+      error = updateErr;
+    } else {
+      // INSERT new appointment
+      const { error: insertErr } = await supabase.from('visit_appointments').insert({
+        visitor_name:    name.trim(),
+        visitor_phone:   phone.trim(),
+        visitor_email:   email.trim() || null,
+        visit_reason:    reason,
+        companions:      companions.filter((c) => c.trim()),
+        appointment_date: dateKey(selectedDate),
+        appointment_time: selectedTime + ':00',
+        duration_minutes: VISIT_DURATION,
+        status:          'pending',
+      });
+      error = insertErr;
+    }
 
     setSubmitting(false);
     if (!error) {
@@ -478,10 +562,13 @@ export default function AgendarVisita() {
                 {step === 1 && (
                   <div className="p-6 md:p-10">
                     <h2 className="font-display text-2xl font-bold text-[#003876] mb-2">
-                      Seus dados
+                      {editMode ? 'Alterar agendamento' : 'Seus dados'}
                     </h2>
                     <p className="text-gray-400 text-sm mb-8">
-                      Preencha seus dados para prosseguir com o agendamento.
+                      {editMode
+                        ? 'Modifique os campos que deseja atualizar e prossiga para escolher o novo horário.'
+                        : 'Preencha seus dados para prosseguir com o agendamento.'
+                      }
                     </p>
 
                     <div className="space-y-5">
@@ -516,6 +603,7 @@ export default function AgendarVisita() {
                               inputMode="numeric"
                               value={phone}
                               onChange={(e) => { setPhone(maskPhone(e.target.value)); setErrors((er) => ({ ...er, phone: '' })); }}
+                              onBlur={() => lookupByPhone(phone)}
                               placeholder="(00) 00000-0000"
                               maxLength={15}
                               className={errors.phone ? inputClsError : inputCls}
@@ -540,6 +628,74 @@ export default function AgendarVisita() {
                           {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
                         </div>
                       </div>
+
+                      {/* Banner: agendamento existente */}
+                      {lookingUp && (
+                        <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-500">
+                          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                          Verificando agendamentos existentes...
+                        </div>
+                      )}
+
+                      {showExistingBanner && existingAppt && (
+                        <div className="bg-[#ffd700]/10 border border-[#ffd700]/40 rounded-xl p-5 space-y-4">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-[#b8860b] shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-bold text-[#003876] text-sm mb-1">
+                                Você já possui um agendamento
+                              </p>
+                              <p className="text-gray-600 text-sm leading-relaxed">
+                                Encontramos uma visita marcada para{' '}
+                                <strong className="text-[#003876]">
+                                  {(() => {
+                                    const [y, m, d] = existingAppt.appointment_date.split('-').map(Number);
+                                    return `${d} de ${MONTH_NAMES[m - 1]} de ${y}`;
+                                  })()}
+                                </strong>{' '}
+                                às{' '}
+                                <strong className="text-[#003876]">
+                                  {existingAppt.appointment_time.slice(0, 5)}
+                                </strong>{' '}
+                                — {VISIT_REASONS.find((r) => r.key === existingAppt.visit_reason)?.label ?? existingAppt.visit_reason}
+                                {existingAppt.status === 'confirmed' && (
+                                  <span className="ml-1 inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                                    <CheckCircle className="w-3 h-3" /> Confirmado
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 pl-8">
+                            <button
+                              type="button"
+                              onClick={enterEditMode}
+                              className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#002855] transition-all duration-200"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              Alterar agendamento
+                            </button>
+                            <button
+                              type="button"
+                              onClick={dismissBanner}
+                              className="inline-flex items-center gap-2 text-gray-500 px-5 py-2.5 rounded-lg font-medium text-sm hover:text-[#003876] hover:bg-white border border-gray-200 transition-all duration-200"
+                            >
+                              Criar novo agendamento
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Badge de edição */}
+                      {editMode && (
+                        <div className="flex items-center gap-2 bg-[#003876]/5 border border-[#003876]/20 rounded-xl px-4 py-3 text-sm">
+                          <Edit3 className="w-4 h-4 text-[#003876] shrink-0" />
+                          <p className="text-[#003876] font-medium">
+                            Modo de edição — altere os campos desejados e confirme no próximo passo.
+                          </p>
+                        </div>
+                      )}
 
                       {/* Motivo */}
                       <div>
@@ -630,10 +786,13 @@ export default function AgendarVisita() {
                 {step === 2 && (
                   <div className="p-6 md:p-10">
                     <h2 className="font-display text-2xl font-bold text-[#003876] mb-2">
-                      Data e horário
+                      {editMode ? 'Nova data e horário' : 'Data e horário'}
                     </h2>
                     <p className="text-gray-400 text-sm mb-8">
-                      Selecione uma data disponível e o horário de sua preferência.
+                      {editMode
+                        ? 'Selecione a nova data e horário para sua visita.'
+                        : 'Selecione uma data disponível e o horário de sua preferência.'
+                      }
                     </p>
 
                     <div className="grid md:grid-cols-[1fr_200px] gap-8">
@@ -776,9 +935,9 @@ export default function AgendarVisita() {
                         className="inline-flex items-center gap-2 bg-[#ffd700] text-[#003876] px-8 py-4 rounded-xl font-bold text-sm transition-all duration-300 hover:bg-white hover:shadow-lg hover:shadow-[#ffd700]/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#ffd700] disabled:hover:shadow-none"
                       >
                         {submitting ? (
-                          <><Loader2 className="w-4 h-4 animate-spin" /> Agendando...</>
+                          <><Loader2 className="w-4 h-4 animate-spin" /> {editMode ? 'Atualizando...' : 'Agendando...'}</>
                         ) : (
-                          <>Confirmar agendamento <CheckCircle className="w-4 h-4" /></>
+                          <>{editMode ? 'Salvar alterações' : 'Confirmar agendamento'} <CheckCircle className="w-4 h-4" /></>
                         )}
                       </button>
                     </div>
@@ -797,10 +956,13 @@ export default function AgendarVisita() {
                         <CheckCircle className="w-10 h-10 text-green-500" />
                       </div>
                       <h2 className="font-display text-3xl font-bold text-[#003876] mb-3">
-                        Visita agendada!
+                        {editMode ? 'Agendamento atualizado!' : 'Visita agendada!'}
                       </h2>
                       <p className="text-gray-500 text-sm leading-relaxed mb-10">
-                        Recebemos seu agendamento. Nossa equipe entrará em contato para confirmar.
+                        {editMode
+                          ? 'Seu agendamento foi alterado com sucesso. Nossa equipe entrará em contato para confirmar.'
+                          : 'Recebemos seu agendamento. Nossa equipe entrará em contato para confirmar.'
+                        }
                       </p>
 
                       {/* Summary card */}
