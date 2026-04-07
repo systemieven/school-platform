@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { supabase } from '../lib/supabase';
+import { saveConsent } from '../lib/consent';
 import LegalConsent from '../components/LegalConsent';
 
 // ── Masks ──────────────────────────────────────────────────────────────────
@@ -701,6 +702,14 @@ export default function Matricula() {
 
         if (docError) throw docError;
       }
+
+      // Registrar aceite LGPD
+      saveConsent({
+        formType: 'enrollment',
+        holderName: formData.nomeResponsavel,
+        holderEmail: formData.emailResponsavel || undefined,
+        relatedRecordId: enrollment.id,
+      });
 
       setSubmitResult('success');
     } catch (err) {

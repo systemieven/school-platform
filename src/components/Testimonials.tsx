@@ -28,6 +28,7 @@ import {
   LogIn,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { saveConsent } from '../lib/consent';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import LegalConsent from './LegalConsent';
 import type { User } from '@supabase/supabase-js';
@@ -371,6 +372,13 @@ export default function Testimonials() {
     if (error) {
       setFormError('Não foi possível enviar. Por favor, tente novamente.');
     } else {
+      // Registrar aceite LGPD
+      saveConsent({
+        formType: 'testimonial',
+        holderName: name.trim(),
+        holderEmail: email.trim() || undefined,
+      });
+
       setSubmitted(true);
     }
   };

@@ -5,6 +5,7 @@ import {
   CheckCircle2, XCircle, Loader2, Send, ChevronRight,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { saveConsent } from '../lib/consent';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import LegalConsent from '../components/LegalConsent';
 
@@ -168,6 +169,13 @@ export default function Contato() {
         message:          form.message || null,
       });
       if (error) throw error;
+
+      // Registrar aceite LGPD
+      saveConsent({
+        formType: 'contact',
+        holderName: form.name,
+        holderEmail: form.email || undefined,
+      });
 
       // Se quer agendar visita → redireciona com dados preenchidos
       if (form.wantsVisit) {

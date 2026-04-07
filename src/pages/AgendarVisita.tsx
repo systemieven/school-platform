@@ -21,6 +21,7 @@ import {
   Users, FileText, Loader2, Building2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { saveConsent } from '../lib/consent';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import LegalConsent from '../components/LegalConsent';
 
@@ -307,6 +308,13 @@ export default function AgendarVisita() {
 
     setSubmitting(false);
     if (!error) {
+      // Registrar aceite LGPD
+      saveConsent({
+        formType: 'visit',
+        holderName: name.trim(),
+        holderEmail: email.trim() || undefined,
+      });
+
       setSubmitted(true);
       setStep(3);
     }
