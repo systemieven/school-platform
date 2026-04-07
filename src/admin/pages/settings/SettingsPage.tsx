@@ -229,18 +229,18 @@ export default function SettingsPage() {
       {/* ── Page header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
             <Settings className="w-8 h-8" />
             Configurações
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
             Gerencie as configurações do sistema por módulo.
           </p>
         </div>
 
         {/* Unsaved changes indicator */}
         {totalChanges > 0 && (
-          <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
+          <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-2">
             <AlertCircle className="w-4 h-4" />
             <span>
               {totalChanges} {totalChanges === 1 ? 'alteração não salva' : 'alterações não salvas'}
@@ -258,11 +258,11 @@ export default function SettingsPage() {
             tabsCollapsed ? 'w-[52px]' : 'w-52'
           }`}
         >
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden sticky top-20">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden sticky top-20">
             {/* Collapse toggle */}
             <button
               onClick={toggleTabs}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-gray-400 hover:text-[#003876] hover:bg-gray-50 transition-colors border-b border-gray-100"
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700"
               title={tabsCollapsed ? 'Expandir abas' : 'Recolher abas'}
             >
               {tabsCollapsed ? (
@@ -295,8 +295,8 @@ export default function SettingsPage() {
                       ${isActive
                         ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/15'
                         : isEmpty
-                          ? 'text-gray-300 cursor-not-allowed'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-[#003876]'
+                          ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-[#003876] dark:hover:text-white'
                       }
                     `}
                   >
@@ -327,15 +327,15 @@ export default function SettingsPage() {
 
         {/* ── Tab content ── */}
         <div className="flex-1 min-w-0">
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
             {/* Tab title bar */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 bg-[#003876]/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <currentTab.icon className="w-[18px] h-[18px] text-[#003876]" />
+                <div className="w-9 h-9 bg-[#003876]/10 dark:bg-[#003876]/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <currentTab.icon className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="font-display text-base font-bold text-[#003876] truncate">
+                  <h2 className="font-display text-base font-bold text-[#003876] dark:text-white truncate">
                     {currentTab.label}
                   </h2>
                   <p className="text-xs text-gray-400 mt-0.5 truncate hidden sm:block">{currentTab.description}</p>
@@ -353,7 +353,7 @@ export default function SettingsPage() {
                     ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
                     : tabHasChanges
                       ? 'bg-[#003876] text-white hover:bg-[#002855] hover:shadow-lg'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
                   }
                 `}
               >
@@ -420,12 +420,12 @@ function SettingField({ item, meta, value, isChanged, onChange }: SettingFieldPr
     const isConnected = value === 'true';
     return (
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">{meta.label}</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{meta.label}</label>
         <div className={`
           inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
           ${isConnected
-            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-            : 'bg-red-50 text-red-600 border border-red-200'
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+            : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
           }
         `}>
           {isConnected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
@@ -437,16 +437,18 @@ function SettingField({ item, meta, value, isChanged, onChange }: SettingFieldPr
 
   const inputBase = `
     w-full px-4 py-2.5 rounded-xl border outline-none transition-all text-sm
+    bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+    placeholder:text-gray-400 dark:placeholder:text-gray-500
     ${isChanged
-      ? 'border-amber-300 bg-amber-50/30 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20'
-      : 'border-gray-200 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20'
+      ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 dark:bg-amber-900/10 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20'
+      : 'border-gray-200 dark:border-gray-600 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 dark:focus:ring-[#ffd700]/20'
     }
   `;
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-1.5">
-        <label className="block text-sm font-medium text-gray-700">{meta.label}</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{meta.label}</label>
         {isChanged && (
           <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">
             Alterado
@@ -477,7 +479,7 @@ function SettingField({ item, meta, value, isChanged, onChange }: SettingFieldPr
           <button
             type="button"
             onClick={() => setShowSecret(!showSecret)}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
@@ -500,13 +502,13 @@ function EmptyTabState({ tab }: { tab: TabDef }) {
   const TabIcon = tab.icon;
   return (
     <div className="text-center py-16">
-      <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-        <TabIcon className="w-8 h-8 text-gray-300" />
+      <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <TabIcon className="w-8 h-8 text-gray-300 dark:text-gray-500" />
       </div>
-      <h3 className="font-display text-lg font-bold text-gray-400 mb-2">
+      <h3 className="font-display text-lg font-bold text-gray-400 dark:text-gray-500 mb-2">
         Nenhuma configuração cadastrada
       </h3>
-      <p className="text-sm text-gray-400 max-w-sm mx-auto">
+      <p className="text-sm text-gray-400 dark:text-gray-500 max-w-sm mx-auto">
         As configurações de <strong>{tab.label.toLowerCase()}</strong> serão adicionadas
         conforme os módulos forem implementados.
       </p>

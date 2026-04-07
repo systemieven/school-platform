@@ -89,10 +89,10 @@ export default function DashboardPage() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-[#003876]">
+        <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white">
           {greeting}, {profile?.full_name?.split(' ')[0] || 'Administrador'}
         </h1>
-        <p className="text-gray-500 mt-1">Aqui está o resumo do seu painel.</p>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Aqui está o resumo do seu painel.</p>
       </div>
 
       {/* Stats grid */}
@@ -105,7 +105,7 @@ export default function DashboardPage() {
           {CARDS.map((card) => (
             <div
               key={card.label}
-              className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-lg transition-shadow duration-300"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow duration-300"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${card.iconBg}`}>
@@ -113,8 +113,8 @@ export default function DashboardPage() {
                 </div>
                 <TrendingUp className="w-4 h-4 text-gray-300" />
               </div>
-              <p className="text-3xl font-bold text-gray-800">{card.value}</p>
-              <p className="text-sm text-gray-500 mt-1">{card.label}</p>
+              <p className="text-3xl font-bold text-gray-800 dark:text-white">{card.value}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{card.label}</p>
             </div>
           ))}
         </div>
@@ -122,15 +122,15 @@ export default function DashboardPage() {
 
       {/* Placeholder sections */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl p-6 border border-gray-100">
-          <h2 className="font-display text-lg font-bold text-[#003876] mb-4">Atividade Recente</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+          <h2 className="font-display text-lg font-bold text-[#003876] dark:text-white mb-4">Atividade Recente</h2>
           <div className="text-center py-12 text-gray-400">
             <Clock className="w-10 h-10 mx-auto mb-3 opacity-50" />
             <p className="text-sm">O feed de atividades será implementado em breve.</p>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-6 border border-gray-100">
-          <h2 className="font-display text-lg font-bold text-[#003876] mb-4">Próximas Visitas</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+          <h2 className="font-display text-lg font-bold text-[#003876] dark:text-white mb-4">Próximas Visitas</h2>
           <div className="text-center py-12 text-gray-400">
             <CalendarCheck className="w-10 h-10 mx-auto mb-3 opacity-50" />
             <p className="text-sm">A lista de próximas visitas será implementada em breve.</p>

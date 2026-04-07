@@ -31,12 +31,12 @@ export default function UsersPage() {
   );
 
   const ROLE_COLORS: Record<string, string> = {
-    super_admin: 'bg-red-100 text-red-700',
-    admin: 'bg-blue-100 text-blue-700',
-    coordinator: 'bg-purple-100 text-purple-700',
-    teacher: 'bg-emerald-100 text-emerald-700',
-    student: 'bg-amber-100 text-amber-700',
-    user: 'bg-gray-100 text-gray-700',
+    super_admin: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+    admin: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+    coordinator: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+    teacher: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+    student: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+    user: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
   };
 
   return (
@@ -44,11 +44,11 @@ export default function UsersPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
             <Users className="w-8 h-8" />
             Usuários
           </h1>
-          <p className="text-gray-500 mt-1">Gerencie os usuários do sistema.</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie os usuários do sistema.</p>
         </div>
 
         {/* Add user — placeholder */}
@@ -70,7 +70,7 @@ export default function UsersPage() {
           placeholder="Buscar por nome..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all text-sm"
+          className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 dark:focus:ring-[#ffd700]/20 outline-none transition-all text-sm"
         />
       </div>
 
@@ -85,32 +85,32 @@ export default function UsersPage() {
           <p className="text-sm">Nenhum usuário encontrado.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="text-left py-3 px-5 font-semibold text-gray-600">Usuário</th>
-                  <th className="text-left py-3 px-5 font-semibold text-gray-600">Função</th>
-                  <th className="text-left py-3 px-5 font-semibold text-gray-600">Status</th>
-                  <th className="text-left py-3 px-5 font-semibold text-gray-600">Criado em</th>
+                <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
+                  <th className="text-left py-3 px-5 font-semibold text-gray-600 dark:text-gray-400">Usuário</th>
+                  <th className="text-left py-3 px-5 font-semibold text-gray-600 dark:text-gray-400">Função</th>
+                  <th className="text-left py-3 px-5 font-semibold text-gray-600 dark:text-gray-400">Status</th>
+                  <th className="text-left py-3 px-5 font-semibold text-gray-600 dark:text-gray-400">Criado em</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((p) => (
                   <tr
                     key={p.id}
-                    className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
+                    className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
                   >
                     <td className="py-3 px-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-[#003876]/10 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-[#003876]">
+                        <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-[#003876] dark:text-[#ffd700]">
                             {p.full_name?.charAt(0)?.toUpperCase() || 'U'}
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-800">{p.full_name || '—'}</p>
+                          <p className="font-medium text-gray-800 dark:text-gray-200">{p.full_name || '—'}</p>
                           <p className="text-xs text-gray-400">{p.id.slice(0, 8)}…</p>
                         </div>
                       </div>
@@ -140,7 +140,7 @@ export default function UsersPage() {
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-5 text-gray-500">
+                    <td className="py-3 px-5 text-gray-500 dark:text-gray-400">
                       {new Date(p.created_at).toLocaleDateString('pt-BR')}
                     </td>
                   </tr>

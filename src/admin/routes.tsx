@@ -52,8 +52,8 @@ export default function AdminRoutes() {
 function PlaceholderPage({ title }: { title: string }) {
   return (
     <div className="text-center py-20">
-      <h1 className="font-display text-3xl font-bold text-[#003876] mb-3">{title}</h1>
-      <p className="text-gray-500">Este módulo será implementado nas próximas fases.</p>
+      <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white mb-3">{title}</h1>
+      <p className="text-gray-500 dark:text-gray-400">Este módulo será implementado nas próximas fases.</p>
     </div>
   );
 }

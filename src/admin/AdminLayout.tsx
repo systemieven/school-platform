@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import AdminHeader from './components/AdminHeader';
@@ -10,6 +10,18 @@ export default function AdminLayout() {
     try { return localStorage.getItem(STORAGE_KEY) === 'true'; } catch { return false; }
   });
 
+  // Restore dark mode preference on mount
+  useEffect(() => {
+    try {
+      const theme = localStorage.getItem('admin_theme');
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    } catch {}
+    // Cleanup: remove dark class when leaving admin
+    return () => { document.documentElement.classList.remove('dark'); };
+  }, []);
+
   const toggle = useCallback(() => {
     setCollapsed((prev) => {
       const next = !prev;
@@ -19,7 +31,7 @@ export default function AdminLayout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <AdminHeader sidebarCollapsed={collapsed} onToggleSidebar={toggle} />
 
