@@ -2,13 +2,13 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { exportCSV, exportXLSX, exportPDF, type ExportColumn } from '../../lib/export';
 import {
-  BarChart2, GraduationCap, MessageSquare, CalendarCheck,
+  BarChart2, GraduationCap, MessageSquare, CalendarCheck, Kanban,
   Download, FileText, FileSpreadsheet, Loader2, SlidersHorizontal,
   ChevronUp, ChevronDown, Search, X, Columns, CheckSquare, Square,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Module = 'enrollments' | 'contacts' | 'appointments';
+type Module = 'enrollments' | 'contacts' | 'appointments' | 'leads';
 type DateFilter = 'all' | '7d' | '30d' | '90d' | 'custom';
 type SortDir = 'asc' | 'desc';
 
@@ -96,6 +96,18 @@ const APPOINTMENT_COLS: ColDef[] = [
   { key: 'origin',           label: 'Origem',        visible: false, render: (v) => ORIGIN_LABELS[v as string] ?? String(v) },
 ];
 
+const LEAD_COLS: ColDef[] = [
+  { key: 'created_at',        label: 'Data',          visible: true,  sortable: true, render: (v) => fmtDate(v as string) },
+  { key: 'name',              label: 'Nome',           visible: true,  sortable: true },
+  { key: 'phone',             label: 'Telefone',       visible: true },
+  { key: 'email',             label: 'E-mail',         visible: false },
+  { key: 'stage',             label: 'Etapa',          visible: true,  sortable: true, render: (v) => LEAD_STAGE_LABELS[v as string] ?? String(v ?? '—') },
+  { key: 'priority',          label: 'Prioridade',     visible: true,  sortable: true, render: (v) => LEAD_PRIORITY_LABELS[v as string] ?? String(v ?? '—') },
+  { key: 'segment_interest',  label: 'Segmento',       visible: true,  sortable: true },
+  { key: 'source_module',     label: 'Origem',         visible: false, render: (v) => LEAD_SOURCE_LABELS[v as string] ?? String(v ?? '—') },
+  { key: 'next_contact_date', label: 'Próx. contato',  visible: false, render: (v) => v ? fmtDate(v as string) : '—' },
+];
+
 // ── Label maps ────────────────────────────────────────────────────────────────
 const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
   new: 'Novo', under_review: 'Em análise', docs_pending: 'Docs. pendentes',
@@ -115,12 +127,25 @@ const ORIGIN_LABELS: Record<string, string> = {
   website: 'Site', internal: 'Interno', in_person: 'Presencial',
   phone: 'Telefone', referral: 'Indicação',
 };
+const LEAD_STAGE_LABELS: Record<string, string> = {
+  new: 'Novo', contacted: 'Contatado', interested: 'Interessado',
+  visit_scheduled: 'Visita agendada', proposal_sent: 'Proposta enviada',
+  negotiating: 'Negociando', won: 'Ganho', lost: 'Perdido', archived: 'Arquivado',
+};
+const LEAD_PRIORITY_LABELS: Record<string, string> = {
+  low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente',
+};
+const LEAD_SOURCE_LABELS: Record<string, string> = {
+  contact_request: 'Formulário de contato', enrollment: 'Pré-matrícula',
+  appointment: 'Agendamento', manual: 'Manual',
+};
 
 // ── Status options per module ─────────────────────────────────────────────────
 const STATUS_OPTS: Record<Module, { key: string; label: string }[]> = {
   enrollments: Object.entries(ENROLLMENT_STATUS_LABELS).map(([k, v]) => ({ key: k, label: v })),
   contacts:    Object.entries(CONTACT_STATUS_LABELS).map(([k, v])    => ({ key: k, label: v })),
   appointments:Object.entries(APPT_STATUS_LABELS).map(([k, v])       => ({ key: k, label: v })),
+  leads:       Object.entries(LEAD_STAGE_LABELS).map(([k, v])        => ({ key: k, label: v })),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -139,16 +164,18 @@ function getDateRange(filter: DateFilter, start: string, end: string) {
   return { from: from.toISOString(), to: now.toISOString() };
 }
 
-const MODULE_CONFIG: Record<Module, { table: string; dateField: string }> = {
+const MODULE_CONFIG: Record<Module, { table: string; dateField: string; stageField?: string }> = {
   enrollments:  { table: 'enrollments',       dateField: 'created_at' },
   contacts:     { table: 'contact_requests',  dateField: 'created_at' },
   appointments: { table: 'visit_appointments',dateField: 'appointment_date' },
+  leads:        { table: 'leads',             dateField: 'created_at', stageField: 'stage' },
 };
 
 const MODULE_COLS: Record<Module, ColDef[]> = {
   enrollments:  ENROLLMENT_COLS,
   contacts:     CONTACT_COLS,
   appointments: APPOINTMENT_COLS,
+  leads:        LEAD_COLS,
 };
 
 // ── Module tab header ─────────────────────────────────────────────────────────
@@ -156,6 +183,7 @@ const MODULES: { key: Module; label: string; icon: React.ComponentType<{ classNa
   { key: 'enrollments',  label: 'Pré-Matrículas', icon: GraduationCap },
   { key: 'contacts',     label: 'Contatos',        icon: MessageSquare },
   { key: 'appointments', label: 'Agendamentos',    icon: CalendarCheck },
+  { key: 'leads',        label: 'Leads',           icon: Kanban },
 ];
 
 const DATE_OPTS: { key: DateFilter; label: string }[] = [
@@ -204,7 +232,8 @@ export default function ReportsPage() {
     const range = getDateRange(filters.date, filters.customStart, filters.customEnd);
     if (range?.from) q = q.gte(dateField, range.from);
     if (range?.to)   q = q.lte(dateField, range.to);
-    if (filters.status) q = q.eq('status', filters.status);
+    const statusField = MODULE_CONFIG[module].stageField ?? 'status';
+    if (filters.status) q = q.eq(statusField, filters.status);
 
     q = q.order(sortKey, { ascending: sortDir === 'asc' }).limit(1000);
 
@@ -344,9 +373,9 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {/* Status filter */}
+          {/* Status / Stage filter */}
           <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Status</label>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{module === 'leads' ? 'Etapa' : 'Status'}</label>
             <select
               value={filters.status}
               onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}

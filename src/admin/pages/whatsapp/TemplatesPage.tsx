@@ -33,6 +33,47 @@ const TRIGGER_EVENTS = [
   { value: 'on_reminder',        label: 'Lembrete agendado' },
 ];
 
+const TRIGGER_MODULES = [
+  { value: '',              label: 'Todos os módulos' },
+  { value: 'enrollment',   label: 'Pré-Matrícula' },
+  { value: 'appointment',  label: 'Agendamento' },
+  { value: 'contact',      label: 'Contato' },
+];
+
+const TRIGGER_STATUS_BY_MODULE: Record<string, { value: string; label: string }[]> = {
+  enrollment: [
+    { value: '', label: 'Qualquer status' },
+    { value: 'new',                  label: 'Novo' },
+    { value: 'under_review',         label: 'Em análise' },
+    { value: 'docs_pending',         label: 'Docs. pendentes' },
+    { value: 'docs_received',        label: 'Docs. recebidos' },
+    { value: 'interview_scheduled',  label: 'Entrevista agendada' },
+    { value: 'approved',             label: 'Aprovado' },
+    { value: 'confirmed',            label: 'Confirmado' },
+    { value: 'rejected',             label: 'Rejeitado' },
+    { value: 'archived',             label: 'Arquivado' },
+  ],
+  appointment: [
+    { value: '', label: 'Qualquer status' },
+    { value: 'pending',    label: 'Pendente' },
+    { value: 'confirmed',  label: 'Confirmado' },
+    { value: 'completed',  label: 'Realizado' },
+    { value: 'cancelled',  label: 'Cancelado' },
+    { value: 'no_show',    label: 'Não veio' },
+  ],
+  contact: [
+    { value: '', label: 'Qualquer status' },
+    { value: 'new',           label: 'Novo' },
+    { value: 'first_contact', label: '1º contato' },
+    { value: 'follow_up',     label: 'Follow-up' },
+    { value: 'contacted',     label: 'Contatado' },
+    { value: 'converted',     label: 'Convertido' },
+    { value: 'resolved',      label: 'Resolvido' },
+    { value: 'archived',      label: 'Arquivado' },
+  ],
+  '': [{ value: '', label: 'Qualquer status' }],
+};
+
 const CATEGORY_COLORS: Record<string, string> = {
   agendamento: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   matricula:   'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
@@ -508,6 +549,69 @@ function TemplateDrawer({
                     />
                   </div>
                 </div>
+
+                {/* Conditions — only for on_status_change */}
+                {form.trigger_event === 'on_status_change' && (() => {
+                  const cond = (form.trigger_conditions || {}) as Record<string, string>;
+                  const mod = (cond.module as string) || '';
+                  const statusOpts = TRIGGER_STATUS_BY_MODULE[mod] ?? TRIGGER_STATUS_BY_MODULE[''];
+                  const setCondField = (key: string, val: string) => {
+                    const next = { ...cond, [key]: val || undefined };
+                    if (!next[key]) delete next[key];
+                    setForm((p) => ({ ...p, trigger_conditions: Object.keys(next).length ? next : null }));
+                  };
+                  return (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Condições de status</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1">Módulo</label>
+                          <div className="relative">
+                            <select
+                              value={mod}
+                              onChange={(e) => {
+                                const next = { ...cond, module: e.target.value || undefined };
+                                if (!next.module) delete next.module;
+                                delete next.status; delete next.old_status;
+                                setForm((p) => ({ ...p, trigger_conditions: Object.keys(next).length ? next : null }));
+                              }}
+                              className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
+                            >
+                              {TRIGGER_MODULES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1">Status novo</label>
+                          <div className="relative">
+                            <select
+                              value={(cond.status as string) || ''}
+                              onChange={(e) => setCondField('status', e.target.value)}
+                              className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
+                            >
+                              {statusOpts.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1">Status anterior</label>
+                          <div className="relative">
+                            <select
+                              value={(cond.old_status as string) || ''}
+                              onChange={(e) => setCondField('old_status', e.target.value)}
+                              className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
+                            >
+                              {statusOpts.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {error && (

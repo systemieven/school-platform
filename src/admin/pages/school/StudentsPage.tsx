@@ -4,9 +4,168 @@ import type { Student, SchoolClass, SchoolSegment, StudentStatus } from '../../t
 import { STUDENT_STATUS_LABELS, SHIFT_LABELS, type Shift } from '../../types/admin.types';
 import {
   Users, Search, Loader2, X, GraduationCap,
-  Phone, Mail, Calendar, ChevronDown,
+  Phone, Mail, Calendar, ChevronDown, Edit3, Save, AlertCircle,
 } from 'lucide-react';
 
+// ── Student Edit Drawer ───────────────────────────────────────────────────────
+
+function StudentDrawer({ student, classes, onClose, onSaved }: {
+  student: Student;
+  classes: SchoolClass[];
+  onClose: () => void;
+  onSaved: (updated: Student) => void;
+}) {
+  const [form, setForm] = useState({
+    full_name:      student.full_name,
+    birth_date:     student.birth_date || '',
+    cpf:            student.cpf || '',
+    guardian_name:  student.guardian_name,
+    guardian_phone: student.guardian_phone,
+    guardian_email: student.guardian_email || '',
+    class_id:       student.class_id || '',
+    status:         student.status as StudentStatus,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const set = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
+
+  async function handleSave() {
+    if (!form.full_name.trim() || !form.guardian_name.trim() || !form.guardian_phone.trim()) {
+      setError('Nome do aluno, responsável e telefone são obrigatórios.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    const patch = {
+      full_name:      form.full_name.trim(),
+      birth_date:     form.birth_date || null,
+      cpf:            form.cpf.trim() || null,
+      guardian_name:  form.guardian_name.trim(),
+      guardian_phone: form.guardian_phone.trim(),
+      guardian_email: form.guardian_email.trim() || null,
+      class_id:       form.class_id || null,
+      status:         form.status,
+      updated_at:     new Date().toISOString(),
+    };
+    const { data, error: dbErr } = await supabase.from('students').update(patch).eq('id', student.id).select().single();
+    if (dbErr) { setError(dbErr.message); setSaving(false); return; }
+    onSaved(data as Student);
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+          <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Edit3 className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+            Editar Aluno
+          </h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl">
+            <X className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        {/* Enrollment number (read-only) */}
+        <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+          <p className="text-xs text-gray-400">Matrícula</p>
+          <p className="text-sm font-mono font-semibold text-gray-700 dark:text-gray-200">{student.enrollment_number}</p>
+        </div>
+
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {[
+            { label: 'Nome completo *', key: 'full_name', type: 'text' },
+            { label: 'Data de nascimento', key: 'birth_date', type: 'date' },
+            { label: 'CPF', key: 'cpf', type: 'text', placeholder: '000.000.000-00' },
+          ].map(({ label, key, type, placeholder }) => (
+            <div key={key}>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
+              <input
+                type={type}
+                value={(form as Record<string, string>)[key]}
+                onChange={(e) => set(key, e.target.value)}
+                placeholder={placeholder}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+              />
+            </div>
+          ))}
+
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Responsável</p>
+            {[
+              { label: 'Nome do responsável *', key: 'guardian_name', type: 'text' },
+              { label: 'Telefone *', key: 'guardian_phone', type: 'tel' },
+              { label: 'E-mail', key: 'guardian_email', type: 'email' },
+            ].map(({ label, key, type }) => (
+              <div key={key} className="mb-3">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
+                <input
+                  type={type}
+                  value={(form as Record<string, string>)[key]}
+                  onChange={(e) => set(key, e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Turma</label>
+              <select
+                value={form.class_id}
+                onChange={(e) => set('class_id', e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]"
+              >
+                <option value="">Sem turma</option>
+                {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
+              <select
+                value={form.status}
+                onChange={(e) => set('status', e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]"
+              >
+                {Object.entries(STUDENT_STATUS_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-xl px-3 py-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-5 py-4 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 inline-flex items-center justify-center gap-2 bg-[#003876] text-white py-2.5 rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors disabled:opacity-60"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Salvar
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [segments, setSegments] = useState<SchoolSegment[]>([]);
@@ -17,6 +176,7 @@ export default function StudentsPage() {
   const [filterClass, setFilterClass] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editStudent, setEditStudent] = useState<Student | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -221,6 +381,13 @@ export default function StudentsPage() {
                     {STUDENT_STATUS_LABELS[s.status]}
                   </span>
 
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditStudent(s); }}
+                    className="p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                    title="Editar aluno"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
                   <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -239,6 +406,19 @@ export default function StudentsPage() {
             );
           })}
         </div>
+      )}
+
+      {/* Edit drawer */}
+      {editStudent && (
+        <StudentDrawer
+          student={editStudent}
+          classes={classes}
+          onClose={() => setEditStudent(null)}
+          onSaved={(updated) => {
+            setStudents((prev) => prev.map((s) => s.id === updated.id ? { ...s, ...updated } : s));
+            setEditStudent(null);
+          }}
+        />
       )}
     </div>
   );

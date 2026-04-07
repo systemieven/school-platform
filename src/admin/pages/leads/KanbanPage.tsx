@@ -6,7 +6,7 @@ import {
   Kanban, Plus, MessageCircle, Phone, Clock, ChevronDown,
   Loader2, X, Save, AlertCircle, Star, User,
   TrendingUp, Flag, GraduationCap, Edit3, History,
-  Calendar, Mail,
+  Calendar, Mail, Settings, Trash2, ChevronUp, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -56,6 +56,220 @@ const SOURCE_LABELS: Record<string, string> = {
 
 function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
+}
+
+// ── Manage Stages Modal ───────────────────────────────────────────────────────
+
+const STAGE_COLORS = [
+  '#6366f1', '#3b82f6', '#0ea5e9', '#14b8a6', '#22c55e',
+  '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6',
+  '#64748b', '#003876',
+];
+
+function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [stages, setStages] = useState<LeadStage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editColor, setEditColor] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState(STAGE_COLORS[0]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    supabase.from('lead_stages').select('*').order('position').then(({ data }) => {
+      setStages((data as LeadStage[]) || []);
+      setLoading(false);
+    });
+  }, []);
+
+  async function saveEdit(stage: LeadStage) {
+    setSaving(true);
+    await supabase.from('lead_stages').update({ label: editLabel, color: editColor }).eq('id', stage.id);
+    setStages((prev) => prev.map((s) => s.id === stage.id ? { ...s, label: editLabel, color: editColor } : s));
+    setEditId(null);
+    setSaving(false);
+  }
+
+  async function toggleActive(stage: LeadStage) {
+    const next = !stage.is_active;
+    await supabase.from('lead_stages').update({ is_active: next }).eq('id', stage.id);
+    setStages((prev) => prev.map((s) => s.id === stage.id ? { ...s, is_active: next } : s));
+  }
+
+  async function moveStage(index: number, dir: -1 | 1) {
+    const newStages = [...stages];
+    const target = index + dir;
+    if (target < 0 || target >= newStages.length) return;
+    [newStages[index], newStages[target]] = [newStages[target], newStages[index]];
+    // Re-assign positions
+    const updates = newStages.map((s, i) => supabase.from('lead_stages').update({ position: i + 1 }).eq('id', s.id));
+    await Promise.all(updates);
+    setStages(newStages.map((s, i) => ({ ...s, position: i + 1 })));
+  }
+
+  async function deleteStage(stage: LeadStage) {
+    const { count } = await supabase.from('leads').select('id', { count: 'exact', head: true }).eq('stage', stage.name);
+    if ((count ?? 0) > 0) { setError(`A etapa "${stage.label}" tem leads. Mova-os antes de excluir.`); return; }
+    await supabase.from('lead_stages').delete().eq('id', stage.id);
+    setStages((prev) => prev.filter((s) => s.id !== stage.id));
+  }
+
+  async function addStage() {
+    if (!newLabel.trim() || !newName.trim()) { setError('Nome técnico e label são obrigatórios.'); return; }
+    const pos = (stages[stages.length - 1]?.position ?? 0) + 1;
+    const { data, error: dbErr } = await supabase.from('lead_stages').insert({
+      name: newName.trim().toLowerCase().replace(/\s+/g, '_'),
+      label: newLabel.trim(),
+      color: newColor,
+      position: pos,
+      is_active: true,
+    }).select().single();
+    if (dbErr) { setError(dbErr.message); return; }
+    setStages((prev) => [...prev, data as LeadStage]);
+    setNewLabel(''); setNewName(''); setNewColor(STAGE_COLORS[0]);
+    setError('');
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+            <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <Settings className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" />
+              Gerenciar Etapas
+            </h3>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+
+          <div className="overflow-y-auto flex-1 p-5 space-y-2">
+            {loading ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#003876]" /></div>
+            ) : stages.map((stage, i) => (
+              <div
+                key={stage.id}
+                className={`flex items-center gap-2 p-3 rounded-xl border transition-colors ${stage.is_active ? 'border-gray-200 dark:border-gray-700' : 'border-gray-100 dark:border-gray-700/50 opacity-60'}`}
+              >
+                {/* Color dot */}
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: editId === stage.id ? editColor : stage.color }} />
+
+                {editId === stage.id ? (
+                  <div className="flex-1 flex items-center gap-2">
+                    <input
+                      value={editLabel}
+                      onChange={(e) => setEditLabel(e.target.value)}
+                      className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                      autoFocus
+                    />
+                    <div className="flex gap-1 flex-wrap">
+                      {STAGE_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => setEditColor(c)}
+                          className={`w-4 h-4 rounded-full transition-transform ${editColor === c ? 'scale-125 ring-2 ring-offset-1 ring-gray-400' : ''}`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                    <button onClick={() => saveEdit(stage)} disabled={saving} className="text-[#003876] dark:text-[#ffd700] hover:opacity-70">
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    </button>
+                    <button onClick={() => setEditId(null)} className="text-gray-400 hover:text-gray-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="flex-1 text-sm text-gray-800 dark:text-gray-200">{stage.label}</span>
+                    <span className="text-[10px] text-gray-400 font-mono">{stage.name}</span>
+                  </>
+                )}
+
+                {editId !== stage.id && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => moveStage(i, -1)} disabled={i === 0} className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => moveStage(i, 1)} disabled={i === stages.length - 1} className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => { setEditId(stage.id); setEditLabel(stage.label); setEditColor(stage.color); }} className="p-1 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700]">
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => toggleActive(stage)} className={`p-1 ${stage.is_active ? 'text-emerald-500' : 'text-gray-400'} hover:opacity-70`} title={stage.is_active ? 'Desativar' : 'Ativar'}>
+                      {stage.is_active ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                    </button>
+                    <button onClick={() => deleteStage(stage)} className="p-1 text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Add new */}
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-4 mt-4">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3">Nova etapa</p>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <label className="text-[10px] text-gray-400 mb-0.5 block">Label (exibido)</label>
+                  <input
+                    value={newLabel}
+                    onChange={(e) => setNewLabel(e.target.value)}
+                    placeholder="Ex: Em negociação"
+                    className="w-full text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 mb-0.5 block">Nome técnico</label>
+                  <input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="ex: negotiating"
+                    className="w-full text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-mono"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] text-gray-400">Cor:</span>
+                {STAGE_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setNewColor(c)}
+                    className={`w-5 h-5 rounded-full transition-transform ${newColor === c ? 'scale-125 ring-2 ring-offset-1 ring-gray-400' : ''}`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+              {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
+              <button
+                onClick={addStage}
+                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-[#003876] text-white rounded-lg hover:bg-[#002855] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Adicionar etapa
+              </button>
+            </div>
+          </div>
+
+          <div className="px-5 pb-5 flex-shrink-0">
+            <button
+              onClick={() => { onSaved(); onClose(); }}
+              className="w-full py-2.5 bg-[#003876] text-white rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors"
+            >
+              Concluir
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
 
 // ── New Lead Modal ────────────────────────────────────────────────────────────
@@ -563,10 +777,11 @@ export default function KanbanPage() {
   const [stages, setStages]   = useState<LeadStage[]>([]);
   const [leads, setLeads]     = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newModal, setNewModal]   = useState(false);
-  const [waLead, setWaLead]       = useState<Lead | null>(null);
+  const [newModal, setNewModal]       = useState(false);
+  const [manageStages, setManageStages] = useState(false);
+  const [waLead, setWaLead]           = useState<Lead | null>(null);
   const [filterPriority, setFilterPriority] = useState<Priority | 'all'>('all');
-  const [detailLead, setDetailLead] = useState<Lead | null>(null);
+  const [detailLead, setDetailLead]   = useState<Lead | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -629,13 +844,22 @@ export default function KanbanPage() {
             {total} lead{total !== 1 ? 's' : ''} no funil
           </p>
         </div>
-        <button
-          onClick={() => setNewModal(true)}
-          className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#002855] hover:shadow-lg transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Lead
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setManageStages(true)}
+            className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+          >
+            <Settings className="w-4 h-4" />
+            Etapas
+          </button>
+          <button
+            onClick={() => setNewModal(true)}
+            className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#002855] hover:shadow-lg transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Lead
+          </button>
+        </div>
       </div>
 
       {/* Stats bar */}
@@ -692,6 +916,14 @@ export default function KanbanPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Manage Stages Modal */}
+      {manageStages && (
+        <ManageStagesModal
+          onClose={() => setManageStages(false)}
+          onSaved={() => { load(); }}
+        />
       )}
 
       {/* New Lead Modal */}
