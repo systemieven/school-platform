@@ -92,12 +92,20 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh }: DrawerProps) {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [tab, setTab] = useState<'info' | 'timeline'>('info');
   const [converting, setConverting] = useState<'enrollment' | 'appointment' | null>(null);
+  const [assignedTo, setAssignedTo] = useState<string>('');
+  const [adminProfiles, setAdminProfiles] = useState<{ id: string; full_name: string }[]>([]);
+
+  useEffect(() => {
+    supabase.from('profiles').select('id, full_name').in('role', ['super_admin', 'admin', 'coordinator']).eq('is_active', true)
+      .then(({ data }) => setAdminProfiles((data as { id: string; full_name: string }[]) || []));
+  }, []);
 
   useEffect(() => {
     if (contact) {
       setNotes(contact.internal_notes || '');
       setNewStatus('');
       setNextDate(contact.next_contact_date || '');
+      setAssignedTo(contact.assigned_to || '');
       setTab('info');
     }
   }, [contact]);
@@ -131,6 +139,13 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh }: DrawerProps) {
     const { error } = await supabase.from('contact_requests').update({ next_contact_date: nextDate || null }).eq('id', contact!.id);
     if (!error) onUpdate(contact!.id, { next_contact_date: nextDate || null });
     setSaving(false);
+  }
+
+  async function saveAssignedTo(newAssigned: string) {
+    setAssignedTo(newAssigned);
+    const val = newAssigned || null;
+    await supabase.from('contact_requests').update({ assigned_to: val }).eq('id', contact!.id);
+    onUpdate(contact!.id, { assigned_to: val });
   }
 
   async function toggleLead() {
@@ -337,6 +352,21 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh }: DrawerProps) {
                     className="px-3 py-2 bg-[#003876] text-white rounded-xl text-xs disabled:opacity-40 hover:bg-[#002855] transition-colors">
                     {saving ? '...' : 'Salvar'}
                   </button>
+                </div>
+              </div>
+
+              {/* Assigned to */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Responsável</label>
+                <div className="relative">
+                  <select value={assignedTo} onChange={(e) => saveAssignedTo(e.target.value)}
+                    className="w-full px-3 py-2 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none appearance-none">
+                    <option value="">Ninguém atribuído</option>
+                    {adminProfiles.map((p) => (
+                      <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
               </div>
 

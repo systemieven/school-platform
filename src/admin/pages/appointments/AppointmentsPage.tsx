@@ -19,13 +19,12 @@ const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; d
   no_show:   { label: 'Não Veio',   color: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',     dot: 'bg-gray-400' },
 };
 
-const REASON_LABELS: Record<string, string> = {
+// Fallback — overridden by visit_settings from DB
+const DEFAULT_REASON_LABELS: Record<string, string> = {
   conhecer_escola:      'Conhecer a Escola',
   matricula:            'Pré-Matrícula',
   entrega_documentos:   'Entrega de Documentos',
   conversa_pedagogica:  'Conversa Pedagógica',
-  'Entrega de documentos': 'Entrega de Documentos',
-  'Entrevista de matrícula': 'Entrevista de Matrícula',
   outros:               'Outros',
 };
 
@@ -80,7 +79,7 @@ function TimelinePanel({ appointmentId }: { appointmentId: string }) {
 }
 
 // ── Create Modal ─────────────────────────────────────────────────────────────
-function CreateAppointmentModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose: () => void; onCreated: () => void; reasonLabels: Record<string, string> }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     visitor_name: '',
@@ -142,7 +141,7 @@ function CreateAppointmentModal({ onClose, onCreated }: { onClose: () => void; o
           <div>
             <label className={labelClass}>Motivo da visita</label>
             <select value={form.visit_reason} onChange={(e) => set('visit_reason', e.target.value)} className={fieldClass}>
-              {Object.entries(REASON_LABELS).map(([k, v]) => (
+              {Object.entries(reasonLabels).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
             </select>
@@ -442,6 +441,7 @@ function AppointmentDrawer({ apt, onClose, onUpdate }: DrawerProps) {
 
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function AppointmentsPage() {
+  const { profile } = useAdminAuth();
   const [appointments, setAppointments] = useState<VisitAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -453,6 +453,19 @@ export default function AppointmentsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchSaving, setBatchSaving] = useState(false);
+  const [REASON_LABELS, setReasonLabels] = useState<Record<string, string>>(DEFAULT_REASON_LABELS);
+
+  // Load visit reasons from DB
+  useEffect(() => {
+    supabase.from('visit_settings').select('reason_key, reason_label').eq('is_active', true)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const map: Record<string, string> = {};
+          (data as { reason_key: string; reason_label: string }[]).forEach((r) => { map[r.reason_key] = r.reason_label; });
+          setReasonLabels(map);
+        }
+      });
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -516,8 +529,8 @@ export default function AppointmentsPage() {
     setBatchSaving(true);
     const ids = Array.from(selectedIds);
     const patch: Record<string, unknown> = { status: newStatus };
-    if (newStatus === 'confirmed') patch.confirmed_at = new Date().toISOString();
-    if (newStatus === 'cancelled') patch.cancelled_at = new Date().toISOString();
+    if (newStatus === 'confirmed') { patch.confirmed_at = new Date().toISOString(); patch.confirmed_by = profile?.id || null; }
+    if (newStatus === 'cancelled') { patch.cancelled_at = new Date().toISOString(); patch.cancelled_by = profile?.id || null; }
 
     const { error } = await supabase.from('visit_appointments').update(patch).in('id', ids);
     if (!error) {
@@ -725,7 +738,7 @@ export default function AppointmentsPage() {
       )}
 
       {showCreate && (
-        <CreateAppointmentModal onClose={() => setShowCreate(false)} onCreated={fetchData} />
+        <CreateAppointmentModal onClose={() => setShowCreate(false)} onCreated={fetchData} reasonLabels={REASON_LABELS} />
       )}
     </div>
   );

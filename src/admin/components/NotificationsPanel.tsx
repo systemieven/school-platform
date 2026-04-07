@@ -1,9 +1,11 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, CalendarCheck, GraduationCap, MessageSquare,
-  RefreshCw, CheckCheck, X, Inbox, WifiOff,
+  RefreshCw, CheckCheck, X, Inbox, WifiOff, Settings, Volume2, VolumeX,
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useAdminAuth } from '../hooks/useAdminAuth';
 import type { Notification, NotificationType } from '../types/admin.types';
 
 // ── Type config ──────────────────────────────────────────────────────────────
@@ -33,10 +35,66 @@ interface Props {
   onMarkAllRead: () => void;
 }
 
+const NOTIF_TYPE_LABELS: Record<string, string> = {
+  new_appointment: 'Novos agendamentos',
+  new_enrollment: 'Novas matrículas',
+  new_contact: 'Novos contatos',
+  status_change: 'Mudanças de status',
+  wa_disconnected: 'WhatsApp desconectado',
+};
+
+const ALL_TYPES = Object.keys(NOTIF_TYPE_LABELS);
+
 export default function NotificationsPanel({ notifications, onClose, onMarkRead, onMarkAllRead }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { profile } = useAdminAuth();
   const unread = notifications.filter((n) => !n.is_read).length;
+  const [showPrefs, setShowPrefs] = useState(false);
+  const [enabledTypes, setEnabledTypes] = useState<string[]>(ALL_TYPES);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+
+  // Load preferences
+  const loadPrefs = useCallback(async () => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from('notification_preferences')
+      .select('enabled_types, sound_enabled')
+      .eq('user_id', profile.id)
+      .single();
+    if (data) {
+      setEnabledTypes(data.enabled_types || ALL_TYPES);
+      setSoundEnabled(data.sound_enabled ?? true);
+    }
+    setPrefsLoaded(true);
+  }, [profile]);
+
+  useEffect(() => { loadPrefs(); }, [loadPrefs]);
+
+  async function savePrefs(types: string[], sound: boolean) {
+    if (!profile) return;
+    await supabase.from('notification_preferences').upsert({
+      user_id: profile.id,
+      enabled_types: types,
+      sound_enabled: sound,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  function toggleType(type: string) {
+    const next = enabledTypes.includes(type)
+      ? enabledTypes.filter((t) => t !== type)
+      : [...enabledTypes, type];
+    setEnabledTypes(next);
+    savePrefs(next, soundEnabled);
+  }
+
+  function toggleSound() {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    savePrefs(enabledTypes, next);
+  }
 
   // Close on outside click
   useEffect(() => {
@@ -84,6 +142,13 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
             </button>
           )}
           <button
+            onClick={() => setShowPrefs(!showPrefs)}
+            className={`p-1 rounded-lg transition-colors ${showPrefs ? 'text-[#003876] dark:text-[#ffd700] bg-gray-100 dark:bg-gray-700' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            title="Preferências de notificação"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+          <button
             onClick={onClose}
             className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
@@ -91,6 +156,34 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
           </button>
         </div>
       </div>
+
+      {/* Preferences */}
+      {showPrefs && prefsLoaded && (
+        <div className="border-b border-gray-100 dark:border-gray-700 px-4 py-3 space-y-2 bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Preferências</p>
+            <button onClick={toggleSound} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+              {soundEnabled ? 'Som ligado' : 'Som desligado'}
+            </button>
+          </div>
+          <div className="space-y-1">
+            {ALL_TYPES.map((type) => (
+              <label key={type} className="flex items-center gap-2 py-1 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={enabledTypes.includes(type)}
+                  onChange={() => toggleType(type)}
+                  className="rounded border-gray-300 dark:border-gray-600 text-[#003876] focus:ring-[#003876]/20"
+                />
+                <span className="text-xs text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                  {NOTIF_TYPE_LABELS[type] || type}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* List */}
       <div className="overflow-y-auto flex-1">
