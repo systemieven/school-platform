@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   User, Phone, Mail, Clock, MapPin, MessageSquare,
   CheckCircle2, XCircle, Loader2, Send, ChevronRight,
-  Sunrise, Sunset,
+  Sunrise, Sunset, PhoneCall, MessageCircle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
@@ -22,17 +22,19 @@ function validateEmail(email: string) {
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type BestTime = 'morning' | 'afternoon' | null;
-type Segment  = 'educacao_infantil' | 'fundamental_1' | 'fundamental_2' | 'ensino_medio' | null;
-type HowFound = 'indicacao' | 'redes_sociais' | 'google' | 'passou_na_frente' | 'outro' | null;
-type Count    = '1' | '2' | '3+' | null;
-type Errors   = Partial<Record<string, string>>;
+type BestTime    = 'morning' | 'afternoon' | null;
+type ContactVia  = 'phone_call' | 'whatsapp' | 'email' | null;
+type Segment     = 'educacao_infantil' | 'fundamental_1' | 'fundamental_2' | 'ensino_medio' | null;
+type HowFound    = 'indicacao' | 'redes_sociais' | 'google' | 'passou_na_frente' | 'outro' | null;
+type Count       = '1' | '2' | '3+' | null;
+type Errors      = Partial<Record<string, string>>;
 
 interface FormState {
   name: string;
   phone: string;
   email: string;
   bestTime: BestTime;
+  contactVia: ContactVia;
   segmentInterest: Segment;
   studentCount: Count;
   howFoundUs: HowFound;
@@ -124,7 +126,7 @@ export default function Contato() {
 
   const [form, setForm] = useState<FormState>({
     name: '', phone: '', email: '',
-    bestTime: null, segmentInterest: null,
+    bestTime: null, contactVia: null, segmentInterest: null,
     studentCount: null, howFoundUs: null,
     wantsVisit: false, message: '',
   });
@@ -163,6 +165,7 @@ export default function Contato() {
         phone:            form.phone,
         email:            form.email || null,
         best_time:        form.bestTime,
+        contact_via:      form.contactVia,
         segment_interest: form.segmentInterest,
         student_count:    form.studentCount,
         how_found_us:     form.howFoundUs,
@@ -377,6 +380,20 @@ export default function Contato() {
                             { value: 'afternoon', label: 'Tarde', icon: <Sunset className="w-4 h-4" /> },
                           ]}
                         />
+
+                        {/* Melhor meio de contato */}
+                        <ToggleGroup
+                          label="Melhor meio de contato"
+                          value={form.contactVia}
+                          onChange={(v) => set('contactVia', v)}
+                          options={[
+                            { value: 'phone_call', label: 'Ligação',  icon: <PhoneCall className="w-4 h-4" /> },
+                            { value: 'whatsapp',   label: 'WhatsApp', icon: <MessageCircle className="w-4 h-4" /> },
+                            ...(form.email.trim()
+                              ? [{ value: 'email' as ContactVia & string, label: 'E-mail', icon: <Mail className="w-4 h-4" /> }]
+                              : []),
+                          ]}
+                        />
                       </div>
                     </div>
 
@@ -390,7 +407,7 @@ export default function Contato() {
                         {/* Segmento */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Qual segmento tem interesse?
+                            Qual segmento educacional tem interesse?
                           </label>
                           <div className="grid grid-cols-2 gap-2">
                             {SEGMENTS.map((seg) => (
