@@ -18,6 +18,7 @@ export interface UazApiStatus {
   plugged?: boolean;
   qrcode?: string;
   pairingCode?: string;
+  loggedIn?: boolean;
   [key: string]: unknown;
 }
 
@@ -71,8 +72,30 @@ export async function checkUazApiStatus(): Promise<{
 }> {
   const { data, error } = await callProxy('/instance/status', 'GET');
   if (error) return { connected: false, error };
-  const status = data as UazApiStatus;
-  return { connected: status?.state === 'connected', status };
+
+  // UazAPI v2 returns { instance: {...}, status: { connected: bool, ... } }
+  const d = data as {
+    instance?: Record<string, unknown>;
+    status?:   Record<string, unknown>;
+  } | null;
+
+  const connected =
+    d?.status?.['connected'] === true ||
+    d?.instance?.['status'] === 'connected';
+
+  // Normalise to our UazApiStatus shape
+  const raw = d?.instance || {};
+  const phone = String(raw['owner'] || '').replace(/:.*$/, ''); // strip WA resource
+  const status: UazApiStatus = {
+    state:      connected ? 'connected' : 'disconnected',
+    name:       String(raw['profileName'] || raw['name'] || ''),
+    phone:      phone || undefined,
+    loggedIn:   d?.status?.['loggedIn'] as boolean | undefined,
+    qrcode:     String(raw['qrcode'] || '') || undefined,
+    pairingCode: String(raw['paircode'] || '') || undefined,
+  };
+
+  return { connected, status };
 }
 
 // ── Register webhook ──────────────────────────────────────────────────────────
