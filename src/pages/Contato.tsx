@@ -218,7 +218,7 @@ export default function Contato() {
       <section className="relative h-[55vh] min-h-[400px] overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=2070"
+            src="https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&q=80&w=2070"
             alt="Colégio Batista"
             className="w-full h-full object-cover"
           />
