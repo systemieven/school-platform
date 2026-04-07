@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User, Phone, Mail, Clock, MapPin, MessageSquare,
@@ -9,7 +9,23 @@ import {
 import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import { useSettings } from '../hooks/useSettings';
 import LegalConsent from '../components/LegalConsent';
+
+const CONTACT_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  GraduationCap, Building2, HelpCircle, Lightbulb, AlertCircle, Handshake, Calendar, MoreHorizontal, MessageSquare,
+};
+
+const DEFAULT_CONTACT_REASONS = [
+  { value: 'matricula',          label: 'Interesse em matrícula',   icon: 'GraduationCap' },
+  { value: 'conhecer_estrutura', label: 'Conhecer a estrutura',     icon: 'Building2' },
+  { value: 'duvidas',            label: 'Dúvidas',                  icon: 'HelpCircle' },
+  { value: 'sugestoes',          label: 'Sugestões',                icon: 'Lightbulb' },
+  { value: 'reclamacoes',        label: 'Reclamações',              icon: 'AlertCircle' },
+  { value: 'parcerias',          label: 'Parcerias',                icon: 'Handshake' },
+  { value: 'eventos',            label: 'Eventos',                  icon: 'Calendar' },
+  { value: 'outro',              label: 'Outro assunto',            icon: 'MoreHorizontal' },
+];
 
 // ── Masks ──────────────────────────────────────────────────────────────────
 function maskPhone(v: string) {
@@ -25,7 +41,7 @@ function validateEmail(email: string) {
 // ── Types ──────────────────────────────────────────────────────────────────
 type BestTime      = 'morning' | 'afternoon' | null;
 type ContactVia    = 'phone_call' | 'whatsapp' | 'email' | null;
-type ContactReason = 'matricula' | 'conhecer_estrutura' | 'duvidas' | 'sugestoes' | 'reclamacoes' | 'parcerias' | 'eventos' | 'outro' | null;
+type ContactReason = string | null;
 type Segment       = 'educacao_infantil' | 'fundamental_1' | 'fundamental_2' | 'ensino_medio' | null;
 type HowFound      = 'indicacao' | 'redes_sociais' | 'google' | 'passou_na_frente' | 'outro' | null;
 type Count         = '1' | '2' | '3+' | null;
@@ -126,6 +142,21 @@ export default function Contato() {
   const navigate  = useNavigate();
   const formRef   = useScrollReveal();
   const infoRef   = useScrollReveal();
+  const { settings: contactSettings } = useSettings('contact');
+
+  const contactReasons = useMemo(() => {
+    if (Array.isArray(contactSettings.contact_reasons) && contactSettings.contact_reasons.length > 0) {
+      return (contactSettings.contact_reasons as Array<{ value?: string; key?: string; label: string; icon?: string }>).map((r) => ({
+        value: r.value || r.key || r.label.toLowerCase().replace(/\s+/g, '_'),
+        label: r.label,
+        icon: (r.icon && CONTACT_ICON_MAP[r.icon]) || MessageSquare,
+      }));
+    }
+    return DEFAULT_CONTACT_REASONS.map((r) => ({
+      ...r,
+      icon: CONTACT_ICON_MAP[r.icon] || MessageSquare,
+    }));
+  }, [contactSettings.contact_reasons]);
 
   const [form, setForm] = useState<FormState>({
     name: '', phone: '', email: '',
@@ -407,16 +438,7 @@ export default function Contato() {
                             Motivo do contato
                           </label>
                           <div className="grid grid-cols-2 gap-2">
-                            {([
-                              { value: 'matricula',          label: 'Interesse em matrícula',   icon: GraduationCap },
-                              { value: 'conhecer_estrutura', label: 'Conhecer a estrutura',     icon: Building2 },
-                              { value: 'duvidas',            label: 'Dúvidas',                  icon: HelpCircle },
-                              { value: 'sugestoes',          label: 'Sugestões',                icon: Lightbulb },
-                              { value: 'reclamacoes',        label: 'Reclamações',              icon: AlertCircle },
-                              { value: 'parcerias',          label: 'Parcerias',                icon: Handshake },
-                              { value: 'eventos',            label: 'Eventos',                  icon: Calendar },
-                              { value: 'outro',              label: 'Outro assunto',            icon: MoreHorizontal },
-                            ] as const).map(({ value, label, icon: Icon }) => (
+                            {contactReasons.map(({ value, label, icon: Icon }) => (
                               <button
                                 key={value}
                                 type="button"

@@ -85,7 +85,7 @@ const TABS: TabDef[] = [
 ];
 
 // ── Field metadata ───────────────────────────────────────────────────────────
-const KEY_META: Record<string, { label: string; placeholder?: string; secret?: boolean; multiline?: boolean }> = {
+const KEY_META: Record<string, { label: string; placeholder?: string; secret?: boolean; multiline?: boolean; type?: 'text' | 'boolean' | 'number' | 'time' | 'color' }> = {
   // general
   school_name:    { label: 'Nome da Escola', placeholder: 'Ex: Colégio Batista em Caruaru' },
   cnpj:           { label: 'CNPJ', placeholder: '00.000.000/0000-00' },
@@ -101,9 +101,9 @@ const KEY_META: Record<string, { label: string; placeholder?: string; secret?: b
   webhook_secret: { label: 'Chave Secreta do Webhook', placeholder: '(gerado automaticamente)', secret: true },
   webhook_url:    { label: 'URL do Webhook Registrado', placeholder: '(preenchido após registro)' },
   // enrollment
-  min_age:        { label: 'Idade Mínima', placeholder: '2' },
-  require_parents_data: { label: 'Exigir Dados dos Pais', placeholder: 'true / false' },
-  require_documents:    { label: 'Exigir Documentos', placeholder: 'true / false' },
+  min_age:        { label: 'Idade Mínima', placeholder: '2', type: 'number' },
+  require_parents_data: { label: 'Exigir Dados dos Pais', type: 'boolean' },
+  require_documents:    { label: 'Exigir Documentos', type: 'boolean' },
   required_docs_list:   { label: 'Lista de Documentos Obrigatórios', placeholder: '["RG", "CPF", ...]', multiline: true },
   // contact
   required_fields:  { label: 'Campos Obrigatórios', placeholder: '["nome", "celular"]', multiline: true },
@@ -111,17 +111,30 @@ const KEY_META: Record<string, { label: string; placeholder?: string; secret?: b
   // visit
   reasons:          { label: 'Motivos de Visita', placeholder: '[{ "key": "...", "label": "..." }]', multiline: true },
   blocked_weekdays: { label: 'Dias Bloqueados (0=Dom)', placeholder: '[0, 6]' },
-  lunch_start:      { label: 'Início do Almoço', placeholder: '12:00' },
-  lunch_end:        { label: 'Fim do Almoço', placeholder: '13:30' },
+  lunch_start:      { label: 'Início do Almoço', placeholder: '12:00', type: 'time' },
+  lunch_end:        { label: 'Fim do Almoço', placeholder: '13:30', type: 'time' },
+  slot_duration:    { label: 'Duração do Slot (minutos)', placeholder: '30', type: 'number' },
+  max_per_slot:     { label: 'Máx. Visitas por Slot', placeholder: '2', type: 'number' },
+  start_hour:       { label: 'Horário de Início', placeholder: '08:00', type: 'time' },
+  end_hour:         { label: 'Horário de Término', placeholder: '17:00', type: 'time' },
+  // enrollment (extra)
+  segments_available: { label: 'Segmentos Disponíveis para Matrícula', placeholder: '["Educação Infantil", ...]', multiline: true },
+  // contact (extra)
+  auto_qualify_as_lead: { label: 'Qualificar Contato como Lead Automaticamente', type: 'boolean' },
+  sla_hours:            { label: 'SLA de Resposta (horas)', placeholder: '48', type: 'number' },
   // notifications
-  admin_email_alerts:     { label: 'Alertas por E-mail (Admin)', placeholder: 'true / false' },
-  auto_notify_on_contact: { label: 'Notificar ao Receber Contato', placeholder: 'true / false' },
-  auto_notify_on_visit:   { label: 'Notificar ao Receber Agendamento', placeholder: 'true / false' },
+  admin_email_alerts:      { label: 'Alertas por E-mail (Admin)', type: 'boolean' },
+  auto_notify_on_contact:  { label: 'Notificar ao Receber Contato', type: 'boolean' },
+  auto_notify_on_visit:    { label: 'Notificar ao Receber Agendamento', type: 'boolean' },
+  auto_notify_on_enrollment: { label: 'Notificar ao Receber Matrícula', type: 'boolean' },
+  reminder_hours_before:   { label: 'Lembrete Antes da Visita (horas)', placeholder: '24', type: 'number' },
   // appearance
   hero_title:              { label: 'Título do Hero', placeholder: 'Educação que Transforma Vidas' },
   hero_subtitle:           { label: 'Subtítulo do Hero', placeholder: 'Há mais de 20 anos...' },
-  enrollment_banner_active:{ label: 'Banner de Matrículas Ativo', placeholder: 'true / false' },
+  enrollment_banner_active:{ label: 'Banner de Matrículas Ativo', type: 'boolean' },
   enrollment_banner_text:  { label: 'Texto do Banner', placeholder: 'Matrículas 2026 abertas' },
+  primary_color:           { label: 'Cor Primária', placeholder: '#003876', type: 'color' },
+  accent_color:            { label: 'Cor de Destaque', placeholder: '#ffd700', type: 'color' },
 };
 
 const TABS_STORAGE_KEY = 'settings_tabs_collapsed';
@@ -391,25 +404,14 @@ export default function SettingsPage() {
               ) : tabSettings.length === 0 ? (
                 <EmptyTabState tab={currentTab} />
               ) : (
-                <div className="space-y-6">
-                  {tabSettings.map((item) => {
-                    const meta = KEY_META[item.key] || { label: item.key };
-                    const isChanged = editValues[item.id] !== toStr(item.value);
-
-                    return (
-                      <SettingField
-                        key={item.id}
-                        item={item}
-                        meta={meta}
-                        value={editValues[item.id] || ''}
-                        isChanged={isChanged}
-                        onChange={(val) =>
-                          setEditValues((prev) => ({ ...prev, [item.id]: val }))
-                        }
-                      />
-                    );
-                  })}
-                </div>
+                <SettingsFieldGroup
+                  settings={tabSettings}
+                  editValues={editValues}
+                  toStr={toStr}
+                  onChange={(id, val) =>
+                    setEditValues((prev) => ({ ...prev, [id]: val }))
+                  }
+                />
               )}
             </div>
           </div>
@@ -598,7 +600,7 @@ function WhatsAppProvidersPanel() {
 // ── Setting Field ────────────────────────────────────────────────────────────
 interface SettingFieldProps {
   item: SystemSetting;
-  meta: { label: string; placeholder?: string; secret?: boolean; multiline?: boolean };
+  meta: { label: string; placeholder?: string; secret?: boolean; multiline?: boolean; type?: string };
   value: string;
   isChanged: boolean;
   onChange: (val: string) => void;
@@ -637,19 +639,81 @@ function SettingField({ item, meta, value, isChanged, onChange }: SettingFieldPr
     }
   `;
 
+  const fieldLabel = (
+    <div className="flex items-center gap-2 mb-1.5">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{meta.label}</label>
+      {isChanged && (
+        <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+          Alterado
+        </span>
+      )}
+    </div>
+  );
+
+  const fieldDesc = item.description ? (
+    <p className="text-xs text-gray-400 mb-2">{item.description}</p>
+  ) : null;
+
+  // Boolean toggle
+  if (meta.type === 'boolean') {
+    const isOn = value === 'true';
+    return (
+      <div className="flex items-center justify-between gap-4 py-1">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{meta.label}</p>
+          {item.description && <p className="text-xs text-gray-400 mt-0.5">{item.description}</p>}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isChanged && (
+            <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+              Alterado
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => onChange(isOn ? 'false' : 'true')}
+            className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+              isOn ? 'bg-[#003876] dark:bg-[#ffd700]' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              isOn ? 'translate-x-5' : ''
+            }`} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Color picker
+  if (meta.type === 'color') {
+    return (
+      <div>
+        {fieldLabel}
+        {fieldDesc}
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={value || meta.placeholder || '#000000'}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer p-0.5"
+          />
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={meta.placeholder}
+            className={`${inputBase} flex-1`}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div className="flex items-center gap-2 mb-1.5">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{meta.label}</label>
-        {isChanged && (
-          <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">
-            Alterado
-          </span>
-        )}
-      </div>
-      {item.description && (
-        <p className="text-xs text-gray-400 mb-2">{item.description}</p>
-      )}
+      {fieldLabel}
+      {fieldDesc}
 
       {meta.multiline ? (
         <textarea
@@ -678,12 +742,61 @@ function SettingField({ item, meta, value, isChanged, onChange }: SettingFieldPr
         </div>
       ) : (
         <input
-          type="text"
+          type={meta.type === 'number' ? 'number' : meta.type === 'time' ? 'time' : 'text'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={meta.placeholder}
           className={inputBase}
         />
+      )}
+    </div>
+  );
+}
+
+// ── Settings field group (separates booleans from other fields) ──────────────
+function SettingsFieldGroup({ settings, editValues, toStr, onChange }: {
+  settings: SystemSetting[];
+  editValues: Record<string, string>;
+  toStr: (v: unknown) => string;
+  onChange: (id: string, val: string) => void;
+}) {
+  const booleanFields = settings.filter((s) => (KEY_META[s.key] || {}).type === 'boolean');
+  const otherFields = settings.filter((s) => (KEY_META[s.key] || {}).type !== 'boolean');
+
+  return (
+    <div className="space-y-6">
+      {otherFields.map((item) => {
+        const meta = KEY_META[item.key] || { label: item.key };
+        const isChanged = editValues[item.id] !== toStr(item.value);
+        return (
+          <SettingField
+            key={item.id} item={item} meta={meta}
+            value={editValues[item.id] || ''} isChanged={isChanged}
+            onChange={(val) => onChange(item.id, val)}
+          />
+        );
+      })}
+
+      {booleanFields.length > 0 && otherFields.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
+          <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-gray-400 mb-3">Opções</p>
+        </div>
+      )}
+
+      {booleanFields.length > 0 && (
+        <div className="bg-gray-50 dark:bg-gray-900/30 rounded-xl p-4 space-y-3">
+          {booleanFields.map((item) => {
+            const meta = KEY_META[item.key] || { label: item.key };
+            const isChanged = editValues[item.id] !== toStr(item.value);
+            return (
+              <SettingField
+                key={item.id} item={item} meta={meta}
+                value={editValues[item.id] || ''} isChanged={isChanged}
+                onChange={(val) => onChange(item.id, val)}
+              />
+            );
+          })}
+        </div>
       )}
     </div>
   );

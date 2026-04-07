@@ -23,24 +23,24 @@ import {
 import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import { useSettings } from '../hooks/useSettings';
 import LegalConsent from '../components/LegalConsent';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Fallback constants (used when DB settings are not yet loaded) ───────────
 
-const VISIT_REASONS = [
-  { key: 'conhecer_estrutura',     label: 'Conhecer a estrutura',       icon: Building2 },
-  { key: 'coordenacao',            label: 'Conversar com coordenação',  icon: Users },
-  { key: 'gestora',                label: 'Conversar com a gestora',    icon: User },
-  { key: 'entrega_documentos',     label: 'Entrega de documentos',      icon: FileText },
-  { key: 'assinatura_contratos',   label: 'Assinatura de contratos',    icon: FileText },
-  { key: 'solicitacao_documentos', label: 'Solicitação de documentos',  icon: FileText },
+const DEFAULT_VISIT_REASONS = [
+  { key: 'conhecer_estrutura',     label: 'Conhecer a estrutura',       icon: 'Building2' },
+  { key: 'coordenacao',            label: 'Conversar com coordenação',  icon: 'Users' },
+  { key: 'gestora',                label: 'Conversar com a gestora',    icon: 'User' },
+  { key: 'entrega_documentos',     label: 'Entrega de documentos',      icon: 'FileText' },
+  { key: 'assinatura_contratos',   label: 'Assinatura de contratos',    icon: 'FileText' },
+  { key: 'solicitacao_documentos', label: 'Solicitação de documentos',  icon: 'FileText' },
 ];
 
-const VISIT_DURATION = 60; // minutos
-const START_HOUR = 9;
-const END_HOUR = 17;
-const LUNCH_START = 12;
-const LUNCH_END = 14;
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Building2, Users, User, FileText,
+};
+
 const MAX_COMPANIONS = 3;
 
 const MONTH_NAMES = [
@@ -57,16 +57,14 @@ function maskPhone(v: string) {
     .replace(/(\d{5})(\d)/, '$1-$2');
 }
 
-function generateSlots(): string[] {
+function generateSlots(startHour: number, endHour: number, lunchStart: number, lunchEnd: number): string[] {
   const slots: string[] = [];
-  for (let h = START_HOUR; h < END_HOUR; h++) {
-    if (h >= LUNCH_START && h < LUNCH_END) continue;
+  for (let h = startHour; h < endHour; h++) {
+    if (h >= lunchStart && h < lunchEnd) continue;
     slots.push(`${String(h).padStart(2, '0')}:00`);
   }
   return slots;
 }
-
-const ALL_SLOTS = generateSlots();
 
 function getCalendarDays(year: number, month: number): (Date | null)[] {
   const first = new Date(year, month, 1);
@@ -91,7 +89,6 @@ function isPast(d: Date) {
   return d < today;
 }
 
-function isWeekend(d: Date) { return d.getDay() === 0 || d.getDay() === 6; }
 
 function dateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -101,10 +98,12 @@ function formatDateLong(d: Date) {
   return `${d.getDate()} de ${MONTH_NAMES[d.getMonth()]} de ${d.getFullYear()}`;
 }
 
-function formatTimeRange(time: string) {
-  const [h] = time.split(':').map(Number);
-  const end = h + 1;
-  return `${time} – ${String(end).padStart(2, '0')}:00`;
+function formatTimeRange(time: string, durationMin = 60) {
+  const [h, m] = time.split(':').map(Number);
+  const totalMin = h * 60 + m + durationMin;
+  const endH = Math.floor(totalMin / 60);
+  const endM = totalMin % 60;
+  return `${time} – ${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 }
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
@@ -160,6 +159,41 @@ export default function AgendarVisita() {
   const location  = useLocation();
   const heroRef   = useScrollReveal();
   const bodyRef   = useScrollReveal();
+  const { settings: visitSettings } = useSettings('visit');
+
+  // Dynamic config from system_settings (with fallbacks)
+  const startHour   = Number(visitSettings.start_hour?.toString().split(':')[0]) || 9;
+  const endHour     = Number(visitSettings.end_hour?.toString().split(':')[0]) || 17;
+  const lunchStart  = Number(visitSettings.lunch_start?.toString().split(':')[0]) || 12;
+  const lunchEnd    = Number(visitSettings.lunch_end?.toString().split(':')[0]) || 14;
+  const slotDuration = Number(visitSettings.slot_duration) || 60;
+  const blockedWeekdays = new Set<number>(
+    Array.isArray(visitSettings.blocked_weekdays) ? visitSettings.blocked_weekdays as number[] : [0, 6],
+  );
+
+  const ALL_SLOTS = useMemo(
+    () => generateSlots(startHour, endHour, lunchStart, lunchEnd),
+    [startHour, endHour, lunchStart, lunchEnd],
+  );
+
+  const VISIT_REASONS = useMemo(() => {
+    if (Array.isArray(visitSettings.reasons) && visitSettings.reasons.length > 0) {
+      return (visitSettings.reasons as Array<{ key: string; label: string; icon?: string }>).map((r) => ({
+        key: r.key,
+        label: r.label,
+        icon: (r.icon && ICON_MAP[r.icon]) || FileText,
+      }));
+    }
+    return DEFAULT_VISIT_REASONS.map((r) => ({
+      ...r,
+      icon: ICON_MAP[r.icon] || FileText,
+    }));
+  }, [visitSettings.reasons]);
+
+  const isBlockedDay = useCallback(
+    (d: Date) => blockedWeekdays.has(d.getDay()),
+    [blockedWeekdays],
+  );
 
   // ── Step state ──
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -384,7 +418,7 @@ export default function AgendarVisita() {
         companions:      companions.filter((c) => c.trim()),
         appointment_date: dateKey(selectedDate),
         appointment_time: selectedTime + ':00',
-        duration_minutes: VISIT_DURATION,
+        duration_minutes: slotDuration,
         status:          'pending',
       });
       error = insertErr;
@@ -426,7 +460,7 @@ export default function AgendarVisita() {
   const reasonLabel = VISIT_REASONS.find((r) => r.key === reason)?.label ?? '';
 
   const isDateDisabled = (d: Date) =>
-    isPast(d) || isWeekend(d) || blockedDates.has(dateKey(d));
+    isPast(d) || isBlockedDay(d) || blockedDates.has(dateKey(d));
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
@@ -494,7 +528,7 @@ export default function AgendarVisita() {
                   <div className="flex flex-wrap gap-2 text-xs">
                     <span className="inline-flex items-center gap-1.5 bg-[var(--surface)] text-gray-600 px-3 py-1.5 rounded-lg">
                       <Clock className="w-3 h-3 text-[#003876]" />
-                      {VISIT_DURATION} min
+                      {slotDuration} min
                     </span>
                     <span className="inline-flex items-center gap-1.5 bg-[var(--surface)] text-gray-600 px-3 py-1.5 rounded-lg">
                       <MapPin className="w-3 h-3 text-[#003876]" />
@@ -541,7 +575,7 @@ export default function AgendarVisita() {
                         <div className="flex items-start gap-2.5">
                           <Clock className="w-4 h-4 text-[#ffd700] mt-0.5 shrink-0" />
                           <p className="font-medium text-gray-800 leading-snug">
-                            {formatTimeRange(selectedTime)}
+                            {formatTimeRange(selectedTime, slotDuration)}
                           </p>
                         </div>
                       )}
@@ -974,7 +1008,7 @@ export default function AgendarVisita() {
                           <div>
                             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Data e horário</p>
                             <p className="font-bold text-[#003876] text-sm">
-                              {selectedDate && formatDateLong(selectedDate)} · {selectedTime && formatTimeRange(selectedTime)}
+                              {selectedDate && formatDateLong(selectedDate)} · {selectedTime && formatTimeRange(selectedTime, slotDuration)}
                             </p>
                           </div>
                         </div>
