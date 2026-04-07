@@ -1,82 +1,237 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { supabase } from '../../../lib/supabase';
 import {
-  CalendarCheck,
-  GraduationCap,
-  MessageSquare,
-  TrendingUp,
-  Clock,
-  Loader2,
+  CalendarCheck, GraduationCap, MessageSquare, Clock,
+  Loader2, ChevronRight, TrendingUp, TrendingDown, Minus,
+  Users,
 } from 'lucide-react';
 
-interface Stats {
-  visits: number;
+// ── Types ─────────────────────────────────────────────────────────────────────
+type Period = 'today' | '7d' | '30d';
+
+interface PeriodStats {
+  appointments: number;
   enrollments: number;
   contacts: number;
   pendingVisits: number;
+  prevAppointments: number;
+  prevEnrollments: number;
+  prevContacts: number;
 }
 
+interface GroupCount { label: string; value: number; color: string }
+
+interface UpcomingAppointment {
+  id: string;
+  visitor_name: string;
+  appointment_date: string;
+  appointment_time: string;
+  visit_reason: string;
+  status: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function periodDays(p: Period) {
+  return p === 'today' ? 1 : p === '7d' ? 7 : 30;
+}
+
+function periodStart(days: number, offset = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() - days - offset);
+  if (days === 1) {
+    d.setHours(0, 0, 0, 0);
+  }
+  return d.toISOString();
+}
+
+function fmtDate(d: string) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+}
+function fmtTime(t: string) { return t.slice(0, 5); }
+
+function pct(current: number, prev: number) {
+  if (prev === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - prev) / prev) * 100);
+}
+
+const REASON_LABELS: Record<string, string> = {
+  conhecer_escola: 'Conhecer a escola', matricula: 'Pré-Matrícula',
+  entrega_documentos: 'Entrega de docs.', conversa_pedagogica: 'Conv. pedagógica', outros: 'Outros',
+};
+
+const ENROLLMENT_PIPELINE = [
+  { key: 'new', label: 'Novo', color: 'bg-blue-500' },
+  { key: 'under_review', label: 'Em análise', color: 'bg-purple-500' },
+  { key: 'docs_pending', label: 'Docs. pendentes', color: 'bg-amber-500' },
+  { key: 'docs_received', label: 'Docs. recebidos', color: 'bg-cyan-500' },
+  { key: 'interview_scheduled', label: 'Entrevista', color: 'bg-indigo-500' },
+  { key: 'approved', label: 'Aprovado', color: 'bg-emerald-500' },
+  { key: 'confirmed', label: 'Confirmado', color: 'bg-green-600' },
+  { key: 'archived', label: 'Arquivado', color: 'bg-gray-400' },
+];
+
+const APPT_STATUS = [
+  { key: 'pending', label: 'Pendente', color: 'bg-amber-400' },
+  { key: 'confirmed', label: 'Confirmado', color: 'bg-emerald-500' },
+  { key: 'completed', label: 'Realizado', color: 'bg-blue-500' },
+  { key: 'cancelled', label: 'Cancelado', color: 'bg-red-400' },
+  { key: 'no_show', label: 'Não veio', color: 'bg-gray-400' },
+];
+
+// ── Bar Chart ─────────────────────────────────────────────────────────────────
+function BarChart({ items, title, emptyLabel, linkTo }: {
+  items: GroupCount[]; title: string; emptyLabel: string; linkTo: string;
+}) {
+  const max = Math.max(...items.map((i) => i.value), 1);
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-sm font-bold text-[#003876] dark:text-white">{title}</h3>
+        <Link to={linkTo} className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1">
+          Ver todos <ChevronRight className="w-3 h-3" />
+        </Link>
+      </div>
+      {items.filter((i) => i.value > 0).length === 0 ? (
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-6">{emptyLabel}</p>
+      ) : (
+        <div className="space-y-2.5">
+          {items.filter((i) => i.value > 0).sort((a, b) => b.value - a.value).map((item) => (
+            <div key={item.label} className="flex items-center gap-3">
+              <span className="w-28 text-xs text-right text-gray-500 dark:text-gray-400 truncate flex-shrink-0">{item.label}</span>
+              <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-2 rounded-full ${item.color} transition-all duration-500`}
+                  style={{ width: `${Math.max((item.value / max) * 100, 4)}%` }}
+                />
+              </div>
+              <span className="w-6 text-xs font-bold text-gray-700 dark:text-gray-300 text-right flex-shrink-0">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Stat Card ─────────────────────────────────────────────────────────────────
+function StatCard({ label, value, prev, icon: Icon, colorClass, iconBg, linkTo }: {
+  label: string; value: number; prev: number;
+  icon: React.ComponentType<{ className?: string }>;
+  colorClass: string; iconBg: string; linkTo: string;
+}) {
+  const change = pct(value, prev);
+  return (
+    <Link to={linkTo} className="block bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow group">
+      <div className="flex items-center justify-between mb-3">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg}`}>
+          <Icon className={`w-5 h-5 ${colorClass}`} />
+        </div>
+        <div className={`flex items-center gap-1 text-xs font-semibold ${
+          change > 0 ? 'text-emerald-600 dark:text-emerald-400' :
+          change < 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-400'
+        }`}>
+          {change > 0 ? <TrendingUp className="w-3.5 h-3.5" /> :
+           change < 0 ? <TrendingDown className="w-3.5 h-3.5" /> :
+           <Minus className="w-3.5 h-3.5" />}
+          {prev > 0 ? `${Math.abs(change)}%` : '—'}
+        </div>
+      </div>
+      <p className="text-3xl font-bold text-gray-800 dark:text-white">{value}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] transition-colors">{label}</p>
+    </Link>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { profile } = useAdminAuth();
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [period, setPeriod] = useState<Period>('7d');
+  const [stats, setStats] = useState<PeriodStats | null>(null);
+  const [enrollmentGroups, setEnrollmentGroups] = useState<GroupCount[]>([]);
+  const [apptGroups, setApptGroups] = useState<GroupCount[]>([]);
+  const [contactGroups, setContactGroups] = useState<GroupCount[]>([]);
+  const [upcoming, setUpcoming] = useState<UpcomingAppointment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchStats() {
-      const [visits, enrollments, contacts, pending] = await Promise.all([
-        supabase.from('visit_appointments').select('id', { count: 'exact', head: true }),
-        supabase.from('enrollments').select('id', { count: 'exact', head: true }),
-        supabase.from('contact_requests').select('id', { count: 'exact', head: true }),
-        supabase
-          .from('visit_appointments')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'pending'),
-      ]);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const days = periodDays(period);
+    const start = periodStart(days);
+    const prevStart = periodStart(days * 2);
 
-      setStats({
-        visits: visits.count ?? 0,
-        enrollments: enrollments.count ?? 0,
-        contacts: contacts.count ?? 0,
-        pendingVisits: pending.count ?? 0,
-      });
-      setLoading(false);
-    }
-    fetchStats();
-  }, []);
+    const today = new Date().toISOString().split('T')[0];
+    const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
-  const CARDS = stats
-    ? [
-        {
-          label: 'Agendamentos',
-          value: stats.visits,
-          icon: CalendarCheck,
-          color: 'bg-blue-50 text-blue-600',
-          iconBg: 'bg-blue-100',
-        },
-        {
-          label: 'Pré-Matrículas',
-          value: stats.enrollments,
-          icon: GraduationCap,
-          color: 'bg-emerald-50 text-emerald-600',
-          iconBg: 'bg-emerald-100',
-        },
-        {
-          label: 'Contatos',
-          value: stats.contacts,
-          icon: MessageSquare,
-          color: 'bg-purple-50 text-purple-600',
-          iconBg: 'bg-purple-100',
-        },
-        {
-          label: 'Visitas Pendentes',
-          value: stats.pendingVisits,
-          icon: Clock,
-          color: 'bg-amber-50 text-amber-600',
-          iconBg: 'bg-amber-100',
-        },
-      ]
-    : [];
+    const [
+      apptCurr, apptPrev, enrCurr, enrPrev, contCurr, contPrev,
+      pending, allEnr, allAppt, allCont, upcomingRes,
+    ] = await Promise.all([
+      supabase.from('visit_appointments').select('id', { count: 'exact', head: true }).gte('created_at', start),
+      supabase.from('visit_appointments').select('id', { count: 'exact', head: true }).gte('created_at', prevStart).lt('created_at', start),
+      supabase.from('enrollments').select('id', { count: 'exact', head: true }).gte('created_at', start),
+      supabase.from('enrollments').select('id', { count: 'exact', head: true }).gte('created_at', prevStart).lt('created_at', start),
+      supabase.from('contact_requests').select('id', { count: 'exact', head: true }).gte('created_at', start),
+      supabase.from('contact_requests').select('id', { count: 'exact', head: true }).gte('created_at', prevStart).lt('created_at', start),
+      supabase.from('visit_appointments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('enrollments').select('status'),
+      supabase.from('visit_appointments').select('status'),
+      supabase.from('contact_requests').select('contact_reason'),
+      supabase.from('visit_appointments')
+        .select('id,visitor_name,appointment_date,appointment_time,visit_reason,status')
+        .gte('appointment_date', today)
+        .lte('appointment_date', nextWeek)
+        .in('status', ['pending', 'confirmed'])
+        .order('appointment_date').order('appointment_time').limit(6),
+    ]);
+
+    setStats({
+      appointments: apptCurr.count ?? 0,
+      enrollments: enrCurr.count ?? 0,
+      contacts: contCurr.count ?? 0,
+      pendingVisits: pending.count ?? 0,
+      prevAppointments: apptPrev.count ?? 0,
+      prevEnrollments: enrPrev.count ?? 0,
+      prevContacts: contPrev.count ?? 0,
+    });
+
+    // Enrollment pipeline groups
+    const enrData = (allEnr.data ?? []) as { status: string }[];
+    setEnrollmentGroups(ENROLLMENT_PIPELINE.map((p) => ({
+      label: p.label,
+      value: enrData.filter((e) => e.status === p.key).length,
+      color: p.color,
+    })));
+
+    // Appointment status groups
+    const apptData = (allAppt.data ?? []) as { status: string }[];
+    setApptGroups(APPT_STATUS.map((s) => ({
+      label: s.label,
+      value: apptData.filter((a) => a.status === s.key).length,
+      color: s.color,
+    })));
+
+    // Contact reason groups
+    const contData = (allCont.data ?? []) as { contact_reason: string | null }[];
+    const reasonMap: Record<string, number> = {};
+    contData.forEach((c) => {
+      const k = c.contact_reason || 'outros';
+      reasonMap[k] = (reasonMap[k] ?? 0) + 1;
+    });
+    setContactGroups(
+      Object.entries(reasonMap).map(([k, v]) => ({
+        label: REASON_LABELS[k] || k,
+        value: v,
+        color: 'bg-[#003876]',
+      })),
+    );
+
+    setUpcoming((upcomingRes.data ?? []) as UpcomingAppointment[]);
+    setLoading(false);
+  }, [period]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const greeting = (() => {
     const h = new Date().getHours();
@@ -85,58 +240,153 @@ export default function DashboardPage() {
     return 'Boa noite';
   })();
 
+  const PERIOD_OPTS: { key: Period; label: string }[] = [
+    { key: 'today', label: 'Hoje' },
+    { key: '7d', label: '7 dias' },
+    { key: '30d', label: '30 dias' },
+  ];
+
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white">
-          {greeting}, {profile?.full_name?.split(' ')[0] || 'Administrador'}
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">Aqui está o resumo do seu painel.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white">
+            {greeting}, {profile?.full_name?.split(' ')[0] || 'Administrador'}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Aqui está o resumo do seu painel.</p>
+        </div>
+
+        {/* Period selector */}
+        <div className="flex bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1 gap-1">
+          {PERIOD_OPTS.map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setPeriod(opt.key)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                period === opt.key
+                  ? 'bg-[#003876] text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Stats grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center py-32">
           <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {CARDS.map((card) => (
-            <div
-              key={card.label}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow duration-300"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${card.iconBg}`}>
-                  <card.icon className={`w-5 h-5 ${card.color.split(' ')[1]}`} />
+        <>
+          {/* Stat cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard
+              label="Agendamentos" value={stats!.appointments} prev={stats!.prevAppointments}
+              icon={CalendarCheck} colorClass="text-blue-600" iconBg="bg-blue-100 dark:bg-blue-900/30"
+              linkTo="/admin/agendamentos"
+            />
+            <StatCard
+              label="Pré-Matrículas" value={stats!.enrollments} prev={stats!.prevEnrollments}
+              icon={GraduationCap} colorClass="text-emerald-600" iconBg="bg-emerald-100 dark:bg-emerald-900/30"
+              linkTo="/admin/matriculas"
+            />
+            <StatCard
+              label="Contatos" value={stats!.contacts} prev={stats!.prevContacts}
+              icon={MessageSquare} colorClass="text-purple-600" iconBg="bg-purple-100 dark:bg-purple-900/30"
+              linkTo="/admin/contatos"
+            />
+            <Link to="/admin/agendamentos" className="block bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow group">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
+                  <Clock className="w-5 h-5 text-amber-600" />
                 </div>
-                <TrendingUp className="w-4 h-4 text-gray-300" />
+                <span className="text-xs text-gray-400">Visitas</span>
               </div>
-              <p className="text-3xl font-bold text-gray-800 dark:text-white">{card.value}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{card.label}</p>
-            </div>
-          ))}
-        </div>
-      )}
+              <p className="text-3xl font-bold text-gray-800 dark:text-white">{stats!.pendingVisits}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] transition-colors">Pendentes de confirmação</p>
+            </Link>
+          </div>
 
-      {/* Placeholder sections */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <h2 className="font-display text-lg font-bold text-[#003876] dark:text-white mb-4">Atividade Recente</h2>
-          <div className="text-center py-12 text-gray-400">
-            <Clock className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">O feed de atividades será implementado em breve.</p>
+          {/* Charts row */}
+          <div className="grid lg:grid-cols-2 gap-4 mb-4">
+            <BarChart
+              title="Pré-Matrículas por status"
+              items={enrollmentGroups}
+              emptyLabel="Nenhuma pré-matrícula cadastrada"
+              linkTo="/admin/matriculas"
+            />
+            <BarChart
+              title="Agendamentos por status"
+              items={apptGroups}
+              emptyLabel="Nenhum agendamento cadastrado"
+              linkTo="/admin/agendamentos"
+            />
           </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
-          <h2 className="font-display text-lg font-bold text-[#003876] dark:text-white mb-4">Próximas Visitas</h2>
-          <div className="text-center py-12 text-gray-400">
-            <CalendarCheck className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">A lista de próximas visitas será implementada em breve.</p>
+
+          {/* Bottom row */}
+          <div className="grid lg:grid-cols-2 gap-4">
+            {/* Contact reasons */}
+            <BarChart
+              title="Contatos por motivo"
+              items={contactGroups}
+              emptyLabel="Nenhum contato recebido"
+              linkTo="/admin/contatos"
+            />
+
+            {/* Upcoming appointments */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display text-sm font-bold text-[#003876] dark:text-white">Próximas visitas (7 dias)</h3>
+                <Link to="/admin/agendamentos" className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1">
+                  Ver todos <ChevronRight className="w-3 h-3" />
+                </Link>
+              </div>
+
+              {upcoming.length === 0 ? (
+                <div className="text-center py-6">
+                  <CalendarCheck className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Nenhuma visita nos próximos 7 dias</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {upcoming.map((apt) => (
+                    <Link
+                      key={apt.id}
+                      to="/admin/agendamentos"
+                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors group"
+                    >
+                      <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-xl flex flex-col items-center justify-center flex-shrink-0">
+                        <span className="text-[9px] font-bold text-[#003876] dark:text-[#ffd700] uppercase leading-none">
+                          {new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short' })}
+                        </span>
+                        <span className="text-sm font-bold text-[#003876] dark:text-[#ffd700] leading-none">
+                          {new Date(apt.appointment_date + 'T00:00:00').getDate()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{apt.visitor_name}</p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {fmtTime(apt.appointment_time)} · {REASON_LABELS[apt.visit_reason] || apt.visit_reason}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        apt.status === 'confirmed'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                          : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                      }`}>
+                        {apt.status === 'confirmed' ? 'Confirmado' : 'Pendente'}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

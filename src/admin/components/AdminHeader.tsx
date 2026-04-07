@@ -1,6 +1,10 @@
+import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAdminAuth } from '../hooks/useAdminAuth';
+import { useNotifications } from '../hooks/useNotifications';
 import { ROLE_LABELS } from '../types/admin.types';
-import { Bell, Search, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import NotificationsPanel from './NotificationsPanel';
 
 interface Props {
   sidebarCollapsed: boolean;
@@ -9,6 +13,8 @@ interface Props {
 
 export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props) {
   const { profile } = useAdminAuth();
+  const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+  const [panelOpen, setPanelOpen] = useState(false);
 
   return (
     <header
@@ -35,14 +41,32 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
 
       {/* Right: actions */}
       <div className="flex items-center gap-3">
-        <button className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-          <Search className="w-5 h-5" />
-        </button>
+        {/* Bell */}
+        <div className="relative">
+          <button
+            onClick={() => setPanelOpen((v) => !v)}
+            className="relative w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="Notificações"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
 
-        <button className="relative w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-          <Bell className="w-5 h-5" />
-        </button>
+          {panelOpen && (
+            <NotificationsPanel
+              notifications={notifications}
+              onClose={() => setPanelOpen(false)}
+              onMarkRead={markRead}
+              onMarkAllRead={markAllRead}
+            />
+          )}
+        </div>
 
+        {/* Avatar */}
         {profile && (
           <div className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-100 dark:border-gray-700">
             <div className="w-8 h-8 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center">
@@ -63,20 +87,20 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
   );
 }
 
-// ── Simple breadcrumb based on current path ──
+// ── Breadcrumb (uses useLocation for reactivity) ─────────────────────────────
 function Breadcrumb() {
-  const path = window.location.pathname;
-  const segments = path
+  const location = useLocation();
+  const segments = location.pathname
     .replace('/admin', '')
     .split('/')
     .filter(Boolean);
 
   const LABELS: Record<string, string> = {
     agendamentos: 'Agendamentos',
-    matriculas: 'Pré-Matrículas',
-    contatos: 'Contatos',
-    usuarios: 'Usuários',
-    configuracoes: 'Configurações',
+    matriculas:   'Pré-Matrículas',
+    contatos:     'Contatos',
+    usuarios:     'Usuários',
+    configuracoes:'Configurações',
   };
 
   return (

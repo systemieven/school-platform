@@ -145,6 +145,23 @@ export interface ContactRequest {
   updated_at: string;
 }
 
+// ── Notification ──
+export type NotificationType = 'new_appointment' | 'new_enrollment' | 'new_contact' | 'status_change';
+
+export interface Notification {
+  id: string;
+  recipient_id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  link: string | null;
+  related_module: string | null;
+  related_record_id: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+}
+
 // ── Navigation ──
 export interface NavItem {
   key: string;
