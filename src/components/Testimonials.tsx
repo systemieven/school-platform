@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import LegalConsent from './LegalConsent';
 import type { User } from '@supabase/supabase-js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -256,9 +257,10 @@ export default function Testimonials() {
   const [content, setContent]         = useState('');
   const [rating, setRating]           = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
-  const [submitting, setSubmitting]   = useState(false);
-  const [submitted, setSubmitted]     = useState(false);
-  const [formError, setFormError]     = useState('');
+  const [submitting, setSubmitting]     = useState(false);
+  const [submitted, setSubmitted]       = useState(false);
+  const [formError, setFormError]       = useState('');
+  const [legalConsent, setLegalConsent] = useState(false);
 
   const displayed    = testimonials.length > 0 ? testimonials : FALLBACK;
   const total        = displayed.length;
@@ -339,7 +341,8 @@ export default function Testimonials() {
     name.trim().length >= 3 &&
     email.includes('@') &&
     studentGrade !== '' &&
-    content.trim().length >= 20;
+    content.trim().length >= 20 &&
+    legalConsent;
 
   const handleSubmit = async () => {
     if (!user || !isValid) return;
@@ -692,6 +695,8 @@ export default function Testimonials() {
                       </p>
                     </div>
                   </Field>
+
+                  <LegalConsent checked={legalConsent} onChange={setLegalConsent} variant="dark" />
 
                   {formError && (
                     <p className="text-red-400/80 text-sm">{formError}</p>

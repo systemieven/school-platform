@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { supabase } from '../lib/supabase';
+import LegalConsent from '../components/LegalConsent';
 
 // ── Masks ──────────────────────────────────────────────────────────────────
 function maskCPF(v: string) {
@@ -371,6 +372,7 @@ function CPFParentField({
 export default function Matricula() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsChecked, setTermsChecked]   = useState(false);
+  const [legalConsent, setLegalConsent]   = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [errors, setErrors] = useState<Errors>({});
   const [cepLoading, setCepLoading] = useState<'responsavel' | 'aluno' | null>(null);
@@ -867,13 +869,15 @@ export default function Matricula() {
                     </p>
                   </label>
 
+                  <LegalConsent checked={legalConsent} onChange={setLegalConsent} />
+
                   <button
                     type="button"
-                    disabled={!termsChecked}
+                    disabled={!termsChecked || !legalConsent}
                     onClick={() => setTermsAccepted(true)}
                     className={[
                       'w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all duration-300',
-                      termsChecked
+                      termsChecked && legalConsent
                         ? 'bg-[#ffd700] text-[#003876] hover:bg-[#ffe44d] hover:shadow-lg hover:shadow-[#ffd700]/30 active:scale-[0.99]'
                         : 'bg-gray-100 text-gray-400 cursor-not-allowed',
                     ].join(' ')}

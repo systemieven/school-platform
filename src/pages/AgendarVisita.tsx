@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import LegalConsent from '../components/LegalConsent';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -181,8 +182,9 @@ export default function AgendarVisita() {
   const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
 
   // ── Submit state ──
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted]   = useState(false);
+  const [submitting, setSubmitting]   = useState(false);
+  const [submitted, setSubmitted]     = useState(false);
+  const [legalConsent, setLegalConsent] = useState(false);
 
   // ── Pre-fill from /contato ──
   useEffect(() => {
@@ -762,7 +764,7 @@ export default function AgendarVisita() {
                       <button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={!selectedDate || !selectedTime || submitting}
+                        disabled={!selectedDate || !selectedTime || submitting || !legalConsent}
                         className="inline-flex items-center gap-2 bg-[#ffd700] text-[#003876] px-8 py-4 rounded-xl font-bold text-sm transition-all duration-300 hover:bg-white hover:shadow-lg hover:shadow-[#ffd700]/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#ffd700] disabled:hover:shadow-none"
                       >
                         {submitting ? (
@@ -771,6 +773,10 @@ export default function AgendarVisita() {
                           <>Confirmar agendamento <CheckCircle className="w-4 h-4" /></>
                         )}
                       </button>
+                    </div>
+
+                    <div className="mt-6 px-6 pb-2">
+                      <LegalConsent checked={legalConsent} onChange={setLegalConsent} />
                     </div>
                   </div>
                 )}

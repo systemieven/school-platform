@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import LegalConsent from '../components/LegalConsent';
 
 // ── Masks ──────────────────────────────────────────────────────────────────
 function maskPhone(v: string) {
@@ -128,6 +129,7 @@ export default function Contato() {
   const [errors,       setErrors]       = useState<Errors>({});
   const [submitting,   setSubmitting]   = useState(false);
   const [submitResult, setSubmitResult] = useState<'success' | 'error' | null>(null);
+  const [legalConsent, setLegalConsent] = useState(false);
 
   const set = (key: keyof FormState, value: unknown) => {
     setForm((p) => ({ ...p, [key]: value }));
@@ -471,6 +473,9 @@ export default function Contato() {
                       </div>
                     </div>
 
+                    {/* Legal consent */}
+                    <LegalConsent checked={legalConsent} onChange={setLegalConsent} />
+
                     {/* Error feedback */}
                     {submitResult === 'error' && (
                       <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
@@ -485,7 +490,7 @@ export default function Contato() {
                     {/* Submit */}
                     <button
                       type="submit"
-                      disabled={submitting}
+                      disabled={submitting || !legalConsent}
                       className="w-full flex items-center justify-center gap-2 bg-[#003876] text-white py-4 rounded-xl font-bold text-sm hover:bg-[#002855] transition-all duration-300 hover:shadow-lg hover:shadow-[#003876]/30 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {submitting
