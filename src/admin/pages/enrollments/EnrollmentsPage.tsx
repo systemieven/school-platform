@@ -372,7 +372,9 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
     const { error } = await supabase.from('enrollments').update(patch).eq('id', enr.id);
     if (!error) {
       if (newStatus === 'confirmed') {
-        const enrollNum = `MAT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+        const { data: numData } = await supabase.rpc('generate_enrollment_number');
+        const enrollNum = (numData as string) || `${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+        await supabase.from('enrollments').update({ enrollment_number: enrollNum }).eq('id', enr.id);
         await supabase.from('students').insert({
           enrollment_id: enr.id,
           enrollment_number: enrollNum,
