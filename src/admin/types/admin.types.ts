@@ -54,6 +54,7 @@ export interface VisitAppointment {
   internal_notes: string | null;
   origin: 'website' | 'internal';
   contact_request_id: string | null;
+  enrollment_id: string | null;
   confirmed_by: string | null;
   confirmed_at: string | null;
   cancelled_by: string | null;
@@ -113,6 +114,7 @@ export interface Enrollment {
   confirmed_at: string | null;
   archived_at: string | null;
   archive_reason: string | null;
+  docs_checklist: Record<string, boolean>;
   created_at: string;
   updated_at: string;
 }
