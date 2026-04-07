@@ -53,6 +53,8 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
   const [showPrefs, setShowPrefs] = useState(false);
   const [enabledTypes, setEnabledTypes] = useState<string[]>(ALL_TYPES);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [quietStart, setQuietStart] = useState('');
+  const [quietEnd, setQuietEnd]     = useState('');
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   // Load preferences
@@ -60,24 +62,28 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
     if (!profile) return;
     const { data } = await supabase
       .from('notification_preferences')
-      .select('enabled_types, sound_enabled')
+      .select('enabled_types, sound_enabled, quiet_hours_start, quiet_hours_end')
       .eq('user_id', profile.id)
       .single();
     if (data) {
       setEnabledTypes(data.enabled_types || ALL_TYPES);
       setSoundEnabled(data.sound_enabled ?? true);
+      setQuietStart(data.quiet_hours_start ? String(data.quiet_hours_start).slice(0, 5) : '');
+      setQuietEnd(data.quiet_hours_end   ? String(data.quiet_hours_end).slice(0, 5)   : '');
     }
     setPrefsLoaded(true);
   }, [profile]);
 
   useEffect(() => { loadPrefs(); }, [loadPrefs]);
 
-  async function savePrefs(types: string[], sound: boolean) {
+  async function savePrefs(types: string[], sound: boolean, qs = quietStart, qe = quietEnd) {
     if (!profile) return;
     await supabase.from('notification_preferences').upsert({
       user_id: profile.id,
       enabled_types: types,
       sound_enabled: sound,
+      quiet_hours_start: qs || null,
+      quiet_hours_end:   qe || null,
       updated_at: new Date().toISOString(),
     });
   }
@@ -94,6 +100,14 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
     const next = !soundEnabled;
     setSoundEnabled(next);
     savePrefs(enabledTypes, next);
+  }
+
+  function handleQuietChange(field: 'start' | 'end', val: string) {
+    const qs = field === 'start' ? val : quietStart;
+    const qe = field === 'end'   ? val : quietEnd;
+    if (field === 'start') setQuietStart(val);
+    else setQuietEnd(val);
+    savePrefs(enabledTypes, soundEnabled, qs, qe);
   }
 
   // Close on outside click
@@ -181,6 +195,34 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
                 </span>
               </label>
             ))}
+          </div>
+          {/* Quiet hours */}
+          <div>
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Horário de silêncio</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={quietStart}
+                onChange={(e) => handleQuietChange('start', e.target.value)}
+                className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+              />
+              <span className="text-xs text-gray-400">até</span>
+              <input
+                type="time"
+                value={quietEnd}
+                onChange={(e) => handleQuietChange('end', e.target.value)}
+                className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+              />
+              {(quietStart || quietEnd) && (
+                <button
+                  onClick={() => { setQuietStart(''); setQuietEnd(''); savePrefs(enabledTypes, soundEnabled, '', ''); }}
+                  className="text-gray-400 hover:text-red-400"
+                  title="Remover horário"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -14,10 +14,11 @@ interface SegmentForm {
   description: string;
   position: number;
   is_active: boolean;
+  coordinator_ids: string[];
 }
 
 const emptySegmentForm = (): SegmentForm => ({
-  name: '', slug: '', description: '', position: 0, is_active: true,
+  name: '', slug: '', description: '', position: 0, is_active: true, coordinator_ids: [],
 });
 
 // ── Class form ────────────────────────────────────────────────────────────────
@@ -27,18 +28,23 @@ interface ClassForm {
   shift: Shift;
   max_students: string;
   is_active: boolean;
+  teacher_ids: string[];
 }
 
 const emptyClassForm = (): ClassForm => ({
-  name: '', year: new Date().getFullYear(), shift: 'morning', max_students: '', is_active: true,
+  name: '', year: new Date().getFullYear(), shift: 'morning', max_students: '', is_active: true, teacher_ids: [],
 });
+
+// ── Staff profile (coordinator / teacher picker) ──────────────────────────────
+interface StaffProfile { id: string; full_name: string; role: string; }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function SegmentsPage() {
-  const [segments, setSegments] = useState<SchoolSegment[]>([]);
-  const [classMap, setClassMap] = useState<Record<string, SchoolClass[]>>({});
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [segments, setSegments]   = useState<SchoolSegment[]>([]);
+  const [classMap, setClassMap]   = useState<Record<string, SchoolClass[]>>({});
+  const [loading, setLoading]     = useState(true);
+  const [expanded, setExpanded]   = useState<Set<string>>(new Set());
+  const [staffProfiles, setStaffProfiles] = useState<StaffProfile[]>([]);
 
   // Segment editing
   const [editSegId, setEditSegId]   = useState<string | null>(null);
@@ -53,11 +59,13 @@ export default function SegmentsPage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [{ data: segs }, { data: classes }] = await Promise.all([
+    const [{ data: segs }, { data: classes }, { data: staff }] = await Promise.all([
       supabase.from('school_segments').select('*').order('position'),
       supabase.from('school_classes').select('*').order('name'),
+      supabase.from('profiles').select('id, full_name, role').in('role', ['coordinator', 'teacher', 'admin', 'super_admin']).eq('is_active', true).order('full_name'),
     ]);
     setSegments((segs ?? []) as SchoolSegment[]);
+    setStaffProfiles((staff ?? []) as StaffProfile[]);
     const map: Record<string, SchoolClass[]> = {};
     ((classes ?? []) as SchoolClass[]).forEach((c) => {
       (map[c.segment_id] ??= []).push(c);
@@ -87,7 +95,7 @@ export default function SegmentsPage() {
   function startEditSegment(s: SchoolSegment) {
     setSegForm({
       name: s.name, slug: s.slug, description: s.description ?? '',
-      position: s.position, is_active: s.is_active,
+      position: s.position, is_active: s.is_active, coordinator_ids: s.coordinator_ids ?? [],
     });
     setEditSegId(s.id);
   }
@@ -100,6 +108,7 @@ export default function SegmentsPage() {
       description: segForm.description || null,
       position: segForm.position,
       is_active: segForm.is_active,
+      coordinator_ids: segForm.coordinator_ids,
       updated_at: new Date().toISOString(),
     };
 
@@ -129,7 +138,7 @@ export default function SegmentsPage() {
   function startEditClass(c: SchoolClass) {
     setClassForm({
       name: c.name, year: c.year, shift: (c.shift ?? 'morning') as Shift,
-      max_students: c.max_students?.toString() ?? '', is_active: c.is_active,
+      max_students: c.max_students?.toString() ?? '', is_active: c.is_active, teacher_ids: c.teacher_ids ?? [],
     });
     setEditClassSegId(c.segment_id);
     setEditClassId(c.id);
@@ -144,6 +153,7 @@ export default function SegmentsPage() {
       shift: classForm.shift,
       max_students: classForm.max_students ? parseInt(classForm.max_students) : null,
       is_active: classForm.is_active,
+      teacher_ids: classForm.teacher_ids,
       updated_at: new Date().toISOString(),
     };
 
@@ -198,6 +208,7 @@ export default function SegmentsPage() {
           onSave={saveSegment}
           onCancel={() => setEditSegId(null)}
           saving={savingSeg}
+          staffProfiles={staffProfiles}
           isNew
         />
       )}
@@ -219,6 +230,7 @@ export default function SegmentsPage() {
                   onSave={saveSegment}
                   onCancel={() => setEditSegId(null)}
                   saving={savingSeg}
+                  staffProfiles={staffProfiles}
                 />
               ) : (
                 <>
@@ -283,6 +295,7 @@ export default function SegmentsPage() {
                           onSave={saveClass}
                           onCancel={() => { setEditClassId(null); setEditClassSegId(null); }}
                           saving={savingClass}
+                          staffProfiles={staffProfiles}
                         />
                       )}
 
@@ -305,6 +318,7 @@ export default function SegmentsPage() {
                             onSave={saveClass}
                             onCancel={() => { setEditClassId(null); setEditClassSegId(null); }}
                             saving={savingClass}
+                            staffProfiles={staffProfiles}
                           />
                         ) : (
                           <div
@@ -360,13 +374,14 @@ export default function SegmentsPage() {
 }
 
 // ── Segment form card ─────────────────────────────────────────────────────────
-function SegmentFormCard({ form, onChange, onSave, onCancel, saving, isNew }: {
+function SegmentFormCard({ form, onChange, onSave, onCancel, saving, isNew, staffProfiles }: {
   form: SegmentForm;
   onChange: (f: SegmentForm) => void;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
   isNew?: boolean;
+  staffProfiles: StaffProfile[];
 }) {
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-2xl border-2 border-[#003876]/20 dark:border-[#ffd700]/20 p-5 ${isNew ? 'mb-4' : ''}`}>
@@ -421,6 +436,29 @@ function SegmentFormCard({ form, onChange, onSave, onCancel, saving, isNew }: {
             {form.is_active ? 'Ativo' : 'Inativo'}
           </button>
         </div>
+        {staffProfiles.length > 0 && (
+          <div className="sm:col-span-2">
+            <label className="block text-xs text-gray-500 mb-1">Coordenadores</label>
+            <div className="flex flex-wrap gap-2">
+              {staffProfiles.filter((p) => ['coordinator', 'admin', 'super_admin'].includes(p.role)).map((p) => (
+                <label key={p.id} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.coordinator_ids.includes(p.id)}
+                    onChange={() => {
+                      const next = form.coordinator_ids.includes(p.id)
+                        ? form.coordinator_ids.filter((id) => id !== p.id)
+                        : [...form.coordinator_ids, p.id];
+                      onChange({ ...form, coordinator_ids: next });
+                    }}
+                    className="rounded border-gray-300 dark:border-gray-600 text-[#003876]"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">{p.full_name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex justify-end gap-2 mt-4">
         <button onClick={onCancel} className="flex items-center gap-1 text-xs px-3 py-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
@@ -440,66 +478,93 @@ function SegmentFormCard({ form, onChange, onSave, onCancel, saving, isNew }: {
 }
 
 // ── Class inline form ─────────────────────────────────────────────────────────
-function ClassFormRow({ form, onChange, onSave, onCancel, saving }: {
+function ClassFormRow({ form, onChange, onSave, onCancel, saving, staffProfiles }: {
   form: ClassForm;
   onChange: (f: ClassForm) => void;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
+  staffProfiles: StaffProfile[];
 }) {
+  const teachers = staffProfiles.filter((p) => ['teacher', 'coordinator', 'admin', 'super_admin'].includes(p.role));
   return (
-    <div className="flex flex-wrap items-end gap-3 px-4 py-3 pl-12 bg-blue-50/50 dark:bg-blue-900/10 border-t border-blue-100 dark:border-blue-900/20">
-      <div>
-        <label className="block text-[10px] text-gray-500 mb-0.5">Nome</label>
-        <input
-          type="text" value={form.name}
-          onChange={(e) => onChange({ ...form, name: e.target.value })}
-          className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 w-36"
-          placeholder="3º Ano A"
-        />
+    <div className="px-4 py-3 pl-12 bg-blue-50/50 dark:bg-blue-900/10 border-t border-blue-100 dark:border-blue-900/20 space-y-2">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-[10px] text-gray-500 mb-0.5">Nome</label>
+          <input
+            type="text" value={form.name}
+            onChange={(e) => onChange({ ...form, name: e.target.value })}
+            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 w-36"
+            placeholder="3º Ano A"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] text-gray-500 mb-0.5">Ano</label>
+          <input
+            type="number" value={form.year}
+            onChange={(e) => onChange({ ...form, year: parseInt(e.target.value) || 2026 })}
+            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 w-20"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] text-gray-500 mb-0.5">Turno</label>
+          <select
+            value={form.shift}
+            onChange={(e) => onChange({ ...form, shift: e.target.value as Shift })}
+            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+          >
+            <option value="morning">Manhã</option>
+            <option value="afternoon">Tarde</option>
+            <option value="full">Integral</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] text-gray-500 mb-0.5">Max alunos</label>
+          <input
+            type="number" value={form.max_students}
+            onChange={(e) => onChange({ ...form, max_students: e.target.value })}
+            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 w-20"
+            placeholder="—"
+          />
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <button onClick={onCancel} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+            <X className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onSave}
+            disabled={!form.name || saving}
+            className="flex items-center gap-1 text-xs px-3 py-1.5 bg-[#003876] text-white rounded-lg hover:bg-[#002a5c] disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+            Salvar
+          </button>
+        </div>
       </div>
-      <div>
-        <label className="block text-[10px] text-gray-500 mb-0.5">Ano</label>
-        <input
-          type="number" value={form.year}
-          onChange={(e) => onChange({ ...form, year: parseInt(e.target.value) || 2026 })}
-          className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 w-20"
-        />
-      </div>
-      <div>
-        <label className="block text-[10px] text-gray-500 mb-0.5">Turno</label>
-        <select
-          value={form.shift}
-          onChange={(e) => onChange({ ...form, shift: e.target.value as Shift })}
-          className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-        >
-          <option value="morning">Manhã</option>
-          <option value="afternoon">Tarde</option>
-          <option value="full">Integral</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-[10px] text-gray-500 mb-0.5">Max alunos</label>
-        <input
-          type="number" value={form.max_students}
-          onChange={(e) => onChange({ ...form, max_students: e.target.value })}
-          className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 w-20"
-          placeholder="—"
-        />
-      </div>
-      <div className="flex items-center gap-1.5 ml-auto">
-        <button onClick={onCancel} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-          <X className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={onSave}
-          disabled={!form.name || saving}
-          className="flex items-center gap-1 text-xs px-3 py-1.5 bg-[#003876] text-white rounded-lg hover:bg-[#002a5c] disabled:opacity-50"
-        >
-          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-          Salvar
-        </button>
-      </div>
+      {teachers.length > 0 && (
+        <div>
+          <label className="block text-[10px] text-gray-500 mb-1">Professores</label>
+          <div className="flex flex-wrap gap-2">
+            {teachers.map((p) => (
+              <label key={p.id} className="flex items-center gap-1 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.teacher_ids.includes(p.id)}
+                  onChange={() => {
+                    const next = form.teacher_ids.includes(p.id)
+                      ? form.teacher_ids.filter((id) => id !== p.id)
+                      : [...form.teacher_ids, p.id];
+                    onChange({ ...form, teacher_ids: next });
+                  }}
+                  className="rounded border-gray-300 dark:border-gray-600 text-[#003876]"
+                />
+                <span className="text-gray-700 dark:text-gray-300">{p.full_name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

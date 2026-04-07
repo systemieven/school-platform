@@ -8,6 +8,7 @@ import {
   User, Phone, Clock, MapPin, Check, Ban, CheckCircle2,
   AlertCircle, RefreshCw, MessageCircle, Plus,
   History, ChevronDown, Filter, Square, CheckSquare,
+  LayoutList, CalendarDays, ChevronLeft,
 } from 'lucide-react';
 
 // ── Status config ────────────────────────────────────────────────────────────
@@ -439,6 +440,166 @@ function AppointmentDrawer({ apt, onClose, onUpdate }: DrawerProps) {
   );
 }
 
+// ── Calendar View ─────────────────────────────────────────────────────────────
+
+const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const MONTH_LABELS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function CalendarView({ appointments, onClickAppointment, reasonLabels }: {
+  appointments: VisitAppointment[];
+  onClickAppointment: (apt: VisitAppointment) => void;
+  reasonLabels: Record<string, string>;
+}) {
+  const [calDate, setCalDate] = useState(() => new Date());
+  const [dayPopover, setDayPopover] = useState<string | null>(null); // ISO date
+
+  const year = calDate.getFullYear();
+  const month = calDate.getMonth();
+
+  // Group appointments by date (YYYY-MM-DD)
+  const byDate = useMemo(() => {
+    const map: Record<string, VisitAppointment[]> = {};
+    appointments.forEach((a) => {
+      (map[a.appointment_date] ??= []).push(a);
+    });
+    return map;
+  }, [appointments]);
+
+  // Build calendar grid cells
+  const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+
+  const cells: { date: Date; isCurrentMonth: boolean }[] = [];
+  for (let i = 0; i < totalCells; i++) {
+    const dayOffset = i - firstWeekday;
+    if (dayOffset < 0) {
+      cells.push({ date: new Date(year, month - 1, daysInPrevMonth + dayOffset + 1), isCurrentMonth: false });
+    } else if (dayOffset < daysInMonth) {
+      cells.push({ date: new Date(year, month, dayOffset + 1), isCurrentMonth: true });
+    } else {
+      cells.push({ date: new Date(year, month + 1, dayOffset - daysInMonth + 1), isCurrentMonth: false });
+    }
+  }
+
+  function isoDate(d: Date) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  const today = isoDate(new Date());
+
+  function prevMonth() { setCalDate(new Date(year, month - 1, 1)); setDayPopover(null); }
+  function nextMonth() { setCalDate(new Date(year, month + 1, 1)); setDayPopover(null); }
+
+  const popoverApts = dayPopover ? (byDate[dayPopover] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time)) : [];
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+      {/* Calendar header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+        <button onClick={prevMonth} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
+          {MONTH_LABELS[month]} {year}
+        </h3>
+        <button onClick={nextMonth} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700">
+        {WEEKDAY_LABELS.map((d) => (
+          <div key={d} className="py-2 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="grid grid-cols-7">
+        {cells.map((cell, i) => {
+          const iso = isoDate(cell.date);
+          const apts = byDate[iso] ?? [];
+          const isToday = iso === today;
+          const isSelected = iso === dayPopover;
+          const statusCounts = apts.reduce((acc, a) => { acc[a.status] = (acc[a.status] || 0) + 1; return acc; }, {} as Record<string, number>);
+
+          return (
+            <button
+              key={i}
+              onClick={() => setDayPopover(isSelected ? null : iso)}
+              className={`min-h-[80px] p-1.5 text-left border-b border-r border-gray-50 dark:border-gray-700/50 transition-colors ${
+                !cell.isCurrentMonth ? 'bg-gray-50/50 dark:bg-gray-800/30' : 'hover:bg-blue-50/30 dark:hover:bg-blue-900/10'
+              } ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-inset ring-[#003876]/20' : ''}`}
+            >
+              <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium mb-1 ${
+                isToday
+                  ? 'bg-[#003876] dark:bg-[#ffd700] text-white dark:text-[#003876]'
+                  : cell.isCurrentMonth
+                    ? 'text-gray-700 dark:text-gray-300'
+                    : 'text-gray-300 dark:text-gray-600'
+              }`}>
+                {cell.date.getDate()}
+              </span>
+              {apts.length > 0 && (
+                <div className="space-y-0.5">
+                  {(['pending', 'confirmed', 'completed', 'cancelled', 'no_show'] as AppointmentStatus[]).map((s) =>
+                    (statusCounts[s] ?? 0) > 0 ? (
+                      <div key={s} className={`flex items-center gap-1 px-1 py-0.5 rounded text-[10px] leading-none ${STATUS_CONFIG[s].color}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_CONFIG[s].dot}`} />
+                        <span className="font-medium">{statusCounts[s]}</span>
+                        <span className="truncate hidden sm:inline">{STATUS_CONFIG[s].label}</span>
+                      </div>
+                    ) : null
+                  )}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Day popover */}
+      {dayPopover && popoverApts.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+              {new Date(dayPopover + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </h4>
+            <button onClick={() => setDayPopover(null)} className="text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-2">
+            {popoverApts.map((apt) => {
+              const sc = STATUS_CONFIG[apt.status];
+              return (
+                <button
+                  key={apt.id}
+                  onClick={() => onClickAppointment(apt)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left border border-gray-100 dark:border-gray-700"
+                >
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{apt.visitor_name}</p>
+                    <p className="text-xs text-gray-400 truncate">{reasonLabels[apt.visit_reason] || apt.visit_reason}</p>
+                  </div>
+                  <span className="text-xs text-gray-500 flex-shrink-0">{formatTime(apt.appointment_time)}</span>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${sc.color}`}>{sc.label}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function AppointmentsPage() {
   const { profile } = useAdminAuth();
@@ -454,6 +615,7 @@ export default function AppointmentsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchSaving, setBatchSaving] = useState(false);
   const [REASON_LABELS, setReasonLabels] = useState<Record<string, string>>(DEFAULT_REASON_LABELS);
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
   // Load visit reasons from DB
   useEffect(() => {
@@ -554,6 +716,23 @@ export default function AppointmentsPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie as visitas agendadas.</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-0.5">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-2 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-white dark:bg-gray-600 shadow-sm text-[#003876] dark:text-white' : 'text-gray-400 hover:text-gray-600'}`}
+              title="Tabela"
+            >
+              <LayoutList className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`p-2 rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-white dark:bg-gray-600 shadow-sm text-[#003876] dark:text-white' : 'text-gray-400 hover:text-gray-600'}`}
+              title="Calendário"
+            >
+              <CalendarDays className="w-4 h-4" />
+            </button>
+          </div>
           <button
             onClick={() => setShowCreate(true)}
             className="inline-flex items-center gap-2 text-sm bg-[#003876] text-white px-4 py-2.5 rounded-xl hover:bg-[#002855] transition-colors font-medium shadow-sm"
@@ -656,8 +835,14 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {/* Table */}
-      {loading ? (
+      {/* Calendar or Table */}
+      {viewMode === 'calendar' ? (
+        <CalendarView
+          appointments={filtered}
+          onClickAppointment={setSelected}
+          reasonLabels={REASON_LABELS}
+        />
+      ) : loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
         </div>
