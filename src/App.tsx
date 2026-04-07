@@ -7,6 +7,7 @@ import EnsinoFundamental2 from './pages/EnsinoFundamental2';
 import EnsinoMedio from './pages/EnsinoMedio';
 import Matricula from './pages/Matricula';
 import Contato from './pages/Contato';
+import AgendarVisita from './pages/AgendarVisita';
 import EmConstrucao from './pages/EmConstrucao';
 import NotFound from './pages/NotFound';
 
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="ensino-medio" element={<EnsinoMedio />} />
         <Route path="matricula" element={<Matricula />} />
         <Route path="contato" element={<Contato />} />
+        <Route path="agendar-visita" element={<AgendarVisita />} />
         <Route path="sobre" element={<EmConstrucao />} />
         <Route path="estrutura" element={<EmConstrucao />} />
         <Route path="portal-aluno" element={<EmConstrucao />} />

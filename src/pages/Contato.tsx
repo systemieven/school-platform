@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   User, Phone, Mail, Clock, MapPin, MessageSquare,
   CheckCircle2, XCircle, Loader2, Send, ChevronRight,
@@ -114,6 +115,7 @@ function ToggleGroup<T extends string>({
 
 // ── Page ───────────────────────────────────────────────────────────────────
 export default function Contato() {
+  const navigate  = useNavigate();
   const formRef   = useScrollReveal();
   const infoRef   = useScrollReveal();
 
@@ -164,6 +166,15 @@ export default function Contato() {
         message:          form.message || null,
       });
       if (error) throw error;
+
+      // Se quer agendar visita → redireciona com dados preenchidos
+      if (form.wantsVisit) {
+        navigate('/agendar-visita', {
+          state: { name: form.name, phone: form.phone, email: form.email },
+        });
+        return;
+      }
+
       setSubmitResult('success');
     } catch (err) {
       console.error(err);

@@ -116,7 +116,7 @@ export default function EnsinoFundamental2() {
 
             <div className="hero-text-3 flex flex-wrap gap-4">
               <Link
-                to="/contato"
+                to="/agendar-visita"
                 className="group inline-flex items-center gap-3 bg-[#ffd700] text-[#003876] px-8 py-4 rounded-full font-semibold transition-all duration-500 hover:bg-white hover:shadow-[0_0_40px_rgba(255,215,0,0.4)] active:scale-95"
               >
                 Agende uma Visita
@@ -328,7 +328,7 @@ export default function EnsinoFundamental2() {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link
-              to="/contato"
+              to="/agendar-visita"
               className="group inline-flex items-center gap-3 bg-[#ffd700] text-[#003876] px-10 py-5 rounded-full font-bold text-lg transition-all duration-500 hover:bg-white hover:shadow-[0_0_60px_rgba(255,215,0,0.4)] active:scale-95"
             >
               Agende uma Visita
