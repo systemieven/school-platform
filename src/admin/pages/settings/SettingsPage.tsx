@@ -4,12 +4,15 @@ import { getProviders, setDefaultProvider } from '../../lib/whatsapp-api';
 import type { WhatsAppProvider } from '../../lib/whatsapp-api';
 import { useWhatsAppStatus } from '../../contexts/WhatsAppStatusContext';
 import WhatsAppProviderDrawer from '../../components/WhatsAppProviderDrawer';
+import TemplatesPage from '../whatsapp/TemplatesPage';
+import MessageLogPage from '../whatsapp/MessageLogPage';
 import type { SystemSetting } from '../../types/admin.types';
 import {
   Settings, Save, Loader2, Check, Building2, MessageCircle,
   CalendarCheck, GraduationCap, MessageSquare, Bell, Palette,
   Eye, EyeOff, AlertCircle, Wifi, WifiOff,
   PanelLeftClose, PanelLeftOpen, Plus, Star, Pencil,
+  LayoutTemplate, Send,
 } from 'lucide-react';
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
@@ -381,10 +384,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className="p-6">
-              {/* WhatsApp tab: provider hub */}
+            <div className={activeTab === 'whatsapp' ? '' : 'p-6'}>
+              {/* WhatsApp tab: sub-tabbed panel */}
               {activeTab === 'whatsapp' ? (
-                <WhatsAppProvidersPanel />
+                <WhatsAppSettingsPanel />
               ) : tabSettings.length === 0 ? (
                 <EmptyTabState tab={currentTab} />
               ) : (
@@ -417,9 +420,52 @@ export default function SettingsPage() {
 }
 
 
+// ── WhatsApp Settings Panel (sub-tabbed) ─────────────────────────────────────
+
+type WaSubTab = 'apis' | 'templates' | 'historico';
+
+const WA_SUB_TABS: { key: WaSubTab; label: string; icon: React.ElementType }[] = [
+  { key: 'apis',      label: 'APIs',      icon: Wifi          },
+  { key: 'templates', label: 'Templates', icon: LayoutTemplate },
+  { key: 'historico', label: 'Histórico', icon: Send           },
+];
+
+function WhatsAppSettingsPanel() {
+  const [sub, setSub] = useState<WaSubTab>('apis');
+
+  return (
+    <div>
+      {/* Sub-tab bar */}
+      <div className="flex border-b border-gray-100 dark:border-gray-700 px-6">
+        {WA_SUB_TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setSub(key)}
+            className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              sub === key
+                ? 'border-[#003876] dark:border-[#ffd700] text-[#003876] dark:text-[#ffd700]'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Sub-tab content */}
+      <div className="p-6">
+        {sub === 'apis'      && <WhatsAppProvidersPanel />}
+        {sub === 'templates' && <TemplatesPage embedded />}
+        {sub === 'historico' && <MessageLogPage embedded />}
+      </div>
+    </div>
+  );
+}
+
 // ── WhatsApp Providers Panel ──────────────────────────────────────────────────
 function WhatsAppProvidersPanel() {
-  const { state: waState, instanceData } = useWhatsAppStatus();
+  const { state: waState, instanceData, refresh: refreshWa } = useWhatsAppStatus();
   const waPhone = instanceData?.phone || '';
   const [providers,      setProviders]      = useState<WhatsAppProvider[]>([]);
   const [loading,        setLoading]        = useState(true);
@@ -439,13 +485,17 @@ function WhatsAppProvidersPanel() {
   const handleEdit = (p: WhatsAppProvider) => { setEditingProvider(p); setDrawerOpen(true); };
   const handleAddNew = ()                    => { setEditingProvider(null); setDrawerOpen(true); };
   const handleDrawerClose = ()               => { setDrawerOpen(false); setEditingProvider(null); };
-  const handleDrawerSaved = ()               => { fetchProviders(); };
+
+  // When credentials of the default provider change in the drawer, re-check status
+  const handleDrawerSaved = () => { fetchProviders(); refreshWa(); };
 
   const handleSetDefault = async (id: string) => {
     setSettingDefault(id);
     await setDefaultProvider(id);
     setSettingDefault(null);
+    // Credentials in system_settings just changed — immediately re-check connection
     await fetchProviders();
+    refreshWa();
   };
 
   return (
@@ -470,11 +520,12 @@ function WhatsAppProvidersPanel() {
                 const isDefault = p.is_default;
                 const isSettingThis = settingDefault === p.id;
                 return (
-                  <div key={p.id}
-                    className={`rounded-2xl border p-4 flex items-center gap-4 transition-all ${
+                  <button key={p.id}
+                    onClick={() => handleEdit(p)}
+                    className={`w-full rounded-2xl border p-4 flex items-center gap-4 transition-all text-left group ${
                       isDefault
-                        ? 'bg-[#003876]/5 dark:bg-[#003876]/10 border-[#003876]/20 dark:border-[#003876]/30'
-                        : 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700'
+                        ? 'bg-[#003876]/5 dark:bg-[#003876]/10 border-[#003876]/20 dark:border-[#003876]/30 hover:border-[#003876]/40 dark:hover:border-[#003876]/50'
+                        : 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
                     }`}>
                     {/* Status dot */}
                     <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
@@ -509,7 +560,7 @@ function WhatsAppProvidersPanel() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {!isDefault && (
                         <button
-                          onClick={() => handleSetDefault(p.id)}
+                          onClick={(e) => { e.stopPropagation(); handleSetDefault(p.id); }}
                           disabled={isSettingThis}
                           title="Definir como provedor padrão"
                           className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] disabled:opacity-50 transition-colors">
@@ -517,13 +568,9 @@ function WhatsAppProvidersPanel() {
                           Definir padrão
                         </button>
                       )}
-                      <button
-                        onClick={() => handleEdit(p)}
-                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] transition-colors">
-                        <Pencil className="w-3 h-3" /> Editar
-                      </button>
+                      <Pencil className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] transition-colors flex-shrink-0" />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

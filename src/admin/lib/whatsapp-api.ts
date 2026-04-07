@@ -8,6 +8,94 @@ import { supabase } from '../../lib/supabase';
 export const SUPABASE_URL = 'https://dinbwugbwnkrzljuocbs.supabase.co';
 export const WEBHOOK_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1/uazapi-webhook`;
 
+// ── API Profiles ──────────────────────────────────────────────────────────────
+
+export interface WhatsAppApiProfile {
+  id: string;
+  label: string;
+  description: string;
+  edgeFunctionSlug: string;
+}
+
+export const WHATSAPP_API_PROFILES: WhatsAppApiProfile[] = [
+  {
+    id: 'uazapi',
+    label: 'UazAPI',
+    description: 'Integração via UazAPI v2 (instância própria)',
+    edgeFunctionSlug: 'uazapi-proxy',
+  },
+];
+
+// ── Webhook events ────────────────────────────────────────────────────────────
+
+export interface WebhookEventDef {
+  id: string;
+  label: string;
+  description: string;
+  recommended: boolean;
+  warning?: string;
+}
+
+export const WEBHOOK_EVENTS: WebhookEventDef[] = [
+  {
+    id: 'messages_update',
+    label: 'Atualização de mensagens',
+    description: 'Status de entrega (enviado, entregue, lido) de cada mensagem enviada.',
+    recommended: true,
+  },
+  {
+    id: 'messages_upsert',
+    label: 'Novas mensagens recebidas',
+    description: 'Dispara quando uma nova mensagem chega na instância.',
+    recommended: false,
+  },
+  {
+    id: 'messages_reaction',
+    label: 'Reações a mensagens',
+    description: 'Dispara quando alguém reage a uma mensagem.',
+    recommended: false,
+  },
+  {
+    id: 'messages_delete',
+    label: 'Mensagens apagadas',
+    description: 'Dispara quando uma mensagem é apagada.',
+    recommended: false,
+  },
+  {
+    id: 'presence_update',
+    label: 'Presença (digitando / online)',
+    description: 'Notifica quando um contato está digitando ou online.',
+    recommended: false,
+  },
+  {
+    id: 'chats_upsert',
+    label: 'Sincronização de conversas',
+    description: 'Envia todo o histórico de conversas ao conectar.',
+    recommended: false,
+    warning: 'Volume muito alto ao conectar — pode sobrecarregar o servidor.',
+  },
+  {
+    id: 'contacts_upsert',
+    label: 'Sincronização de contatos',
+    description: 'Envia toda a lista de contatos ao conectar.',
+    recommended: false,
+    warning: 'Volume muito alto ao conectar — pode sobrecarregar o servidor.',
+  },
+  {
+    id: 'groups_upsert',
+    label: 'Sincronização de grupos',
+    description: 'Envia dados de grupos ao conectar.',
+    recommended: false,
+    warning: 'Alto volume se houver muitos grupos.',
+  },
+  {
+    id: 'connection_update',
+    label: 'Atualização de conexão',
+    description: 'Notifica mudanças no estado da conexão da instância (conectado/desconectado). Usado para alertas internos de queda de conexão.',
+    recommended: true,
+  },
+];
+
 // ── Provider types ────────────────────────────────────────────────────────────
 
 export interface WhatsAppProvider {
@@ -16,6 +104,7 @@ export interface WhatsAppProvider {
   instance_url: string;
   api_token: string;
   is_default: boolean;
+  profile_id: string;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -33,13 +122,14 @@ export async function getProviders(): Promise<{ data: WhatsAppProvider[]; error?
 }
 
 export async function saveProvider(
-  fields: { name: string; instance_url: string; api_token: string; notes?: string },
+  fields: { name: string; instance_url: string; api_token: string; profile_id?: string; notes?: string },
   id?: string,
 ): Promise<{ data: WhatsAppProvider | null; error?: string }> {
   const payload = {
     name:         fields.name,
     instance_url: fields.instance_url,
     api_token:    fields.api_token,
+    profile_id:   fields.profile_id ?? 'uazapi',
     notes:        fields.notes ?? null,
     updated_at:   new Date().toISOString(),
   };
@@ -222,19 +312,27 @@ export async function disconnectInstance(): Promise<{ success: boolean; error?: 
 
 // ── Register webhook ──────────────────────────────────────────────────────────
 
-export async function registerWebhook(webhookUrl: string): Promise<SendResult> {
+export async function registerWebhook(webhookUrl: string, events: string[]): Promise<SendResult> {
   const { data, error } = await callProxy('/webhook', 'POST', {
     url: webhookUrl,
-    events: ['messages_update'],
+    enabled: true,
+    events,
     excludeMessages: ['wasSentByApi'],
   });
   if (error) return { success: false, error };
-  // Persist webhook_url in system_settings
-  await supabase
-    .from('system_settings')
-    .update({ value: JSON.stringify(webhookUrl) })
-    .eq('category', 'whatsapp')
-    .eq('key', 'webhook_url');
+  // Persist webhook_url and selected events in system_settings
+  await Promise.all([
+    supabase
+      .from('system_settings')
+      .update({ value: JSON.stringify(webhookUrl) })
+      .eq('category', 'whatsapp')
+      .eq('key', 'webhook_url'),
+    supabase
+      .from('system_settings')
+      .update({ value: JSON.stringify(events) })
+      .eq('category', 'whatsapp')
+      .eq('key', 'webhook_events'),
+  ]);
   return { success: true, data };
 }
 

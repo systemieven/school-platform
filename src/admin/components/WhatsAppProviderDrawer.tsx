@@ -13,6 +13,7 @@ import {
   updateProfileName, updateProfileImage,
   getPrivacy, updatePrivacy, updatePresence,
   saveProvider,
+  WHATSAPP_API_PROFILES, WEBHOOK_EVENTS,
 } from '../lib/whatsapp-api';
 import type { PrivacySettings, WhatsAppProvider } from '../lib/whatsapp-api';
 import { useWhatsAppStatus } from '../contexts/WhatsAppStatusContext';
@@ -60,11 +61,14 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
   const { state: waState, instanceData, loading: waLoading, refresh: refreshWa } = useWhatsAppStatus();
 
   // ── Provider name
-  const [providerName, setProviderName] = useState(provider?.name ?? '');
+  const [providerName,  setProviderName]  = useState(provider?.name ?? '');
+  const [editingName,   setEditingName]   = useState(provider === null); // new provider starts in edit mode
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   // ── Credentials
   const [instanceUrl, setInstanceUrl] = useState(provider?.instance_url ?? '');
   const [apiToken,    setApiToken]    = useState(provider?.api_token    ?? '');
+  const [profileId,   setProfileId]   = useState(provider?.profile_id  ?? 'uazapi');
   const [showToken,   setShowToken]   = useState(false);
   const [savingCred,  setSavingCred]  = useState(false);
   const [savedCred,   setSavedCred]   = useState(false);
@@ -86,15 +90,16 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
   const qrRefreshRef= useRef<ReturnType<typeof setTimeout>  | null>(null);
 
   // ── Webhook
-  const [webhookSecret,  setWebhookSecret]  = useState('');
-  const [showSecret,     setShowSecret]     = useState(false);
-  const [savingSecret,   setSavingSecret]   = useState(false);
-  const [savedSecret,    setSavedSecret]    = useState(false);
-  const [secretId,       setSecretId]       = useState('');
-  const [registering,    setRegistering]    = useState(false);
-  const [regResult,      setRegResult]      = useState<{ success: boolean; error?: string } | null>(null);
-  const [webhookUrlInDb, setWebhookUrlInDb] = useState('');
-  const [copied,         setCopied]         = useState(false);
+  const [webhookSecret,    setWebhookSecret]    = useState('');
+  const [showSecret,       setShowSecret]       = useState(false);
+  const [savingSecret,     setSavingSecret]     = useState(false);
+  const [savedSecret,      setSavedSecret]      = useState(false);
+  const [secretId,         setSecretId]         = useState('');
+  const [registering,      setRegistering]      = useState(false);
+  const [regResult,        setRegResult]        = useState<{ success: boolean; error?: string } | null>(null);
+  const [webhookUrlInDb,   setWebhookUrlInDb]   = useState('');
+  const [copied,           setCopied]           = useState(false);
+  const [selectedEvents,   setSelectedEvents]   = useState<string[]>(['messages_update']);
 
   // ── Load webhook settings (always from system_settings)
   useEffect(() => {
@@ -104,12 +109,15 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
         .from('system_settings')
         .select('id, key, value')
         .eq('category', 'whatsapp')
-        .in('key', ['webhook_secret', 'webhook_url']);
+        .in('key', ['webhook_secret', 'webhook_url', 'webhook_events']);
       if (!data) return;
       data.forEach((r: { id: string; key: string; value: unknown }) => {
         const v = jsonVal(r.value);
         if (r.key === 'webhook_secret') { setWebhookSecret(v); setSecretId(r.id); }
         if (r.key === 'webhook_url')    setWebhookUrlInDb(v);
+        if (r.key === 'webhook_events') {
+          try { setSelectedEvents(JSON.parse(v)); } catch { /* keep default */ }
+        }
       });
     })();
   }, [isDefault]);
@@ -160,7 +168,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
     setCredError('');
     setSavingCred(true);
     const { error } = await saveProvider(
-      { name: providerName.trim(), instance_url: instanceUrl, api_token: apiToken },
+      { name: providerName.trim(), instance_url: instanceUrl, api_token: apiToken, profile_id: profileId },
       provider?.id,
     );
     setSavingCred(false);
@@ -168,6 +176,9 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
     setSavedCred(true);
     setTimeout(() => setSavedCred(false), 2500);
     onSaved();
+    // If this is the default provider, credentials in system_settings changed —
+    // immediately re-check connection so the header badge and status dot update.
+    if (isDefault) refreshWa();
     if (isNew) onClose(); // after creation, close so user sees updated list
   };
 
@@ -236,7 +247,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
 
   const handleRegister = async () => {
     setRegistering(true); setRegResult(null);
-    const res = await registerWebhook(webhookUrl);
+    const res = await registerWebhook(webhookUrl, selectedEvents);
     setRegResult(res);
     if (res.success) setWebhookUrlInDb(webhookUrl);
     setRegistering(false);
@@ -258,12 +269,39 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
           <div className="flex-1 min-w-0">
-            <input
-              value={providerName}
-              onChange={e => setProviderName(e.target.value)}
-              placeholder="Nome do provedor (ex.: Número Principal)"
-              className="w-full text-base font-semibold bg-transparent text-gray-800 dark:text-white placeholder:text-gray-400 outline-none border-b-2 border-transparent focus:border-[#003876] dark:focus:border-[#ffd700] transition-colors pb-0.5"
-            />
+            {editingName ? (
+              <input
+                ref={nameInputRef}
+                value={providerName}
+                onChange={e => setProviderName(e.target.value)}
+                onBlur={async () => {
+                  if (!providerName.trim()) return;
+                  setEditingName(false);
+                  if (!isNew && providerName.trim() !== provider?.name) {
+                    await saveProvider(
+                      { name: providerName.trim(), instance_url: instanceUrl, api_token: apiToken, profile_id: profileId },
+                      provider?.id,
+                    );
+                    onSaved();
+                  }
+                }}
+                onKeyDown={e => { if (e.key === 'Enter' && providerName.trim()) { e.currentTarget.blur(); } }}
+                placeholder="Nome do provedor (ex.: Número Principal)"
+                className="w-full text-base font-semibold bg-transparent text-gray-800 dark:text-white placeholder:text-gray-400 outline-none border-b-2 border-[#003876] dark:border-[#ffd700] transition-colors pb-0.5"
+                autoFocus
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setEditingName(true); setTimeout(() => nameInputRef.current?.focus(), 0); }}
+                className="group flex items-center gap-1.5 max-w-full text-left"
+              >
+                <span className="text-base font-semibold text-gray-800 dark:text-white truncate">
+                  {providerName || 'Sem nome'}
+                </span>
+                <Pencil className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] flex-shrink-0 transition-colors" />
+              </button>
+            )}
             {isDefault && (
               <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold tracking-wide uppercase text-[#003876] dark:text-[#ffd700] bg-[#003876]/10 dark:bg-[#ffd700]/10 px-2 py-0.5 rounded-full">
                 Provedor padrão
@@ -318,6 +356,21 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                     {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  <Shuffle className="w-3.5 h-3.5" /> Perfil da API
+                </label>
+                <select value={profileId} onChange={e => setProfileId(e.target.value)} className={selectCls}>
+                  {WHATSAPP_API_PROFILES.map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+                {WHATSAPP_API_PROFILES.find(p => p.id === profileId) && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    {WHATSAPP_API_PROFILES.find(p => p.id === profileId)!.description}
+                  </p>
+                )}
               </div>
               {credError && (
                 <p className="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400">
@@ -591,7 +644,49 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                     </button>
                   </div>
                 </div>
-                <button onClick={handleRegister} disabled={registering || !webhookSecret}
+                {/* ── Eventos do Webhook ─────────────────────────────── */}
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                    Eventos a receber
+                  </label>
+                  <div className="space-y-2">
+                    {WEBHOOK_EVENTS.map(ev => (
+                      <label key={ev.id} className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={selectedEvents.includes(ev.id)}
+                          onChange={e => {
+                            setSelectedEvents(prev =>
+                              e.target.checked ? [...prev, ev.id] : prev.filter(x => x !== ev.id)
+                            );
+                            setRegResult(null);
+                          }}
+                          className="mt-0.5 w-4 h-4 rounded accent-[#003876] dark:accent-[#ffd700] flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] transition-colors">
+                              {ev.label}
+                            </span>
+                            {ev.recommended && (
+                              <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full">
+                                recomendado
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{ev.description}</p>
+                          {ev.warning && (
+                            <p className="text-[11px] text-amber-500 dark:text-amber-400 mt-0.5 flex items-center gap-1">
+                              <TriangleAlert className="w-3 h-3 flex-shrink-0" />{ev.warning}
+                            </p>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <button onClick={handleRegister} disabled={registering || !webhookSecret || selectedEvents.length === 0}
                   className="inline-flex items-center gap-2 border border-[#003876] text-[#003876] dark:border-[#ffd700] dark:text-[#ffd700] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#003876]/5 dark:hover:bg-[#ffd700]/5 disabled:opacity-50 transition-colors">
                   {registering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
                   {registering ? 'Registrando…' : 'Registrar na API'}

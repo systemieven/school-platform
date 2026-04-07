@@ -574,7 +574,7 @@ function DeleteConfirm({ template, onClose, onConfirm }: {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function TemplatesPage() {
+export default function TemplatesPage({ embedded }: { embedded?: boolean } = {}) {
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [loading, setLoading]     = useState(true);
   const [filterCat, setFilterCat] = useState<string>('all');
@@ -625,24 +625,40 @@ export default function TemplatesPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
-            <MessageCircle className="w-8 h-8" />
-            Templates WhatsApp
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            {templates.length} template{templates.length !== 1 ? 's' : ''} cadastrado{templates.length !== 1 ? 's' : ''} · {totalActive} ativo{totalActive !== 1 ? 's' : ''}
-          </p>
+      {!embedded && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+              <MessageCircle className="w-8 h-8" />
+              Templates WhatsApp
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              {templates.length} template{templates.length !== 1 ? 's' : ''} cadastrado{templates.length !== 1 ? 's' : ''} · {totalActive} ativo{totalActive !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={handleNew}
+            className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#002855] hover:shadow-lg transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Template
+          </button>
         </div>
-        <button
-          onClick={handleNew}
-          className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#002855] hover:shadow-lg transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Template
-        </button>
-      </div>
+      )}
+      {embedded && (
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-xs text-gray-400">
+            {templates.length} template{templates.length !== 1 ? 's' : ''} · {totalActive} ativo{totalActive !== 1 ? 's' : ''}
+          </p>
+          <button
+            onClick={handleNew}
+            className="inline-flex items-center gap-2 bg-[#003876] text-white px-4 py-2 rounded-xl font-medium text-sm hover:bg-[#002855] transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Template
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       {templates.length > 0 && (

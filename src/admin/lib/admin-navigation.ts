@@ -49,23 +49,11 @@ export const ADMIN_NAV: NavGroup[] = [
         path: '/admin/leads/kanban',
         roles: ['super_admin', 'admin', 'coordinator'],
       },
-    ],
-  },
-  {
-    label: 'WhatsApp',
-    items: [
       {
-        key: 'wa-templates',
-        label: 'Templates',
-        icon: 'LayoutTemplate',
-        path: '/admin/whatsapp/templates',
-        roles: ['super_admin', 'admin', 'coordinator'],
-      },
-      {
-        key: 'wa-messages',
-        label: 'Histórico',
-        icon: 'Send',
-        path: '/admin/whatsapp/mensagens',
+        key: 'reports',
+        label: 'Relatórios',
+        icon: 'BarChart2',
+        path: '/admin/relatorios',
         roles: ['super_admin', 'admin', 'coordinator'],
       },
     ],

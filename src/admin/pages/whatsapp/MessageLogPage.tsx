@@ -5,7 +5,7 @@ import type { WhatsAppMessageLog, MessageLogStatus } from '../../types/admin.typ
 import {
   Send, CheckCheck, Clock, XCircle, Eye, RotateCcw,
   Loader2, Phone, Calendar, ChevronDown, X, RefreshCw,
-  MessageSquare, TrendingUp,
+  MessageSquare, TrendingUp, Sun, CalendarRange, CalendarDays, SlidersHorizontal,
 } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -35,6 +35,39 @@ function formatPhone(phone: string): string {
   return phone;
 }
 
+// ── Date filter helpers ───────────────────────────────────────────────────────
+
+type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
+
+function getDateRange(
+  filter: DateFilter,
+  customStart: string,
+  customEnd: string,
+): { from?: string; to?: string } {
+  const now = new Date();
+  if (filter === 'today') {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return { from: start.toISOString(), to: end.toISOString() };
+  }
+  if (filter === 'week') {
+    const day   = now.getDay();
+    const diff  = day === 0 ? -6 : 1 - day; // Monday as start
+    const start = new Date(now); start.setDate(now.getDate() + diff); start.setHours(0, 0, 0, 0);
+    return { from: start.toISOString() };
+  }
+  if (filter === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from: start.toISOString() };
+  }
+  if (filter === 'custom' && customStart) {
+    const from = new Date(customStart + 'T00:00:00').toISOString();
+    const to   = customEnd ? new Date(customEnd + 'T23:59:59').toISOString() : undefined;
+    return { from, to };
+  }
+  return {};
+}
+
 // ── Status config ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<MessageLogStatus, { label: string; color: string; icon: React.ComponentType<{className?: string}> }> = {
@@ -50,6 +83,15 @@ const MODULE_LABELS: Record<string, string> = {
   matricula:   'Pré-Matrícula',
   contato:     'Contato',
 };
+
+// ── Date filter config ────────────────────────────────────────────────────────
+
+const DATE_FILTERS: { key: DateFilter; label: string; icon: React.ComponentType<{className?: string}> }[] = [
+  { key: 'today',  label: 'No dia',     icon: Sun              },
+  { key: 'week',   label: 'Na semana',  icon: CalendarRange    },
+  { key: 'month',  label: 'No mês',     icon: CalendarDays     },
+  { key: 'custom', label: 'Personalizado', icon: SlidersHorizontal },
+];
 
 // ── Detail Drawer ─────────────────────────────────────────────────────────────
 
@@ -178,12 +220,15 @@ function DetailDrawer({ log, onClose, onRetry }: {
 
 const PAGE_SIZE = 30;
 
-export default function MessageLogPage() {
+export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}) {
   const [logs, setLogs]         = useState<WhatsAppMessageLog[]>([]);
   const [loading, setLoading]   = useState(true);
   const [selected, setSelected] = useState<WhatsAppMessageLog | null>(null);
   const [filterStatus, setFilterStatus] = useState<MessageLogStatus | 'all'>('all');
   const [filterModule, setFilterModule] = useState<string>('all');
+  const [filterDate,   setFilterDate]   = useState<DateFilter>('all');
+  const [customStart,  setCustomStart]  = useState('');
+  const [customEnd,    setCustomEnd]    = useState('');
   const [retrying, setRetrying] = useState<string | null>(null);
   const [total, setTotal]       = useState(0);
 
@@ -198,11 +243,15 @@ export default function MessageLogPage() {
     if (filterStatus !== 'all') query = query.eq('status', filterStatus);
     if (filterModule !== 'all') query = query.eq('related_module', filterModule);
 
+    const { from, to } = getDateRange(filterDate, customStart, customEnd);
+    if (from) query = query.gte('created_at', from);
+    if (to)   query = query.lte('created_at', to);
+
     const { data, count } = await query;
     setLogs((data as WhatsAppMessageLog[]) || []);
     setTotal(count || 0);
     setLoading(false);
-  }, [filterStatus, filterModule]);
+  }, [filterStatus, filterModule, filterDate, customStart, customEnd]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -235,23 +284,97 @@ export default function MessageLogPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
-            <Send className="w-8 h-8" />
-            Histórico de Mensagens
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
+      {!embedded ? (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+              <Send className="w-8 h-8" />
+              Histórico de Mensagens
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              {total} mensagen{total !== 1 ? 's' : ''} registrada{total !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={load}
+            className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 px-4 py-2 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Atualizar
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-xs text-gray-400">
             {total} mensagen{total !== 1 ? 's' : ''} registrada{total !== 1 ? 's' : ''}
           </p>
+          <button
+            onClick={load}
+            className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Atualizar
+          </button>
         </div>
-        <button
-          onClick={load}
-          className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 px-4 py-2 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Atualizar
-        </button>
+      )}
+
+      {/* ── Date filters ─────────────────────────────────────────────────────── */}
+      <div className="mb-5">
+        <div className="flex flex-wrap items-center gap-2">
+          {DATE_FILTERS.map(({ key, label, icon: Icon }) => {
+            const active = filterDate === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setFilterDate(active && key !== 'custom' ? 'all' : key)}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
+                  active
+                    ? 'bg-[#003876] text-white shadow-sm shadow-[#003876]/20 dark:bg-[#ffd700] dark:text-[#003876]'
+                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700]'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Custom date range picker */}
+        {filterDate === 'custom' && (
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2">
+              <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-400">De</span>
+              <input
+                type="date"
+                value={customStart}
+                onChange={e => setCustomStart(e.target.value)}
+                className="text-sm text-gray-700 dark:text-gray-300 bg-transparent outline-none cursor-pointer"
+              />
+            </div>
+            <span className="text-gray-300 dark:text-gray-600 text-sm">—</span>
+            <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2">
+              <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-400">Até</span>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart}
+                onChange={e => setCustomEnd(e.target.value)}
+                className="text-sm text-gray-700 dark:text-gray-300 bg-transparent outline-none cursor-pointer"
+              />
+            </div>
+            {(customStart || customEnd) && (
+              <button
+                onClick={() => { setCustomStart(''); setCustomEnd(''); }}
+                className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" /> Limpar
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -294,7 +417,7 @@ export default function MessageLogPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Status + module filters */}
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="flex items-center gap-1">
           {([['all','Todos'], ['queued','Na fila'], ['sent','Enviados'], ['delivered','Entregues'], ['read','Lidos'], ['failed','Falharam']] as const).map(([v, l]) => (
