@@ -11,6 +11,7 @@ import EnrollmentsPage from './pages/enrollments/EnrollmentsPage';
 import ContactsPage from './pages/contacts/ContactsPage';
 import TemplatesPage from './pages/whatsapp/TemplatesPage';
 import MessageLogPage from './pages/whatsapp/MessageLogPage';
+import KanbanPage from './pages/leads/KanbanPage';
 
 export default function AdminRoutes() {
   return (
@@ -31,6 +32,9 @@ export default function AdminRoutes() {
           <Route path="agendamentos" element={<AppointmentsPage />} />
           <Route path="matriculas"   element={<EnrollmentsPage />} />
           <Route path="contatos"     element={<ContactsPage />} />
+
+          {/* Leads */}
+          <Route path="leads/kanban" element={<KanbanPage />} />
 
           {/* WhatsApp */}
           <Route path="whatsapp/templates" element={<TemplatesPage />} />

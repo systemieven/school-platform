@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import type { Enrollment, EnrollmentStatus } from '../../types/admin.types';
+import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
   GraduationCap, Search, X, ChevronRight, Loader2, RefreshCw,
   User, Phone, MapPin, Calendar, FileText, CheckCircle2, Ban,
-  Clock, AlertCircle, ChevronDown,
+  Clock, AlertCircle, ChevronDown, MessageCircle,
 } from 'lucide-react';
 
 // ── Pipeline config ──────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   const [newStatus, setNewStatus] = useState<EnrollmentStatus | ''>('');
   const [archiveReason, setArchiveReason] = useState('');
   const [section, setSection] = useState<'guardian' | 'student' | 'parents'>('guardian');
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
 
   useEffect(() => {
     if (enr) {
@@ -265,8 +267,35 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
               </button>
             )}
           </div>
+          {/* WhatsApp quick-send */}
+          <button
+            onClick={() => setShowWhatsApp(true)}
+            className="w-full flex items-center justify-center gap-2 py-2.5 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl text-sm font-medium transition-colors"
+          >
+            <MessageCircle className="w-4 h-4" />
+            Enviar WhatsApp
+          </button>
         </div>
       </aside>
+
+      {showWhatsApp && enr && (
+        <SendWhatsAppModal
+          module="matricula"
+          phone={enr.guardian_phone}
+          recipientName={enr.guardian_name}
+          recordId={enr.id}
+          variables={{
+            guardian_name:      enr.guardian_name,
+            student_name:       enr.student_name,
+            enrollment_status:  PIPELINE.find((p) => p.key === enr.status)?.label || enr.status,
+            enrollment_number:  enr.enrollment_number || 'Pendente',
+            pending_docs:       '',
+            school_name:        'Colégio Batista',
+            current_date:       new Date().toLocaleDateString('pt-BR'),
+          }}
+          onClose={() => setShowWhatsApp(false)}
+        />
+      )}
     </>
   );
 }

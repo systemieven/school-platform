@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { checkUazApiStatus } from '../../lib/uazapi';
+import { checkUazApiStatus, registerWebhook, WEBHOOK_FUNCTION_BASE } from '../../lib/uazapi';
 import type { SystemSetting } from '../../types/admin.types';
 import type { UazApiStatus } from '../../lib/uazapi';
 import {
@@ -8,6 +8,7 @@ import {
   CalendarCheck, GraduationCap, MessageSquare, Bell, Palette,
   Eye, EyeOff, AlertCircle, Wifi, WifiOff, RefreshCw,
   PanelLeftClose, PanelLeftOpen, Smartphone, Battery, CheckCircle2,
+  Copy, Link, ExternalLink,
 } from 'lucide-react';
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
@@ -414,8 +415,34 @@ export default function SettingsPage() {
 
 // ── WhatsApp Connection Panel ─────────────────────────────────────────────────
 function WhatsAppConnectionPanel() {
-  const [testing, setTesting]   = useState(false);
-  const [result, setResult]     = useState<{ connected: boolean; status?: UazApiStatus; error?: string } | null>(null);
+  const [testing, setTesting]         = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [copied, setCopied]           = useState(false);
+  const [webhookSecret, setWhSecret]  = useState('');
+  const [webhookRegistered, setWReg]  = useState('');
+  const [result, setResult]           = useState<{ connected: boolean; status?: UazApiStatus; error?: string } | null>(null);
+  const [regResult, setRegResult]     = useState<{ success: boolean; error?: string } | null>(null);
+
+  // Load webhook_secret and webhook_url from system_settings
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('key, value')
+        .eq('category', 'uazapi')
+        .in('key', ['webhook_secret', 'webhook_url']);
+      const map: Record<string, string> = {};
+      (data || []).forEach((r: { key: string; value: unknown }) => {
+        map[r.key] = typeof r.value === 'string' ? r.value : (JSON.parse(String(r.value)) || '');
+      });
+      setWhSecret(map['webhook_secret'] || '');
+      setWReg(map['webhook_url'] || '');
+    })();
+  }, []);
+
+  const webhookUrl = webhookSecret
+    ? `${WEBHOOK_FUNCTION_BASE}?secret=${encodeURIComponent(webhookSecret)}`
+    : WEBHOOK_FUNCTION_BASE;
 
   const handleTest = async () => {
     setTesting(true);
@@ -425,85 +452,136 @@ function WhatsAppConnectionPanel() {
     setTesting(false);
   };
 
-  return (
-    <div className="mb-6 bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-            <Smartphone className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
-            Teste de Conexão
-          </h3>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Verifique se a instância UazAPI está acessível com as credenciais salvas.
-          </p>
-        </div>
-        <button
-          onClick={handleTest}
-          disabled={testing}
-          className="inline-flex items-center gap-2 bg-[#003876] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors disabled:opacity-60"
-        >
-          {testing
-            ? <Loader2 className="w-4 h-4 animate-spin" />
-            : <RefreshCw className="w-4 h-4" />
-          }
-          {testing ? 'Testando…' : 'Testar conexão'}
-        </button>
-      </div>
+  const handleCopy = () => {
+    navigator.clipboard.writeText(webhookUrl).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
-      {result && (
-        <div className={`mt-4 rounded-xl p-4 border ${
-          result.connected
-            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50'
-            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'
-        }`}>
-          {result.connected && result.status ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium text-sm">
-                <CheckCircle2 className="w-4 h-4" />
-                Instância conectada ao WhatsApp
-              </div>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 mt-1">
-                {result.status.name && (
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    <span className="text-gray-400">Dispositivo: </span>
-                    <span className="font-medium">{String(result.status.name)}</span>
-                  </div>
-                )}
-                {result.status.phone && (
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    <span className="text-gray-400">Número: </span>
-                    <span className="font-medium">{String(result.status.phone)}</span>
-                  </div>
-                )}
-                {result.status.battery !== undefined && (
-                  <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                    <Battery className="w-3 h-3 text-gray-400" />
-                    <span className="font-medium">{String(result.status.battery)}%</span>
-                    {result.status.plugged && <span className="text-gray-400">(carregando)</span>}
-                  </div>
-                )}
-                <div className="text-xs text-gray-600 dark:text-gray-400">
-                  <span className="text-gray-400">Estado: </span>
-                  <span className="font-medium capitalize">{String(result.status.state)}</span>
+  const handleRegisterWebhook = async () => {
+    setRegistering(true);
+    setRegResult(null);
+    const res = await registerWebhook(webhookUrl);
+    setRegResult(res);
+    if (res.success) setWReg(webhookUrl);
+    setRegistering(false);
+  };
+
+  return (
+    <div className="mb-6 space-y-4">
+      {/* Connection test */}
+      <div className="bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+              Teste de Conexão
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Verifique se a instância UazAPI está acessível com as credenciais salvas.
+            </p>
+          </div>
+          <button
+            onClick={handleTest}
+            disabled={testing}
+            className="inline-flex items-center gap-2 bg-[#003876] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors disabled:opacity-60"
+          >
+            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {testing ? 'Testando…' : 'Testar conexão'}
+          </button>
+        </div>
+
+        {result && (
+          <div className={`mt-4 rounded-xl p-4 border ${
+            result.connected
+              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50'
+              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'
+          }`}>
+            {result.connected && result.status ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium text-sm">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Instância conectada ao WhatsApp
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+                  {result.status.name && <div className="text-xs text-gray-600 dark:text-gray-400"><span className="text-gray-400">Dispositivo: </span><span className="font-medium">{String(result.status.name)}</span></div>}
+                  {result.status.phone && <div className="text-xs text-gray-600 dark:text-gray-400"><span className="text-gray-400">Número: </span><span className="font-medium">{String(result.status.phone)}</span></div>}
+                  {result.status.battery !== undefined && (
+                    <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                      <Battery className="w-3 h-3 text-gray-400" />
+                      <span className="font-medium">{String(result.status.battery)}%</span>
+                      {result.status.plugged && <span className="text-gray-400">(carregando)</span>}
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-600 dark:text-gray-400"><span className="text-gray-400">Estado: </span><span className="font-medium capitalize">{String(result.status.state)}</span></div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-start gap-2 text-red-600 dark:text-red-400 text-sm">
-              <WifiOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium">Falha na conexão</p>
-                {result.error && (
-                  <p className="text-xs text-red-500 dark:text-red-400/80 mt-1 font-mono">{result.error}</p>
-                )}
-                <p className="text-xs text-red-400 mt-1">
-                  Verifique se a URL da instância e o token estão corretos e salvas.
-                </p>
+            ) : (
+              <div className="flex items-start gap-2 text-red-600 dark:text-red-400 text-sm">
+                <WifiOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Falha na conexão</p>
+                  {result.error && <p className="text-xs mt-1 font-mono">{result.error}</p>}
+                  <p className="text-xs text-red-400 mt-1">Verifique se a URL da instância e o token estão corretos e salvos.</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Webhook registration */}
+      <div className="bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Link className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Webhook de Status de Entrega</h3>
         </div>
-      )}
+        <p className="text-xs text-gray-400 mb-3">
+          Registre esta URL na instância UazAPI para receber atualizações automáticas de entrega e leitura de mensagens.
+          {!webhookSecret && <span className="text-amber-500 ml-1">Configure a <strong>Chave Secreta</strong> acima primeiro.</span>}
+        </p>
+
+        {/* URL display */}
+        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 mb-3">
+          <ExternalLink className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          <code className="text-xs text-gray-600 dark:text-gray-400 flex-1 truncate">{webhookUrl}</code>
+          <button
+            onClick={handleCopy}
+            className={`flex-shrink-0 p-1 rounded transition-colors ${copied ? 'text-green-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+            title="Copiar URL"
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
+        {/* Registered status */}
+        {webhookRegistered && (
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs mb-3">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Webhook registrado em {new Date().toLocaleDateString('pt-BR')}</span>
+          </div>
+        )}
+
+        {/* Register button */}
+        <button
+          onClick={handleRegisterWebhook}
+          disabled={registering}
+          className="inline-flex items-center gap-2 border border-[#003876] text-[#003876] dark:border-[#ffd700] dark:text-[#ffd700] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#003876]/5 transition-colors disabled:opacity-60"
+        >
+          {registering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
+          {registering ? 'Registrando…' : 'Registrar no UazAPI'}
+        </button>
+
+        {regResult && (
+          <div className={`mt-3 text-xs px-3 py-2 rounded-xl ${
+            regResult.success
+              ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+              : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+          }`}>
+            {regResult.success ? '✓ Webhook registrado com sucesso.' : `Erro: ${regResult.error}`}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

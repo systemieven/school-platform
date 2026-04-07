@@ -15,6 +15,7 @@ import {
   Sun,
   LayoutTemplate,
   Send,
+  Kanban,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -27,6 +28,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Settings,
   LayoutTemplate,
   Send,
+  Kanban,
 };
 
 interface Props {

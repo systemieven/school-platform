@@ -5,6 +5,9 @@
  */
 import { supabase } from '../../lib/supabase';
 
+export const SUPABASE_URL = 'https://dinbwugbwnkrzljuocbs.supabase.co';
+export const WEBHOOK_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1/uazapi-webhook`;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface UazApiStatus {
@@ -36,7 +39,11 @@ export interface SendResult {
 
 // ── Core proxy call ───────────────────────────────────────────────────────────
 
-export async function callProxy(path: string, method = 'GET', payload?: unknown): Promise<{ data: unknown; error?: string }> {
+export async function callProxy(
+  path: string,
+  method = 'GET',
+  payload?: unknown,
+): Promise<{ data: unknown; error?: string }> {
   const { data, error } = await supabase.functions.invoke('uazapi-proxy', {
     body: { path, method, payload },
   });
@@ -46,60 +53,89 @@ export async function callProxy(path: string, method = 'GET', payload?: unknown)
 
 // ── Health check ──────────────────────────────────────────────────────────────
 
-export async function checkUazApiStatus(): Promise<{ connected: boolean; status?: UazApiStatus; error?: string }> {
+export async function checkUazApiStatus(): Promise<{
+  connected: boolean;
+  status?: UazApiStatus;
+  error?: string;
+}> {
   const { data, error } = await callProxy('/instance/status', 'GET');
   if (error) return { connected: false, error };
-
   const status = data as UazApiStatus;
-  const connected = status?.state === 'connected';
-  return { connected, status };
+  return { connected: status?.state === 'connected', status };
+}
+
+// ── Register webhook ──────────────────────────────────────────────────────────
+
+export async function registerWebhook(webhookUrl: string): Promise<SendResult> {
+  const { data, error } = await callProxy('/webhook', 'POST', {
+    url: webhookUrl,
+    events: ['messages_update'],
+    excludeMessages: ['wasSentByApi'],
+  });
+  if (error) return { success: false, error };
+  // Persist webhook_url in system_settings
+  await supabase
+    .from('system_settings')
+    .update({ value: JSON.stringify(webhookUrl) })
+    .eq('category', 'uazapi')
+    .eq('key', 'webhook_url');
+  return { success: true, data };
 }
 
 // ── Send text message ─────────────────────────────────────────────────────────
 
 export async function sendWhatsAppText(opts: SendTextOptions): Promise<SendResult> {
+  // 1. Create log entry first — its UUID becomes the track_id
+  const { data: logEntry, error: logErr } = await supabase
+    .from('whatsapp_message_log')
+    .insert({
+      template_id:      opts.templateId  ?? null,
+      recipient_phone:  opts.phone,
+      recipient_name:   opts.recipientName ?? null,
+      rendered_content: { body: opts.text, type: 'text' },
+      status:           'queued',
+      related_module:   opts.relatedModule  ?? null,
+      related_record_id: opts.relatedRecordId ?? null,
+    })
+    .select('id')
+    .single();
+
+  if (logErr || !logEntry) {
+    return { success: false, error: logErr?.message || 'Falha ao criar log de envio' };
+  }
+
+  const logId = (logEntry as { id: string }).id;
+
   try {
+    // 2. Call proxy with track_id = log UUID
     const { data, error } = await callProxy('/send/text', 'POST', {
-      number: opts.phone,
-      text: opts.text,
+      number:       opts.phone,
+      text:         opts.text,
+      track_id:     logId,
+      track_source: 'colegio-batista',
       ...(opts.delay ? { delay: opts.delay } : {}),
     });
 
     if (error) throw new Error(error);
 
-    // Log success
-    await supabase.from('whatsapp_message_log').insert({
-      template_id: opts.templateId ?? null,
-      recipient_phone: opts.phone,
-      recipient_name: opts.recipientName ?? null,
-      rendered_content: { body: opts.text, type: 'text' },
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-      related_module: opts.relatedModule ?? null,
-      related_record_id: opts.relatedRecordId ?? null,
-    });
+    // 3. Update log: queued → sent
+    await supabase
+      .from('whatsapp_message_log')
+      .update({ status: 'sent', sent_at: new Date().toISOString() })
+      .eq('id', logId);
 
     return { success: true, data };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro desconhecido';
-
-    // Log failure
-    await supabase.from('whatsapp_message_log').insert({
-      template_id: opts.templateId ?? null,
-      recipient_phone: opts.phone,
-      recipient_name: opts.recipientName ?? null,
-      rendered_content: { body: opts.text, type: 'text' },
-      status: 'failed',
-      error_message: message,
-      related_module: opts.relatedModule ?? null,
-      related_record_id: opts.relatedRecordId ?? null,
-    });
-
+    await supabase
+      .from('whatsapp_message_log')
+      .update({ status: 'failed', error_message: message })
+      .eq('id', logId);
     return { success: false, error: message };
   }
 }
 
-// ── Render template variables ─────────────────────────────────────────────────
+// ── Template rendering ────────────────────────────────────────────────────────
 
 export function renderTemplate(body: string, vars: Record<string, string>): string {
   return body.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
@@ -124,6 +160,4 @@ export const MODULE_VARIABLES: Record<string, string[]> = {
   ],
 };
 
-export const ALL_VARIABLES = [
-  ...new Set(Object.values(MODULE_VARIABLES).flat()),
-];
+export const ALL_VARIABLES = [...new Set(Object.values(MODULE_VARIABLES).flat())];

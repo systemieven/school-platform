@@ -40,6 +40,18 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'Qualificação',
+    items: [
+      {
+        key: 'kanban',
+        label: 'Kanban de Leads',
+        icon: 'Kanban',
+        path: '/admin/leads/kanban',
+        roles: ['super_admin', 'admin', 'coordinator'],
+      },
+    ],
+  },
+  {
     label: 'WhatsApp',
     items: [
       {

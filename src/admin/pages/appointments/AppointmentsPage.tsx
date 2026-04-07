@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import type { VisitAppointment, AppointmentStatus } from '../../types/admin.types';
+import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
   CalendarCheck, Search, Filter, X, ChevronRight, Loader2,
   User, Phone, Clock, MapPin, Check, Ban, CheckCircle2,
-  AlertCircle, RefreshCw, SlidersHorizontal,
+  AlertCircle, RefreshCw, SlidersHorizontal, MessageCircle,
 } from 'lucide-react';
 
 // ── Status config ────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ function AppointmentDrawer({ apt, onClose, onUpdate }: DrawerProps) {
   const [notes, setNotes] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelForm, setShowCancelForm] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
 
   useEffect(() => {
     if (apt) {
@@ -220,6 +222,14 @@ function AppointmentDrawer({ apt, onClose, onUpdate }: DrawerProps) {
         {/* Actions footer */}
         {!showCancelForm && (
           <div className="border-t border-gray-100 dark:border-gray-700 p-4 flex-shrink-0 space-y-2">
+            {/* WhatsApp */}
+            <button
+              onClick={() => setShowWhatsApp(true)}
+              className="w-full flex items-center justify-center gap-2 py-2 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl text-sm font-medium transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Enviar WhatsApp
+            </button>
             {apt.status === 'pending' && (
               <>
                 <button
@@ -281,6 +291,27 @@ function AppointmentDrawer({ apt, onClose, onUpdate }: DrawerProps) {
           </div>
         )}
       </aside>
+
+      {/* WhatsApp modal */}
+      {showWhatsApp && apt && (
+        <SendWhatsAppModal
+          module="agendamento"
+          phone={apt.visitor_phone}
+          recipientName={apt.visitor_name}
+          recordId={apt.id}
+          variables={{
+            visitor_name:     apt.visitor_name,
+            visitor_phone:    formatPhone(apt.visitor_phone),
+            appointment_date: formatDate(apt.appointment_date),
+            appointment_time: formatTime(apt.appointment_time),
+            visit_reason:     REASON_LABELS[apt.visit_reason] || apt.visit_reason,
+            companions_count: String(Array.isArray(apt.companions) ? apt.companions.length : 0),
+            school_name:      'Colégio Batista',
+            current_date:     new Date().toLocaleDateString('pt-BR'),
+          }}
+          onClose={() => setShowWhatsApp(false)}
+        />
+      )}
     </>
   );
 }

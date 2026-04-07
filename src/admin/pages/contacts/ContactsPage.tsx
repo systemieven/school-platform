@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import type { ContactRequest, ContactStatus } from '../../types/admin.types';
+import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
   MessageSquare, Search, X, ChevronRight, Loader2, RefreshCw,
-  Phone, Mail, Clock, Tag, Star, ChevronDown, Calendar,
+  Phone, Mail, Clock, Tag, Star, ChevronDown, Calendar, MessageCircle,
 } from 'lucide-react';
 
 // ── Status config ────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ function ContactDrawer({ contact, onClose, onUpdate }: DrawerProps) {
   const [notes, setNotes] = useState('');
   const [newStatus, setNewStatus] = useState<ContactStatus | ''>('');
   const [nextDate, setNextDate] = useState('');
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
 
   useEffect(() => {
     if (contact) {
@@ -245,8 +247,35 @@ function ContactDrawer({ contact, onClose, onUpdate }: DrawerProps) {
               </button>
             </div>
           </div>
+
+          {/* WhatsApp quick-send */}
+          <button
+            onClick={() => setShowWhatsApp(true)}
+            className="flex items-center justify-center gap-2 w-full py-2.5 mt-2 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl text-sm font-medium transition-colors"
+          >
+            <MessageCircle className="w-4 h-4" />
+            Enviar WhatsApp
+          </button>
         </div>
       </aside>
+
+      {showWhatsApp && contact && (
+        <SendWhatsAppModal
+          module="contato"
+          phone={contact.phone}
+          recipientName={contact.name}
+          recordId={contact.id}
+          variables={{
+            contact_name:   contact.name,
+            contact_phone:  contact.phone,
+            contact_reason: REASON_LABELS[contact.contact_reason || ''] || contact.contact_reason || '',
+            contact_status: STATUS_CONFIG[contact.status]?.label || contact.status,
+            school_name:    'Colégio Batista',
+            current_date:   new Date().toLocaleDateString('pt-BR'),
+          }}
+          onClose={() => setShowWhatsApp(false)}
+        />
+      )}
     </>
   );
 }
