@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Admin font scope — não afeta o site público ── */
+.admin-layout .font-display,
+.admin-layout h1,
+.admin-layout h2,
+.admin-layout h3 {
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    'Helvetica Neue', Arial, sans-serif;
+}
+.admin-layout {
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    'Helvetica Neue', Arial, sans-serif;
+}
+
 :root {
   --primary: #003876;
   --primary-dark: #002855;
