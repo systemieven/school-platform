@@ -5,7 +5,8 @@ import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
   Kanban, Plus, MessageCircle, Phone, Clock, ChevronDown,
   Loader2, X, Save, AlertCircle, Star, User,
-  TrendingUp, MoreHorizontal, Flag,
+  TrendingUp, Flag, GraduationCap, Edit3, History,
+  Calendar, Mail,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -169,14 +170,254 @@ function NewLeadModal({ stages, onClose, onCreated }: {
   );
 }
 
+// ── Lead Detail Modal ────────────────────────────────────────────────────────
+
+interface LeadActivity {
+  id: string;
+  type: string;
+  description: string;
+  from_stage: string | null;
+  to_stage: string | null;
+  performed_by: string | null;
+  created_at: string;
+  profile?: { full_name: string } | null;
+}
+
+function LeadDetailModal({ lead, stages, onClose, onUpdated }: {
+  lead: Lead;
+  stages: LeadStage[];
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const { profile } = useAdminAuth();
+  const [tab, setTab] = useState<'info' | 'activity'>('info');
+  const [activities, setActivities] = useState<LeadActivity[]>([]);
+  const [loadingAct, setLoadingAct] = useState(false);
+  const [note, setNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [nextDate, setNextDate] = useState(lead.next_contact_date || '');
+  const [savingDate, setSavingDate] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState({ priority: lead.priority, segment_interest: lead.segment_interest || '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const loadActivities = useCallback(async () => {
+    setLoadingAct(true);
+    const { data } = await supabase
+      .from('lead_activities')
+      .select('*, profile:performed_by(full_name)')
+      .eq('lead_id', lead.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    setActivities((data as LeadActivity[]) || []);
+    setLoadingAct(false);
+  }, [lead.id]);
+
+  useEffect(() => { if (tab === 'activity') loadActivities(); }, [tab, loadActivities]);
+
+  const addNote = async () => {
+    if (!note.trim()) return;
+    setSavingNote(true);
+    await supabase.from('lead_activities').insert({
+      lead_id: lead.id, type: 'note', description: note.trim(), performed_by: profile?.id,
+    });
+    setNote('');
+    setSavingNote(false);
+    loadActivities();
+  };
+
+  const saveNextDate = async () => {
+    setSavingDate(true);
+    await supabase.from('leads').update({ next_contact_date: nextDate || null }).eq('id', lead.id);
+    setSavingDate(false);
+    onUpdated();
+  };
+
+  const saveEdits = async () => {
+    setSavingEdit(true);
+    await supabase.from('leads').update({
+      priority: editData.priority,
+      segment_interest: editData.segment_interest || null,
+    }).eq('id', lead.id);
+    setSavingEdit(false);
+    setEditing(false);
+    onUpdated();
+  };
+
+  const convertToEnrollment = async () => {
+    const { data, error } = await supabase.from('enrollments').insert({
+      guardian_name: lead.name, guardian_phone: lead.phone, guardian_email: lead.email,
+      student_name: '', student_birth_date: '2020-01-01',
+      guardian_cpf: '', guardian_zip_code: '', guardian_street: '', guardian_number: '', guardian_neighborhood: '', guardian_city: 'Caruaru', guardian_state: 'PE',
+      father_name: '', father_cpf: '', father_phone: '', mother_name: '', mother_cpf: '', mother_phone: '',
+      segment: lead.segment_interest, origin: 'referral', status: 'new', first_school: false,
+    }).select('id').single();
+    if (!error && data) {
+      await supabase.from('leads').update({ stage: 'enrollment_confirmed' }).eq('id', lead.id);
+      await supabase.from('lead_activities').insert({
+        lead_id: lead.id, type: 'conversion', description: 'Convertido para pré-matrícula', performed_by: profile?.id,
+      });
+      onUpdated();
+      onClose();
+    }
+  };
+
+  const p = PRIORITY_CONFIG[lead.priority];
+  const stageObj = stages.find((s) => s.name === lead.stage);
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+            <div>
+              <h3 className="font-display font-bold text-gray-900 dark:text-white">{lead.name}</h3>
+              <div className="flex items-center gap-2 mt-1">
+                <div className={`flex items-center gap-1 text-[10px] font-medium ${p.color}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${p.dot}`} /> {p.label}
+                </div>
+                {stageObj && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium text-white" style={{ backgroundColor: stageObj.color }}>
+                    {stageObj.label}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-gray-100 dark:border-gray-700 px-5">
+            {([['info', 'Informações'], ['activity', 'Atividade']] as const).map(([k, l]) => (
+              <button key={k} onClick={() => setTab(k)} className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                tab === k ? 'border-[#003876] text-[#003876] dark:text-[#ffd700] dark:border-[#ffd700]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}>{l}</button>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            {tab === 'info' && (
+              <>
+                {/* Contact info */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm"><Phone className="w-4 h-4 text-gray-400" /><span className="text-gray-700 dark:text-gray-300">{lead.phone}</span></div>
+                  {lead.email && <div className="flex items-center gap-2 text-sm"><Mail className="w-4 h-4 text-gray-400" /><span className="text-gray-700 dark:text-gray-300">{lead.email}</span></div>}
+                  <div className="flex items-center gap-2 text-sm"><Star className="w-4 h-4 text-gray-400" /><span className="text-gray-700 dark:text-gray-300">Score: {lead.score}</span></div>
+                  <div className="flex items-center gap-2 text-sm"><Clock className="w-4 h-4 text-gray-400" /><span className="text-gray-700 dark:text-gray-300">Origem: {SOURCE_LABELS[lead.source_module] || lead.source_module}</span></div>
+                </div>
+
+                {/* Edit fields */}
+                {editing ? (
+                  <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Prioridade</label>
+                      <select value={editData.priority} onChange={(e) => setEditData((p) => ({ ...p, priority: e.target.value as Priority }))}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm">
+                        {(Object.entries(PRIORITY_CONFIG) as [Priority, typeof PRIORITY_CONFIG[Priority]][]).map(([k, v]) => (
+                          <option key={k} value={k}>{v.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Segmento</label>
+                      <input value={editData.segment_interest} onChange={(e) => setEditData((p) => ({ ...p, segment_interest: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setEditing(false)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">Cancelar</button>
+                      <button onClick={saveEdits} disabled={savingEdit} className="text-xs px-3 py-1.5 rounded-lg bg-[#003876] text-white">
+                        {savingEdit ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Salvar'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-xs text-[#003876] dark:text-[#ffd700] hover:underline">
+                    <Edit3 className="w-3 h-3" /> Editar dados
+                  </button>
+                )}
+
+                {/* Next contact date */}
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" /> Próximo contato
+                  </label>
+                  <div className="flex gap-2">
+                    <input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm" />
+                    <button onClick={saveNextDate} disabled={savingDate}
+                      className="px-3 py-2 rounded-xl bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] disabled:opacity-60">
+                      {savingDate ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Salvar'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Convert action */}
+                <button onClick={convertToEnrollment}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                  <GraduationCap className="w-4 h-4" /> Converter para Pré-Matrícula
+                </button>
+              </>
+            )}
+
+            {tab === 'activity' && (
+              <>
+                {/* Add note */}
+                <div className="flex gap-2">
+                  <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Adicionar nota..."
+                    className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876]"
+                    onKeyDown={(e) => e.key === 'Enter' && addNote()} />
+                  <button onClick={addNote} disabled={savingNote || !note.trim()}
+                    className="px-3 py-2 rounded-xl bg-[#003876] text-white text-xs font-medium disabled:opacity-60">
+                    {savingNote ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {/* Activity list */}
+                {loadingAct ? (
+                  <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-[#003876] animate-spin" /></div>
+                ) : activities.length === 0 ? (
+                  <p className="text-center text-sm text-gray-400 py-6">Nenhuma atividade registrada</p>
+                ) : (
+                  <div className="space-y-3">
+                    {activities.map((a) => (
+                      <div key={a.id} className="flex gap-3 text-sm">
+                        <div className="mt-1">
+                          <History className="w-4 h-4 text-gray-400" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-gray-700 dark:text-gray-300">{a.description}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {new Date(a.created_at).toLocaleString('pt-BR')}
+                            {a.profile?.full_name && ` · ${a.profile.full_name}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Lead Card ─────────────────────────────────────────────────────────────────
 
 function LeadCard({
-  lead, onWhatsApp, onDragStart,
+  lead, onWhatsApp, onDragStart, onClick,
 }: {
   lead: Lead;
   onWhatsApp: (lead: Lead) => void;
   onDragStart: (e: React.DragEvent, lead: Lead) => void;
+  onClick: (lead: Lead) => void;
 }) {
   const p = PRIORITY_CONFIG[lead.priority];
   const days = daysSince(lead.updated_at);
@@ -185,6 +426,7 @@ function LeadCard({
     <div
       draggable
       onDragStart={(e) => onDragStart(e, lead)}
+      onClick={() => onClick(lead)}
       className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-[#003876]/20 dark:hover:border-[#ffd700]/20 transition-all group select-none"
     >
       {/* Priority + source */}
@@ -239,12 +481,13 @@ function LeadCard({
 // ── Kanban Column ─────────────────────────────────────────────────────────────
 
 function KanbanColumn({
-  stage, leads, onDrop, onWhatsApp,
+  stage, leads, onDrop, onWhatsApp, onClickLead,
 }: {
   stage: LeadStage;
   leads: Lead[];
   onDrop: (leadId: string, stageName: string) => void;
   onWhatsApp: (lead: Lead) => void;
+  onClickLead: (lead: Lead) => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounter = useRef(0);
@@ -295,6 +538,7 @@ function KanbanColumn({
             key={lead.id}
             lead={lead}
             onWhatsApp={onWhatsApp}
+            onClick={onClickLead}
             onDragStart={(e, l) => {
               e.dataTransfer.setData('leadId', l.id);
               e.dataTransfer.effectAllowed = 'move';
@@ -322,6 +566,7 @@ export default function KanbanPage() {
   const [newModal, setNewModal]   = useState(false);
   const [waLead, setWaLead]       = useState<Lead | null>(null);
   const [filterPriority, setFilterPriority] = useState<Priority | 'all'>('all');
+  const [detailLead, setDetailLead] = useState<Lead | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -442,6 +687,7 @@ export default function KanbanPage() {
                 leads={leadsByStage(stage.name)}
                 onDrop={handleDrop}
                 onWhatsApp={setWaLead}
+                onClickLead={setDetailLead}
               />
             ))}
           </div>
@@ -454,6 +700,16 @@ export default function KanbanPage() {
           stages={stages}
           onClose={() => setNewModal(false)}
           onCreated={() => { setNewModal(false); load(); }}
+        />
+      )}
+
+      {/* Lead Detail Modal */}
+      {detailLead && (
+        <LeadDetailModal
+          lead={detailLead}
+          stages={stages}
+          onClose={() => setDetailLead(null)}
+          onUpdated={() => { load(); setDetailLead(null); }}
         />
       )}
 

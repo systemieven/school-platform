@@ -300,6 +300,8 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   const [section, setSection] = useState<'guardian' | 'student' | 'parents'>('guardian');
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [creatingAppointment, setCreatingAppointment] = useState<'docs' | 'interview' | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (enr) {
@@ -312,6 +314,45 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   if (!enr) return null;
 
   const currentPipeline = PIPELINE.find((p) => p.key === enr.status) || PIPELINE[0];
+
+  function startEditing() {
+    setEditData({
+      guardian_name: enr!.guardian_name, guardian_cpf: enr!.guardian_cpf, guardian_phone: enr!.guardian_phone,
+      guardian_email: enr!.guardian_email || '', guardian_street: enr!.guardian_street, guardian_number: enr!.guardian_number,
+      guardian_complement: enr!.guardian_complement || '', guardian_neighborhood: enr!.guardian_neighborhood,
+      guardian_city: enr!.guardian_city, guardian_state: enr!.guardian_state,
+      student_name: enr!.student_name, student_birth_date: enr!.student_birth_date, student_cpf: enr!.student_cpf || '',
+      last_grade: enr!.last_grade || '', previous_school_name: enr!.previous_school_name || '',
+      father_name: enr!.father_name, father_cpf: enr!.father_cpf, father_phone: enr!.father_phone, father_email: enr!.father_email || '',
+      mother_name: enr!.mother_name, mother_cpf: enr!.mother_cpf, mother_phone: enr!.mother_phone, mother_email: enr!.mother_email || '',
+    });
+    setEditing(true);
+  }
+
+  async function saveEdits() {
+    setSaving(true);
+    const patch: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(editData)) {
+      const orig = (enr as Record<string, unknown>)[k];
+      if (v !== (orig || '')) patch[k] = v || null;
+    }
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase.from('enrollments').update(patch).eq('id', enr!.id);
+      if (!error) {
+        onUpdate(enr!.id, patch as Partial<Enrollment>);
+        await supabase.from('enrollment_history').insert({
+          enrollment_id: enr!.id, event_type: 'data_edit',
+          description: `Dados editados: ${Object.keys(patch).join(', ')}`, created_by: profile?.id || null,
+        });
+      }
+    }
+    setEditing(false);
+    setSaving(false);
+  }
+
+  const ef = (key: string) => editData[key] ?? '';
+  const setEf = (key: string, val: string) => setEditData((prev) => ({ ...prev, [key]: val }));
+  const editFieldClass = 'w-full px-2 py-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none';
 
   async function changeStatus() {
     if (!newStatus) return;
@@ -493,24 +534,40 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                 <TagsManager enrollment={enr} onUpdate={onUpdate} />
               </div>
 
-              {/* Detail sections */}
-              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 gap-1">
-                {([['guardian', 'Responsável'], ['student', 'Aluno'], ['parents', 'Pais']] as const).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSection(key)}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                      section === key
-                        ? 'bg-white dark:bg-gray-700 text-[#003876] dark:text-white shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    {label}
+              {/* Edit toggle + Detail sections */}
+              <div className="flex items-center justify-between">
+                <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 gap-1 flex-1">
+                  {([['guardian', 'Responsável'], ['student', 'Aluno'], ['parents', 'Pais']] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setSection(key)}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                        section === key
+                          ? 'bg-white dark:bg-gray-700 text-[#003876] dark:text-white shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {!editing ? (
+                  <button onClick={startEditing} className="ml-2 p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Editar dados">
+                    <Edit3 className="w-4 h-4" />
                   </button>
-                ))}
+                ) : (
+                  <div className="ml-2 flex gap-1">
+                    <button onClick={saveEdits} disabled={saving} className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors" title="Salvar">
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setEditing(false)} className="p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" title="Cancelar">
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {section === 'guardian' && (
+              {section === 'guardian' && !editing && (
                 <div className="space-y-2">
                   {[
                     { label: 'Nome', value: enr.guardian_name, icon: User },
@@ -529,8 +586,22 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                   ))}
                 </div>
               )}
+              {section === 'guardian' && editing && (
+                <div className="space-y-2">
+                  {([
+                    ['guardian_name', 'Nome'], ['guardian_cpf', 'CPF'], ['guardian_phone', 'Telefone'], ['guardian_email', 'E-mail'],
+                    ['guardian_street', 'Rua'], ['guardian_number', 'Número'], ['guardian_complement', 'Complemento'],
+                    ['guardian_neighborhood', 'Bairro'], ['guardian_city', 'Cidade'], ['guardian_state', 'Estado'],
+                  ] as const).map(([key, label]) => (
+                    <div key={key}>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
+                      <input value={ef(key)} onChange={(e) => setEf(key, e.target.value)} className={editFieldClass} />
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              {section === 'student' && (
+              {section === 'student' && !editing && (
                 <div className="space-y-2">
                   {[
                     { label: 'Nome', value: enr.student_name },
@@ -547,8 +618,21 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                   ))}
                 </div>
               )}
+              {section === 'student' && editing && (
+                <div className="space-y-2">
+                  {([
+                    ['student_name', 'Nome'], ['student_birth_date', 'Data de Nascimento'], ['student_cpf', 'CPF'],
+                    ['last_grade', 'Última série'], ['previous_school_name', 'Escola anterior'],
+                  ] as const).map(([key, label]) => (
+                    <div key={key}>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
+                      <input type={key === 'student_birth_date' ? 'date' : 'text'} value={ef(key)} onChange={(e) => setEf(key, e.target.value)} className={editFieldClass} />
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              {section === 'parents' && (
+              {section === 'parents' && !editing && (
                 <div className="space-y-4">
                   {[
                     { title: 'Pai', name: enr.father_name, cpf: enr.father_cpf, phone: enr.father_phone, email: enr.father_email },
@@ -560,6 +644,28 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                       <p className="text-xs text-gray-500 dark:text-gray-400">CPF: {cpf || '—'}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Tel: {phone || '—'}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">E-mail: {email || '—'}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {section === 'parents' && editing && (
+                <div className="space-y-4">
+                  {([
+                    { title: 'Pai', prefix: 'father' },
+                    { title: 'Mãe', prefix: 'mother' },
+                  ] as const).map(({ title, prefix }) => (
+                    <div key={prefix} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 space-y-2">
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{title}</p>
+                      {(['name', 'cpf', 'phone', 'email'] as const).map((f) => {
+                        const key = `${prefix}_${f}`;
+                        const labels: Record<string, string> = { name: 'Nome', cpf: 'CPF', phone: 'Telefone', email: 'E-mail' };
+                        return (
+                          <div key={key}>
+                            <p className="text-[10px] text-gray-400 uppercase mb-0.5">{labels[f]}</p>
+                            <input value={ef(key)} onChange={(e) => setEf(key, e.target.value)} className={editFieldClass} />
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
