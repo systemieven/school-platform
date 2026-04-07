@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
@@ -12,10 +13,23 @@ import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
 import TermosUso from './pages/TermosUso';
 import EmConstrucao from './pages/EmConstrucao';
 import NotFound from './pages/NotFound';
+import { Loader2 } from 'lucide-react';
+
+// Lazy-load admin panel (separate bundle chunk)
+const AdminRoutes = lazy(() => import('./admin/routes'));
+
+function AdminFallback() {
+  return (
+    <div className="h-screen flex items-center justify-center bg-gray-50">
+      <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+    </div>
+  );
+}
 
 export default function App() {
   return (
     <Routes>
+      {/* ── Public site ── */}
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="educacao-infantil" element={<EducacaoInfantil />} />
@@ -34,6 +48,16 @@ export default function App() {
         <Route path="area-professor" element={<EmConstrucao />} />
         <Route path="*" element={<NotFound />} />
       </Route>
+
+      {/* ── Admin panel (lazy-loaded) ── */}
+      <Route
+        path="admin/*"
+        element={
+          <Suspense fallback={<AdminFallback />}>
+            <AdminRoutes />
+          </Suspense>
+        }
+      />
     </Routes>
   );
 }
