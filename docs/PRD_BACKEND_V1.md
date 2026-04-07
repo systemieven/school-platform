@@ -214,7 +214,27 @@ profiles (
 
 Tabela `system_settings` key-value para configuracoes globais, com interface CRUD agrupada por categoria.
 
-#### Categorias Iniciais
+#### Interface: Abas Tematicas
+
+O painel de configuracoes deve ser organizado por **abas (tabs)**, cada uma concentrando as configuracoes de uma tematica ou modulo. Isso melhora a navegabilidade e evita uma unica pagina longa e confusa.
+
+| Aba | Categoria(s) | Descricao |
+|-----|-------------|-----------|
+| **Dados Institucionais** | `general` | Nome da escola, CNPJ, endereco, telefone, e-mail, logo, redes sociais |
+| **Agendamento de Visitas** | `visit` | Motivos de visita, dias bloqueados, horario de almoco, duracao, maximo por dia, intervalo entre slots |
+| **Pre-Matricula** | `enrollment` | Idade minima, exigencia de dados dos pais, documentos obrigatorios, lista de documentos, campos obrigatorios |
+| **Formulario de Contato** | `contact` | Campos obrigatorios, motivos de contato (label, icone, requer_mensagem, e_lead), configuracoes de qualificacao |
+| **WhatsApp (Uazapi)** | `uazapi` | URL da instancia, token da API, webhook URL, status de conexao, teste de conectividade |
+| **Notificacoes** | `notifications` | Templates de e-mail, preferencias de notificacao admin, alertas automaticos |
+| **Aparencia** | `appearance` | Logo, cores customizaveis (futuro), textos do hero, banner de matriculas abertas |
+
+Cada aba deve:
+- Carregar apenas as configuracoes da(s) sua(s) categoria(s)
+- Ter botao "Salvar" independente com feedback visual (saving/saved)
+- Mostrar indicador de alteracoes nao salvas
+- Respeitar permissoes: abas visiveis conforme role do usuario
+
+#### Categorias e Chaves
 
 | Categoria | Chaves | Tipo |
 |-----------|--------|------|
@@ -223,6 +243,8 @@ Tabela `system_settings` key-value para configuracoes globais, com interface CRU
 | `enrollment` | min_age, require_parents_data, require_documents, required_docs_list | json |
 | `contact` | required_fields, contact_reasons (array com label, icon, requires_message, is_lead) | json |
 | `visit` | reasons (array com key, label, duration, interval, max_per_day), blocked_weekdays, lunch_start, lunch_end | json |
+| `notifications` | admin_email_alerts, email_templates, auto_notify_on_contact, auto_notify_on_visit | json/bool |
+| `appearance` | hero_title, hero_subtitle, enrollment_banner_active, enrollment_banner_text | text/bool |
 
 #### Integracao Frontend
 
