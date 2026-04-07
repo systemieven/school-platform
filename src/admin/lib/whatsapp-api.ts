@@ -8,6 +8,91 @@ import { supabase } from '../../lib/supabase';
 export const SUPABASE_URL = 'https://dinbwugbwnkrzljuocbs.supabase.co';
 export const WEBHOOK_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1/uazapi-webhook`;
 
+// ── Provider types ────────────────────────────────────────────────────────────
+
+export interface WhatsAppProvider {
+  id: string;
+  name: string;
+  instance_url: string;
+  api_token: string;
+  is_default: boolean;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Provider CRUD ─────────────────────────────────────────────────────────────
+
+export async function getProviders(): Promise<{ data: WhatsAppProvider[]; error?: string }> {
+  const { data, error } = await supabase
+    .from('whatsapp_providers')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) return { data: [], error: error.message };
+  return { data: data as WhatsAppProvider[] };
+}
+
+export async function saveProvider(
+  fields: { name: string; instance_url: string; api_token: string; notes?: string },
+  id?: string,
+): Promise<{ data: WhatsAppProvider | null; error?: string }> {
+  const payload = {
+    name:         fields.name,
+    instance_url: fields.instance_url,
+    api_token:    fields.api_token,
+    notes:        fields.notes ?? null,
+    updated_at:   new Date().toISOString(),
+  };
+
+  const query = id
+    ? supabase.from('whatsapp_providers').update(payload).eq('id', id).select().single()
+    : supabase.from('whatsapp_providers').insert({ ...payload, is_default: false }).select().single();
+
+  const { data, error } = await query;
+  if (error) return { data: null, error: error.message };
+
+  const saved = data as WhatsAppProvider;
+
+  // Keep system_settings in sync for the edge function
+  if (saved.is_default) await _syncToSystemSettings(saved);
+
+  return { data: saved };
+}
+
+export async function setDefaultProvider(id: string): Promise<{ success: boolean; error?: string }> {
+  // Clear existing default, then mark the new one
+  await supabase.from('whatsapp_providers').update({ is_default: false }).neq('id', id);
+  const { data, error } = await supabase
+    .from('whatsapp_providers')
+    .update({ is_default: true, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return { success: false, error: error.message };
+
+  await _syncToSystemSettings(data as WhatsAppProvider);
+  return { success: true };
+}
+
+export async function deleteProvider(id: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.from('whatsapp_providers').delete().eq('id', id);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+/** Internal: mirror the default provider's credentials into system_settings so
+ *  the existing edge function keeps working without changes. */
+async function _syncToSystemSettings(p: WhatsAppProvider): Promise<void> {
+  await Promise.all([
+    supabase.from('system_settings')
+      .update({ value: p.instance_url })
+      .eq('category', 'whatsapp').eq('key', 'instance_url'),
+    supabase.from('system_settings')
+      .update({ value: p.api_token })
+      .eq('category', 'whatsapp').eq('key', 'api_token'),
+  ]);
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface WhatsAppApiStatus {
