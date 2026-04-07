@@ -176,9 +176,10 @@ interface DrawerProps {
   apt: VisitAppointment | null;
   onClose: () => void;
   onUpdate: (id: string, patch: Partial<VisitAppointment>) => void;
+  reasonLabels: Record<string, string>;
 }
 
-function AppointmentDrawer({ apt, onClose, onUpdate }: DrawerProps) {
+function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS }: DrawerProps) {
   const { profile } = useAdminAuth();
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
@@ -919,7 +920,7 @@ export default function AppointmentsPage() {
       )}
 
       {selected && (
-        <AppointmentDrawer apt={selected} onClose={() => setSelected(null)} onUpdate={handleUpdate} />
+        <AppointmentDrawer apt={selected} onClose={() => setSelected(null)} onUpdate={handleUpdate} reasonLabels={REASON_LABELS} />
       )}
 
       {showCreate && (
