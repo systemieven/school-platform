@@ -1,12 +1,13 @@
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { ROLE_LABELS } from '../types/admin.types';
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 interface Props {
   sidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
 }
 
-export default function AdminHeader({ sidebarCollapsed }: Props) {
+export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props) {
   const { profile } = useAdminAuth();
 
   return (
@@ -15,24 +16,33 @@ export default function AdminHeader({ sidebarCollapsed }: Props) {
         sidebarCollapsed ? 'ml-[72px]' : 'ml-64'
       }`}
     >
-      {/* Left: breadcrumb placeholder */}
-      <div className="flex items-center gap-4">
+      {/* Left: sidebar toggle + breadcrumb */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onToggleSidebar}
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#003876] hover:bg-gray-100 transition-colors"
+          title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+        >
+          {sidebarCollapsed ? (
+            <PanelLeftOpen className="w-5 h-5" />
+          ) : (
+            <PanelLeftClose className="w-5 h-5" />
+          )}
+        </button>
+        <div className="w-px h-6 bg-gray-200" />
         <Breadcrumb />
       </div>
 
       {/* Right: actions */}
       <div className="flex items-center gap-3">
-        {/* Search (placeholder) */}
         <button className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#003876] hover:bg-gray-100 transition-colors">
           <Search className="w-5 h-5" />
         </button>
 
-        {/* Notifications (placeholder) */}
         <button className="relative w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#003876] hover:bg-gray-100 transition-colors">
           <Bell className="w-5 h-5" />
         </button>
 
-        {/* User mini */}
         {profile && (
           <div className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-100">
             <div className="w-8 h-8 bg-[#003876]/10 rounded-full flex items-center justify-center">

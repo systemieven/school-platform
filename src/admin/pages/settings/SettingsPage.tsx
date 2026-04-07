@@ -5,12 +5,14 @@ import {
   Settings, Save, Loader2, Check, Building2, MessageCircle,
   CalendarCheck, GraduationCap, MessageSquare, Bell, Palette,
   Eye, EyeOff, AlertCircle, Wifi, WifiOff,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
 interface TabDef {
   key: string;
   label: string;
+  shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
   categories: string[];
   description: string;
@@ -20,13 +22,23 @@ const TABS: TabDef[] = [
   {
     key: 'institutional',
     label: 'Dados Institucionais',
+    shortLabel: 'Institucional',
     icon: Building2,
     categories: ['general'],
     description: 'Informações principais da escola exibidas no site e documentos.',
   },
   {
+    key: 'whatsapp',
+    label: 'WhatsApp',
+    shortLabel: 'WhatsApp',
+    icon: MessageCircle,
+    categories: ['uazapi'],
+    description: 'Conexão com a API Uazapi para envio de mensagens automáticas.',
+  },
+  {
     key: 'visits',
     label: 'Agendamento de Visitas',
+    shortLabel: 'Visitas',
     icon: CalendarCheck,
     categories: ['visit'],
     description: 'Configure motivos, horários e regras para agendamento de visitas.',
@@ -34,6 +46,7 @@ const TABS: TabDef[] = [
   {
     key: 'enrollment',
     label: 'Pré-Matrícula',
+    shortLabel: 'Matrícula',
     icon: GraduationCap,
     categories: ['enrollment'],
     description: 'Defina campos obrigatórios, documentos exigidos e regras do formulário.',
@@ -41,20 +54,15 @@ const TABS: TabDef[] = [
   {
     key: 'contact',
     label: 'Formulário de Contato',
+    shortLabel: 'Contato',
     icon: MessageSquare,
     categories: ['contact'],
     description: 'Gerencie motivos de contato, campos obrigatórios e qualificação de leads.',
   },
   {
-    key: 'whatsapp',
-    label: 'WhatsApp',
-    icon: MessageCircle,
-    categories: ['uazapi'],
-    description: 'Conexão com a API Uazapi para envio de mensagens automáticas.',
-  },
-  {
     key: 'notifications',
     label: 'Notificações',
+    shortLabel: 'Notificações',
     icon: Bell,
     categories: ['notifications'],
     description: 'Configure alertas automáticos e templates de comunicação.',
@@ -62,6 +70,7 @@ const TABS: TabDef[] = [
   {
     key: 'appearance',
     label: 'Aparência',
+    shortLabel: 'Aparência',
     icon: Palette,
     categories: ['appearance'],
     description: 'Personalize textos do site, banners e elementos visuais.',
@@ -106,6 +115,8 @@ const KEY_META: Record<string, { label: string; placeholder?: string; secret?: b
   enrollment_banner_text:  { label: 'Texto do Banner', placeholder: 'Matrículas 2026 abertas' },
 };
 
+const TABS_STORAGE_KEY = 'settings_tabs_collapsed';
+
 // ── Component ────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSetting[]>([]);
@@ -114,6 +125,17 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState(TABS[0].key);
+  const [tabsCollapsed, setTabsCollapsed] = useState(() => {
+    try { return localStorage.getItem(TABS_STORAGE_KEY) === 'true'; } catch { return false; }
+  });
+
+  const toggleTabs = () => {
+    setTabsCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(TABS_STORAGE_KEY, String(next)); } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetchSettings();
@@ -205,7 +227,7 @@ export default function SettingsPage() {
   return (
     <div>
       {/* ── Page header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="font-display text-3xl font-bold text-[#003876] flex items-center gap-3">
             <Settings className="w-8 h-8" />
@@ -228,12 +250,33 @@ export default function SettingsPage() {
       </div>
 
       {/* ── Tabs + Content layout ── */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex gap-4">
 
-        {/* ── Tab sidebar ── */}
-        <nav className="lg:w-56 flex-shrink-0">
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <div className="p-3 space-y-1">
+        {/* ── Tab rail ── */}
+        <nav
+          className={`flex-shrink-0 transition-all duration-300 ${
+            tabsCollapsed ? 'w-[52px]' : 'w-52'
+          }`}
+        >
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden sticky top-20">
+            {/* Collapse toggle */}
+            <button
+              onClick={toggleTabs}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-gray-400 hover:text-[#003876] hover:bg-gray-50 transition-colors border-b border-gray-100"
+              title={tabsCollapsed ? 'Expandir abas' : 'Recolher abas'}
+            >
+              {tabsCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4 mx-auto" />
+              ) : (
+                <>
+                  <PanelLeftClose className="w-4 h-4" />
+                  <span className="text-xs font-medium">Recolher</span>
+                </>
+              )}
+            </button>
+
+            {/* Tab items */}
+            <div className="p-1.5 space-y-0.5">
               {[...availableTabs, ...emptyTabs].map((tab) => {
                 const TabIcon = tab.icon;
                 const isActive = activeTab === tab.key;
@@ -245,23 +288,35 @@ export default function SettingsPage() {
                     key={tab.key}
                     onClick={() => !isEmpty && setActiveTab(tab.key)}
                     disabled={isEmpty}
+                    title={tabsCollapsed ? tab.label : undefined}
                     className={`
-                      w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                      relative w-full flex items-center rounded-xl text-sm font-medium transition-all duration-200
+                      ${tabsCollapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2.5'}
                       ${isActive
-                        ? 'bg-[#003876] text-white shadow-lg shadow-[#003876]/20'
+                        ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/15'
                         : isEmpty
                           ? 'text-gray-300 cursor-not-allowed'
                           : 'text-gray-600 hover:bg-gray-50 hover:text-[#003876]'
                       }
                     `}
                   >
-                    <TabIcon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-[#ffd700]' : ''}`} />
-                    <span className="truncate text-left flex-1">{tab.label}</span>
-                    {changes > 0 && !isActive && (
-                      <span className="w-2 h-2 bg-amber-400 rounded-full flex-shrink-0" />
+                    <TabIcon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-[#ffd700]' : ''}`} />
+
+                    {!tabsCollapsed && (
+                      <>
+                        <span className="truncate text-left flex-1 text-[13px]">{tab.shortLabel}</span>
+                        {changes > 0 && !isActive && (
+                          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0" />
+                        )}
+                        {isEmpty && (
+                          <span className="text-[9px] tracking-wide uppercase opacity-50">Breve</span>
+                        )}
+                      </>
                     )}
-                    {isEmpty && (
-                      <span className="text-[10px] tracking-wide uppercase opacity-60">Em breve</span>
+
+                    {/* Collapsed: change dot */}
+                    {tabsCollapsed && changes > 0 && !isActive && (
+                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 rounded-full" />
                     )}
                   </button>
                 );
@@ -272,28 +327,27 @@ export default function SettingsPage() {
 
         {/* ── Tab content ── */}
         <div className="flex-1 min-w-0">
-          {/* Tab header card */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             {/* Tab title bar */}
-            <div className="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#003876]/10 rounded-xl flex items-center justify-center">
-                  <currentTab.icon className="w-5 h-5 text-[#003876]" />
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 bg-[#003876]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <currentTab.icon className="w-[18px] h-[18px] text-[#003876]" />
                 </div>
-                <div>
-                  <h2 className="font-display text-lg font-bold text-[#003876]">
+                <div className="min-w-0">
+                  <h2 className="font-display text-base font-bold text-[#003876] truncate">
                     {currentTab.label}
                   </h2>
-                  <p className="text-xs text-gray-400 mt-0.5">{currentTab.description}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate hidden sm:block">{currentTab.description}</p>
                 </div>
               </div>
 
-              {/* Save button — scoped to current tab */}
+              {/* Save button */}
               <button
                 onClick={handleSave}
                 disabled={!tabHasChanges || saving}
                 className={`
-                  inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm
+                  inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm
                   transition-all duration-300 flex-shrink-0
                   ${saved
                     ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
@@ -310,7 +364,9 @@ export default function SettingsPage() {
                 ) : (
                   <Save className="w-4 h-4" />
                 )}
-                {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
+                <span className="hidden sm:inline">
+                  {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
+                </span>
               </button>
             </div>
 
