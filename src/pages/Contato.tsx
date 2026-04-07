@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   User, Phone, Mail, Clock, MapPin, MessageSquare,
   CheckCircle2, XCircle, Loader2, Send, ChevronRight,
+  Sunrise, Sunset,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
@@ -372,8 +373,8 @@ export default function Contato() {
                           value={form.bestTime}
                           onChange={(v) => set('bestTime', v)}
                           options={[
-                            { value: 'morning',   label: 'Manhã',  icon: <span className="text-base">🌅</span> },
-                            { value: 'afternoon', label: 'Tarde', icon: <span className="text-base">🌇</span> },
+                            { value: 'morning',   label: 'Manhã',  icon: <Sunrise className="w-4 h-4" /> },
+                            { value: 'afternoon', label: 'Tarde', icon: <Sunset className="w-4 h-4" /> },
                           ]}
                         />
                       </div>
