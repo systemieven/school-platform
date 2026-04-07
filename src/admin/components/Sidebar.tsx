@@ -16,6 +16,7 @@ import {
   LayoutTemplate,
   Send,
   Kanban,
+  BarChart2,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -29,6 +30,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutTemplate,
   Send,
   Kanban,
+  BarChart2,
 };
 
 interface Props {
