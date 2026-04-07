@@ -146,7 +146,7 @@ export interface ContactRequest {
 }
 
 // ── Notification ──
-export type NotificationType = 'new_appointment' | 'new_enrollment' | 'new_contact' | 'status_change';
+export type NotificationType = 'new_appointment' | 'new_enrollment' | 'new_contact' | 'status_change' | 'wa_disconnected';
 
 export interface Notification {
   id: string;

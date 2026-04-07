@@ -2,16 +2,17 @@ import { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, CalendarCheck, GraduationCap, MessageSquare,
-  RefreshCw, CheckCheck, X, Inbox,
+  RefreshCw, CheckCheck, X, Inbox, WifiOff,
 } from 'lucide-react';
 import type { Notification, NotificationType } from '../types/admin.types';
 
 // ── Type config ──────────────────────────────────────────────────────────────
 const TYPE_CONFIG: Record<NotificationType, { icon: React.ComponentType<{ className?: string }>; bg: string; text: string }> = {
-  new_appointment: { icon: CalendarCheck,  bg: 'bg-blue-100 dark:bg-blue-900/40',    text: 'text-blue-600 dark:text-blue-400' },
-  new_enrollment:  { icon: GraduationCap,  bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-emerald-600 dark:text-emerald-400' },
-  new_contact:     { icon: MessageSquare,  bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-600 dark:text-purple-400' },
-  status_change:   { icon: RefreshCw,      bg: 'bg-amber-100 dark:bg-amber-900/40',   text: 'text-amber-600 dark:text-amber-400' },
+  new_appointment:  { icon: CalendarCheck, bg: 'bg-blue-100 dark:bg-blue-900/40',    text: 'text-blue-600 dark:text-blue-400' },
+  new_enrollment:   { icon: GraduationCap, bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-emerald-600 dark:text-emerald-400' },
+  new_contact:      { icon: MessageSquare, bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-600 dark:text-purple-400' },
+  status_change:    { icon: RefreshCw,     bg: 'bg-amber-100 dark:bg-amber-900/40',   text: 'text-amber-600 dark:text-amber-400' },
+  wa_disconnected:  { icon: WifiOff,       bg: 'bg-red-100 dark:bg-red-900/40',       text: 'text-red-600 dark:text-red-400' },
 };
 
 function timeAgo(dateStr: string) {
