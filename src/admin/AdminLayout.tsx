@@ -10,14 +10,18 @@ export default function AdminLayout() {
     try { return localStorage.getItem(STORAGE_KEY) === 'true'; } catch { return false; }
   });
 
-  // Restore dark mode preference on mount
+  // Restore dark mode preference on mount — light is default
   useEffect(() => {
     try {
       const theme = localStorage.getItem('admin_theme');
       if (theme === 'dark') {
         document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
       }
-    } catch {}
+    } catch {
+      document.documentElement.classList.remove('dark');
+    }
     // Cleanup: remove dark class when leaving admin
     return () => { document.documentElement.classList.remove('dark'); };
   }, []);

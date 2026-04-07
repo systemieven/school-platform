@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { ADMIN_NAV } from '../lib/admin-navigation';
@@ -32,6 +33,20 @@ interface Props {
 export default function Sidebar({ collapsed, onToggle }: Props) {
   const { profile, signOut } = useAdminAuth();
   const navigate = useNavigate();
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains('dark'),
+  );
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    try { localStorage.setItem('admin_theme', next ? 'dark' : 'light'); } catch {}
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -124,20 +139,18 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
 
         {/* Dark mode toggle */}
         <button
-          onClick={() => {
-            const html = document.documentElement;
-            const isDark = html.classList.toggle('dark');
-            try { localStorage.setItem('admin_theme', isDark ? 'dark' : 'light'); } catch {}
-          }}
+          onClick={toggleTheme}
           className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all ${
             collapsed ? 'justify-center' : ''
           }`}
-          title="Alternar tema"
+          title={isDark ? 'Modo Claro' : 'Modo Escuro'}
         >
-          <Moon className="w-5 h-5 flex-shrink-0 dark:hidden" />
-          <Sun className="w-5 h-5 flex-shrink-0 hidden dark:block" />
-          {!collapsed && <span className="dark:hidden">Modo Escuro</span>}
-          {!collapsed && <span className="hidden dark:block">Modo Claro</span>}
+          {isDark ? (
+            <Sun className="w-5 h-5 flex-shrink-0" />
+          ) : (
+            <Moon className="w-5 h-5 flex-shrink-0" />
+          )}
+          {!collapsed && <span>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>}
         </button>
 
         {/* Sign out */}
