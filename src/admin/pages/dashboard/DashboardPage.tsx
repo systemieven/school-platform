@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { supabase } from '../../../lib/supabase';
 import {
-  CalendarCheck, GraduationCap, MessageSquare, Clock,
-  Loader2, ChevronRight, TrendingUp, TrendingDown, Minus,
-  Users,
+  CalendarCheck, GraduationCap, MessageSquare, Clock, Loader2,
+  ChevronRight, TrendingUp, TrendingDown, Minus,
+  AlertCircle, CheckCircle2, Send, Eye,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -19,6 +19,21 @@ interface PeriodStats {
   prevAppointments: number;
   prevEnrollments: number;
   prevContacts: number;
+}
+
+interface WaStats {
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+}
+
+interface OverdueContact {
+  id: string;
+  name: string;
+  phone: string;
+  created_at: string;
+  status: string;
 }
 
 interface GroupCount { label: string; value: number; color: string }
@@ -78,6 +93,17 @@ const APPT_STATUS = [
   { key: 'completed', label: 'Realizado', color: 'bg-blue-500' },
   { key: 'cancelled', label: 'Cancelado', color: 'bg-red-400' },
   { key: 'no_show', label: 'Não veio', color: 'bg-gray-400' },
+];
+
+const LEAD_FUNNEL = [
+  { key: 'new',           label: 'Novos',          color: 'bg-blue-500' },
+  { key: 'first_contact', label: '1º contato',      color: 'bg-indigo-500' },
+  { key: 'follow_up',     label: 'Follow-up',       color: 'bg-purple-500' },
+  { key: 'contacted',     label: 'Contatado',       color: 'bg-cyan-500' },
+  { key: 'converted',     label: 'Convertido',      color: 'bg-emerald-500' },
+  { key: 'resolved',      label: 'Resolvido',       color: 'bg-green-600' },
+  { key: 'closed',        label: 'Encerrado',       color: 'bg-gray-400' },
+  { key: 'archived',      label: 'Arquivado',       color: 'bg-gray-300' },
 ];
 
 // ── Bar Chart ─────────────────────────────────────────────────────────────────
@@ -144,6 +170,93 @@ function StatCard({ label, value, prev, icon: Icon, colorClass, iconBg, linkTo }
   );
 }
 
+// ── WA Stats Widget ───────────────────────────────────────────────────────────
+function WaStatsWidget({ stats }: { stats: WaStats }) {
+  const items = [
+    { label: 'Enviadas',   value: stats.sent,      icon: Send,         color: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20' },
+    { label: 'Entregues',  value: stats.delivered, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+    { label: 'Lidas',      value: stats.read,      icon: Eye,          color: 'text-purple-500',  bg: 'bg-purple-50 dark:bg-purple-900/20' },
+    { label: 'Falhas',     value: stats.failed,    icon: AlertCircle,  color: 'text-red-500',     bg: 'bg-red-50 dark:bg-red-900/20' },
+  ];
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-sm font-bold text-[#003876] dark:text-white">Mensagens WhatsApp</h3>
+        <Link to="/admin/configuracoes" className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1">
+          Ver histórico <ChevronRight className="w-3 h-3" />
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className={`flex items-center gap-2.5 rounded-xl p-3 ${item.bg}`}>
+              <Icon className={`w-4 h-4 flex-shrink-0 ${item.color}`} />
+              <div>
+                <p className="text-lg font-bold text-gray-800 dark:text-white leading-none">{item.value}</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{item.label}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Overdue Contacts Widget ───────────────────────────────────────────────────
+function OverdueContactsWidget({ contacts }: { contacts: OverdueContact[] }) {
+  function hoursAgo(dateStr: string) {
+    const h = Math.floor((Date.now() - new Date(dateStr).getTime()) / 3600000);
+    return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
+  }
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <h3 className="font-display text-sm font-bold text-[#003876] dark:text-white">Contatos pendentes</h3>
+          {contacts.length > 0 && (
+            <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              {contacts.length}
+            </span>
+          )}
+        </div>
+        <Link to="/admin/contatos" className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1">
+          Ver todos <ChevronRight className="w-3 h-3" />
+        </Link>
+      </div>
+
+      {contacts.length === 0 ? (
+        <div className="text-center py-6">
+          <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+          <p className="text-xs text-gray-400 dark:text-gray-500">Nenhum contato sem resposta</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {contacts.map((c) => (
+            <Link
+              key={c.id}
+              to="/admin/contatos"
+              className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+            >
+              <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{c.name}</p>
+                <p className="text-xs text-gray-400 truncate">{c.phone}</p>
+              </div>
+              <span className="text-[10px] font-semibold text-red-500 dark:text-red-400 flex-shrink-0">
+                {hoursAgo(c.created_at)}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { profile } = useAdminAuth();
@@ -152,6 +265,9 @@ export default function DashboardPage() {
   const [enrollmentGroups, setEnrollmentGroups] = useState<GroupCount[]>([]);
   const [apptGroups, setApptGroups] = useState<GroupCount[]>([]);
   const [contactGroups, setContactGroups] = useState<GroupCount[]>([]);
+  const [leadFunnel, setLeadFunnel] = useState<GroupCount[]>([]);
+  const [waStats, setWaStats] = useState<WaStats>({ sent: 0, delivered: 0, read: 0, failed: 0 });
+  const [overdueContacts, setOverdueContacts] = useState<OverdueContact[]>([]);
   const [upcoming, setUpcoming] = useState<UpcomingAppointment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -164,9 +280,12 @@ export default function DashboardPage() {
     const today = new Date().toISOString().split('T')[0];
     const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
+    const overdueThreshold = new Date(Date.now() - 48 * 3600000).toISOString();
+
     const [
       apptCurr, apptPrev, enrCurr, enrPrev, contCurr, contPrev,
       pending, allEnr, allAppt, allCont, upcomingRes,
+      allLeads, waLogs, overdue,
     ] = await Promise.all([
       supabase.from('visit_appointments').select('id', { count: 'exact', head: true }).gte('created_at', start),
       supabase.from('visit_appointments').select('id', { count: 'exact', head: true }).gte('created_at', prevStart).lt('created_at', start),
@@ -184,6 +303,14 @@ export default function DashboardPage() {
         .lte('appointment_date', nextWeek)
         .in('status', ['pending', 'confirmed'])
         .order('appointment_date').order('appointment_time').limit(6),
+      supabase.from('contact_requests').select('status'),
+      supabase.from('whatsapp_message_log').select('status').gte('created_at', start),
+      supabase.from('contact_requests')
+        .select('id,name,phone,created_at,status')
+        .in('status', ['new', 'first_contact'])
+        .lt('created_at', overdueThreshold)
+        .order('created_at')
+        .limit(5),
     ]);
 
     setStats({
@@ -226,6 +353,26 @@ export default function DashboardPage() {
         color: 'bg-[#003876]',
       })),
     );
+
+    // Lead funnel
+    const leadData = (allLeads.data ?? []) as { status: string }[];
+    setLeadFunnel(LEAD_FUNNEL.map((s) => ({
+      label: s.label,
+      value: leadData.filter((l) => l.status === s.key).length,
+      color: s.color,
+    })));
+
+    // WhatsApp stats
+    const waData = (waLogs.data ?? []) as { status: string }[];
+    setWaStats({
+      sent:      waData.filter((m) => ['sent', 'delivered', 'read'].includes(m.status)).length,
+      delivered: waData.filter((m) => ['delivered', 'read'].includes(m.status)).length,
+      read:      waData.filter((m) => m.status === 'read').length,
+      failed:    waData.filter((m) => m.status === 'failed').length,
+    });
+
+    // Overdue contacts
+    setOverdueContacts((overdue.data ?? []) as OverdueContact[]);
 
     setUpcoming((upcomingRes.data ?? []) as UpcomingAppointment[]);
     setLoading(false);
@@ -326,6 +473,17 @@ export default function DashboardPage() {
             />
           </div>
 
+          {/* Lead funnel + WA stats */}
+          <div className="grid lg:grid-cols-2 gap-4 mb-4">
+            <BarChart
+              title="Funil de leads (contatos)"
+              items={leadFunnel}
+              emptyLabel="Nenhum lead cadastrado"
+              linkTo="/admin/contatos"
+            />
+            <WaStatsWidget stats={waStats} />
+          </div>
+
           {/* Bottom row */}
           <div className="grid lg:grid-cols-2 gap-4">
             {/* Contact reasons */}
@@ -336,6 +494,12 @@ export default function DashboardPage() {
               linkTo="/admin/contatos"
             />
 
+            {/* Overdue contacts */}
+            <OverdueContactsWidget contacts={overdueContacts} />
+          </div>
+
+          {/* Upcoming appointments — full width */}
+          <div className="mt-4">
             {/* Upcoming appointments */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
               <div className="flex items-center justify-between mb-4">
