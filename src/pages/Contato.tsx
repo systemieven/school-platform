@@ -151,6 +151,8 @@ export default function Contato() {
       errs.phone = 'Celular incompleto (DDD + 9 dígitos)';
     if (form.email.trim() && !validateEmail(form.email))
       errs.email = 'E-mail inválido';
+    if (form.contactReason === 'outro' && !form.message.trim())
+      errs.message = 'Descreva o motivo do seu contato';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -437,7 +439,8 @@ export default function Contato() {
                       </div>
                     </div>
 
-                    {/* Qualificação */}
+                    {/* Qualificação — só exibe se motivo é matrícula ou conhecer estrutura */}
+                    {(form.contactReason === 'matricula' || form.contactReason === 'conhecer_estrutura') && (
                     <div>
                       <h3 className="font-display text-lg font-bold text-[#003876] mb-4 pb-2 border-b border-gray-100">
                         Sobre sua família
@@ -519,24 +522,46 @@ export default function Contato() {
                             ].join(' ')} />
                           </button>
                         </div>
-
-                        {/* Mensagem livre */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                            Observações ou dúvidas
-                          </label>
-                          <div className="relative">
-                            <MessageSquare className="absolute left-3 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" />
-                            <textarea
-                              rows={3}
-                              placeholder="Fique à vontade para escrever... (opcional)"
-                              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#003876] focus:border-transparent resize-none transition-colors"
-                              value={form.message}
-                              onChange={(e) => set('message', e.target.value)}
-                            />
-                          </div>
-                        </div>
                       </div>
+                    </div>
+                    )}
+
+                    {/* Mensagem / Observações */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        {form.contactReason === 'outro'
+                          ? <>Detalhe sua solicitação <span className="text-red-500">*</span></>
+                          : 'Observações ou dúvidas'
+                        }
+                      </label>
+                      {form.contactReason === 'outro' && (
+                        <p className="text-xs text-gray-400 mb-2">
+                          Como selecionou "Outro assunto", descreva brevemente o motivo do seu contato.
+                        </p>
+                      )}
+                      <div className="relative">
+                        <MessageSquare className="absolute left-3 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <textarea
+                          rows={3}
+                          placeholder={form.contactReason === 'outro'
+                            ? 'Descreva o motivo do seu contato...'
+                            : 'Fique à vontade para escrever... (opcional)'
+                          }
+                          className={[
+                            'w-full pl-10 pr-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none transition-colors',
+                            errors.message
+                              ? 'border-red-400 bg-red-50 focus:ring-red-300'
+                              : 'border-gray-200 bg-white focus:ring-[#003876]',
+                          ].join(' ')}
+                          value={form.message}
+                          onChange={(e) => set('message', e.target.value)}
+                        />
+                      </div>
+                      {errors.message && (
+                        <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                          <XCircle className="w-3 h-3" /> {errors.message}
+                        </p>
+                      )}
                     </div>
 
                     {/* Legal consent */}
