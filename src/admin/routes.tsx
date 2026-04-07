@@ -6,6 +6,9 @@ import LoginPage from './pages/login/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import UsersPage from './pages/users/UsersPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import AppointmentsPage from './pages/appointments/AppointmentsPage';
+import EnrollmentsPage from './pages/enrollments/EnrollmentsPage';
+import ContactsPage from './pages/contacts/ContactsPage';
 
 export default function AdminRoutes() {
   return (
@@ -22,6 +25,11 @@ export default function AdminRoutes() {
           }
         >
           <Route index element={<DashboardPage />} />
+
+          <Route path="agendamentos" element={<AppointmentsPage />} />
+          <Route path="matriculas"   element={<EnrollmentsPage />} />
+          <Route path="contatos"     element={<ContactsPage />} />
+
           <Route
             path="usuarios"
             element={
@@ -38,22 +46,8 @@ export default function AdminRoutes() {
               </ProtectedRoute>
             }
           />
-          {/* Placeholder routes for future phases */}
-          <Route path="agendamentos" element={<PlaceholderPage title="Agendamentos" />} />
-          <Route path="matriculas" element={<PlaceholderPage title="Pré-Matrículas" />} />
-          <Route path="contatos" element={<PlaceholderPage title="Contatos" />} />
         </Route>
       </Routes>
     </AdminAuthProvider>
-  );
-}
-
-// Temporary placeholder for future modules
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="text-center py-20">
-      <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white mb-3">{title}</h1>
-      <p className="text-gray-500 dark:text-gray-400">Este módulo será implementado nas próximas fases.</p>
-    </div>
   );
 }
