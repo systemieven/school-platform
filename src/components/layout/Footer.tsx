@@ -79,6 +79,11 @@ export default function Footer() {
         <div className="border-t border-white/10 mt-12 pt-8 text-center text-sm opacity-80">
           <p>&copy; {new Date().getFullYear()} Colégio Batista em Caruaru. Todos os direitos reservados.</p>
           <p className="mt-1">CNPJ: 01.873.279/0002-61</p>
+          <div className="mt-3 flex items-center justify-center gap-4">
+            <Link to="/politica-privacidade" className="hover:text-[#ffd700] transition-colors">Política de Privacidade</Link>
+            <span className="text-white/30">|</span>
+            <Link to="/termos-de-uso" className="hover:text-[#ffd700] transition-colors">Termos de Uso</Link>
+          </div>
         </div>
       </div>
     </footer>
