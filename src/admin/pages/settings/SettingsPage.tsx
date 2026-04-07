@@ -8,7 +8,7 @@ import {
   CalendarCheck, GraduationCap, MessageSquare, Bell, Palette,
   Eye, EyeOff, AlertCircle, Wifi, WifiOff, RefreshCw,
   PanelLeftClose, PanelLeftOpen, Smartphone, Battery, CheckCircle2,
-  Copy, Link, ExternalLink,
+  Copy, Link, ExternalLink, Shuffle, KeyRound, Globe, ShieldCheck,
 } from 'lucide-react';
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
@@ -90,10 +90,12 @@ const KEY_META: Record<string, { label: string; placeholder?: string; secret?: b
   whatsapp:       { label: 'WhatsApp', placeholder: '(00) 00000-0000' },
   email:          { label: 'E-mail', placeholder: 'contato@escola.com.br' },
   logo_url:       { label: 'URL do Logo', placeholder: 'https://...' },
-  // uazapi
-  instance_url:   { label: 'URL da Instância', placeholder: 'https://api.uazapi.com/instance/...' },
+  // uazapi — rendered exclusively by WhatsAppConnectionPanel, but kept for fallback
+  instance_url:   { label: 'URL da Instância', placeholder: 'https://ibotcloud.uazapi.com' },
   api_token:      { label: 'Token da API', placeholder: '••••••••', secret: true },
   connected:      { label: 'Status de Conexão', placeholder: 'true / false' },
+  webhook_secret: { label: 'Chave Secreta do Webhook', placeholder: '(gerado automaticamente)', secret: true },
+  webhook_url:    { label: 'URL do Webhook Registrado', placeholder: '(preenchido após registro)' },
   // enrollment
   min_age:        { label: 'Idade Mínima', placeholder: '2' },
   require_parents_data: { label: 'Exigir Dados dos Pais', placeholder: 'true / false' },
@@ -347,42 +349,44 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Save button */}
-              <button
-                onClick={handleSave}
-                disabled={!tabHasChanges || saving}
-                className={`
-                  inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm
-                  transition-all duration-300 flex-shrink-0
-                  ${saved
-                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                    : tabHasChanges
-                      ? 'bg-[#003876] text-white hover:bg-[#002855] hover:shadow-lg'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                  }
-                `}
-              >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : saved ? (
-                  <Check className="w-4 h-4" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                <span className="hidden sm:inline">
-                  {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
-                </span>
-              </button>
+              {/* Save button — hidden for the whatsapp tab (the panel has its own saves) */}
+              {activeTab !== 'whatsapp' && (
+                <button
+                  onClick={handleSave}
+                  disabled={!tabHasChanges || saving}
+                  className={`
+                    inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm
+                    transition-all duration-300 flex-shrink-0
+                    ${saved
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                      : tabHasChanges
+                        ? 'bg-[#003876] text-white hover:bg-[#002855] hover:shadow-lg'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : saved ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Fields */}
             <div className="p-6">
-              {/* WhatsApp connection test panel */}
-              {activeTab === 'whatsapp' && tabSettings.length > 0 && (
-                <WhatsAppConnectionPanel />
-              )}
-
-              {tabSettings.length === 0 ? (
+              {/* WhatsApp tab: fully handled by the specialised panel */}
+              {activeTab === 'whatsapp' ? (
+                tabSettings.length === 0
+                  ? <EmptyTabState tab={currentTab} />
+                  : <WhatsAppConnectionPanel />
+              ) : tabSettings.length === 0 ? (
                 <EmptyTabState tab={currentTab} />
               ) : (
                 <div className="space-y-6">
@@ -413,30 +417,62 @@ export default function SettingsPage() {
   );
 }
 
+// ── helpers ───────────────────────────────────────────────────────────────────
+function jsonVal(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (v === null || v === undefined) return '';
+  return JSON.parse(String(v)) || '';
+}
+
+function generateSecret(bytes = 24): string {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ── WhatsApp Connection Panel ─────────────────────────────────────────────────
 function WhatsAppConnectionPanel() {
-  const [testing, setTesting]         = useState(false);
-  const [registering, setRegistering] = useState(false);
-  const [copied, setCopied]           = useState(false);
-  const [webhookSecret, setWhSecret]  = useState('');
-  const [webhookRegistered, setWReg]  = useState('');
-  const [result, setResult]           = useState<{ connected: boolean; status?: UazApiStatus; error?: string } | null>(null);
-  const [regResult, setRegResult]     = useState<{ success: boolean; error?: string } | null>(null);
+  // ── Credentials state
+  const [instanceUrl, setInstanceUrl] = useState('');
+  const [apiToken,    setApiToken]    = useState('');
+  const [showToken,   setShowToken]   = useState(false);
+  const [savingCred,  setSavingCred]  = useState(false);
+  const [savedCred,   setSavedCred]   = useState(false);
+  const [credIds,     setCredIds]     = useState<Record<string, string>>({});
 
-  // Load webhook_secret and webhook_url from system_settings
+  // ── Connection test state
+  const [testing,  setTesting]  = useState(false);
+  const [testResult, setTestResult] = useState<{ connected: boolean; status?: UazApiStatus; error?: string } | null>(null);
+
+  // ── Webhook state
+  const [webhookSecret,    setWebhookSecret]    = useState('');
+  const [showSecret,       setShowSecret]       = useState(false);
+  const [savingSecret,     setSavingSecret]     = useState(false);
+  const [savedSecret,      setSavedSecret]      = useState(false);
+  const [secretId,         setSecretId]         = useState('');
+  const [registering,      setRegistering]      = useState(false);
+  const [regResult,        setRegResult]        = useState<{ success: boolean; error?: string } | null>(null);
+  const [webhookUrlInDb,   setWebhookUrlInDb]   = useState('');
+  const [copied,           setCopied]           = useState(false);
+
+  // ── Load all uazapi settings on mount
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('system_settings')
-        .select('key, value')
-        .eq('category', 'uazapi')
-        .in('key', ['webhook_secret', 'webhook_url']);
-      const map: Record<string, string> = {};
-      (data || []).forEach((r: { key: string; value: unknown }) => {
-        map[r.key] = typeof r.value === 'string' ? r.value : (JSON.parse(String(r.value)) || '');
+        .select('id, key, value')
+        .eq('category', 'uazapi');
+      if (!data) return;
+      const ids: Record<string, string> = {};
+      data.forEach((r: { id: string; key: string; value: unknown }) => {
+        ids[r.key] = r.id;
+        const v = jsonVal(r.value);
+        if (r.key === 'instance_url')   setInstanceUrl(v);
+        if (r.key === 'api_token')      setApiToken(v);
+        if (r.key === 'webhook_secret') { setWebhookSecret(v); setSecretId(r.id); }
+        if (r.key === 'webhook_url')    setWebhookUrlInDb(v);
       });
-      setWhSecret(map['webhook_secret'] || '');
-      setWReg(map['webhook_url'] || '');
+      setCredIds(ids);
     })();
   }, []);
 
@@ -444,32 +480,137 @@ function WhatsAppConnectionPanel() {
     ? `${WEBHOOK_FUNCTION_BASE}?secret=${encodeURIComponent(webhookSecret)}`
     : WEBHOOK_FUNCTION_BASE;
 
+  // ── Save credentials
+  const handleSaveCred = async () => {
+    setSavingCred(true);
+    const ops = [];
+    if (credIds['instance_url']) ops.push(supabase.from('system_settings').update({ value: instanceUrl }).eq('id', credIds['instance_url']));
+    if (credIds['api_token'])    ops.push(supabase.from('system_settings').update({ value: apiToken    }).eq('id', credIds['api_token']));
+    await Promise.all(ops);
+    setSavingCred(false);
+    setSavedCred(true);
+    setTimeout(() => setSavedCred(false), 2500);
+  };
+
+  // ── Test connection
   const handleTest = async () => {
     setTesting(true);
-    setResult(null);
+    setTestResult(null);
     const res = await checkUazApiStatus();
-    setResult(res);
+    setTestResult(res);
     setTesting(false);
   };
 
+  // ── Generate & save webhook secret
+  const handleGenerateSecret = async () => {
+    const secret = generateSecret();
+    setWebhookSecret(secret);
+    setSavingSecret(true);
+    if (secretId) {
+      await supabase.from('system_settings').update({ value: secret }).eq('id', secretId);
+    }
+    setSavingSecret(false);
+    setSavedSecret(true);
+    setRegResult(null); // old webhook URL is now stale
+    setTimeout(() => setSavedSecret(false), 2500);
+  };
+
+  const handleSaveSecret = async () => {
+    setSavingSecret(true);
+    if (secretId) {
+      await supabase.from('system_settings').update({ value: webhookSecret }).eq('id', secretId);
+    }
+    setSavingSecret(false);
+    setSavedSecret(true);
+    setRegResult(null);
+    setTimeout(() => setSavedSecret(false), 2500);
+  };
+
+  // ── Copy webhook URL
   const handleCopy = () => {
     navigator.clipboard.writeText(webhookUrl).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const handleRegisterWebhook = async () => {
+  // ── Register webhook
+  const handleRegister = async () => {
     setRegistering(true);
     setRegResult(null);
     const res = await registerWebhook(webhookUrl);
     setRegResult(res);
-    if (res.success) setWReg(webhookUrl);
+    if (res.success) setWebhookUrlInDb(webhookUrl);
     setRegistering(false);
   };
 
+  const credChanged = instanceUrl !== '' || apiToken !== '';
+  const isRegistered = webhookUrlInDb === webhookUrl && webhookSecret !== '';
+
   return (
-    <div className="mb-6 space-y-4">
-      {/* Connection test */}
+    <div className="space-y-5">
+
+      {/* ── Section 1: Credentials ──────────────────────────────────────────── */}
+      <div className="bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <KeyRound className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Credenciais da API</h3>
+        </div>
+
+        <div className="space-y-4">
+          {/* URL da instância */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5" /> URL da Instância
+            </label>
+            <input
+              type="text"
+              value={instanceUrl}
+              onChange={(e) => setInstanceUrl(e.target.value)}
+              placeholder="https://ibotcloud.uazapi.com"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all"
+            />
+          </div>
+
+          {/* Token */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" /> Token da API
+            </label>
+            <div className="relative">
+              <input
+                type={showToken ? 'text' : 'password'}
+                value={apiToken}
+                onChange={(e) => setApiToken(e.target.value)}
+                placeholder="Cole o token da API Uazapi"
+                className="w-full px-3 py-2 pr-10 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken((p) => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Save credentials button */}
+          <button
+            onClick={handleSaveCred}
+            disabled={savingCred || (!instanceUrl && !apiToken)}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              savedCred
+                ? 'bg-emerald-500 text-white'
+                : 'bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-50'
+            }`}
+          >
+            {savingCred ? <Loader2 className="w-4 h-4 animate-spin" /> : savedCred ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+            {savingCred ? 'Salvando…' : savedCred ? 'Salvo!' : 'Salvar Credenciais'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Section 2: Connection test ──────────────────────────────────────── */}
       <div className="bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
@@ -478,7 +619,7 @@ function WhatsAppConnectionPanel() {
               Teste de Conexão
             </h3>
             <p className="text-xs text-gray-400 mt-0.5">
-              Verifique se a instância UazAPI está acessível com as credenciais salvas.
+              Verifica se a instância UazAPI responde com as credenciais salvas.
             </p>
           </div>
           <button
@@ -491,29 +632,42 @@ function WhatsAppConnectionPanel() {
           </button>
         </div>
 
-        {result && (
+        {testResult && (
           <div className={`mt-4 rounded-xl p-4 border ${
-            result.connected
+            testResult.connected
               ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50'
               : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'
           }`}>
-            {result.connected && result.status ? (
+            {testResult.connected && testResult.status ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium text-sm">
                   <CheckCircle2 className="w-4 h-4" />
                   Instância conectada ao WhatsApp
                 </div>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
-                  {result.status.name && <div className="text-xs text-gray-600 dark:text-gray-400"><span className="text-gray-400">Dispositivo: </span><span className="font-medium">{String(result.status.name)}</span></div>}
-                  {result.status.phone && <div className="text-xs text-gray-600 dark:text-gray-400"><span className="text-gray-400">Número: </span><span className="font-medium">{String(result.status.phone)}</span></div>}
-                  {result.status.battery !== undefined && (
-                    <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                      <Battery className="w-3 h-3 text-gray-400" />
-                      <span className="font-medium">{String(result.status.battery)}%</span>
-                      {result.status.plugged && <span className="text-gray-400">(carregando)</span>}
+                  {testResult.status.name && (
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      <span className="text-gray-400">Dispositivo: </span>
+                      <span className="font-medium">{String(testResult.status.name)}</span>
                     </div>
                   )}
-                  <div className="text-xs text-gray-600 dark:text-gray-400"><span className="text-gray-400">Estado: </span><span className="font-medium capitalize">{String(result.status.state)}</span></div>
+                  {testResult.status.phone && (
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      <span className="text-gray-400">Número: </span>
+                      <span className="font-medium">{String(testResult.status.phone)}</span>
+                    </div>
+                  )}
+                  {testResult.status.battery !== undefined && (
+                    <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                      <Battery className="w-3 h-3 text-gray-400" />
+                      <span className="font-medium">{String(testResult.status.battery)}%</span>
+                      {testResult.status.plugged && <span className="text-gray-400">(carregando)</span>}
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-gray-400">Estado: </span>
+                    <span className="font-medium capitalize">{String(testResult.status.state)}</span>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -521,8 +675,14 @@ function WhatsAppConnectionPanel() {
                 <WifiOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium">Falha na conexão</p>
-                  {result.error && <p className="text-xs mt-1 font-mono">{result.error}</p>}
-                  <p className="text-xs text-red-400 mt-1">Verifique se a URL da instância e o token estão corretos e salvos.</p>
+                  {testResult.error && (
+                    <p className="text-xs mt-1 font-mono bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">
+                      {testResult.error}
+                    </p>
+                  )}
+                  <p className="text-xs text-red-400 mt-1">
+                    Salve as credenciais antes de testar. Verifique se a URL da instância e o token estão corretos.
+                  </p>
                 </div>
               </div>
             )}
@@ -530,43 +690,102 @@ function WhatsAppConnectionPanel() {
         )}
       </div>
 
-      {/* Webhook registration */}
+      {/* ── Section 3: Webhook ──────────────────────────────────────────────── */}
       <div className="bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-1">
           <Link className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Webhook de Status de Entrega</h3>
+          {isRegistered && (
+            <span className="ml-auto text-[10px] font-semibold tracking-wide uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <CheckCircle2 className="w-2.5 h-2.5" /> Registrado
+            </span>
+          )}
         </div>
-        <p className="text-xs text-gray-400 mb-3">
-          Registre esta URL na instância UazAPI para receber atualizações automáticas de entrega e leitura de mensagens.
-          {!webhookSecret && <span className="text-amber-500 ml-1">Configure a <strong>Chave Secreta</strong> acima primeiro.</span>}
+        <p className="text-xs text-gray-400 mb-4">
+          Permite que o UazAPI informe o status de entrega (enviado, entregue, lido) de cada mensagem enviada.
         </p>
 
-        {/* URL display */}
-        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 mb-3">
-          <ExternalLink className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-          <code className="text-xs text-gray-600 dark:text-gray-400 flex-1 truncate">{webhookUrl}</code>
-          <button
-            onClick={handleCopy}
-            className={`flex-shrink-0 p-1 rounded transition-colors ${copied ? 'text-green-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
-            title="Copiar URL"
-          >
-            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-          </button>
+        {/* Webhook secret */}
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+            Chave Secreta
+            <span className="text-gray-400 font-normal ml-1">— valida requisições recebidas do UazAPI</span>
+          </label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type={showSecret ? 'text' : 'password'}
+                value={webhookSecret}
+                onChange={(e) => setWebhookSecret(e.target.value)}
+                placeholder="Clique em Gerar para criar uma chave"
+                className="w-full px-3 py-2 pr-10 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSecret((p) => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {/* Generate button */}
+            <button
+              onClick={handleGenerateSecret}
+              disabled={savingSecret}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] transition-colors disabled:opacity-50 whitespace-nowrap"
+              title="Gerar chave aleatória segura"
+            >
+              {savingSecret ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shuffle className="w-3.5 h-3.5" />}
+              Gerar
+            </button>
+            {/* Save manually-edited secret */}
+            {webhookSecret && (
+              <button
+                onClick={handleSaveSecret}
+                disabled={savingSecret}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
+                  savedSecret
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-50'
+                }`}
+              >
+                {savingSecret ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : savedSecret ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                {savedSecret ? 'Salva!' : 'Salvar'}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Registered status */}
-        {webhookRegistered && (
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs mb-3">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Webhook registrado em {new Date().toLocaleDateString('pt-BR')}</span>
+        {/* Webhook URL */}
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+            URL do Webhook
+            {!webhookSecret && (
+              <span className="text-amber-500 ml-1">— gere a chave secreta primeiro</span>
+            )}
+          </label>
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2">
+            <ExternalLink className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <code className="text-xs text-gray-600 dark:text-gray-400 flex-1 truncate select-all">
+              {webhookUrl}
+            </code>
+            <button
+              onClick={handleCopy}
+              className={`flex-shrink-0 p-1 rounded transition-colors ${
+                copied ? 'text-emerald-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+              title="Copiar URL"
+            >
+              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
           </div>
-        )}
+        </div>
 
         {/* Register button */}
         <button
-          onClick={handleRegisterWebhook}
-          disabled={registering}
-          className="inline-flex items-center gap-2 border border-[#003876] text-[#003876] dark:border-[#ffd700] dark:text-[#ffd700] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#003876]/5 transition-colors disabled:opacity-60"
+          onClick={handleRegister}
+          disabled={registering || !webhookSecret}
+          className="inline-flex items-center gap-2 border border-[#003876] text-[#003876] dark:border-[#ffd700] dark:text-[#ffd700] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#003876]/5 dark:hover:bg-[#ffd700]/5 transition-colors disabled:opacity-50"
         >
           {registering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
           {registering ? 'Registrando…' : 'Registrar no UazAPI'}
@@ -578,7 +797,9 @@ function WhatsAppConnectionPanel() {
               ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
               : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
           }`}>
-            {regResult.success ? '✓ Webhook registrado com sucesso.' : `Erro: ${regResult.error}`}
+            {regResult.success
+              ? '✓ Webhook registrado com sucesso. O UazAPI agora enviará atualizações de entrega para esta URL.'
+              : `Erro ao registrar: ${regResult.error}`}
           </div>
         )}
       </div>

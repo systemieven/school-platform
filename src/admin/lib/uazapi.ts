@@ -47,7 +47,18 @@ export async function callProxy(
   const { data, error } = await supabase.functions.invoke('uazapi-proxy', {
     body: { path, method, payload },
   });
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    // Try to surface the actual error body from the Edge Function response
+    let message = error.message;
+    try {
+      // FunctionsHttpError exposes the raw Response via .context
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const body = await (error as any).context?.json?.();
+      if (body?.error)   message = String(body.error);
+      else if (body?.message) message = String(body.message);
+    } catch { /* ignore json parse errors */ }
+    return { data: null, error: message };
+  }
   return { data };
 }
 
