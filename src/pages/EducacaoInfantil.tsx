@@ -62,7 +62,6 @@ export default function EducacaoInfantil() {
   const pillarsRef    = useScrollReveal();
   const camposRef     = useScrollReveal();
   const atividadesRef = useScrollReveal();
-  const depoimentosRef = useScrollReveal();
   const ctaRef        = useScrollReveal();
 
   return (
@@ -238,50 +237,6 @@ export default function EducacaoInfantil() {
                 </div>
                 <h3 className="font-display text-lg font-bold text-[#003876] mb-2">{a.title}</h3>
                 <p className="text-gray-600 text-sm leading-relaxed">{a.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Depoimentos ── */}
-      <section className="py-24 bg-[#003876] grain-overlay relative overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.04]">
-          <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-[#ffd700]" />
-          <div className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full bg-white" />
-        </div>
-        <div className="relative container mx-auto px-4" ref={depoimentosRef}>
-          <div className="text-center mb-16" data-reveal="up">
-            <p className="text-sm font-semibold tracking-[0.2em] uppercase text-[#ffd700] mb-3">
-              Comunidade
-            </p>
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-white">
-              O que Dizem <span className="italic">os Pais</span>
-            </h2>
-            <div className="section-divider mx-auto mt-6" />
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { quote: 'Ver o desenvolvimento da minha filha no Colégio Batista é gratificante. A dedicação dos professores e o ambiente acolhedor fazem toda diferença.', name: 'Ana Paula Silva', role: 'Mãe da Maria Clara', img: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=100' },
-              { quote: 'A metodologia de ensino é excelente. Meu filho desenvolveu autonomia e amor pelo aprendizado de uma forma natural e divertida.', name: 'Carlos Eduardo', role: 'Pai do Pedro', img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100' },
-              { quote: 'Os valores cristãos aliados à educação de qualidade foram decisivos na nossa escolha. Hoje vemos que fizemos a escolha certa.', name: 'Juliana Santos', role: 'Mãe do Lucas', img: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=100' },
-            ].map((t, i) => (
-              <div
-                key={t.name}
-                className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-8"
-                data-reveal="up"
-                style={{ '--delay': `${i * 0.1}s` } as React.CSSProperties}
-              >
-                <p className="text-[#ffd700] text-5xl font-display font-bold leading-none mb-4">"</p>
-                <p className="text-white/75 italic text-sm leading-relaxed mb-6">{t.quote}</p>
-                <div className="flex items-center gap-3 pt-4 border-t border-white/10">
-                  <img src={t.img} alt={t.name} className="rounded-full w-12 h-12 object-cover" />
-                  <div>
-                    <p className="text-white font-semibold text-sm">{t.name}</p>
-                    <p className="text-white/50 text-xs">{t.role}</p>
-                  </div>
-                </div>
               </div>
             ))}
           </div>
