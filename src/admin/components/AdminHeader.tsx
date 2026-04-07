@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { useNotifications } from '../hooks/useNotifications';
+import { useWhatsAppStatus } from '../contexts/WhatsAppStatusContext';
 import { ROLE_LABELS } from '../types/admin.types';
-import { Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Bell, PanelLeftClose, PanelLeftOpen, MessageCircle } from 'lucide-react';
 import NotificationsPanel from './NotificationsPanel';
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
 export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props) {
   const { profile } = useAdminAuth();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+  const { state: waState } = useWhatsAppStatus();
+  const navigate = useNavigate();
   const [panelOpen, setPanelOpen] = useState(false);
 
   return (
@@ -41,6 +44,32 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
 
       {/* Right: actions */}
       <div className="flex items-center gap-3">
+        {/* WhatsApp status badge */}
+        {waState !== 'unknown' && (
+          <button
+            onClick={() => navigate('/admin/configuracoes')}
+            title={
+              waState === 'connected'    ? 'WhatsApp conectado'
+              : waState === 'connecting' ? 'WhatsApp conectando…'
+              : 'WhatsApp desconectado — clique para configurar'
+            }
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <MessageCircle className={`w-4 h-4 ${
+              waState === 'connected'    ? 'text-emerald-500'
+              : waState === 'connecting' ? 'text-amber-400 animate-pulse'
+              : 'text-red-400'
+            }`} />
+            <span className={`hidden sm:inline ${
+              waState === 'connected'    ? 'text-emerald-600 dark:text-emerald-400'
+              : waState === 'connecting' ? 'text-amber-500 dark:text-amber-400'
+              : 'text-red-500 dark:text-red-400'
+            }`}>
+              {waState === 'connected' ? 'Conectado' : waState === 'connecting' ? 'Conectando…' : 'Desconectado'}
+            </span>
+          </button>
+        )}
+
         {/* Bell */}
         <div className="relative">
           <button

@@ -98,6 +98,41 @@ export async function checkUazApiStatus(): Promise<{
   return { connected, status };
 }
 
+// ── Connect / Disconnect instance ────────────────────────────────────────────
+
+export interface ConnectResult {
+  success: boolean;
+  qrcode?: string;    // base64 QR (undefined when using phone pairing)
+  paircode?: string;  // 8-char pairing code (only when phone is supplied)
+  error?: string;
+}
+
+/** Start connection. Pass `phone` (e.g. "5581999999999") for pairing-code flow,
+ *  omit for QR-code flow. */
+export async function connectInstance(phone?: string): Promise<ConnectResult> {
+  const { data, error } = await callProxy('/instance/connect', 'POST', phone ? { phone } : {});
+  if (error) return { success: false, error };
+
+  const d = data as { instance?: Record<string, unknown> } | null;
+  const raw = d?.instance || (data as Record<string, unknown>) || {};
+
+  // Normalise QR: may be raw base64 or already a data URL
+  let qrcode = String(raw['qrcode'] || '');
+  if (qrcode && !qrcode.startsWith('data:')) {
+    qrcode = `data:image/png;base64,${qrcode}`;
+  }
+  const paircode = String(raw['paircode'] || '') || undefined;
+
+  return { success: true, qrcode: qrcode || undefined, paircode };
+}
+
+/** Disconnect the current WhatsApp session. Requires new QR to reconnect. */
+export async function disconnectInstance(): Promise<{ success: boolean; error?: string }> {
+  const { error } = await callProxy('/instance/disconnect', 'POST', {});
+  if (error) return { success: false, error };
+  return { success: true };
+}
+
 // ── Register webhook ──────────────────────────────────────────────────────────
 
 export async function registerWebhook(webhookUrl: string): Promise<SendResult> {
