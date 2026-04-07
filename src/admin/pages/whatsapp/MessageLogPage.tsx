@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { callProxy } from '../../lib/uazapi';
+import { callProxy } from '../../lib/whatsapp-api';
 import type { WhatsAppMessageLog, MessageLogStatus } from '../../types/admin.types';
 import {
   Send, CheckCheck, Clock, XCircle, Eye, RotateCcw,

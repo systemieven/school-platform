@@ -1,6 +1,6 @@
 /**
- * UazAPI integration utilities.
- * All calls go through the `uazapi-proxy` Edge Function so the
+ * WhatsApp API integration utilities.
+ * All calls go through the `whatsapp-proxy` Edge Function so the
  * API token is never exposed on the client.
  */
 import { supabase } from '../../lib/supabase';
@@ -10,7 +10,7 @@ export const WEBHOOK_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1/uazapi-webhoo
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface UazApiStatus {
+export interface WhatsAppApiStatus {
   state: 'connected' | 'connecting' | 'disconnected';
   phone?: string;
   name?: string;
@@ -66,15 +66,15 @@ export async function callProxy(
 
 // ── Health check ──────────────────────────────────────────────────────────────
 
-export async function checkUazApiStatus(): Promise<{
+export async function checkWhatsAppStatus(): Promise<{
   connected: boolean;
-  status?: UazApiStatus;
+  status?: WhatsAppApiStatus;
   error?: string;
 }> {
   const { data, error } = await callProxy('/instance/status', 'GET');
   if (error) return { connected: false, error };
 
-  // UazAPI v2 returns { instance: {...}, status: { connected: bool, ... } }
+  // API v2 returns { instance: {...}, status: { connected: bool, ... } }
   const d = data as {
     instance?: Record<string, unknown>;
     status?:   Record<string, unknown>;
@@ -84,10 +84,10 @@ export async function checkUazApiStatus(): Promise<{
     d?.status?.['connected'] === true ||
     d?.instance?.['status'] === 'connected';
 
-  // Normalise to our UazApiStatus shape
+  // Normalise to our WhatsAppApiStatus shape
   const raw = d?.instance || {};
   const phone = String(raw['owner'] || '').replace(/:.*$/, ''); // strip WA resource
-  const status: UazApiStatus = {
+  const status: WhatsAppApiStatus = {
     state:      connected ? 'connected' : 'disconnected',
     name:       String(raw['profileName'] || raw['name'] || ''),
     phone:      phone || undefined,
@@ -148,7 +148,7 @@ export async function registerWebhook(webhookUrl: string): Promise<SendResult> {
   await supabase
     .from('system_settings')
     .update({ value: JSON.stringify(webhookUrl) })
-    .eq('category', 'uazapi')
+    .eq('category', 'whatsapp')
     .eq('key', 'webhook_url');
   return { success: true, data };
 }

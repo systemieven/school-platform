@@ -6,8 +6,8 @@
  * Settings panel can share one source of truth without duplicate fetches.
  */
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { checkUazApiStatus } from '../lib/uazapi';
-import type { UazApiStatus } from '../lib/uazapi';
+import { checkWhatsAppStatus } from '../lib/whatsapp-api';
+import type { WhatsAppApiStatus } from '../lib/whatsapp-api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -15,7 +15,7 @@ export type WaState = 'unknown' | 'connected' | 'connecting' | 'disconnected';
 
 export interface WaStatus {
   state: WaState;
-  instanceData: UazApiStatus | null;
+  instanceData: WhatsAppApiStatus | null;
   loading: boolean;
   /** Manually trigger a refresh (e.g. after connect / disconnect) */
   refresh: () => void;
@@ -37,13 +37,13 @@ const POLL_INTERVAL_CONNECTING = 3_000;  // 3 s while "connecting"
 
 export function WhatsAppStatusProvider({ children }: { children: React.ReactNode }) {
   const [state,        setState]        = useState<WaState>('unknown');
-  const [instanceData, setInstanceData] = useState<UazApiStatus | null>(null);
+  const [instanceData, setInstanceData] = useState<WhatsAppApiStatus | null>(null);
   const [loading,      setLoading]      = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStatus = useCallback(async () => {
     setLoading(true);
-    const res = await checkUazApiStatus();
+    const res = await checkWhatsAppStatus();
     if (res.connected) {
       setState('connected');
       setInstanceData(res.status ?? null);

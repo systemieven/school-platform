@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
-import { MODULE_VARIABLES, ALL_VARIABLES } from '../../lib/uazapi';
+import { MODULE_VARIABLES, ALL_VARIABLES } from '../../lib/whatsapp-api';
 import type { WhatsAppTemplate, TemplateCategory, MessageType, TemplateContent } from '../../types/admin.types';
 import {
   MessageCircle, Plus, Pencil, Trash2, ToggleLeft, ToggleRight,

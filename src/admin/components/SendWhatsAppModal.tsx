@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { sendWhatsAppText, renderTemplate } from '../lib/uazapi';
+import { sendWhatsAppText, renderTemplate } from '../lib/whatsapp-api';
 import type { WhatsAppTemplate } from '../types/admin.types';
 import {
   MessageCircle, X, Send, Loader2, Eye, EyeOff,
@@ -91,7 +91,7 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
       setStep('sent');
       onSent?.();
     } else {
-      setError(result.error || 'Falha no envio. Verifique a conexão UazAPI nas configurações.');
+      setError(result.error || 'Falha no envio. Verifique a conexão WhatsApp nas configurações.');
     }
   };
 

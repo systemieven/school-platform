@@ -4,7 +4,7 @@
  * WhatsApp-style circular crop UI.
  * - Drag to reposition
  * - Scroll / pinch to zoom
- * - Outputs a 640×640 JPEG base64 string (as required by the UazAPI /profile/image endpoint)
+ * - Outputs a 640×640 JPEG base64 string (as required by the WhatsApp API /profile/image endpoint)
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, ZoomIn, ZoomOut, Check } from 'lucide-react';
@@ -16,7 +16,7 @@ interface Props {
 }
 
 const VIEWPORT = 300;   // px — visible crop square
-const OUT_SIZE  = 640;  // output image size required by UazAPI
+const OUT_SIZE  = 640;  // output image size required by WhatsApp API
 
 export default function ImageCropModal({ src, onSave, onClose }: Props) {
   const imgRef   = useRef<HTMLImageElement>(null);

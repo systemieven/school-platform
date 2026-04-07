@@ -3,8 +3,8 @@ import { supabase } from '../../../lib/supabase';
 import {
   registerWebhook, WEBHOOK_FUNCTION_BASE, connectInstance, disconnectInstance,
   updateProfileName, updateProfileImage, getPrivacy, updatePrivacy, updatePresence,
-} from '../../lib/uazapi';
-import type { PrivacySettings } from '../../lib/uazapi';
+} from '../../lib/whatsapp-api';
+import type { PrivacySettings } from '../../lib/whatsapp-api';
 import { useWhatsAppStatus } from '../../contexts/WhatsAppStatusContext';
 import ImageCropModal from '../../components/ImageCropModal';
 import type { SystemSetting } from '../../types/admin.types';
@@ -42,8 +42,8 @@ const TABS: TabDef[] = [
     label: 'WhatsApp',
     shortLabel: 'WhatsApp',
     icon: MessageCircle,
-    categories: ['uazapi'],
-    description: 'Conexão com a API Uazapi para envio de mensagens automáticas.',
+    categories: ['whatsapp'],
+    description: 'Conexão com a API WhatsApp para envio de mensagens automáticas.',
   },
   {
     key: 'visits',
@@ -97,8 +97,8 @@ const KEY_META: Record<string, { label: string; placeholder?: string; secret?: b
   whatsapp:       { label: 'WhatsApp', placeholder: '(00) 00000-0000' },
   email:          { label: 'E-mail', placeholder: 'contato@escola.com.br' },
   logo_url:       { label: 'URL do Logo', placeholder: 'https://...' },
-  // uazapi — rendered exclusively by WhatsAppConnectionPanel, but kept for fallback
-  instance_url:   { label: 'URL da Instância', placeholder: 'https://ibotcloud.uazapi.com' },
+  // whatsapp — rendered exclusively by WhatsAppConnectionPanel, but kept for fallback
+  instance_url:   { label: 'URL da Instância', placeholder: 'https://sua-instancia.exemplo.com' },
   api_token:      { label: 'Token da API', placeholder: '••••••••', secret: true },
   connected:      { label: 'Status de Conexão', placeholder: 'true / false' },
   webhook_secret: { label: 'Chave Secreta do Webhook', placeholder: '(gerado automaticamente)', secret: true },
@@ -475,13 +475,13 @@ function WhatsAppConnectionPanel() {
   const [webhookUrlInDb, setWebhookUrlInDb] = useState('');
   const [copied,         setCopied]         = useState(false);
 
-  // ── Load all uazapi settings on mount
+  // ── Load all WhatsApp API settings on mount
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('system_settings')
         .select('id, key, value')
-        .eq('category', 'uazapi');
+        .eq('category', 'whatsapp');
       if (!data) return;
       const ids: Record<string, string> = {};
       data.forEach((r: { id: string; key: string; value: unknown }) => {
@@ -551,7 +551,7 @@ function WhatsAppConnectionPanel() {
       refreshWa(); // update global context
     }, 3000);
 
-    // Refresh QR after 90 s (before 2-min UazAPI timeout)
+    // Refresh QR after 90 s (before 2-min API timeout)
     qrRefreshRef.current = setTimeout(async () => {
       const refresh = await connectInstance();
       if (refresh.success && refresh.qrcode) {
@@ -670,7 +670,7 @@ function WhatsAppConnectionPanel() {
             </label>
             <input
               type="text" value={instanceUrl} onChange={(e) => setInstanceUrl(e.target.value)}
-              placeholder="https://ibotcloud.uazapi.com"
+              placeholder="https://sua-instancia.exemplo.com"
               className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all"
             />
           </div>
@@ -681,7 +681,7 @@ function WhatsAppConnectionPanel() {
             <div className="relative">
               <input
                 type={showToken ? 'text' : 'password'} value={apiToken} onChange={(e) => setApiToken(e.target.value)}
-                placeholder="Cole o token da instância UazAPI"
+                placeholder="Cole o token da instância WhatsApp API"
                 className="w-full px-3 py-2 pr-10 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all"
               />
               <button type="button" onClick={() => setShowToken(p => !p)}
@@ -943,12 +943,12 @@ function WhatsAppConnectionPanel() {
           )}
         </div>
         <p className="text-xs text-gray-400 mb-4">
-          Permite que o UazAPI informe o status de entrega (enviado, entregue, lido) de cada mensagem enviada.
+          Permite que a API WhatsApp informe o status de entrega (enviado, entregue, lido) de cada mensagem enviada.
         </p>
         {/* Webhook secret */}
         <div className="mb-4">
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-            Chave Secreta <span className="text-gray-400 font-normal">— valida requisições recebidas do UazAPI</span>
+            Chave Secreta <span className="text-gray-400 font-normal">— valida requisições recebidas da API WhatsApp</span>
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -992,14 +992,14 @@ function WhatsAppConnectionPanel() {
         <button onClick={handleRegister} disabled={registering || !webhookSecret}
           className="inline-flex items-center gap-2 border border-[#003876] text-[#003876] dark:border-[#ffd700] dark:text-[#ffd700] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#003876]/5 dark:hover:bg-[#ffd700]/5 disabled:opacity-50 transition-colors">
           {registering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
-          {registering ? 'Registrando…' : 'Registrar no UazAPI'}
+          {registering ? 'Registrando…' : 'Registrar na API'}
         </button>
         {regResult && (
           <div className={`mt-3 text-xs px-3 py-2 rounded-xl ${regResult.success
             ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
             : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'}`}>
             {regResult.success
-              ? '✓ Webhook registrado com sucesso. O UazAPI agora enviará atualizações de entrega para esta URL.'
+              ? '✓ Webhook registrado com sucesso. A API WhatsApp agora enviará atualizações de entrega para esta URL.'
               : `Erro ao registrar: ${regResult.error}`}
           </div>
         )}
