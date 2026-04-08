@@ -170,6 +170,7 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [segments, setSegments] = useState<SchoolSegment[]>([]);
   const [classes, setClasses]   = useState<SchoolClass[]>([]);
+  const [profileById, setProfileById] = useState<Map<string, string>>(new Map());
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState('');
   const [filterSeg, setFilterSeg] = useState('');
@@ -188,6 +189,24 @@ export default function StudentsPage() {
     setStudents((studs ?? []) as Student[]);
     setSegments((segs ?? []) as SchoolSegment[]);
     setClasses((cls ?? []) as SchoolClass[]);
+
+    // Resolve coordinator_ids and teacher_ids to names
+    const allIds = [
+      ...new Set([
+        ...((segs ?? []) as SchoolSegment[]).flatMap((s) => s.coordinator_ids ?? []),
+        ...((cls  ?? []) as SchoolClass[]).flatMap((c) => c.teacher_ids ?? []),
+      ]),
+    ];
+    if (allIds.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', allIds);
+      const map = new Map<string, string>();
+      (profs ?? []).forEach((p: { id: string; full_name: string }) => map.set(p.id, p.full_name));
+      setProfileById(map);
+    }
+
     setLoading(false);
   }, []);
 
@@ -391,17 +410,31 @@ export default function StudentsPage() {
                   <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
 
-                {isExpanded && (
-                  <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <InfoItem icon={GraduationCap} label="Matrícula" value={s.enrollment_number} />
-                    <InfoItem icon={Users} label="Responsável" value={s.guardian_name} />
-                    <InfoItem icon={Phone} label="Telefone" value={s.guardian_phone} />
-                    {s.guardian_email && <InfoItem icon={Mail} label="E-mail" value={s.guardian_email} />}
-                    {s.birth_date && <InfoItem icon={Calendar} label="Nascimento" value={new Date(s.birth_date).toLocaleDateString('pt-BR')} />}
-                    {s.cpf && <InfoItem icon={Users} label="CPF" value={s.cpf} />}
-                    <InfoItem icon={Calendar} label="Matriculado em" value={new Date(s.enrolled_at).toLocaleDateString('pt-BR')} />
-                  </div>
-                )}
+                {isExpanded && (() => {
+                  const clsObj = s.class_id ? classById.get(s.class_id) : null;
+                  const segObj = clsObj ? segById.get(clsObj.segment_id) : null;
+                  const coordinators = (segObj?.coordinator_ids ?? [])
+                    .map((id) => profileById.get(id))
+                    .filter(Boolean)
+                    .join(', ');
+                  const teachers = (clsObj?.teacher_ids ?? [])
+                    .map((id) => profileById.get(id))
+                    .filter(Boolean)
+                    .join(', ');
+                  return (
+                    <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <InfoItem icon={GraduationCap} label="Matrícula" value={s.enrollment_number} />
+                      <InfoItem icon={Users} label="Responsável" value={s.guardian_name} />
+                      <InfoItem icon={Phone} label="Telefone" value={s.guardian_phone} />
+                      {s.guardian_email && <InfoItem icon={Mail} label="E-mail" value={s.guardian_email} />}
+                      {s.birth_date && <InfoItem icon={Calendar} label="Nascimento" value={new Date(s.birth_date).toLocaleDateString('pt-BR')} />}
+                      {s.cpf && <InfoItem icon={Users} label="CPF" value={s.cpf} />}
+                      <InfoItem icon={Calendar} label="Matriculado em" value={new Date(s.enrolled_at).toLocaleDateString('pt-BR')} />
+                      {coordinators && <InfoItem icon={Users} label="Coordenadores" value={coordinators} />}
+                      {teachers && <InfoItem icon={GraduationCap} label="Professores" value={teachers} />}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

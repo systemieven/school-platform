@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
+import { sendWhatsAppText, renderTemplate } from '../../lib/whatsapp-api';
 import {
   Kanban, Plus, MessageCircle, Phone, Clock, ChevronDown,
   Loader2, X, Save, AlertCircle, Star, User,
@@ -11,6 +12,11 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface LeadStageAutoActions {
+  send_template?:       string;  // whatsapp_templates UUID
+  create_notification?: boolean;
+}
+
 interface LeadStage {
   id: string;
   name: string;
@@ -18,6 +24,7 @@ interface LeadStage {
   color: string;
   position: number;
   is_active: boolean;
+  auto_actions?: LeadStageAutoActions | null;
 }
 
 type Priority = 'low' | 'medium' | 'high' | 'urgent';
@@ -800,10 +807,13 @@ export default function KanbanPage() {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead || lead.stage === stageName) return;
 
-    const fromStage = lead.stage;
+    const fromStage  = lead.stage;
+    const toStageObj = stages.find((s) => s.name === stageName);
 
     // Optimistic update
-    setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, stage: stageName, updated_at: new Date().toISOString() } : l));
+    setLeads((prev) => prev.map((l) =>
+      l.id === leadId ? { ...l, stage: stageName, updated_at: new Date().toISOString() } : l,
+    ));
 
     // Persist
     await supabase.from('leads').update({ stage: stageName }).eq('id', leadId);
@@ -817,6 +827,69 @@ export default function KanbanPage() {
       to_stage:     stageName,
       performed_by: profile?.id,
     });
+
+    // ── Execute auto_actions of the destination stage ──────────────────────
+    const actions = toStageObj?.auto_actions;
+    if (!actions) return;
+
+    try {
+      // 1. Send WhatsApp template
+      if (actions.send_template && lead.phone) {
+        const { data: tmpl } = await supabase
+          .from('whatsapp_templates')
+          .select('*')
+          .eq('id', actions.send_template)
+          .single();
+
+        if (tmpl) {
+          const vars: Record<string, string> = {
+            visitor_name:   lead.name,
+            contact_name:   lead.name,
+            guardian_name:  lead.name,
+            visitor_phone:  lead.phone,
+            contact_phone:  lead.phone,
+            school_name:    'Colégio Batista em Caruaru',
+            current_date:   new Date().toLocaleDateString('pt-BR'),
+          };
+          const rendered = renderTemplate(tmpl.content?.body || '', vars);
+          await sendWhatsAppText({
+            phone:           lead.phone,
+            text:            rendered,
+            templateId:      tmpl.id,
+            recipientName:   lead.name,
+            relatedModule:   'contato',   // closest available module for logging
+            relatedRecordId: leadId,
+          });
+        }
+      }
+
+      // 2. Create internal notification for admins
+      if (actions.create_notification) {
+        const { data: admins } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('role', ['super_admin', 'admin', 'coordinator'])
+          .eq('is_active', true);
+
+        if (admins && admins.length > 0) {
+          const toLabel = toStageObj?.label || stageName;
+          await supabase.from('notifications').insert(
+            (admins as { id: string }[]).map((a) => ({
+              recipient_id:     a.id,
+              type:             'stage_change',
+              title:            `Lead movido: ${lead.name}`,
+              body:             `Movido para a etapa "${toLabel}".`,
+              link:             '/admin/leads',
+              related_module:   'leads',
+              related_record_id: leadId,
+            })),
+          );
+        }
+      }
+    } catch (err) {
+      // Auto-actions are non-critical — log but don't revert the stage move
+      console.error('[kanban] auto_actions error:', err);
+    }
   };
 
   const filteredLeads = filterPriority === 'all'
