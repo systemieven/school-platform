@@ -1116,11 +1116,14 @@ function TimeRangeSlider({ workStart, workEnd, lunchStart, lunchEnd, valueStart,
   const thumbCls = [
     'absolute inset-0 w-full h-full appearance-none bg-transparent pointer-events-none',
     '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto',
-    '[&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full',
-    '[&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-[#003876]',
-    '[&::-webkit-slider-thumb]:shadow-[0_0_0_2px_white,0_2px_6px_rgba(0,0,0,0.20)] [&::-webkit-slider-thumb]:cursor-grab',
+    '[&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full',
+    '[&::-webkit-slider-thumb]:bg-white',
+    '[&::-webkit-slider-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)] [&::-webkit-slider-thumb]:cursor-grab',
     '[&::-webkit-slider-thumb]:active:cursor-grabbing [&::-webkit-slider-thumb]:active:scale-110',
     '[&::-webkit-slider-thumb]:transition-transform',
+    '[&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full',
+    '[&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0',
+    '[&::-moz-range-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)]',
   ].join(' ');
 
   return (
@@ -1753,7 +1756,7 @@ function AppointmentsSettingsPanel() {
           <>
             <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40" onClick={closeDrawer} />
             <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 flex-shrink-0">
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
                   {drawerIsNew ? 'Novo motivo' : 'Editar motivo'}
                 </h3>
@@ -1772,121 +1775,162 @@ function AppointmentsSettingsPanel() {
                   </button>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Nome</label>
-                  <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Ícone</p>
-                  <div className="grid grid-cols-8 gap-1.5">
-                    {REASON_ICON_OPTIONS.map(({ key: iconKey, label: iconLabel, Icon: IconComp }) => {
-                      const isSelected = (d.icon || 'FileText') === iconKey;
-                      return (
-                        <button
-                          key={iconKey}
-                          onClick={() => setDrawerDraft((prev) => prev ? { ...prev, icon: iconKey } : prev)}
-                          title={iconLabel}
-                          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-                            isSelected
-                              ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'
-                          }`}
-                        >
-                          <IconComp className="w-4 h-4" />
-                        </button>
-                      );
-                    })}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50 dark:bg-gray-900/60">
+
+                {/* ── Identificação ── */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Identificação</span>
                   </div>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Duração</p>
-                  <div className="flex flex-wrap gap-2">
-                    {DURATION_OPTIONS.map((min) => (
-                      <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, duration_minutes: min } : prev)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${d.duration_minutes === min ? 'bg-[#003876] text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
-                        {min} min
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-0.5">Intervalo após</p>
-                  <p className="text-xs text-gray-400 mb-2">Tempo de preparação entre atendimentos</p>
-                  <div className="flex flex-wrap gap-2">
-                    {BUFFER_OPTIONS.map((min) => (
-                      <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, buffer_minutes: min } : prev)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${d.buffer_minutes === min ? 'bg-[#003876] text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
-                        {min === 0 ? 'Nenhum' : `${min} min`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Máx. simultâneos</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Agendamentos no mesmo horário</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.max(1, (prev.max_per_slot ?? 1) - 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
-                    <span className="w-8 text-center text-lg font-bold text-gray-800 dark:text-white">{d.max_per_slot ?? 1}</span>
-                    <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.min(10, (prev.max_per_slot ?? 1) + 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Máx. diário</p>
-                    <p className="text-xs text-gray-400 mt-0.5">0 = ilimitado</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.max(0, (prev.max_daily ?? 0) - 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
-                    <span className="w-8 text-center text-lg font-bold text-gray-800 dark:text-white">{d.max_daily ?? 0}</span>
-                    <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.min(50, (prev.max_daily ?? 0) + 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Disponibilidade específica</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Restringe horários para este motivo</p>
+                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Nome</label>
+                      <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
                     </div>
-                    <button
-                      onClick={() => setDrawerDraft((prev) => {
-                        if (!prev) return prev;
-                        return { ...prev, availability_enabled: !prev.availability_enabled, availability_start: prev.availability_start || data.start_hour, availability_end: prev.availability_end || data.end_hour };
-                      })}
-                      className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.availability_enabled ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.availability_enabled ? 'translate-x-6' : 'translate-x-0'}`}>
-                        {d.availability_enabled && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
-                      </span>
-                    </button>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Ícone</p>
+                      <div className="grid grid-cols-8 gap-1.5">
+                        {REASON_ICON_OPTIONS.map(({ key: iconKey, label: iconLabel, Icon: IconComp }) => {
+                          const isSelected = (d.icon || 'FileText') === iconKey;
+                          return (
+                            <button key={iconKey} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, icon: iconKey } : prev)} title={iconLabel}
+                              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${isSelected ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'}`}>
+                              <IconComp className="w-4 h-4" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
-                  {d.availability_enabled && (
-                    <TimeRangeSlider
-                      workStart={data.start_hour} workEnd={data.end_hour}
-                      lunchStart={data.lunch_start} lunchEnd={data.lunch_end}
-                      valueStart={d.availability_start || data.start_hour}
-                      valueEnd={d.availability_end || data.end_hour}
-                      stepMin={data.slot_duration || 30}
-                      onChange={(start, end) => setDrawerDraft((prev) => prev ? { ...prev, availability_start: start, availability_end: end } : prev)}
-                    />
-                  )}
                 </div>
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Integrar com Gestão de Leads</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Cria um lead automaticamente ao agendar</p>
+
+                {/* ── Tempo ── */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Tempo</span>
                   </div>
-                  <button
-                    onClick={() => setDrawerDraft((prev) => prev ? { ...prev, lead_integrated: !prev.lead_integrated } : prev)}
-                    className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.lead_integrated ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
-                  >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.lead_integrated ? 'translate-x-6' : 'translate-x-0'}`}>
-                      {d.lead_integrated && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
-                    </span>
-                  </button>
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Duração da visita</p>
+                      <div className="flex flex-wrap gap-2">
+                        {DURATION_OPTIONS.map((min) => (
+                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, duration_minutes: min } : prev)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${d.duration_minutes === min ? 'bg-[#003876] text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                            {min} min
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-0.5">Intervalo após</p>
+                      <p className="text-xs text-gray-400 mb-2">Tempo de preparação entre atendimentos</p>
+                      <div className="flex flex-wrap gap-2">
+                        {BUFFER_OPTIONS.map((min) => (
+                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, buffer_minutes: min } : prev)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${d.buffer_minutes === min ? 'bg-[#003876] text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                            {min === 0 ? 'Nenhum' : `${min} min`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* ── Capacidade ── */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Capacidade</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4 divide-y divide-gray-100 dark:divide-gray-700">
+                    <div className="flex items-center justify-between pb-4">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Máx. simultâneos</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Agendamentos no mesmo horário</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.max(1, (prev.max_per_slot ?? 1) - 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
+                        <span className="w-8 text-center text-lg font-bold text-gray-800 dark:text-white">{d.max_per_slot ?? 1}</span>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.min(10, (prev.max_per_slot ?? 1) + 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-4">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Máx. diário</p>
+                        <p className="text-xs text-gray-400 mt-0.5">0 = ilimitado</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.max(0, (prev.max_daily ?? 0) - 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
+                        <span className="w-8 text-center text-lg font-bold text-gray-800 dark:text-white">{d.max_daily ?? 0}</span>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.min(50, (prev.max_daily ?? 0) + 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Disponibilidade ── */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+                    <CalendarCheck className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Disponibilidade</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Horário específico</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Restringe horários disponíveis para este motivo</p>
+                      </div>
+                      <button
+                        onClick={() => setDrawerDraft((prev) => {
+                          if (!prev) return prev;
+                          return { ...prev, availability_enabled: !prev.availability_enabled, availability_start: prev.availability_start || data.start_hour, availability_end: prev.availability_end || data.end_hour };
+                        })}
+                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 flex-shrink-0 ${d.availability_enabled ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.availability_enabled ? 'translate-x-6' : 'translate-x-0'}`}>
+                          {d.availability_enabled && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                        </span>
+                      </button>
+                    </div>
+                    {d.availability_enabled && (
+                      <TimeRangeSlider
+                        workStart={data.start_hour} workEnd={data.end_hour}
+                        lunchStart={data.lunch_start} lunchEnd={data.lunch_end}
+                        valueStart={d.availability_start || data.start_hour}
+                        valueEnd={d.availability_end || data.end_hour}
+                        stepMin={data.slot_duration || 30}
+                        onChange={(start, end) => setDrawerDraft((prev) => prev ? { ...prev, availability_start: start, availability_end: end } : prev)}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Integrações ── */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+                    <Plug className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Integrações</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Gestão de Leads</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Cria um lead automaticamente ao agendar</p>
+                      </div>
+                      <button
+                        onClick={() => setDrawerDraft((prev) => prev ? { ...prev, lead_integrated: !prev.lead_integrated } : prev)}
+                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.lead_integrated ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.lead_integrated ? 'translate-x-6' : 'translate-x-0'}`}>
+                          {d.lead_integrated && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
               </div>
-              <div className="px-5 py-4 pb-8 border-t border-gray-100 dark:border-gray-700">
+              <div className="px-5 py-4 pb-8 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 flex-shrink-0">
                 <button onClick={saveDrawer} disabled={!d.label.trim()} className="w-full py-2.5 rounded-xl bg-[#003876] text-white text-sm font-semibold hover:bg-[#002855] disabled:opacity-40 transition-all">
                   {drawerIsNew ? 'Adicionar motivo' : 'Salvar alterações'}
                 </button>
@@ -2463,7 +2507,7 @@ function ContactSettingsPanel() {
           <>
             <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40" onClick={closeDrawer} />
             <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 flex-shrink-0">
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
                   {drawerIsNew ? 'Novo motivo' : 'Editar motivo'}
                 </h3>
@@ -2478,54 +2522,86 @@ function ContactSettingsPanel() {
                   </button>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Nome</label>
-                  <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Ícone</p>
-                  <div className="grid grid-cols-8 gap-1.5">
-                    {REASON_ICON_OPTIONS.map(({ key: iconKey, label: iconLabel, Icon: IconComp }) => {
-                      const isSelected = (d.icon || 'MessageSquare') === iconKey;
-                      return (
-                        <button key={iconKey} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, icon: iconKey } : prev)} title={iconLabel} className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${isSelected ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'}`}>
-                          <IconComp className="w-4 h-4" />
-                        </button>
-                      );
-                    })}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50 dark:bg-gray-900/60">
+
+                {/* ── Identificação ── */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Identificação</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Nome</label>
+                      <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Ícone</p>
+                      <div className="grid grid-cols-8 gap-1.5">
+                        {REASON_ICON_OPTIONS.map(({ key: iconKey, label: iconLabel, Icon: IconComp }) => {
+                          const isSelected = (d.icon || 'MessageSquare') === iconKey;
+                          return (
+                            <button key={iconKey} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, icon: iconKey } : prev)} title={iconLabel}
+                              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${isSelected ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'}`}>
+                              <IconComp className="w-4 h-4" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Detalhe obrigatório</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Exige preenchimento do campo de mensagem</p>
+
+                {/* ── Comportamento ── */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+                    <MessageCircle className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Comportamento</span>
                   </div>
-                  <button
-                    onClick={() => setDrawerDraft((prev) => prev ? { ...prev, require_message: !prev.require_message } : prev)}
-                    className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.require_message ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
-                  >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.require_message ? 'translate-x-6' : 'translate-x-0'}`}>
-                      {d.require_message && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
-                    </span>
-                  </button>
-                </div>
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Integrar com Gestão de Leads</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Cria um lead automaticamente ao receber este contato</p>
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Detalhe obrigatório</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Exige preenchimento do campo de mensagem</p>
+                      </div>
+                      <button
+                        onClick={() => setDrawerDraft((prev) => prev ? { ...prev, require_message: !prev.require_message } : prev)}
+                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.require_message ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.require_message ? 'translate-x-6' : 'translate-x-0'}`}>
+                          {d.require_message && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => setDrawerDraft((prev) => prev ? { ...prev, lead_integrated: !prev.lead_integrated } : prev)}
-                    className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.lead_integrated ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
-                  >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.lead_integrated ? 'translate-x-6' : 'translate-x-0'}`}>
-                      {d.lead_integrated && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
-                    </span>
-                  </button>
                 </div>
+
+                {/* ── Integrações ── */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+                    <Plug className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Integrações</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Gestão de Leads</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Cria um lead automaticamente ao receber este contato</p>
+                      </div>
+                      <button
+                        onClick={() => setDrawerDraft((prev) => prev ? { ...prev, lead_integrated: !prev.lead_integrated } : prev)}
+                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.lead_integrated ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.lead_integrated ? 'translate-x-6' : 'translate-x-0'}`}>
+                          {d.lead_integrated && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
               </div>
-              <div className="px-5 py-4 pb-8 border-t border-gray-100 dark:border-gray-700">
+              <div className="px-5 py-4 pb-8 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 flex-shrink-0">
                 <button onClick={saveDrawer} disabled={!d.label.trim()} className="w-full py-2.5 rounded-xl bg-[#003876] text-white text-sm font-semibold hover:bg-[#002855] disabled:opacity-40 transition-all">
                   {drawerIsNew ? 'Adicionar motivo' : 'Salvar alterações'}
                 </button>

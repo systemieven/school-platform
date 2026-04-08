@@ -30,7 +30,9 @@ import {
 
 const inputCls = 'w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all';
 const selectCls = `${inputCls} appearance-none`;
-const cardCls = 'bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 rounded-2xl p-5';
+const cardCls  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700';
+const cardHead = 'bg-gray-50 dark:bg-gray-700/30 px-5 py-3.5 flex items-center gap-2';
+const cardBody = 'bg-white dark:bg-gray-800 px-5 py-4';
 
 function jsonVal(v: unknown): string {
   if (typeof v === 'string') return v;
@@ -267,7 +269,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
       <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-white dark:bg-gray-800 z-[70] flex flex-col shadow-2xl overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900/40">
           <div className="flex-1 min-w-0">
             {editingName ? (
               <input
@@ -320,15 +322,15 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-white dark:bg-gray-800">
 
           {/* ── Credentials ────────────────────────────────────────────────── */}
           <div className={cardCls}>
-            <div className="flex items-center gap-2 mb-4">
+            <div className={cardHead}>
               <KeyRound className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Credenciais da API</h3>
             </div>
-            <div className="space-y-4">
+            <div className={`${cardBody} space-y-4`}>
               <div>
                 <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
                   <Globe className="w-3.5 h-3.5" /> URL da Instância
@@ -393,7 +395,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
             <>
               {/* ── Connection ──────────────────────────────────────────────── */}
               <div className={cardCls}>
-                <div className="flex items-center gap-2 mb-4">
+                <div className={cardHead}>
                   <Smartphone className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Conexão WhatsApp</h3>
                   <span className={`ml-auto inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
@@ -416,6 +418,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                     <RefreshCw className={`w-3.5 h-3.5 ${waLoading ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
+                <div className={`${cardBody} space-y-4`}>
 
                 {/* CONNECTED */}
                 {waState === 'connected' && instanceData && (
@@ -577,6 +580,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                       className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline">Tentar novamente</button>
                   </div>
                 )}
+                </div>
               </div>
 
               {/* ── Profile (only when connected) ────────────────────────────── */}
@@ -590,7 +594,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
 
               {/* ── Webhook ──────────────────────────────────────────────────── */}
               <div className={cardCls}>
-                <div className="flex items-center gap-2 mb-1">
+                <div className={cardHead}>
                   <Link className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Webhook de Status de Entrega</h3>
                   {isRegistered && (
@@ -599,10 +603,11 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mb-4">
+                <div className={`${cardBody} space-y-4`}>
+                <p className="text-xs text-gray-400">
                   Permite que a API WhatsApp informe o status de entrega (enviado, entregue, lido) de cada mensagem enviada.
                 </p>
-                <div className="mb-4">
+                <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
                     Chave Secreta <span className="text-gray-400 font-normal">— valida requisições recebidas da API WhatsApp</span>
                   </label>
@@ -700,6 +705,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                       : `Erro ao registrar: ${regResult.error}`}
                   </div>
                 )}
+                </div>
               </div>
             </>
           )}
@@ -769,11 +775,12 @@ function WaProfileSection() {
   return (
     <>
       {cropSrc && <ImageCropModal src={cropSrc} onSave={handleCropSave} onClose={() => setCropSrc(null)} />}
-      <div className={`${cardCls} space-y-5`}>
-        <div className="flex items-center gap-2">
+      <div className={cardCls}>
+        <div className={cardHead}>
           <UserCircle2 className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Perfil WhatsApp</h3>
         </div>
+        <div className={`${cardBody} space-y-5`}>
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">
             <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden border-2 border-white dark:border-gray-700 shadow">
@@ -827,6 +834,7 @@ function WaProfileSection() {
           </div>
           {nameResult && !nameResult.ok && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{nameResult.msg}</p>}
         </div>
+        </div>
       </div>
     </>
   );
@@ -871,8 +879,8 @@ function WaPrivacySection() {
   };
 
   return (
-    <div className={`${cardCls} space-y-4`}>
-      <div className="flex items-center gap-2">
+    <div className={cardCls}>
+      <div className={cardHead}>
         <Lock className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Privacidade</h3>
         {loading && <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin ml-1" />}
@@ -881,6 +889,7 @@ function WaPrivacySection() {
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
+      <div className={`${cardBody} space-y-4`}>
       {loaded && (
         <>
           <div className="grid grid-cols-2 gap-3">
@@ -907,6 +916,7 @@ function WaPrivacySection() {
           </button>
         </>
       )}
+      </div>
     </div>
   );
 }
@@ -932,12 +942,13 @@ function WaPresenceSection() {
   };
 
   return (
-    <div className={`${cardCls} space-y-4`}>
-      <div className="flex items-center gap-2">
+    <div className={cardCls}>
+      <div className={cardHead}>
         <Radio className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Status de presença</h3>
         {saving && <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin ml-1" />}
       </div>
+      <div className={`${cardBody} space-y-4`}>
       <div className="flex gap-2">
         {(['available', 'unavailable'] as const).map((val) => (
           <button key={val} onClick={() => handleSave(val)} disabled={saving}
@@ -966,6 +977,7 @@ function WaPresenceSection() {
           </p>
         </div>
       )}
+      </div>
     </div>
   );
 }
