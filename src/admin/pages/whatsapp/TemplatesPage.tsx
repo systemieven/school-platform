@@ -187,7 +187,7 @@ function TemplateCard({
       </div>
 
       {/* ── Body — white ── */}
-      <div className="bg-white dark:bg-gray-800/20 px-5 py-4 space-y-3">
+      <div className="bg-white dark:bg-gray-800/20 px-5 pt-4 pb-3 space-y-3">
         <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 font-mono">
           {body.slice(0, 200)}{body.length > 200 ? '…' : ''}
         </p>
