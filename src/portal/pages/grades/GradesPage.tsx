@@ -21,7 +21,7 @@ export default function GradesPage() {
       .eq('student_id', student.id)
       .order('period').order('subject')
       .then(({ data }) => {
-        const rows = (data ?? []) as Grade[];
+        const rows = (data ?? []) as unknown as Grade[];
         setGrades(rows);
         // Default to first period found
         const periods = [...new Set(rows.map((g) => g.period))];

@@ -8,7 +8,7 @@ import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
   Loader2, Plus, Pencil, Trash2, CalendarDays, X, Save,
   Users, Globe, BookOpen, MapPin, Clock, Send, Eye, EyeOff,
-  CheckCircle2, ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';

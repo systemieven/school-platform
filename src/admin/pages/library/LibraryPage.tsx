@@ -5,7 +5,7 @@ import type {
   SchoolSegment, SchoolClass,
 } from '../../types/admin.types';
 import {
-  RESOURCE_TYPE_LABELS, RESOURCE_TYPE_ICONS, LIBRARY_TARGET_LABELS,
+  RESOURCE_TYPE_LABELS, LIBRARY_TARGET_LABELS,
 } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
@@ -36,7 +36,7 @@ const TYPE_COLOR: Record<string, string> = {
 const SUBTYPES: Record<ResourceType, { value: ResourceSubtype; label: string; icon: React.ComponentType<{ className?: string }> }[]> = {
   video:    [{ value: 'youtube', label: 'YouTube', icon: Youtube }, { value: 'video_upload', label: 'Upload', icon: Upload }],
   document: [{ value: 'link', label: 'Link externo', icon: Globe }, { value: 'pdf', label: 'PDF (upload)', icon: Upload }],
-  image:    [] as never[], // handled as document subtype; won't appear as ResourceType
+  
   book:     [{ value: 'link', label: 'Link externo', icon: Globe }],
   article:  [{ value: 'link', label: 'Link externo', icon: Globe }],
   link:     [{ value: 'link', label: 'URL', icon: Globe }],
