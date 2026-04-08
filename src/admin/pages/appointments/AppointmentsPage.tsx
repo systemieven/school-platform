@@ -150,57 +150,65 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
 
         {/* Body */}
         <form id="create-appointment-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
-          <div>
-            <label className={labelClass}>Nome do visitante *</label>
-            <input value={form.visitor_name} onChange={(e) => set('visitor_name', e.target.value)} className={fieldClass} required />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          <SettingsCard title="Visitante">
             <div>
-              <label className={labelClass}>Telefone *</label>
-              <input
-                type="tel"
-                placeholder="(81) 99999-9999"
-                value={form.visitor_phone}
-                onChange={(e) => set('visitor_phone', maskPhone(e.target.value))}
-                className={fieldClass}
-                required
-              />
+              <label className={labelClass}>Nome *</label>
+              <input value={form.visitor_name} onChange={(e) => set('visitor_name', e.target.value)} className={fieldClass} placeholder="Nome completo" required />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Telefone *</label>
+                <input
+                  type="tel"
+                  placeholder="(81) 99999-9999"
+                  value={form.visitor_phone}
+                  onChange={(e) => set('visitor_phone', maskPhone(e.target.value))}
+                  className={fieldClass}
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClass}>E-mail</label>
+                <input
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={form.visitor_email}
+                  onChange={(e) => { set('visitor_email', e.target.value); if (emailError) validateEmail(e.target.value); }}
+                  onBlur={(e) => validateEmail(e.target.value)}
+                  className={emailError ? fieldClassError : fieldClass}
+                />
+                {emailError && <p className="text-[11px] text-red-500 mt-1">{emailError}</p>}
+              </div>
+            </div>
+          </SettingsCard>
+
+          <SettingsCard title="Visita">
+            <div>
+              <label className={labelClass}>Motivo</label>
+              <div className="relative">
+                <select value={form.visit_reason} onChange={(e) => set('visit_reason', e.target.value)} className={`${fieldClass} appearance-none pr-9`}>
+                  {Object.entries(reasonLabels).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Data *</label>
+                <input type="date" value={form.appointment_date} onChange={(e) => set('appointment_date', e.target.value)} className={fieldClass} required />
+              </div>
+              <div>
+                <label className={labelClass}>Horário</label>
+                <input type="time" value={form.appointment_time} onChange={(e) => set('appointment_time', e.target.value)} className={fieldClass} />
+              </div>
             </div>
             <div>
-              <label className={labelClass}>E-mail</label>
-              <input
-                type="email"
-                placeholder="email@exemplo.com"
-                value={form.visitor_email}
-                onChange={(e) => { set('visitor_email', e.target.value); if (emailError) validateEmail(e.target.value); }}
-                onBlur={(e) => validateEmail(e.target.value)}
-                className={emailError ? fieldClassError : fieldClass}
-              />
-              {emailError && <p className="text-[11px] text-red-500 mt-1">{emailError}</p>}
+              <label className={labelClass}>Observações</label>
+              <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} className={fieldClass + ' resize-none'} placeholder="Opcional..." />
             </div>
-          </div>
-          <div>
-            <label className={labelClass}>Motivo da visita</label>
-            <select value={form.visit_reason} onChange={(e) => set('visit_reason', e.target.value)} className={fieldClass}>
-              {Object.entries(reasonLabels).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Data *</label>
-              <input type="date" value={form.appointment_date} onChange={(e) => set('appointment_date', e.target.value)} className={fieldClass} required />
-            </div>
-            <div>
-              <label className={labelClass}>Horário</label>
-              <input type="time" value={form.appointment_time} onChange={(e) => set('appointment_time', e.target.value)} className={fieldClass} />
-            </div>
-          </div>
-          <div>
-            <label className={labelClass}>Observações</label>
-            <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} className={fieldClass + ' resize-none'} placeholder="Opcional..." />
-          </div>
+          </SettingsCard>
         </form>
 
         {/* Footer */}
