@@ -33,88 +33,18 @@ function maskPhone(value: string): string {
 }
 
 // ── Temp Password Modal ───────────────────────────────────────────────────────
+type WaStatus = 'sent' | 'no-wa' | 'no-phone' | 'error';
+
 interface TempPasswordModalProps {
   profile: Profile;
   tempPassword: string;
+  waStatus: WaStatus;
+  sendError?: string;
   onClose: () => void;
 }
 
-function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModalProps) {
+function TempPasswordModal({ profile, tempPassword, waStatus, sendError, onClose }: TempPasswordModalProps) {
   const [copied, setCopied] = useState(false);
-  // 'checking' → verifying number | 'has-wa' → sending template | 'sent' → done
-  // 'no-wa' → number has no WhatsApp | 'error' → send error | 'no-phone' → no phone at all
-  const [status, setStatus] = useState<'checking' | 'has-wa' | 'sent' | 'no-wa' | 'error' | 'no-phone'>(
-    profile.phone ? 'checking' : 'no-phone'
-  );
-  const [sendError, setSendError] = useState('');
-
-  useEffect(() => {
-    if (!profile.phone) return;
-
-    async function run() {
-      // Step 1: check if number has WhatsApp
-      const { exists, error: checkErr } = await checkWhatsAppNumber(profile.phone!);
-      if (checkErr || !exists) {
-        setStatus('no-wa');
-        return;
-      }
-
-      // Step 2: number confirmed — send template
-      setStatus('has-wa');
-      try {
-        const systemUrl = window.location.origin + '/admin/login';
-
-        const { data: tpl } = await supabase
-          .from('whatsapp_templates')
-          .select('content, variables')
-          .eq('name', 'senha_temporaria')
-          .eq('is_active', true)
-          .maybeSingle();
-
-        let text: string;
-
-        if (tpl?.content?.body) {
-          text = renderTemplate(tpl.content.body as string, {
-            user_name:    profile.full_name ?? 'usuário',
-            temp_password: tempPassword,
-            system_url:   systemUrl,
-          });
-        } else {
-          text =
-            `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\n` +
-            `Seu acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi criado.\n\n` +
-            `🔑 *Senha temporária:* ${tempPassword}\n\n` +
-            `*Como acessar:*\n` +
-            `1. Acesse: ${systemUrl}\n` +
-            `2. Entre com seu e-mail e a senha acima\n` +
-            `3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n` +
-            `_Esta senha é pessoal e intransferível. Não a compartilhe._`;
-        }
-
-        const result = await sendWhatsAppText({
-          phone: profile.phone!,
-          text,
-          templateId: tpl ? (tpl as unknown as { id: string }).id : undefined,
-          recipientName: profile.full_name ?? undefined,
-          relatedModule: 'usuario',
-          relatedRecordId: profile.id,
-        });
-
-        if (result.success) {
-          setStatus('sent');
-        } else {
-          setSendError(result.error ?? 'Erro ao enviar mensagem.');
-          setStatus('error');
-        }
-      } catch {
-        setSendError('Erro inesperado ao enviar mensagem.');
-        setStatus('error');
-      }
-    }
-
-    run();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   function copyPassword() {
     navigator.clipboard.writeText(tempPassword);
@@ -141,75 +71,49 @@ function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModal
           <div className="p-5 space-y-4">
 
             {/* ── Sent: clean success, no password shown ── */}
-            {status === 'sent' ? (
-              <div className="space-y-4">
-                <div className="flex flex-col items-center text-center gap-3 py-2">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <Check className="w-6 h-6 text-emerald-500" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
-                      Usuário criado com sucesso
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      A senha temporária e as instruções de acesso foram enviadas para{' '}
-                      <strong className="text-gray-700 dark:text-gray-300">{profile.phone}</strong> via WhatsApp.
-                    </p>
-                  </div>
+            {waStatus === 'sent' ? (
+              <div className="flex flex-col items-center text-center gap-3 py-2">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <Check className="w-6 h-6 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
+                    Usuário criado com sucesso
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    A senha temporária e as instruções de acesso foram enviadas para{' '}
+                    <strong className="text-gray-700 dark:text-gray-300">{profile.phone}</strong> via WhatsApp.
+                  </p>
                 </div>
               </div>
             ) : (
               <>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  O usuário <span className="font-semibold text-gray-800 dark:text-gray-200">{profile.full_name}</span> foi criado. A senha temporária abaixo deve ser alterada no primeiro acesso.
+                  O usuário <span className="font-semibold text-gray-800 dark:text-gray-200">{profile.full_name}</span> foi criado. Envie a senha temporária abaixo ao usuário — ela deve ser alterada no primeiro acesso.
                 </p>
 
-                {/* Temp password display — shown only when WhatsApp send is not confirmed */}
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
                   <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-2">Senha temporária</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-lg font-mono font-bold text-amber-800 dark:text-amber-200 tracking-widest">
                       {tempPassword}
                     </code>
-                    <button
-                      onClick={copyPassword}
-                      className="p-2 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-800/30 text-amber-600 dark:text-amber-400 transition-colors"
-                      title="Copiar senha"
-                    >
+                    <button onClick={copyPassword} className="p-2 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-800/30 text-amber-600 dark:text-amber-400 transition-colors" title="Copiar senha">
                       {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Status */}
-                {(status === 'checking' || status === 'has-wa') && (
-                  <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-400">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
-                    {status === 'checking' ? 'Verificando WhatsApp…' : 'Enviando template via WhatsApp…'}
+                {waStatus === 'no-wa' && (
+                  <div className="flex items-start gap-2 text-xs rounded-lg px-3 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-400">
+                    <MessageCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                    <span>Número não possui WhatsApp. Envie a senha por outro canal (e-mail, SMS ou presencialmente).</span>
                   </div>
                 )}
-                {status === 'error' && (
-                  <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-500">
-                    <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    {sendError}
-                  </div>
-                )}
-                {status === 'no-wa' && (
-                  <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                      <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                      Número não possui WhatsApp
-                    </div>
-                    <p className="text-xs text-amber-600 dark:text-amber-500">
-                      Envie a senha temporária por outro canal (e-mail, SMS ou presencialmente).
-                    </p>
-                    <button
-                      onClick={copyPassword}
-                      className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-amber-100 dark:bg-amber-800/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 text-amber-800 dark:text-amber-200 text-xs font-semibold transition-colors"
-                    >
-                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copied ? 'Copiado!' : 'Copiar senha temporária'}
-                    </button>
+                {waStatus === 'error' && (
+                  <div className="flex items-start gap-2 text-xs rounded-lg px-3 py-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-500">
+                    <MessageCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                    <span>Falha ao enviar WhatsApp: {sendError}. Envie a senha manualmente.</span>
                   </div>
                 )}
               </>
@@ -237,7 +141,7 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [createdResult, setCreatedResult] = useState<{ profile: Profile; tempPassword: string } | null>(null);
+  const [createdResult, setCreatedResult] = useState<{ profile: Profile; tempPassword: string; waStatus: WaStatus; sendError?: string } | null>(null);
 
   const allowedRoles = ROLES.filter((r) => {
     if (r === 'super_admin') return callerRole === 'super_admin';
@@ -264,9 +168,7 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
     setSaving(true);
     setError('');
     const { data, error: fnError } = await supabase.functions.invoke('create-admin-user', { body: form });
-    setSaving(false);
     if (fnError || data?.error) {
-      // Extract the real error message from the edge function response body
       let msg = data?.error ?? 'Erro ao criar usuário.';
       if (fnError) {
         try {
@@ -276,10 +178,64 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
           else msg = fnError.message;
         } catch { msg = fnError.message; }
       }
+      setSaving(false);
       setError(msg);
       return;
     }
-    setCreatedResult({ profile: data.profile as Profile, tempPassword: data.temp_password as string });
+
+    const profile = data.profile as Profile;
+    const tempPassword = data.temp_password as string;
+
+    // WhatsApp check + send (all before showing modal)
+    let waStatus: WaStatus = 'no-phone';
+    let sendError: string | undefined;
+
+    if (profile.phone) {
+      const { exists, error: checkErr } = await checkWhatsAppNumber(profile.phone);
+      if (checkErr || !exists) {
+        waStatus = 'no-wa';
+      } else {
+        try {
+          const systemUrl = window.location.origin + '/admin/login';
+          const { data: tpl } = await supabase
+            .from('whatsapp_templates')
+            .select('content, variables')
+            .eq('name', 'senha_temporaria')
+            .eq('is_active', true)
+            .maybeSingle();
+
+          const text = tpl?.content?.body
+            ? renderTemplate(tpl.content.body as string, {
+                user_name: profile.full_name ?? 'usuário',
+                temp_password: tempPassword,
+                system_url: systemUrl,
+              })
+            : `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSeu acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi criado.\n\n🔑 *Senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+
+          const result = await sendWhatsAppText({
+            phone: profile.phone,
+            text,
+            templateId: tpl ? (tpl as unknown as { id: string }).id : undefined,
+            recipientName: profile.full_name ?? undefined,
+            relatedModule: 'usuario',
+            relatedRecordId: profile.id,
+          });
+
+          if (result.success) {
+            waStatus = 'sent';
+          } else {
+            waStatus = 'error';
+            sendError = result.error ?? 'Erro ao enviar mensagem.';
+          }
+        } catch {
+          waStatus = 'error';
+          sendError = 'Erro inesperado ao enviar mensagem.';
+        }
+      }
+    }
+
+    setSaving(false);
+    setCreatedResult({ profile, tempPassword, waStatus, sendError });
   }
 
   function set(k: keyof typeof form, v: string) {
@@ -291,6 +247,8 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
       <TempPasswordModal
         profile={createdResult.profile}
         tempPassword={createdResult.tempPassword}
+        waStatus={createdResult.waStatus}
+        sendError={createdResult.sendError}
         onClose={() => { onCreated(createdResult.profile); onClose(); }}
       />
     );
@@ -365,7 +323,7 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
             Cancelar
           </button>
           <button type="submit" form="create-user-form" disabled={saving} className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-            {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Criando…</> : 'Criar Usuário'}
+            {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Aguarde…</> : 'Criar Usuário'}
           </button>
         </div>
       </aside>
