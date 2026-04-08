@@ -78,7 +78,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const adminRoles: Role[] = ['super_admin', 'admin', 'coordinator'];
+      const adminRoles: Role[] = ['super_admin', 'admin', 'coordinator', 'teacher'];
       if (!adminRoles.includes(profile.role)) {
         setState({
           session: null,

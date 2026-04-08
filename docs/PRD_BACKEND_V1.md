@@ -224,7 +224,7 @@ O painel de configuracoes deve ser organizado por **abas (tabs)**, cada uma conc
 | **Agendamento de Visitas** | `visit` | Motivos de visita, dias bloqueados, horario de almoco, duracao, maximo por dia, intervalo entre slots |
 | **Pre-Matricula** | `enrollment` | Idade minima, exigencia de dados dos pais, documentos obrigatorios, lista de documentos, campos obrigatorios |
 | **Formulario de Contato** | `contact` | Campos obrigatorios, motivos de contato (label, icone, requer_mensagem, e_lead), configuracoes de qualificacao |
-| **WhatsApp (Uazapi)** | `uazapi` | URL da instancia, token da API, webhook URL, status de conexao, teste de conectividade |
+| **WhatsApp (Uazapi)** | `uazapi` | Sub-abas: **APIs** (URL da instancia, token, webhook, status, teste de conectividade), **Templates** (editor de templates — F3.1 embutido), **Historico** (log de mensagens — F3.2 embutido) |
 | **Notificacoes** | `notifications` | Templates de e-mail, preferencias de notificacao admin, alertas automaticos |
 | **Aparencia** | `appearance` | Logo, cores customizaveis (futuro), textos do hero, banner de matriculas abertas |
 
@@ -464,6 +464,8 @@ ALTER TABLE visit_appointments ADD COLUMN
 
 **Dependencias**: F1.3 (Uazapi conectado)
 **Prioridade**: Urgente (para funcionamento dos modulos da Fase 2)
+
+> **Decisao de implementacao**: os componentes `TemplatesPage` e `MessageLogPage` sao embutidos (`embedded`) dentro da aba **Configuracoes > WhatsApp**, nas sub-abas **Templates** e **Historico** respectivamente. Nao existem rotas proprias (`/admin/whatsapp/templates`, `/admin/whatsapp/logs`) nem itens de navegacao dedicados no sidebar.
 
 #### Escopo
 

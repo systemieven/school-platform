@@ -13,6 +13,7 @@ import KanbanPage from './pages/leads/KanbanPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import SegmentsPage from './pages/school/SegmentsPage';
 import StudentsPage from './pages/school/StudentsPage';
+import TeacherAreaPage from './pages/teacher/TeacherAreaPage';
 
 export default function AdminRoutes() {
   return (
@@ -42,6 +43,14 @@ export default function AdminRoutes() {
           {/* School */}
           <Route path="segmentos" element={<SegmentsPage />} />
           <Route path="alunos"    element={<StudentsPage />} />
+          <Route
+            path="area-professor"
+            element={
+              <ProtectedRoute roles={['super_admin', 'admin', 'coordinator', 'teacher']}>
+                <TeacherAreaPage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="usuarios"

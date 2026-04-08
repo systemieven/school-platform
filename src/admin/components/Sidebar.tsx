@@ -19,6 +19,7 @@ import {
   BarChart2,
   School,
   UserCheck,
+  BookOpen,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -35,6 +36,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   BarChart2,
   School,
   UserCheck,
+  BookOpen,
 };
 
 interface Props {

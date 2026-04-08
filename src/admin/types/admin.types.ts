@@ -300,3 +300,100 @@ export const STUDENT_STATUS_LABELS: Record<StudentStatus, string> = {
   graduated: 'Formado',
   inactive: 'Inativo',
 };
+
+// ── Class Material ────────────────────────────────────────────────────────────
+export interface ClassMaterial {
+  id: string;
+  class_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  subject: string | null;
+  external_url: string | null;
+  is_visible: boolean;
+  created_at: string;
+  updated_at: string;
+  creator?: { full_name: string | null } | null;
+}
+
+// ── Activity ──────────────────────────────────────────────────────────────────
+export type ActivityType   = 'homework' | 'test' | 'project' | 'quiz' | 'other';
+export type ActivityStatus = 'draft' | 'published' | 'closed';
+
+export interface Activity {
+  id: string;
+  class_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  subject: string | null;
+  type: ActivityType;
+  status: ActivityStatus;
+  due_date: string | null;
+  max_score: number | null;
+  created_at: string;
+  updated_at: string;
+  creator?: { full_name: string | null } | null;
+}
+
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  homework: 'Lição de Casa',
+  test:     'Prova',
+  project:  'Projeto',
+  quiz:     'Quiz',
+  other:    'Outro',
+};
+
+export const ACTIVITY_STATUS_LABELS: Record<ActivityStatus, string> = {
+  draft:     'Rascunho',
+  published: 'Publicada',
+  closed:    'Encerrada',
+};
+
+// ── Grade ─────────────────────────────────────────────────────────────────────
+export interface Grade {
+  id: string;
+  student_id: string;
+  class_id: string;
+  created_by: string;
+  subject: string;
+  period: string;
+  activity_id: string | null;
+  score: number;
+  max_score: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  student?: { full_name: string; enrollment_number: string } | null;
+  activity?: { title: string } | null;
+}
+
+// ── Attendance ────────────────────────────────────────────────────────────────
+export type AttendanceStatus = 'present' | 'absent' | 'justified' | 'late';
+
+export interface Attendance {
+  id: string;
+  student_id: string;
+  class_id: string;
+  created_by: string;
+  date: string;
+  status: AttendanceStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  student?: { full_name: string; enrollment_number: string } | null;
+}
+
+export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
+  present:   'Presente',
+  absent:    'Falta',
+  justified: 'Justificada',
+  late:      'Atraso',
+};
+
+export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
+  present:   'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  absent:    'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  justified: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+  late:      'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+};
