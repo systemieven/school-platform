@@ -139,69 +139,80 @@ function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModal
           </div>
 
           <div className="p-5 space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              O usuário <span className="font-semibold text-gray-800 dark:text-gray-200">{profile.full_name}</span> foi criado. A senha temporária abaixo deve ser alterada no primeiro acesso.
-            </p>
 
-            {/* Temp password display */}
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
-              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-2">Senha temporária</p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-lg font-mono font-bold text-amber-800 dark:text-amber-200 tracking-widest">
-                  {tempPassword}
-                </code>
-                <button
-                  onClick={copyPassword}
-                  className="p-2 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-800/30 text-amber-600 dark:text-amber-400 transition-colors"
-                  title="Copiar senha"
-                >
-                  {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* WhatsApp send status */}
-            {status === 'checking' && (
-              <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
-                Verificando WhatsApp…
-              </div>
-            )}
-            {status === 'has-wa' && (
-              <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
-                Enviando template via WhatsApp…
-              </div>
-            )}
-            {status === 'sent' && (
-              <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400">
-                <Check className="w-3.5 h-3.5 flex-shrink-0" />
-                Template <strong className="mx-0.5">senha_temporaria</strong> enviado para {profile.phone}
-              </div>
-            )}
-            {status === 'error' && (
-              <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-500">
-                <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                {sendError}
-              </div>
-            )}
-            {status === 'no-wa' && (
-              <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                  <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                  Número não possui WhatsApp
+            {/* ── Sent: clean success, no password shown ── */}
+            {status === 'sent' ? (
+              <div className="space-y-4">
+                <div className="flex flex-col items-center text-center gap-3 py-2">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                    <Check className="w-6 h-6 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
+                      Usuário criado com sucesso
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      A senha temporária e as instruções de acesso foram enviadas para{' '}
+                      <strong className="text-gray-700 dark:text-gray-300">{profile.phone}</strong> via WhatsApp.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-amber-600 dark:text-amber-500">
-                  Envie a senha temporária por outro canal (e-mail, SMS ou presencialmente).
-                </p>
-                <button
-                  onClick={copyPassword}
-                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-amber-100 dark:bg-amber-800/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 text-amber-800 dark:text-amber-200 text-xs font-semibold transition-colors"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? 'Copiado!' : 'Copiar senha temporária'}
-                </button>
               </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  O usuário <span className="font-semibold text-gray-800 dark:text-gray-200">{profile.full_name}</span> foi criado. A senha temporária abaixo deve ser alterada no primeiro acesso.
+                </p>
+
+                {/* Temp password display — shown only when WhatsApp send is not confirmed */}
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-2">Senha temporária</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-lg font-mono font-bold text-amber-800 dark:text-amber-200 tracking-widest">
+                      {tempPassword}
+                    </code>
+                    <button
+                      onClick={copyPassword}
+                      className="p-2 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-800/30 text-amber-600 dark:text-amber-400 transition-colors"
+                      title="Copiar senha"
+                    >
+                      {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status */}
+                {(status === 'checking' || status === 'has-wa') && (
+                  <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-400">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+                    {status === 'checking' ? 'Verificando WhatsApp…' : 'Enviando template via WhatsApp…'}
+                  </div>
+                )}
+                {status === 'error' && (
+                  <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-500">
+                    <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    {sendError}
+                  </div>
+                )}
+                {status === 'no-wa' && (
+                  <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                      <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      Número não possui WhatsApp
+                    </div>
+                    <p className="text-xs text-amber-600 dark:text-amber-500">
+                      Envie a senha temporária por outro canal (e-mail, SMS ou presencialmente).
+                    </p>
+                    <button
+                      onClick={copyPassword}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-amber-100 dark:bg-amber-800/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 text-amber-800 dark:text-amber-200 text-xs font-semibold transition-colors"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied ? 'Copiado!' : 'Copiar senha temporária'}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
             <button onClick={onClose} className="w-full py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors">
