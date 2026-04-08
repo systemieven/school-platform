@@ -150,10 +150,14 @@ FASE 4 — Qualificacao e Inteligencia (Semanas 12-14)
 FASE 5 — Portal Educacional (Semanas 15-20)
   ├── F5.1  Gestao de Segmentos, Turmas e Matriculas Confirmadas
   ├── F5.2  Area do Professor
-  ├── F5.3  Portal do Aluno
+  ├── F5.3  Portal do Aluno  ← bloqueante para F5.4 rota publica
   ├── F5.4  Biblioteca Virtual
-  ├── F5.5  Comunicados
+  │     ├── F5.4a  Admin: CRUD de recursos (✅ implementado — parcial*)
+  │     └── F5.4b  Rota publica /portal/biblioteca (depende de F5.3)
+  ├── F5.5  Comunicados (✅ implementado — admin)
   └── F5.6  Eventos
+
+  * F5.4a precisa de migracao para adicionar file_url, thumbnail_url e student_ids
 
 FASE 6 — Governanca e Escala (Semanas 21-24)
   ├── F6.1  Permissoes Granulares (fine-grained)
@@ -790,33 +794,132 @@ students (
 ### F5.3 Portal do Aluno
 
 **Dependencias**: F5.1, F5.2
-**Prioridade**: Baixa
+**Prioridade**: Alta — bloqueante para F5.4b (rota publica da Biblioteca)
+
+#### Arquitetura
+
+O Portal do Aluno e uma **area separada do painel admin**, acessivel em `/portal/*`.
+Possui layout proprio (sem sidebar admin), autenticacao propria e e **linkado a partir do site institucional**.
+
+```
+Site institucional → link "Portal do Aluno" → /portal/login
+                                               /portal/dashboard
+                                               /portal/biblioteca   ← F5.4b
+                                               /portal/atividades
+                                               /portal/notas
+                                               /portal/comunicados
+                                               /portal/perfil
+```
+
+#### Autenticacao do Portal
+
+- **Primeiro acesso**: numero de matricula + CPF do responsavel → sistema verifica na tabela `students` → gera senha temporaria → aluno define nova senha
+- **Acessos seguintes**: numero de matricula + senha propria
+- **Implementacao**: criar `auth.users` vinculado ao student no momento da confirmacao de matricula (F2.2), com email ficticio `{enrollment_number}@portal.colegiobatista.com.br`
+- **Contexto React**: `useStudentAuth` hook isolado de `useAdminAuth`, com rota `/portal/*` protegida por `StudentProtectedRoute`
 
 #### Escopo
 
-- Login: numero de matricula + CPF responsavel (primeiro acesso) → criar senha
-- Dashboard: proximas atividades, notas recentes, comunicados
-- Materiais de aula da turma (por disciplina)
-- Atividades com status (pendente/entregue/corrigida)
-- Boletim de notas (por periodo/bimestre)
-- Comunicados da escola/turma
-- Perfil com dados pessoais (readonly para aluno)
+- Tela de login (`/portal/login`): numero de matricula + senha; link "primeiro acesso" com flow CPF
+- Dashboard (`/portal/dashboard`): proximas atividades, notas recentes, comunicados da turma
+- Atividades (`/portal/atividades`): lista filtrada por disciplina/status (pendente/entregue/corrigida)
+- Notas (`/portal/notas`): boletim por periodo/bimestre, grafico de evolucao
+- Comunicados (`/portal/comunicados`): lista filtrada pelo publico-alvo do aluno
+- Biblioteca (`/portal/biblioteca`): recursos filtrados pela turma/segmento/aluno (F5.4b)
+- Perfil (`/portal/perfil`): dados pessoais readonly, troca de senha
+
+#### Tabelas Novas/Alteradas
+
+```sql
+-- Adicionar a students:
+ALTER TABLE students ADD COLUMN auth_user_id UUID REFERENCES auth.users ON DELETE SET NULL;
+-- Preenchido automaticamente na confirmacao de matricula em F2.2
+
+-- Indice para lookup rapido no login
+CREATE INDEX students_enrollment_number_idx ON students(enrollment_number);
+CREATE INDEX students_auth_user_id_idx ON students(auth_user_id);
+```
 
 ---
 
 ### F5.4 Biblioteca Virtual
 
-**Dependencias**: F5.1
-**Prioridade**: Baixa
+**Dependencias**:
+- F5.4a (admin — ✅ parcialmente implementado): F5.1
+- F5.4b (rota publica): F5.3 (autenticacao do portal)
 
-#### Escopo
+**Prioridade**: Media
 
-- Catalogo de recursos: livros, artigos, videos, links
-- Categorias por disciplina e nivel de ensino
-- Busca com filtros
-- Visualizacao em grid/lista
-- Controle de acesso por segmento/turma
-- Sugestoes do professor para turmas especificas
+> **Decisao de implementacao**: a Biblioteca possui duas faces:
+> 1. **Admin** (`/admin/biblioteca`) — gerenciamento de recursos pelo professor/coordenador (✅ implementado na sessao anterior, requer migracao de schema)
+> 2. **Portal** (`/portal/biblioteca`) — visualizacao pelos alunos, autenticada via Portal do Aluno (F5.3)
+
+#### Tipos de Conteudo Suportados
+
+| Tipo | Subtipo | Armazenamento | Observacoes |
+|------|---------|---------------|-------------|
+| `link` | URL externa | — | Qualquer URL |
+| `video` | `youtube` | — | Embed via ID extraido da URL |
+| `video` | `upload` | Supabase Storage | MP4, MOV, AVI, max 500 MB |
+| `document` | `pdf` | Supabase Storage | Preview inline via `<embed>` ou `<iframe>` |
+| `image` | `upload` | Supabase Storage | JPG, PNG, WebP, max 20 MB |
+| `book` | `link` | — | Link externo para e-book/PDF publico |
+| `article` | `link` | — | Link externo para artigo |
+
+#### Controle de Acesso (granularidade)
+
+| Nivel | Campo | Descricao |
+|-------|-------|-----------|
+| Publico (escola) | `target_type = 'all'` | Visivel para todos os alunos autenticados |
+| Segmento | `target_type = 'segment'`, `target_ids[]` | Visivel para alunos do(s) segmento(s) |
+| Turma | `target_type = 'class'`, `target_ids[]` | Visivel para alunos da(s) turma(s) |
+| Aluno especifico | `target_type = 'student'`, `target_ids[]` | Visivel apenas para o(s) aluno(s) indicado(s) |
+
+#### Migracao de Schema (pendente — complementa F5.4a)
+
+```sql
+-- Adicionar colunas ausentes na library_resources existente
+ALTER TABLE library_resources
+  ADD COLUMN resource_subtype TEXT DEFAULT 'link',
+  -- 'link' | 'youtube' | 'upload' | 'pdf' | 'image'
+  ADD COLUMN file_url TEXT,          -- URL do arquivo no Supabase Storage
+  ADD COLUMN thumbnail_url TEXT,     -- Thumb para videos/docs
+  ADD COLUMN target_type TEXT NOT NULL DEFAULT 'all',
+  -- 'all' | 'segment' | 'class' | 'student'
+  ADD COLUMN student_ids UUID[] DEFAULT '{}';
+  -- Para target_type = 'student'
+
+-- Renomear segment_ids/class_ids → usados como target_ids dependendo do target_type
+-- (Manter as colunas existentes por compatibilidade; nova logica usa target_type + target_ids)
+```
+
+#### Supabase Storage
+
+```
+Bucket: library-resources  (privado, acesso via signed URL)
+  /pdfs/{resource_id}.pdf
+  /videos/{resource_id}.mp4
+  /images/{resource_id}.jpg
+```
+
+- Acesso via `supabase.storage.from('library-resources').createSignedUrl(path, 3600)`
+- RLS do bucket: apenas usuarios autenticados com role admin/coordinator/teacher (upload) ou alunos com acesso ao recurso (download)
+
+#### Escopo F5.4a — Admin (complemento ao implementado)
+
+- [x] CRUD basico de recursos com external_url
+- [ ] Upload de arquivos (PDF, imagem, video) via Supabase Storage
+- [ ] Seletor de tipo/subtipo expandido (YouTube embed, upload)
+- [ ] Controle de acesso por aluno especifico (campo `target_type = 'student'`)
+- [ ] Preview inline do recurso no drawer (YouTube embed, PDF embed, imagem)
+
+#### Escopo F5.4b — Portal (a implementar apos F5.3)
+
+- Rota `/portal/biblioteca` autenticada por `StudentProtectedRoute`
+- Grid de recursos filtrados pelo perfil do aluno (turma/segmento/id)
+- Busca por titulo e disciplina
+- Vizualizacao inline: YouTube embed, PDF embed, imagem, link externo
+- Player de video para uploads (HTML5 `<video>` com signed URL)
 
 ---
 
