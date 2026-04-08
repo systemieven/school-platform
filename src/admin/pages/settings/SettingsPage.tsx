@@ -12,7 +12,7 @@ import {
   Settings, Save, Loader2, Check, Building2, MessageCircle,
   CalendarCheck, GraduationCap, MessageSquare, Bell, Palette,
   Eye, EyeOff, AlertCircle, Wifi, WifiOff,
-  PanelLeftClose, PanelLeftOpen, Plus, Star, Pencil,
+  PanelLeftClose, PanelLeftOpen, Plus, Star, Pencil, Plug,
   LayoutTemplate, Send, X,
   // panels
   BookOpen, BookMarked, Calendar, ClipboardList, PenLine, Briefcase, Heart,
@@ -689,12 +689,15 @@ function WhatsAppProvidersPanel() {
           </div>
         )}
 
-        {/* Add new */}
+        {/* Add new — ghost card, fits naturally in the grid */}
         <button
           onClick={handleAddNew}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border-2 border-dashed border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] transition-colors w-full justify-center"
+          className="group rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-[#003876]/50 dark:hover:border-[#ffd700]/40 transition-all duration-200 flex flex-col items-center justify-center gap-2 py-6 text-gray-300 dark:text-gray-600 hover:text-[#003876] dark:hover:text-[#ffd700]"
         >
-          <Plus className="w-4 h-4" /> Cadastrar nova API
+          <div className="w-9 h-9 rounded-xl border-2 border-dashed border-current flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+            <Plug className="w-4 h-4" />
+          </div>
+          <span className="text-xs font-medium">Conectar nova API</span>
         </button>
       </div>
 
