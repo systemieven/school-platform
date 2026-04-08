@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useStudentAuth } from './contexts/StudentAuthContext';
 import StudentProtectedRoute from './components/StudentProtectedRoute';
 import {
-  LayoutDashboard, ClipboardList, Star, Megaphone, Library, User, LogOut, Menu, X,
+  LayoutDashboard, ClipboardList, Star, Megaphone, Library, User, LogOut, Menu, X, CalendarDays,
 } from 'lucide-react';
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { path: '/portal/atividades', label: 'Atividades',   icon: ClipboardList },
   { path: '/portal/notas',      label: 'Notas',        icon: Star },
   { path: '/portal/comunicados',label: 'Comunicados',  icon: Megaphone },
+  { path: '/portal/eventos',    label: 'Eventos',      icon: CalendarDays },
   { path: '/portal/biblioteca', label: 'Biblioteca',   icon: Library },
   { path: '/portal/perfil',     label: 'Perfil',       icon: User },
 ];

@@ -483,3 +483,51 @@ export interface Announcement {
   creator?: { full_name: string } | null;
   reads?: { user_id: string }[];
 }
+
+// ── School Events (F5.6) ──────────────────────────────────────────────────────
+
+export type EventTargetType = 'all' | 'segment' | 'class' | 'role';
+
+export const EVENT_TARGET_LABELS: Record<EventTargetType, string> = {
+  all:     'Todos',
+  segment: 'Segmento',
+  class:   'Turma',
+  role:    'Cargo',
+};
+
+export type RsvpStatus = 'confirmed' | 'declined' | 'maybe';
+
+export const RSVP_STATUS_LABELS: Record<RsvpStatus, string> = {
+  confirmed: 'Confirmado',
+  declined:  'Recusado',
+  maybe:     'Talvez',
+};
+
+export interface SchoolEvent {
+  id:                     string;
+  created_by:             string | null;
+  title:                  string;
+  description:            string | null;
+  location:               string | null;
+  event_date:             string;      // DATE as ISO string
+  start_time:             string | null;
+  end_time:               string | null;
+  target_type:            EventTargetType;
+  target_ids:             string[];
+  target_roles:           string[];
+  send_whatsapp_reminder: boolean;
+  reminder_sent_at:       string | null;
+  is_published:           boolean;
+  created_at:             string;
+  updated_at:             string;
+  creator?:               { full_name: string } | null;
+  rsvps?:                 { status: RsvpStatus }[];
+}
+
+export interface EventRsvp {
+  id:           string;
+  event_id:     string;
+  student_id:   string;
+  status:       RsvpStatus;
+  responded_at: string;
+}

@@ -96,6 +96,13 @@ export const ADMIN_NAV: NavGroup[] = [
         path: '/admin/comunicados',
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
       },
+      {
+        key: 'events',
+        label: 'Eventos',
+        icon: 'CalendarDays',
+        path: '/admin/eventos',
+        roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
+      },
     ],
   },
   {

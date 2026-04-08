@@ -7,6 +7,7 @@ import ActivitiesPage from './pages/activities/ActivitiesPage';
 import GradesPage     from './pages/grades/GradesPage';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
 import LibraryPage    from './pages/library/LibraryPage';
+import EventsPage     from './pages/events/EventsPage';
 import ProfilePage    from './pages/profile/ProfilePage';
 
 export default function PortalRoutes() {
@@ -21,6 +22,7 @@ export default function PortalRoutes() {
           <Route path="notas"       element={<GradesPage />} />
           <Route path="comunicados" element={<AnnouncementsPage />} />
           <Route path="biblioteca"  element={<LibraryPage />} />
+          <Route path="eventos"     element={<EventsPage />} />
           <Route path="perfil"      element={<ProfilePage />} />
           <Route path="*"           element={<Navigate to="/portal" replace />} />
         </Route>

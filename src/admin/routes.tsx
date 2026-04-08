@@ -16,6 +16,7 @@ import StudentsPage from './pages/school/StudentsPage';
 import TeacherAreaPage from './pages/teacher/TeacherAreaPage';
 import LibraryPage from './pages/library/LibraryPage';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
+import EventsPage from './pages/events/EventsPage';
 
 export default function AdminRoutes() {
   return (
@@ -66,6 +67,14 @@ export default function AdminRoutes() {
             element={
               <ProtectedRoute roles={['super_admin', 'admin', 'coordinator', 'teacher']}>
                 <AnnouncementsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="eventos"
+            element={
+              <ProtectedRoute roles={['super_admin', 'admin', 'coordinator', 'teacher']}>
+                <EventsPage />
               </ProtectedRoute>
             }
           />
