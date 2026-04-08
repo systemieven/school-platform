@@ -255,7 +255,17 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
     const { data, error: fnError } = await supabase.functions.invoke('create-admin-user', { body: form });
     setSaving(false);
     if (fnError || data?.error) {
-      setError(data?.error ?? fnError?.message ?? 'Erro ao criar usuário.');
+      // Extract the real error message from the edge function response body
+      let msg = data?.error ?? 'Erro ao criar usuário.';
+      if (fnError) {
+        try {
+          const body = await (fnError as unknown as { context?: { json?: () => Promise<Record<string, string>> } }).context?.json?.();
+          if (body?.error) msg = body.error;
+          else if (body?.message) msg = body.message;
+          else msg = fnError.message;
+        } catch { msg = fnError.message; }
+      }
+      setError(msg);
       return;
     }
     setCreatedResult({ profile: data.profile as Profile, tempPassword: data.temp_password as string });
