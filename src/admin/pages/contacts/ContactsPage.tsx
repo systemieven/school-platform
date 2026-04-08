@@ -5,7 +5,7 @@ import type { ContactRequest, ContactStatus } from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
   MessageSquare, Search, X, ChevronRight, Loader2, RefreshCw,
-  Phone, Mail, Clock, Star, ChevronDown, Calendar, MessageCircle,
+  Phone, Mail, Clock, Star, ChevronDown, MessageCircle,
   History, GraduationCap, CalendarPlus, Filter, AlertTriangle,
 } from 'lucide-react';
 
@@ -83,7 +83,7 @@ interface DrawerProps {
   onRefresh: () => void;
 }
 
-function ContactDrawer({ contact, onClose, onUpdate, onRefresh }: DrawerProps) {
+function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: DrawerProps) {
   const { profile } = useAdminAuth();
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');

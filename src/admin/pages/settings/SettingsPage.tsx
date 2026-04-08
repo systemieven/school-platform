@@ -1284,17 +1284,18 @@ function AppointmentsSettingsPanel() {
         rows.forEach((r) => {
           newIds[r.key] = r.id;
           const v = r.value;
+          const m = merged as Record<string, unknown>;
           if (r.key === 'start_hour' || r.key === 'end_hour' || r.key === 'lunch_start' || r.key === 'lunch_end') {
-            merged[r.key] = typeof v === 'string' ? v : String(v);
+            m[r.key] = typeof v === 'string' ? v : String(v);
           } else if (r.key === 'slot_duration') {
-            merged[r.key] = typeof v === 'number' ? v : parseInt(String(v)) || 0;
+            m[r.key] = typeof v === 'number' ? v : parseInt(String(v)) || 0;
           } else if (r.key === 'blocked_weekdays') {
-            try { merged[r.key] = typeof v === 'string' ? JSON.parse(v) : v; } catch { /* keep default */ }
+            try { m[r.key] = typeof v === 'string' ? JSON.parse(v) : v; } catch { /* keep default */ }
           } else if (r.key === 'reasons') {
             try {
               const raw: { key: string; label: string; duration_minutes?: number; buffer_minutes?: number; max_per_slot?: number }[] =
                 typeof v === 'string' ? JSON.parse(v) : v;
-              merged[r.key] = raw.map((item) => ({
+              m[r.key] = raw.map((item) => ({
                 icon: 'FileText',
                 duration_minutes: 30,
                 buffer_minutes: 0,
@@ -1999,12 +2000,13 @@ function EnrollmentSettingsPanel() {
         rows.forEach((r) => {
           newIds[r.key] = r.id;
           const v = r.value;
+          const m = merged as Record<string, unknown>;
           if (r.key === 'min_age') {
             merged.min_age = typeof v === 'number' ? v : parseInt(String(v)) || 0;
           } else if (r.key === 'require_parents_data' || r.key === 'require_documents') {
-            merged[r.key] = v === true || v === 'true';
+            m[r.key] = v === true || v === 'true';
           } else if (r.key === 'segments_available' || r.key === 'required_docs_list') {
-            try { merged[r.key] = typeof v === 'string' ? JSON.parse(v) : (Array.isArray(v) ? v : []); } catch { /* keep default */ }
+            try { m[r.key] = typeof v === 'string' ? JSON.parse(v) : (Array.isArray(v) ? v : []); } catch { /* keep default */ }
           }
         });
         setData(merged);

@@ -7,7 +7,7 @@ import {
   CalendarCheck, Search, X, ChevronRight, Loader2,
   User, Phone, Clock, MapPin, Check, Ban, CheckCircle2,
   AlertCircle, RefreshCw, MessageCircle, Plus,
-  History, ChevronDown, Filter, Square, CheckSquare,
+  History, Filter, Square, CheckSquare,
   LayoutList, CalendarDays, ChevronLeft,
 } from 'lucide-react';
 

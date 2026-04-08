@@ -42,7 +42,7 @@ interface Props {
   onToggle: () => void;
 }
 
-export default function Sidebar({ collapsed, onToggle }: Props) {
+export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
   const { profile, signOut } = useAdminAuth();
   const navigate = useNavigate();
   const [isDark, setIsDark] = useState(() =>

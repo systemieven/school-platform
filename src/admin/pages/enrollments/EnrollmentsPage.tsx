@@ -5,9 +5,9 @@ import type { Enrollment, EnrollmentStatus } from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
   GraduationCap, Search, X, ChevronRight, Loader2, RefreshCw,
-  User, Phone, MapPin, Calendar, FileText, CheckCircle2, Ban,
-  Clock, AlertCircle, ChevronDown, MessageCircle, Plus,
-  Tag, History, ClipboardCheck, CalendarPlus, Edit3, Save,
+  User, Phone, MapPin, FileText, CheckCircle2,
+  Clock, ChevronDown, MessageCircle, Plus,
+  History, ClipboardCheck, CalendarPlus, Edit3, Save,
   Check, XCircle, Filter,
 } from 'lucide-react';
 
@@ -23,7 +23,6 @@ const PIPELINE: { key: EnrollmentStatus; label: string; color: string; dot: stri
   { key: 'archived',             label: 'Arquivado',           color: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',          dot: 'bg-gray-400' },
 ];
 
-const STATUS_LABEL: Record<string, string> = Object.fromEntries(PIPELINE.map((p) => [p.key, p.label]));
 
 const ORIGIN_LABELS: Record<string, string> = {
   website: 'Site', in_person: 'Presencial', phone: 'Telefone', referral: 'Indicação',
@@ -333,7 +332,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
     setSaving(true);
     const patch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(editData)) {
-      const orig = (enr as Record<string, unknown>)[k];
+      const orig = (enr as unknown as Record<string, unknown>)[k];
       if (v !== (orig || '')) patch[k] = v || null;
     }
     if (Object.keys(patch).length > 0) {
@@ -355,7 +354,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   const editFieldClass = 'w-full px-2 py-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none';
 
   async function changeStatus() {
-    if (!newStatus) return;
+    if (!newStatus || !enr) return;
     setSaving(true);
     const patch: Record<string, unknown> = {
       status: newStatus,
@@ -394,6 +393,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   }
 
   async function saveNotes() {
+    if (!enr) return;
     setSaving(true);
     const { error } = await supabase.from('enrollments').update({ internal_notes: notes }).eq('id', enr.id);
     if (!error) {
@@ -409,6 +409,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   }
 
   async function createAppointment(reason: string) {
+    if (!enr) return;
     setCreatingAppointment(reason === 'Entrega de documentos' ? 'docs' : 'interview');
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);

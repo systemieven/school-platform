@@ -61,9 +61,6 @@ function periodStart(days: number, offset = 0) {
   return d.toISOString();
 }
 
-function fmtDate(d: string) {
-  return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
-}
 function fmtTime(t: string) { return t.slice(0, 5); }
 
 function pct(current: number, prev: number) {

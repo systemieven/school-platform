@@ -238,7 +238,7 @@ export default function ReportsPage() {
     q = q.order(sortKey, { ascending: sortDir === 'asc' }).limit(1000);
 
     const { data } = await q;
-    setRows((data ?? []) as Record<string, unknown>[]);
+    setRows((data ?? []) as unknown as Record<string, unknown>[]);
     setLoading(false);
   }, [module, filters, sortKey, sortDir]);
 

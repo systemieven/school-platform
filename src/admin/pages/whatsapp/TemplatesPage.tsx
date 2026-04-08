@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { MODULE_VARIABLES, ALL_VARIABLES } from '../../lib/whatsapp-api';
-import type { WhatsAppTemplate, TemplateCategory, MessageType, TemplateContent } from '../../types/admin.types';
+import type { WhatsAppTemplate, TemplateCategory, MessageType } from '../../types/admin.types';
 import {
   MessageCircle, Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
   X, Save, Loader2, ChevronDown, Eye, EyeOff,
@@ -147,7 +147,7 @@ function TemplateCard({
   const hasAutoTrigger = Boolean(template.trigger_event);
 
   return (
-    <div className={`rounded-2xl overflow-hidden border transition-all duration-200 ${
+    <div className={`flex flex-col rounded-2xl overflow-hidden border transition-all duration-200 ${
       template.is_active
         ? 'border-gray-100 dark:border-gray-700/60 hover:border-green-200 dark:hover:border-green-800 hover:shadow-md'
         : 'border-gray-100 dark:border-gray-700/60 opacity-60'
@@ -187,7 +187,7 @@ function TemplateCard({
       </div>
 
       {/* ── Body — white ── */}
-      <div className="bg-white dark:bg-gray-800/20 px-5 pt-4 pb-3 space-y-3">
+      <div className="flex-1 bg-white dark:bg-gray-800/20 px-5 pt-4 pb-3 space-y-3">
         <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 font-mono">
           {body.slice(0, 200)}{body.length > 200 ? '…' : ''}
         </p>
@@ -569,7 +569,8 @@ function TemplateDrawer({
                               onChange={(e) => {
                                 const next = { ...cond, module: e.target.value || undefined };
                                 if (!next.module) delete next.module;
-                                delete next.status; delete next.old_status;
+                                const nextAny = next as Record<string, unknown>;
+                                delete nextAny.status; delete nextAny.old_status;
                                 setForm((p) => ({ ...p, trigger_conditions: Object.keys(next).length ? next : null }));
                               }}
                               className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
