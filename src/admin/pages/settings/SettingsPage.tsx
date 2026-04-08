@@ -404,7 +404,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'institutional'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
@@ -415,6 +415,13 @@ export default function SettingsPage() {
                 <ContactSettingsPanel />
               ) : activeTab === 'appearance' ? (
                 <AppearanceSettingsPanel />
+              ) : activeTab === 'institutional' ? (
+                <InstitutionalSettingsPanel
+                  settings={tabSettings}
+                  editValues={editValues}
+                  toStr={toStr}
+                  onChange={(id, val) => setEditValues((prev) => ({ ...prev, [id]: val }))}
+                />
               ) : tabSettings.length === 0 ? (
                 <EmptyTabState tab={currentTab} />
               ) : (
@@ -437,6 +444,100 @@ export default function SettingsPage() {
   );
 }
 
+
+// ── Institutional Settings Panel ─────────────────────────────────────────────
+const INST_GROUPS: {
+  title: string;
+  subtitle?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  keys: string[];
+}[] = [
+  {
+    title: 'Identificação',
+    icon: Building2,
+    keys: ['school_name', 'cnpj'],
+  },
+  {
+    title: 'Localização e Contato',
+    icon: Phone,
+    keys: ['address', 'phone', 'whatsapp', 'email'],
+  },
+  {
+    title: 'Identidade Visual',
+    subtitle: 'URL pública do logotipo exibido no site e nos documentos gerados.',
+    icon: Palette,
+    keys: ['logo_url'],
+  },
+];
+
+function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange }: {
+  settings: SystemSetting[];
+  editValues: Record<string, string>;
+  toStr: (v: unknown) => string;
+  onChange: (id: string, val: string) => void;
+}) {
+  const byKey = Object.fromEntries(settings.map((s) => [s.key, s]));
+
+  return (
+    <div className="p-6 space-y-5">
+      {INST_GROUPS.map((group) => {
+        const GroupIcon = group.icon;
+        const groupItems = group.keys.map((k) => byKey[k]).filter(Boolean);
+        if (groupItems.length === 0) return null;
+
+        return (
+          <div key={group.title} className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60">
+            {/* Header */}
+            <div className="bg-gray-50 dark:bg-gray-900/40 px-5 py-4">
+              <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">
+                <GroupIcon className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+                {group.title}
+              </p>
+              {group.subtitle && (
+                <p className="text-xs text-gray-400 mt-1">{group.subtitle}</p>
+              )}
+            </div>
+            {/* Body */}
+            <div className="bg-white dark:bg-gray-800/20 px-5 py-5 space-y-5">
+              {groupItems.map((item) => {
+                const meta = KEY_META[item.key] || { label: item.key };
+                const isChanged = editValues[item.id] !== toStr(item.value);
+                return (
+                  <SettingField
+                    key={item.id}
+                    item={item}
+                    meta={meta}
+                    value={editValues[item.id] || ''}
+                    isChanged={isChanged}
+                    onChange={(val) => onChange(item.id, val)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Fields not in any group (safety net) */}
+      {settings
+        .filter((s) => !INST_GROUPS.flatMap((g) => g.keys).includes(s.key))
+        .map((item) => {
+          const meta = KEY_META[item.key] || { label: item.key };
+          const isChanged = editValues[item.id] !== toStr(item.value);
+          return (
+            <SettingField
+              key={item.id}
+              item={item}
+              meta={meta}
+              value={editValues[item.id] || ''}
+              isChanged={isChanged}
+              onChange={(val) => onChange(item.id, val)}
+            />
+          );
+        })}
+    </div>
+  );
+}
 
 // ── WhatsApp Settings Panel (sub-tabbed) ─────────────────────────────────────
 
@@ -518,21 +619,38 @@ function WhatsAppProvidersPanel() {
 
   return (
     <>
-      <div className="space-y-4">
-        {loading ? (
-          <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center">
-            <Loader2 className="w-4 h-4 animate-spin" /> Carregando provedores…
+      <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60">
+        {/* Card header */}
+        <div className="bg-gray-50 dark:bg-gray-900/40 px-5 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">
+              <Wifi className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+              Provedores de API
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Instâncias WhatsApp configuradas para envio de mensagens.</p>
           </div>
-        ) : (
-          <>
-            {providers.length === 0 && (
-              <div className="text-center py-12 text-gray-400">
-                <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Nenhum provedor cadastrado ainda.</p>
-                <p className="text-xs mt-1 text-gray-300 dark:text-gray-600">Cadastre uma API WhatsApp para começar a enviar mensagens.</p>
-              </div>
-            )}
+          <button
+            onClick={handleAddNew}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all flex-shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Cadastrar API
+          </button>
+        </div>
 
+        {/* Card body */}
+        <div className="bg-white dark:bg-gray-800/20 px-5 py-5">
+          {loading ? (
+            <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center">
+              <Loader2 className="w-4 h-4 animate-spin" /> Carregando provedores…
+            </div>
+          ) : providers.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">
+              <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Nenhum provedor cadastrado ainda.</p>
+              <p className="text-xs mt-1 text-gray-300 dark:text-gray-600">Cadastre uma API WhatsApp para começar a enviar mensagens.</p>
+            </div>
+          ) : (
             <div className="space-y-3">
               {providers.map((p) => {
                 const isDefault = p.is_default;
@@ -540,7 +658,7 @@ function WhatsAppProvidersPanel() {
                 return (
                   <button key={p.id}
                     onClick={() => handleEdit(p)}
-                    className={`w-full rounded-2xl border p-4 flex items-center gap-4 transition-all text-left group ${
+                    className={`w-full rounded-xl border p-4 flex items-center gap-4 transition-all text-left group ${
                       isDefault
                         ? 'bg-[#003876]/5 dark:bg-[#003876]/10 border-[#003876]/20 dark:border-[#003876]/30 hover:border-[#003876]/40 dark:hover:border-[#003876]/50'
                         : 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
@@ -592,14 +710,8 @@ function WhatsAppProvidersPanel() {
                 );
               })}
             </div>
-
-            <button
-              onClick={handleAddNew}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] transition-colors w-full justify-center">
-              <Plus className="w-4 h-4" /> Cadastrar nova API
-            </button>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
       {drawerOpen && (
