@@ -317,7 +317,9 @@ export async function registerWebhook(webhookUrl: string, events: string[]): Pro
     url: webhookUrl,
     enabled: true,
     events,
-    excludeMessages: ['wasSentByApi'],
+    // wasSentByApi: evita loop de upsert das mensagens enviadas pela API
+    // isGroupYes:  sistema envia apenas para contatos individuais; grupos só geram ruído
+    excludeMessages: ['wasSentByApi', 'isGroupYes'],
   });
   if (error) return { success: false, error };
   // Persist webhook_url and selected events in system_settings
