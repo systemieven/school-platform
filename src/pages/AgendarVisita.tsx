@@ -211,10 +211,10 @@ export default function AgendarVisita() {
   const { settings: visitSettings } = useSettings('visit');
 
   // Dynamic config from system_settings (with fallbacks)
-  const startHour   = (visitSettings.start_hour?.toString()) || '09:00';
+  const startHour   = (visitSettings.start_hour?.toString()) || '08:00';
   const endHour     = (visitSettings.end_hour?.toString()) || '17:00';
   const lunchStart  = (visitSettings.lunch_start?.toString()) || '12:00';
-  const lunchEnd    = (visitSettings.lunch_end?.toString()) || '14:00';
+  const lunchEnd    = (visitSettings.lunch_end?.toString()) || '13:30';
   const slotDuration = Number(visitSettings.slot_duration) || 60;
   const blockedWeekdays = new Set<number>(
     Array.isArray(visitSettings.blocked_weekdays) ? visitSettings.blocked_weekdays as number[] : [0, 6],

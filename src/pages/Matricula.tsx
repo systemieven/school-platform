@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { supabase } from '../lib/supabase';
+import { useSettings } from '../hooks/useSettings';
 import { saveConsent } from '../lib/consent';
 import LegalConsent from '../components/LegalConsent';
 
@@ -96,6 +97,7 @@ interface FormData {
   celularMae: string;
   emailMae: string;
   documentos: DocumentEntry[];
+  segment: string;
 }
 
 interface DocumentEntry {
@@ -371,6 +373,13 @@ function CPFParentField({
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function Matricula() {
+  const { settings } = useSettings('enrollment');
+  const segmentsAvailable = (settings.segments_available as string[] | undefined) ?? [];
+  const minAge = (settings.min_age as number | undefined) ?? 2;
+  const requireParentsData = (settings.require_parents_data as boolean | undefined) ?? true;
+  const requireDocuments = (settings.require_documents as boolean | undefined) ?? true;
+  const requiredDocsList = (settings.required_docs_list as string[] | undefined) ?? [];
+
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsChecked, setTermsChecked]   = useState(false);
   const [legalConsent, setLegalConsent]   = useState(false);
@@ -406,6 +415,7 @@ export default function Matricula() {
     celularMae: '',
     emailMae: '',
     documentos: [] as DocumentEntry[],
+    segment: '',
   });
 
   const setField = (name: keyof FormData, value: string) => {
@@ -467,6 +477,7 @@ export default function Matricula() {
 
   const validateTab0 = (): boolean => {
     const errs: Errors = {};
+    if (segmentsAvailable.length > 0 && !formData.segment) errs.segment = 'Selecione o segmento de interesse';
     if (!formData.nomeResponsavel.trim()) errs.nomeResponsavel = 'Nome obrigatório';
     if (!formData.cpfResponsavel.trim()) errs.cpfResponsavel = 'CPF obrigatório';
     else if (!validateCPF(formData.cpfResponsavel)) errs.cpfResponsavel = 'CPF inválido';
@@ -504,18 +515,20 @@ export default function Matricula() {
     if (!end.bairro.trim()) errs['enderecoAluno.bairro'] = 'Bairro obrigatório';
     if (!end.cidade.trim()) errs['enderecoAluno.cidade'] = 'Cidade obrigatória';
     if (!end.estado.trim()) errs['enderecoAluno.estado'] = 'Estado obrigatório';
-    if (!formData.nomeMae.trim()) errs.nomeMae = 'Nome da mãe obrigatório';
-    if (!formData.cpfMae.trim()) errs.cpfMae = 'CPF da mãe obrigatório';
-    else if (!validateCPF(formData.cpfMae)) errs.cpfMae = 'CPF inválido';
-    if (!formData.celularMae.trim()) errs.celularMae = 'Celular obrigatório';
-    else if (formData.celularMae.replace(/\D/g, '').length < 11) errs.celularMae = 'Celular incompleto';
-    if (formData.emailMae.trim() && !validateEmail(formData.emailMae)) errs.emailMae = 'E-mail inválido';
-    if (!formData.nomePai.trim()) errs.nomePai = 'Nome do pai obrigatório';
-    if (!formData.cpfPai.trim()) errs.cpfPai = 'CPF do pai obrigatório';
-    else if (!validateCPF(formData.cpfPai)) errs.cpfPai = 'CPF inválido';
-    if (!formData.celularPai.trim()) errs.celularPai = 'Celular obrigatório';
-    else if (formData.celularPai.replace(/\D/g, '').length < 11) errs.celularPai = 'Celular incompleto';
-    if (formData.emailPai.trim() && !validateEmail(formData.emailPai)) errs.emailPai = 'E-mail inválido';
+    if (requireParentsData) {
+      if (!formData.nomeMae.trim()) errs.nomeMae = 'Nome da mãe obrigatório';
+      if (!formData.cpfMae.trim()) errs.cpfMae = 'CPF da mãe obrigatório';
+      else if (!validateCPF(formData.cpfMae)) errs.cpfMae = 'CPF inválido';
+      if (!formData.celularMae.trim()) errs.celularMae = 'Celular obrigatório';
+      else if (formData.celularMae.replace(/\D/g, '').length < 11) errs.celularMae = 'Celular incompleto';
+      if (formData.emailMae.trim() && !validateEmail(formData.emailMae)) errs.emailMae = 'E-mail inválido';
+      if (!formData.nomePai.trim()) errs.nomePai = 'Nome do pai obrigatório';
+      if (!formData.cpfPai.trim()) errs.cpfPai = 'CPF do pai obrigatório';
+      else if (!validateCPF(formData.cpfPai)) errs.cpfPai = 'CPF inválido';
+      if (!formData.celularPai.trim()) errs.celularPai = 'Celular obrigatório';
+      else if (formData.celularPai.replace(/\D/g, '').length < 11) errs.celularPai = 'Celular incompleto';
+      if (formData.emailPai.trim() && !validateEmail(formData.emailPai)) errs.emailPai = 'E-mail inválido';
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -641,6 +654,7 @@ export default function Matricula() {
       const { data: enrollment, error: enrollmentError } = await supabase
         .from('enrollments')
         .insert({
+          segment:               formData.segment || null,
           guardian_name:         formData.nomeResponsavel,
           guardian_cpf:          formData.cpfResponsavel,
           guardian_phone:        formData.celularResponsavel,
@@ -720,7 +734,7 @@ export default function Matricula() {
     }
   };
 
-  const tabs = ['Dados do Responsável', 'Dados do Aluno', 'Documentação'];
+  const tabs = ['Dados do Responsável', 'Dados do Aluno', ...(requireDocuments ? ['Documentação'] : [])];
 
   return (
     <div className="min-h-screen">
@@ -822,18 +836,21 @@ export default function Matricula() {
                       <h3 className="font-bold text-[#003876] text-sm">Documentos necessários</h3>
                     </div>
                     <ul className="space-y-2.5">
-                      {[
-                        { label: 'Certidão de Nascimento', sub: 'Do candidato (foto ou scan)' },
-                        { label: 'Declaração de Escolaridade', sub: 'Emitida pela escola de origem' },
-                        { label: 'Boletim Escolar', sub: 'Cópia do boletim final e parcial' },
-                      ].map(({ label, sub }) => (
+                      {(requiredDocsList.length > 0
+                        ? requiredDocsList.map((label) => ({ label, sub: '' }))
+                        : [
+                            { label: 'Certidão de Nascimento', sub: 'Do candidato (foto ou scan)' },
+                            { label: 'Declaração de Escolaridade', sub: 'Emitida pela escola de origem' },
+                            { label: 'Boletim Escolar', sub: 'Cópia do boletim final e parcial' },
+                          ]
+                      ).map(({ label, sub }) => (
                         <li key={label} className="flex items-start gap-2.5">
                           <span className="mt-0.5 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
                             <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
                           </span>
                           <div>
                             <p className="text-sm font-medium text-gray-800">{label}</p>
-                            <p className="text-xs text-gray-400">{sub}</p>
+                            {sub && <p className="text-xs text-gray-400">{sub}</p>}
                           </div>
                         </li>
                       ))}
@@ -900,6 +917,40 @@ export default function Matricula() {
             </div>
           ) : (
           <>
+
+          {/* ── Segmento de interesse ── */}
+          {segmentsAvailable.length > 0 && (
+            <div className="mb-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <p className="text-sm font-semibold text-[#003876] mb-3">
+                Segmento de interesse <span className="text-red-500">*</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {segmentsAvailable.map((seg) => (
+                  <button
+                    key={seg}
+                    type="button"
+                    onClick={() => {
+                      setFormData((p) => ({ ...p, segment: seg }));
+                      setErrors((e) => ({ ...e, segment: undefined }));
+                    }}
+                    className={[
+                      'px-4 py-2 rounded-lg text-sm font-medium border transition-all duration-200',
+                      formData.segment === seg
+                        ? 'bg-[#003876] text-white border-[#003876]'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876]/40 hover:text-[#003876]',
+                    ].join(' ')}
+                  >
+                    {seg}
+                  </button>
+                ))}
+              </div>
+              {errors.segment && (
+                <p className="mt-2 text-xs text-red-500 flex items-center gap-1">
+                  <XCircle className="w-3 h-3" /> {errors.segment}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Tabs */}
           <div className="flex mb-8 bg-white rounded-xl shadow-sm overflow-hidden">
@@ -1069,8 +1120,8 @@ export default function Matricula() {
                             setErrors((e) => ({ ...e, primeiraEscola: 'Preencha a data de nascimento antes de continuar' }));
                             return;
                           }
-                          if (calcAge(formData.dataNascimento) < 2) {
-                            setErrors((e) => ({ ...e, primeiraEscola: 'A criança precisa ter pelo menos 2 anos completos para se matricular' }));
+                          if (calcAge(formData.dataNascimento) < minAge) {
+                            setErrors((e) => ({ ...e, primeiraEscola: `A criança precisa ter pelo menos ${minAge} anos completos para se matricular` }));
                             return;
                           }
                           setFormData((p) => ({ ...p, primeiraEscola: true, ultimaSerie: '', nomeEscolaAnterior: '' }));
@@ -1164,6 +1215,7 @@ export default function Matricula() {
                   />
                 </div>
 
+                {requireParentsData && (
                 <div className="pt-4">
                   <p className="text-sm font-semibold text-[#003876] mb-3">Dados dos Pais</p>
                   <div className="space-y-4">
@@ -1203,6 +1255,7 @@ export default function Matricula() {
                     />
                   </div>
                 </div>
+                )}
               </div>
             </div>
 
@@ -1212,17 +1265,19 @@ export default function Matricula() {
                 Documentação
               </h2>
               <div className="space-y-6">
+                {requiredDocsList.length > 0 && (
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-[#003876] mt-0.5 shrink-0" />
                   <div className="text-sm text-[#003876]">
                     <p className="font-semibold mb-2">Documentos necessários:</p>
                     <ul className="list-disc list-inside space-y-1 text-gray-600">
-                      <li>Certidão de Nascimento do Aluno</li>
-                      <li>Declaração provisória ou histórico escolar</li>
-                      <li>RG do responsável</li>
+                      {requiredDocsList.map((doc) => (
+                        <li key={doc}>{doc}</li>
+                      ))}
                     </ul>
                   </div>
                 </div>
+                )}
 
                 <label className={[
                   'block border-2 border-dashed rounded-xl p-8 text-center transition-colors',
