@@ -5,7 +5,7 @@ import { ROLE_LABELS, ROLES } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
   Users, Search, Plus, Loader2, ShieldCheck, UserCheck,
-  X, ChevronDown, Pencil, Copy, Check, MessageCircle, KeyRound,
+  X, ChevronDown, Pencil, Copy, Check, MessageCircle, KeyRound, Trash2, AlertTriangle,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
@@ -366,14 +366,20 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
 interface EditDrawerProps {
   user: Profile;
   callerRole: Role;
+  currentUserId: string;
   onClose: () => void;
   onUpdated: (p: Profile) => void;
+  onDeleted: (id: string) => void;
 }
 
-function EditUserDrawer({ user, callerRole, onClose, onUpdated }: EditDrawerProps) {
+function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, onDeleted }: EditDrawerProps) {
   const [form, setForm] = useState({ full_name: user.full_name || '', phone: user.phone || '', role: user.role, is_active: user.is_active });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const canDelete = callerRole === 'super_admin' && user.id !== currentUserId;
 
   const allowedRoles = ROLES.filter((r) => {
     if (r === 'super_admin') return callerRole === 'super_admin';
@@ -390,6 +396,29 @@ function EditUserDrawer({ user, callerRole, onClose, onUpdated }: EditDrawerProp
     setSaving(false);
     if (err) { setError(err.message); return; }
     onUpdated({ ...user, ...form });
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError('');
+    const { data, error: fnError } = await supabase.functions.invoke('delete-admin-user', {
+      body: { user_id: user.id },
+    });
+    setDeleting(false);
+    if (fnError || data?.error) {
+      let msg = data?.error ?? 'Erro ao excluir usuário.';
+      if (fnError) {
+        try {
+          const body = await (fnError as unknown as { context?: { json?: () => Promise<Record<string, string>> } }).context?.json?.();
+          if (body?.error) msg = body.error;
+        } catch { msg = fnError.message; }
+      }
+      setError(msg);
+      setConfirmDelete(false);
+      return;
+    }
+    onDeleted(user.id);
+    onClose();
   }
 
   function set<K extends keyof typeof form>(k: K, v: typeof form[K]) {
@@ -458,14 +487,38 @@ function EditUserDrawer({ user, callerRole, onClose, onUpdated }: EditDrawerProp
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            Cancelar
-          </button>
-          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-            {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando…</> : 'Salvar'}
-          </button>
-        </div>
+        {confirmDelete ? (
+          <div className="p-5 border-t border-gray-100 dark:border-gray-700 space-y-3">
+            <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
+              <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600 dark:text-red-400">
+                Excluir <strong>{user.full_name}</strong>? Esta ação é irreversível e remove todos os dados do usuário.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50">
+                Cancelar
+              </button>
+              <button onClick={handleDelete} disabled={deleting} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {deleting ? <><Loader2 className="w-4 h-4 animate-spin" />Excluindo…</> : <><Trash2 className="w-4 h-4" />Confirmar exclusão</>}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+            {canDelete && (
+              <button onClick={() => setConfirmDelete(true)} className="p-2.5 border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir usuário">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              Cancelar
+            </button>
+            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+              {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando…</> : 'Salvar'}
+            </button>
+          </div>
+        )}
       </aside>
     </>
   );
@@ -625,9 +678,14 @@ export default function UsersPage() {
         <EditUserDrawer
           user={editUser}
           callerRole={currentUser.role}
+          currentUserId={currentUser.id}
           onClose={() => setEditUser(null)}
           onUpdated={(updated) => {
             setProfiles((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+            setEditUser(null);
+          }}
+          onDeleted={(id) => {
+            setProfiles((prev) => prev.filter((p) => p.id !== id));
             setEditUser(null);
           }}
         />
