@@ -19,6 +19,9 @@ import {
   User, Phone, Mail, CalendarDays, Clock, MapPin, ChevronLeft,
   ChevronRight, ArrowRight, ArrowLeft, CheckCircle, Plus, X,
   Users, FileText, Loader2, Building2, AlertTriangle, Edit3,
+  BookOpen, BookMarked, GraduationCap, MessageCircle, MessageSquare,
+  Calendar, ClipboardList, PenLine, Briefcase, Heart, Star,
+  Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
@@ -28,17 +31,34 @@ import LegalConsent from '../components/LegalConsent';
 
 // ─── Fallback constants (used when DB settings are not yet loaded) ───────────
 
-const DEFAULT_VISIT_REASONS = [
-  { key: 'conhecer_estrutura',     label: 'Conhecer a estrutura',       icon: 'Building2' },
-  { key: 'coordenacao',            label: 'Conversar com coordenação',  icon: 'Users' },
-  { key: 'gestora',                label: 'Conversar com a gestora',    icon: 'User' },
-  { key: 'entrega_documentos',     label: 'Entrega de documentos',      icon: 'FileText' },
-  { key: 'assinatura_contratos',   label: 'Assinatura de contratos',    icon: 'FileText' },
-  { key: 'solicitacao_documentos', label: 'Solicitação de documentos',  icon: 'FileText' },
+interface VisitReason {
+  key: string;
+  label: string;
+  icon?: string;
+  duration_minutes: number;
+  buffer_minutes: number;
+  max_per_slot: number;
+  max_daily: number;
+  availability_enabled: boolean;
+  availability_start: string;
+  availability_end: string;
+  lead_integrated: boolean;
+}
+
+const DEFAULT_VISIT_REASONS: VisitReason[] = [
+  { key: 'conhecer_estrutura',     label: 'Conhecer a estrutura',       icon: 'Building2', duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
+  { key: 'coordenacao',            label: 'Conversar com coordenação',  icon: 'Users',     duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
+  { key: 'gestora',                label: 'Conversar com a gestora',    icon: 'User',      duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
+  { key: 'entrega_documentos',     label: 'Entrega de documentos',      icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
+  { key: 'assinatura_contratos',   label: 'Assinatura de contratos',    icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
+  { key: 'solicitacao_documentos', label: 'Solicitação de documentos',  icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
 ];
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Building2, Users, User, FileText,
+  BookOpen, BookMarked, GraduationCap, MessageCircle, MessageSquare,
+  Calendar, ClipboardList, PenLine, Briefcase, Heart, Star,
+  Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
 };
 
 const MAX_COMPANIONS = 3;
@@ -57,11 +77,40 @@ function maskPhone(v: string) {
     .replace(/(\d{5})(\d)/, '$1-$2');
 }
 
-function generateSlots(startHour: number, endHour: number, lunchStart: number, lunchEnd: number): string[] {
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function generateSlots(
+  startHour: string,
+  endHour: string,
+  lunchStart: string,
+  lunchEnd: string,
+  slotInterval: number,
+  reasonDuration: number,
+): string[] {
   const slots: string[] = [];
-  for (let h = startHour; h < endHour; h++) {
-    if (h >= lunchStart && h < lunchEnd) continue;
-    slots.push(`${String(h).padStart(2, '0')}:00`);
+  const startTotal = timeToMinutes(startHour);
+  const endTotal = timeToMinutes(endHour);
+  const lunchStartTotal = timeToMinutes(lunchStart);
+  const lunchEndTotal = timeToMinutes(lunchEnd);
+
+  for (let t = startTotal; t < endTotal; t += slotInterval) {
+    const slotEnd = t + reasonDuration;
+
+    // Slot não pode terminar depois do horário de encerramento
+    if (slotEnd > endTotal) break;
+
+    // Slot não pode começar durante o almoço
+    if (t >= lunchStartTotal && t < lunchEndTotal) continue;
+
+    // Slot não pode ocupar o período de almoço (início antes do almoço, término depois)
+    if (t < lunchStartTotal && slotEnd > lunchStartTotal) continue;
+
+    const h = Math.floor(t / 60);
+    const m = t % 60;
+    slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
   }
   return slots;
 }
@@ -162,31 +211,37 @@ export default function AgendarVisita() {
   const { settings: visitSettings } = useSettings('visit');
 
   // Dynamic config from system_settings (with fallbacks)
-  const startHour   = Number(visitSettings.start_hour?.toString().split(':')[0]) || 9;
-  const endHour     = Number(visitSettings.end_hour?.toString().split(':')[0]) || 17;
-  const lunchStart  = Number(visitSettings.lunch_start?.toString().split(':')[0]) || 12;
-  const lunchEnd    = Number(visitSettings.lunch_end?.toString().split(':')[0]) || 14;
+  const startHour   = (visitSettings.start_hour?.toString()) || '09:00';
+  const endHour     = (visitSettings.end_hour?.toString()) || '17:00';
+  const lunchStart  = (visitSettings.lunch_start?.toString()) || '12:00';
+  const lunchEnd    = (visitSettings.lunch_end?.toString()) || '14:00';
   const slotDuration = Number(visitSettings.slot_duration) || 60;
   const blockedWeekdays = new Set<number>(
     Array.isArray(visitSettings.blocked_weekdays) ? visitSettings.blocked_weekdays as number[] : [0, 6],
   );
 
-  const ALL_SLOTS = useMemo(
-    () => generateSlots(startHour, endHour, lunchStart, lunchEnd),
-    [startHour, endHour, lunchStart, lunchEnd],
-  );
-
   const VISIT_REASONS = useMemo(() => {
     if (Array.isArray(visitSettings.reasons) && visitSettings.reasons.length > 0) {
-      return (visitSettings.reasons as Array<{ key: string; label: string; icon?: string }>).map((r) => ({
-        key: r.key,
-        label: r.label,
-        icon: (r.icon && ICON_MAP[r.icon]) || FileText,
+      const mergedReasons = (visitSettings.reasons as Array<Record<string, unknown>>).map((r) => ({
+        duration_minutes: 60,
+        buffer_minutes: 0,
+        max_per_slot: 2,
+        max_daily: 0,
+        availability_enabled: false,
+        availability_start: '',
+        availability_end: '',
+        lead_integrated: false,
+        ...DEFAULT_VISIT_REASONS.find((d) => d.key === r.key),
+        ...r,
+      })) as VisitReason[];
+      return mergedReasons.map((r) => ({
+        ...r,
+        icon: (r.icon && ICON_MAP[r.icon as string]) || FileText,
       }));
     }
     return DEFAULT_VISIT_REASONS.map((r) => ({
       ...r,
-      icon: ICON_MAP[r.icon] || FileText,
+      icon: ICON_MAP[r.icon as string] || FileText,
     }));
   }, [visitSettings.reasons]);
 
@@ -195,6 +250,46 @@ export default function AgendarVisita() {
     [blockedWeekdays],
   );
 
+  // ── Reason config (computed after VISIT_REASONS) ──
+  const [reason, setReason]     = useState('');
+
+  const selectedReasonConfig = useMemo(
+    () => VISIT_REASONS.find((r) => r.key === reason) ?? {
+      duration_minutes: 60,
+      buffer_minutes: 0,
+      max_per_slot: 2,
+      max_daily: 0,
+      lead_integrated: false,
+      availability_enabled: false,
+      availability_start: '',
+      availability_end: '',
+    },
+    [VISIT_REASONS, reason],
+  );
+
+  const ALL_SLOTS = useMemo(() => {
+    const effectiveStart =
+      selectedReasonConfig.availability_enabled && selectedReasonConfig.availability_start
+        ? (timeToMinutes(selectedReasonConfig.availability_start) >= timeToMinutes(startHour)
+            ? selectedReasonConfig.availability_start
+            : startHour)
+        : startHour;
+    const effectiveEnd =
+      selectedReasonConfig.availability_enabled && selectedReasonConfig.availability_end
+        ? (timeToMinutes(selectedReasonConfig.availability_end) <= timeToMinutes(endHour)
+            ? selectedReasonConfig.availability_end
+            : endHour)
+        : endHour;
+    return generateSlots(
+      effectiveStart,
+      effectiveEnd,
+      lunchStart,
+      lunchEnd,
+      slotDuration || 30,
+      selectedReasonConfig.duration_minutes,
+    );
+  }, [startHour, endHour, lunchStart, lunchEnd, slotDuration, selectedReasonConfig]);
+
   // ── Step state ──
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -202,7 +297,6 @@ export default function AgendarVisita() {
   const [name, setName]         = useState('');
   const [phone, setPhone]       = useState('');
   const [email, setEmail]       = useState('');
-  const [reason, setReason]     = useState('');
   const [companions, setCompanions] = useState<string[]>([]);
   const [errors, setErrors]     = useState<Record<string, string>>({});
 
@@ -213,8 +307,10 @@ export default function AgendarVisita() {
   });
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [bookedSlots, setBookedSlots]   = useState<string[]>([]);
+  const [bookedSlots, setBookedSlots]   = useState<{ time: string; duration: number; buffer: number }[]>([]);
   const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
+  const [fullDates, setFullDates]       = useState<Set<string>>(new Set());
+  const [holidays, setHolidays]         = useState<{ name: string; month: number; day: number }[]>([]);
 
   // ── Submit state ──
   const [submitting, setSubmitting]   = useState(false);
@@ -293,6 +389,27 @@ export default function AgendarVisita() {
     if (state?.name)  setStep(1); // still show step 1 so user can pick reason
   }, [location.state]);
 
+  // ── Fetch holidays once ──
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('category', 'visit')
+        .eq('key', 'holidays')
+        .single();
+      if (data?.value) {
+        try {
+          const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+          if (Array.isArray(parsed)) setHolidays(parsed);
+        } catch {
+          // ignore parse errors
+        }
+      }
+    };
+    fetchHolidays();
+  }, []);
+
   // ── Fetch blocked dates for visible month ──
   useEffect(() => {
     const fetchBlocked = async () => {
@@ -312,19 +429,54 @@ export default function AgendarVisita() {
     fetchBlocked();
   }, [currentMonth]);
 
+  // ── Fetch daily counts for max_daily enforcement ──
+  useEffect(() => {
+    const fetchDailyCounts = async () => {
+      if (!reason || selectedReasonConfig.max_daily <= 0) {
+        setFullDates(new Set());
+        return;
+      }
+      const firstDayOfMonth = `${currentMonth.year}-${String(currentMonth.month + 1).padStart(2, '0')}-01`;
+      const lastDayOfMonth  = `${currentMonth.year}-${String(currentMonth.month + 1).padStart(2, '0')}-31`;
+
+      const { data: dailyCounts } = await supabase
+        .from('visit_appointments')
+        .select('appointment_date')
+        .eq('visit_reason', reason)
+        .in('status', ['pending', 'confirmed'])
+        .gte('appointment_date', firstDayOfMonth)
+        .lte('appointment_date', lastDayOfMonth);
+
+      const countByDate: Record<string, number> = {};
+      (dailyCounts || []).forEach((r: { appointment_date: string }) => {
+        countByDate[r.appointment_date] = (countByDate[r.appointment_date] || 0) + 1;
+      });
+
+      const full = new Set(
+        Object.entries(countByDate)
+          .filter(([, count]) => count >= selectedReasonConfig.max_daily)
+          .map(([date]) => date),
+      );
+      setFullDates(full);
+    };
+    fetchDailyCounts();
+  }, [currentMonth, reason, selectedReasonConfig.max_daily]);
+
   // ── Fetch booked slots when date changes ──
   const fetchBookedSlots = useCallback(async (date: Date) => {
     const dk = dateKey(date);
     const { data } = await supabase
       .from('visit_appointments')
-      .select('appointment_time')
+      .select('appointment_time, duration_minutes, buffer_minutes')
       .eq('appointment_date', dk)
       .in('status', ['pending', 'confirmed']);
 
     if (data) {
-      setBookedSlots(data.map((d: { appointment_time: string }) =>
-        d.appointment_time.slice(0, 5)
-      ));
+      setBookedSlots(data.map((d: { appointment_time: string; duration_minutes: number | null; buffer_minutes: number | null }) => ({
+        time: d.appointment_time.slice(0, 5),
+        duration: d.duration_minutes ?? 60,
+        buffer: d.buffer_minutes ?? 0,
+      })));
     }
   }, []);
 
@@ -338,10 +490,23 @@ export default function AgendarVisita() {
     [currentMonth],
   );
 
-  const availableSlots = useMemo(
-    () => ALL_SLOTS.filter((s) => !bookedSlots.includes(s)),
-    [bookedSlots],
-  );
+  const availableSlots = useMemo(() => {
+    const duration = selectedReasonConfig.duration_minutes;
+    const maxPerSlot = selectedReasonConfig.max_per_slot;
+
+    return ALL_SLOTS.filter((slot) => {
+      const slotStart = timeToMinutes(slot);
+      const slotEnd = slotStart + duration;
+
+      const overlapping = bookedSlots.filter((b) => {
+        const bStart = timeToMinutes(b.time);
+        const bEnd = bStart + b.duration + b.buffer;
+        return slotStart < bEnd && slotEnd > bStart;
+      });
+
+      return overlapping.length < maxPerSlot;
+    });
+  }, [ALL_SLOTS, bookedSlots, selectedReasonConfig]);
 
   const canGoPrevMonth = useMemo(() => {
     const now = new Date();
@@ -418,7 +583,8 @@ export default function AgendarVisita() {
         companions:      companions.filter((c) => c.trim()),
         appointment_date: dateKey(selectedDate),
         appointment_time: selectedTime + ':00',
-        duration_minutes: slotDuration,
+        duration_minutes: selectedReasonConfig.duration_minutes,
+        buffer_minutes:   selectedReasonConfig.buffer_minutes,
         status:          'pending',
       });
       error = insertErr;
@@ -459,8 +625,13 @@ export default function AgendarVisita() {
   // ── Derived ──
   const reasonLabel = VISIT_REASONS.find((r) => r.key === reason)?.label ?? '';
 
+  const isHoliday = (d: Date) =>
+    holidays.some((h) => h.month === d.getMonth() + 1 && h.day === d.getDate());
+
   const isDateDisabled = (d: Date) =>
-    isPast(d) || isBlockedDay(d) || blockedDates.has(dateKey(d));
+    isPast(d) || isBlockedDay(d) || blockedDates.has(dateKey(d)) ||
+    isHoliday(d) ||
+    (selectedReasonConfig.max_daily > 0 && fullDates.has(dateKey(d)));
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
@@ -528,7 +699,7 @@ export default function AgendarVisita() {
                   <div className="flex flex-wrap gap-2 text-xs">
                     <span className="inline-flex items-center gap-1.5 bg-[var(--surface)] text-gray-600 px-3 py-1.5 rounded-lg">
                       <Clock className="w-3 h-3 text-[#003876]" />
-                      {slotDuration} min
+                      {selectedReasonConfig.duration_minutes} min
                     </span>
                     <span className="inline-flex items-center gap-1.5 bg-[var(--surface)] text-gray-600 px-3 py-1.5 rounded-lg">
                       <MapPin className="w-3 h-3 text-[#003876]" />
@@ -575,7 +746,7 @@ export default function AgendarVisita() {
                         <div className="flex items-start gap-2.5">
                           <Clock className="w-4 h-4 text-[#ffd700] mt-0.5 shrink-0" />
                           <p className="font-medium text-gray-800 leading-snug">
-                            {formatTimeRange(selectedTime, slotDuration)}
+                            {formatTimeRange(selectedTime, selectedReasonConfig.duration_minutes)}
                           </p>
                         </div>
                       )}
@@ -871,6 +1042,7 @@ export default function AgendarVisita() {
                             const disabled = isDateDisabled(day);
                             const selected = selectedDate && isSameDay(day, selectedDate);
                             const today = isToday(day);
+                            const holiday = isHoliday(day);
 
                             return (
                               <button
@@ -894,6 +1066,9 @@ export default function AgendarVisita() {
                                 {today && !selected && (
                                   <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#ffd700]" />
                                 )}
+                                {holiday && !today && !selected && (
+                                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-red-400" />
+                                )}
                               </button>
                             );
                           })}
@@ -913,17 +1088,17 @@ export default function AgendarVisita() {
                           availableSlots.length > 0 ? (
                             <div className="space-y-2">
                               {ALL_SLOTS.map((slot) => {
-                                const isBooked = bookedSlots.includes(slot);
+                                const isAvailable = availableSlots.includes(slot);
                                 const isSelected = selectedTime === slot;
                                 return (
                                   <button
                                     key={slot}
                                     type="button"
-                                    disabled={isBooked}
+                                    disabled={!isAvailable}
                                     onClick={() => setSelectedTime(slot)}
                                     className={`
                                       w-full py-3 px-4 rounded-xl text-sm font-semibold text-center transition-all duration-200 border
-                                      ${isBooked
+                                      ${!isAvailable
                                         ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed line-through'
                                         : isSelected
                                           ? 'border-[#003876] bg-[#003876] text-white shadow-md shadow-[#003876]/25'
@@ -1008,7 +1183,7 @@ export default function AgendarVisita() {
                           <div>
                             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Data e horário</p>
                             <p className="font-bold text-[#003876] text-sm">
-                              {selectedDate && formatDateLong(selectedDate)} · {selectedTime && formatTimeRange(selectedTime, slotDuration)}
+                              {selectedDate && formatDateLong(selectedDate)} · {selectedTime && formatTimeRange(selectedTime, selectedReasonConfig.duration_minutes)}
                             </p>
                           </div>
                         </div>

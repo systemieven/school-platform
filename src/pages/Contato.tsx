@@ -5,6 +5,7 @@ import {
   CheckCircle2, XCircle, Loader2, Send, ChevronRight,
   Sunrise, Sunset, PhoneCall, MessageCircle,
   GraduationCap, Building2, HelpCircle, Lightbulb, AlertCircle, Handshake, Calendar, MoreHorizontal,
+  Users, FileText, BookOpen, Heart, Star, Home, Award, Briefcase, PenLine,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
@@ -12,8 +13,11 @@ import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
 import LegalConsent from '../components/LegalConsent';
 
-const CONTACT_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  GraduationCap, Building2, HelpCircle, Lightbulb, AlertCircle, Handshake, Calendar, MoreHorizontal, MessageSquare,
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CONTACT_ICON_MAP: Record<string, any> = {
+  GraduationCap, Building2, HelpCircle, Lightbulb, AlertCircle, Handshake, Calendar, MoreHorizontal,
+  MessageSquare, MessageCircle, PhoneCall,
+  User, Users, FileText, BookOpen, Heart, Star, Mail, Phone, Home, Award, Briefcase, PenLine,
 };
 
 const DEFAULT_CONTACT_REASONS = [
@@ -144,17 +148,29 @@ export default function Contato() {
   const infoRef   = useScrollReveal();
   const { settings: contactSettings } = useSettings('contact');
 
+  // Fields the admin marked as required
+  const requiredFields = useMemo(() => {
+    const arr = Array.isArray(contactSettings.required_fields)
+      ? (contactSettings.required_fields as string[])
+      : ['nome', 'celular'];
+    return new Set(arr);
+  }, [contactSettings.required_fields]);
+
   const contactReasons = useMemo(() => {
     if (Array.isArray(contactSettings.contact_reasons) && contactSettings.contact_reasons.length > 0) {
-      return (contactSettings.contact_reasons as Array<{ value?: string; key?: string; label: string; icon?: string }>).map((r) => ({
-        value: r.value || r.key || r.label.toLowerCase().replace(/\s+/g, '_'),
+      return (contactSettings.contact_reasons as Array<{ value?: string; key?: string; label: string; icon?: string; lead_integrated?: boolean; require_message?: boolean }>).map((r) => ({
+        value: r.key || r.value || r.label.toLowerCase().replace(/\s+/g, '_'),
         label: r.label,
         icon: (r.icon && CONTACT_ICON_MAP[r.icon]) || MessageSquare,
+        lead_integrated: r.lead_integrated ?? false,
+        require_message: r.require_message ?? false,
       }));
     }
     return DEFAULT_CONTACT_REASONS.map((r) => ({
       ...r,
       icon: CONTACT_ICON_MAP[r.icon] || MessageSquare,
+      lead_integrated: false,
+      require_message: r.value === 'outro',
     }));
   }, [contactSettings.contact_reasons]);
 
@@ -169,6 +185,11 @@ export default function Contato() {
   const [submitResult, setSubmitResult] = useState<'success' | 'error' | null>(null);
   const [legalConsent, setLegalConsent] = useState(false);
 
+  const selectedReason = useMemo(
+    () => contactReasons.find((r) => r.value === form.contactReason) ?? null,
+    [contactReasons, form.contactReason],
+  );
+
   const set = (key: keyof FormState, value: unknown) => {
     setForm((p) => ({ ...p, [key]: value }));
     setErrors((e) => ({ ...e, [key]: undefined }));
@@ -180,9 +201,11 @@ export default function Contato() {
     if (!form.phone.trim()) errs.phone = 'Celular obrigatório';
     else if (form.phone.replace(/\D/g, '').length < 11)
       errs.phone = 'Celular incompleto (DDD + 9 dígitos)';
-    if (form.email.trim() && !validateEmail(form.email))
+    if (requiredFields.has('email') && !form.email.trim())
+      errs.email = 'E-mail obrigatório';
+    else if (form.email.trim() && !validateEmail(form.email))
       errs.email = 'E-mail inválido';
-    if (form.contactReason === 'outro' && !form.message.trim())
+    if ((selectedReason?.require_message || requiredFields.has('mensagem')) && !form.message.trim())
       errs.message = 'Descreva o motivo do seu contato';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -369,7 +392,7 @@ export default function Contato() {
                         Dados pessoais
                       </h3>
                       <div className="space-y-4">
-                        <Field label="Nome completo" required icon={User} error={errors.name}>
+                        <Field label="Nome completo" required={requiredFields.has('nome')} icon={User} error={errors.name}>
                           <input
                             type="text"
                             placeholder="Seu nome completo"
@@ -380,7 +403,7 @@ export default function Contato() {
                         </Field>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <Field label="Celular" required icon={Phone} error={errors.phone}>
+                          <Field label="Celular" required={requiredFields.has('celular')} icon={Phone} error={errors.phone}>
                             <input
                               type="text"
                               inputMode="numeric"
@@ -392,7 +415,7 @@ export default function Contato() {
                             />
                           </Field>
 
-                          <Field label="E-mail" icon={Mail} error={errors.email}>
+                          <Field label="E-mail" required={requiredFields.has('email')} icon={Mail} error={errors.email}>
                             <input
                               type="email"
                               placeholder="email@exemplo.com (opcional)"
@@ -551,21 +574,21 @@ export default function Contato() {
                     {/* Mensagem / Observações */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        {form.contactReason === 'outro'
+                        {selectedReason?.require_message
                           ? <>Detalhe sua solicitação <span className="text-red-500">*</span></>
                           : 'Observações ou dúvidas'
                         }
                       </label>
-                      {form.contactReason === 'outro' && (
+                      {selectedReason?.require_message && (
                         <p className="text-xs text-gray-400 mb-2">
-                          Como selecionou "Outro assunto", descreva brevemente o motivo do seu contato.
+                          Descreva brevemente o motivo do seu contato para que possamos ajudar melhor.
                         </p>
                       )}
                       <div className="relative">
                         <MessageSquare className="absolute left-3 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" />
                         <textarea
                           rows={3}
-                          placeholder={form.contactReason === 'outro'
+                          placeholder={selectedReason?.require_message
                             ? 'Descreva o motivo do seu contato...'
                             : 'Fique à vontade para escrever... (opcional)'
                           }
@@ -601,15 +624,17 @@ export default function Contato() {
                     )}
 
                     {/* Submit */}
-                    <button
-                      type="submit"
-                      disabled={submitting || !legalConsent}
-                      className="w-full flex items-center justify-center gap-2 bg-[#003876] text-white py-4 rounded-xl font-bold text-sm hover:bg-[#002855] transition-all duration-300 hover:shadow-lg hover:shadow-[#003876]/30 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {submitting
-                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
-                        : <><Send className="w-4 h-4" /> Enviar Mensagem</>}
-                    </button>
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={submitting || !legalConsent}
+                        className="inline-flex items-center gap-2 bg-[#ffd700] text-[#003876] px-8 py-4 rounded-xl font-bold text-sm transition-all duration-300 hover:bg-white hover:shadow-lg hover:shadow-[#ffd700]/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#ffd700] disabled:hover:shadow-none"
+                      >
+                        {submitting
+                          ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
+                          : <>Enviar mensagem <Send className="w-4 h-4" /></>}
+                      </button>
+                    </div>
 
                   </form>
                 )}
