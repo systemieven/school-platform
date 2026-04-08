@@ -418,16 +418,37 @@ export const RESOURCE_TYPE_ICONS: Record<ResourceType, string> = {
   document: 'File',
 };
 
+export type ResourceSubtype =
+  | 'link'         // external URL (default)
+  | 'youtube'      // YouTube embed
+  | 'pdf'          // Supabase Storage PDF
+  | 'image'        // Supabase Storage image
+  | 'video_upload';// Supabase Storage video
+
+export type LibraryTargetType = 'all' | 'segment' | 'class' | 'student';
+
+export const LIBRARY_TARGET_LABELS: Record<LibraryTargetType, string> = {
+  all:     'Todos',
+  segment: 'Segmento',
+  class:   'Turma',
+  student: 'Aluno específico',
+};
+
 export interface LibraryResource {
   id: string;
   created_by: string;
   title: string;
   description: string | null;
   resource_type: ResourceType;
+  resource_subtype: ResourceSubtype;
   subject: string | null;
   segment_ids: string[];
   class_ids: string[];
+  student_ids: string[];
   external_url: string | null;
+  file_url: string | null;
+  thumbnail_url: string | null;
+  target_type: LibraryTargetType;
   is_visible: boolean;
   created_at: string;
   updated_at: string;
