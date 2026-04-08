@@ -631,7 +631,8 @@ function WhatsAppProvidersPanel() {
             <p className="text-xs mt-1 text-gray-300 dark:text-gray-600">Cadastre uma instância WhatsApp para começar a enviar mensagens.</p>
           </div>
         ) : (
-          providers.map((p) => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {providers.map((p) => {
             const isDefault = p.is_default;
             const isSettingThis = settingDefault === p.id;
             const statusDot = isDefault
@@ -684,7 +685,8 @@ function WhatsAppProvidersPanel() {
                 </div>
               </div>
             );
-          })
+          })}
+          </div>
         )}
 
         {/* Add new */}
