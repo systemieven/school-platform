@@ -4,8 +4,10 @@ import type { SchoolSegment, SchoolClass, Shift } from '../../types/admin.types'
 import { SHIFT_LABELS } from '../../types/admin.types';
 import {
   GraduationCap, Plus, Loader2, Pencil, Trash2, ChevronDown, ChevronRight,
-  Users, Save, X, ToggleLeft, ToggleRight,
+  Users, Save, X, ToggleLeft, ToggleRight, BookOpen,
 } from 'lucide-react';
+import { SettingsCard } from '../../components/SettingsCard';
+import { Toggle } from '../../components/Toggle';
 
 // ── Segment form ──────────────────────────────────────────────────────────────
 interface SegmentForm {
@@ -200,160 +202,107 @@ export default function SegmentsPage() {
         </button>
       </div>
 
-      {/* New segment form */}
-      {editSegId === 'new' && (
-        <SegmentFormCard
-          form={segForm}
-          onChange={setSegForm}
-          onSave={saveSegment}
-          onCancel={() => setEditSegId(null)}
-          saving={savingSeg}
-          staffProfiles={staffProfiles}
-          isNew
-        />
-      )}
-
       {/* Segments */}
       <div className="space-y-3">
         {segments.map((seg) => {
           const isExpanded = expanded.has(seg.id);
           const classes = classMap[seg.id] ?? [];
-          const isEditing = editSegId === seg.id;
           const activeCount = classes.filter((c) => c.is_active).length;
 
           return (
             <div key={seg.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-              {isEditing ? (
-                <SegmentFormCard
-                  form={segForm}
-                  onChange={setSegForm}
-                  onSave={saveSegment}
-                  onCancel={() => setEditSegId(null)}
-                  saving={savingSeg}
-                  staffProfiles={staffProfiles}
-                />
-              ) : (
-                <>
-                  {/* Segment header */}
+              {/* Segment header */}
+              <button
+                onClick={() => toggleExpand(seg.id)}
+                className="w-full flex items-center gap-4 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+              >
+                {isExpanded
+                  ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-900 dark:text-white">{seg.name}</span>
+                    {!seg.is_active && (
+                      <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded-full">Inativo</span>
+                    )}
+                  </div>
+                  {seg.description && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{seg.description}</p>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400 flex items-center gap-1 flex-shrink-0">
+                  <Users className="w-3.5 h-3.5" />
+                  {activeCount} turma{activeCount !== 1 ? 's' : ''}
+                </span>
+                <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => toggleExpand(seg.id)}
-                    className="w-full flex items-center gap-4 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                    onClick={() => startEditSegment(seg)}
+                    className="p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    title="Editar segmento"
                   >
-                    {isExpanded
-                      ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900 dark:text-white">{seg.name}</span>
-                        {!seg.is_active && (
-                          <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded-full">Inativo</span>
-                        )}
-                      </div>
-                      {seg.description && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{seg.description}</p>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-400 flex items-center gap-1 flex-shrink-0">
-                      <Users className="w-3.5 h-3.5" />
-                      {activeCount} turma{activeCount !== 1 ? 's' : ''}
-                    </span>
-                    <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => startEditSegment(seg)}
-                        className="p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Editar segmento"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => startNewClass(seg.id)}
-                        className="p-1.5 text-gray-400 hover:text-emerald-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Adicionar turma"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                      {classes.length === 0 && (
-                        <button
-                          onClick={() => deleteSegment(seg.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                          title="Excluir segmento"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                    <Pencil className="w-3.5 h-3.5" />
                   </button>
+                  <button
+                    onClick={() => startNewClass(seg.id)}
+                    className="p-1.5 text-gray-400 hover:text-emerald-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    title="Adicionar turma"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                  {classes.length === 0 && (
+                    <button
+                      onClick={() => deleteSegment(seg.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      title="Excluir segmento"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </button>
 
-                  {/* Classes list */}
-                  {isExpanded && (
-                    <div className="border-t border-gray-100 dark:border-gray-700">
-                      {/* New class form */}
-                      {editClassSegId === seg.id && editClassId === 'new' && (
-                        <ClassFormRow
-                          form={classForm}
-                          onChange={setClassForm}
-                          onSave={saveClass}
-                          onCancel={() => { setEditClassId(null); setEditClassSegId(null); }}
-                          saving={savingClass}
-                          staffProfiles={staffProfiles}
-                        />
-                      )}
-
-                      {classes.length === 0 && editClassId !== 'new' && (
-                        <div className="text-center py-6 text-gray-400 text-xs">
-                          Nenhuma turma cadastrada.{' '}
-                          <button onClick={() => startNewClass(seg.id)} className="text-[#003876] dark:text-[#ffd700] hover:underline">
-                            Adicionar turma
-                          </button>
-                        </div>
-                      )}
-
-                      {classes.map((cls) => {
-                        const isEditingClass = editClassId === cls.id;
-                        return isEditingClass ? (
-                          <ClassFormRow
-                            key={cls.id}
-                            form={classForm}
-                            onChange={setClassForm}
-                            onSave={saveClass}
-                            onCancel={() => { setEditClassId(null); setEditClassSegId(null); }}
-                            saving={savingClass}
-                            staffProfiles={staffProfiles}
-                          />
-                        ) : (
-                          <div
-                            key={cls.id}
-                            className="flex items-center gap-3 px-4 py-3 pl-12 hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-colors border-t border-gray-50 dark:border-gray-700/50"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <span className={`text-sm font-medium ${cls.is_active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 line-through'}`}>
-                                {cls.name}
-                              </span>
-                              <span className="text-xs text-gray-400 ml-2">
-                                {cls.year} · {SHIFT_LABELS[cls.shift as Shift] ?? cls.shift}
-                                {cls.max_students != null && ` · Max ${cls.max_students}`}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <button
-                                onClick={() => startEditClass(cls)}
-                                className="p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </button>
-                              <button
-                                onClick={() => deleteClass(cls.id)}
-                                className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+              {/* Classes list */}
+              {isExpanded && (
+                <div className="border-t border-gray-100 dark:border-gray-700">
+                  {classes.length === 0 && (
+                    <div className="text-center py-6 text-gray-400 text-xs">
+                      Nenhuma turma cadastrada.{' '}
+                      <button onClick={() => startNewClass(seg.id)} className="text-[#003876] dark:text-[#ffd700] hover:underline">
+                        Adicionar turma
+                      </button>
                     </div>
                   )}
-                </>
+                  {classes.map((cls) => (
+                    <div
+                      key={cls.id}
+                      className="flex items-center gap-3 px-4 py-3 pl-12 hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-colors border-t border-gray-50 dark:border-gray-700/50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm font-medium ${cls.is_active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 line-through'}`}>
+                          {cls.name}
+                        </span>
+                        <span className="text-xs text-gray-400 ml-2">
+                          {cls.year} · {SHIFT_LABELS[cls.shift as Shift] ?? cls.shift}
+                          {cls.max_students != null && ` · Max ${cls.max_students}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => startEditClass(cls)}
+                          className="p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => deleteClass(cls.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           );
@@ -369,116 +318,167 @@ export default function SegmentsPage() {
           </div>
         )}
       </div>
+
+      {/* Segment Drawer */}
+      {editSegId !== null && (
+        <SegmentDrawer
+          isNew={editSegId === 'new'}
+          form={segForm}
+          onChange={setSegForm}
+          onSave={saveSegment}
+          onCancel={() => setEditSegId(null)}
+          saving={savingSeg}
+          staffProfiles={staffProfiles}
+        />
+      )}
+
+      {/* Class Drawer */}
+      {editClassId !== null && (
+        <ClassDrawer
+          isNew={editClassId === 'new'}
+          segmentName={segments.find((s) => s.id === editClassSegId)?.name ?? ''}
+          form={classForm}
+          onChange={setClassForm}
+          onSave={saveClass}
+          onCancel={() => { setEditClassId(null); setEditClassSegId(null); }}
+          saving={savingClass}
+          staffProfiles={staffProfiles}
+        />
+      )}
     </div>
   );
 }
 
-// ── Segment form card ─────────────────────────────────────────────────────────
-function SegmentFormCard({ form, onChange, onSave, onCancel, saving, isNew, staffProfiles }: {
+// ── Shared input styles ───────────────────────────────────────────────────────
+const inputCls = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm transition-all';
+const labelCls = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5';
+
+// ── Segment Drawer ────────────────────────────────────────────────────────────
+function SegmentDrawer({ isNew, form, onChange, onSave, onCancel, saving, staffProfiles }: {
+  isNew: boolean;
   form: SegmentForm;
   onChange: (f: SegmentForm) => void;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
-  isNew?: boolean;
   staffProfiles: StaffProfile[];
 }) {
+  const coordinators = staffProfiles.filter((p) => ['coordinator', 'admin', 'super_admin'].includes(p.role));
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-2xl border-2 border-[#003876]/20 dark:border-[#ffd700]/20 p-5 ${isNew ? 'mb-4' : ''}`}>
-      <p className="text-sm font-bold text-[#003876] dark:text-[#ffd700] mb-3">{isNew ? 'Novo Segmento' : 'Editar Segmento'}</p>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Nome</label>
-          <input
-            type="text" value={form.name}
-            onChange={(e) => onChange({ ...form, name: e.target.value })}
-            className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-            placeholder="Ex: Ensino Fundamental I"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Slug</label>
-          <input
-            type="text" value={form.slug}
-            onChange={(e) => onChange({ ...form, slug: e.target.value })}
-            className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-            placeholder="fundamental-1"
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-xs text-gray-500 mb-1">Descrição</label>
-          <input
-            type="text" value={form.description}
-            onChange={(e) => onChange({ ...form, description: e.target.value })}
-            className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-            placeholder="Ex: 1º ao 5º ano (6-10 anos)"
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <label className="block text-xs text-gray-500">Posição</label>
-          <input
-            type="number" value={form.position}
-            onChange={(e) => onChange({ ...form, position: parseInt(e.target.value) || 0 })}
-            className="w-20 text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onChange({ ...form, is_active: !form.is_active })}
-            className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg transition-colors ${
-              form.is_active
-                ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
-            }`}
-          >
-            {form.is_active ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-            {form.is_active ? 'Ativo' : 'Inativo'}
+    <>
+      <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40" onClick={onCancel} />
+      <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-4 h-4" />
+            <h2 className="font-semibold text-sm">{isNew ? 'Novo Segmento' : 'Editar Segmento'}</h2>
+          </div>
+          <button onClick={onCancel} className="p-1 rounded-md hover:bg-white/20 transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
-        {staffProfiles.length > 0 && (
-          <div className="sm:col-span-2">
-            <label className="block text-xs text-gray-500 mb-1">Coordenadores</label>
-            <div className="flex flex-wrap gap-2">
-              {staffProfiles.filter((p) => ['coordinator', 'admin', 'super_admin'].includes(p.role)).map((p) => (
-                <label key={p.id} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.coordinator_ids.includes(p.id)}
-                    onChange={() => {
-                      const next = form.coordinator_ids.includes(p.id)
-                        ? form.coordinator_ids.filter((id) => id !== p.id)
-                        : [...form.coordinator_ids, p.id];
-                      onChange({ ...form, coordinator_ids: next });
-                    }}
-                    className="rounded border-gray-300 dark:border-gray-600 text-[#003876]"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">{p.full_name}</span>
-                </label>
-              ))}
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <SettingsCard title="Identificação">
+            <div>
+              <label className={labelCls}>Nome</label>
+              <input
+                type="text" value={form.name}
+                onChange={(e) => onChange({ ...form, name: e.target.value })}
+                className={inputCls} placeholder="Ex: Ensino Fundamental I"
+              />
             </div>
-          </div>
-        )}
-      </div>
-      <div className="flex justify-end gap-2 mt-4">
-        <button onClick={onCancel} className="flex items-center gap-1 text-xs px-3 py-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-          <X className="w-3.5 h-3.5" /> Cancelar
-        </button>
-        <button
-          onClick={onSave}
-          disabled={!form.name || saving}
-          className="flex items-center gap-1 text-xs px-4 py-2 bg-[#003876] text-white rounded-lg hover:bg-[#002a5c] disabled:opacity-50 transition-colors"
-        >
-          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-          Salvar
-        </button>
-      </div>
-    </div>
+            <div>
+              <label className={labelCls}>Slug</label>
+              <input
+                type="text" value={form.slug}
+                onChange={(e) => onChange({ ...form, slug: e.target.value })}
+                className={inputCls} placeholder="fundamental-1"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">Gerado automaticamente se deixado em branco</p>
+            </div>
+            <div>
+              <label className={labelCls}>Descrição</label>
+              <input
+                type="text" value={form.description}
+                onChange={(e) => onChange({ ...form, description: e.target.value })}
+                className={inputCls} placeholder="Ex: 1º ao 5º ano (6-10 anos)"
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Posição</label>
+              <input
+                type="number" value={form.position}
+                onChange={(e) => onChange({ ...form, position: parseInt(e.target.value) || 0 })}
+                className={inputCls}
+              />
+            </div>
+          </SettingsCard>
+
+          <SettingsCard title="Status">
+            <Toggle
+              checked={form.is_active}
+              onChange={(v) => onChange({ ...form, is_active: v })}
+              label={form.is_active ? 'Segmento ativo' : 'Segmento inativo'}
+              description={form.is_active ? 'Visível no sistema' : 'Oculto no sistema'}
+              onColor="bg-emerald-500"
+            />
+          </SettingsCard>
+
+          {coordinators.length > 0 && (
+            <SettingsCard title="Coordenadores">
+              <div className="flex flex-wrap gap-2">
+                {coordinators.map((p) => {
+                  const active = form.coordinator_ids.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        const next = active
+                          ? form.coordinator_ids.filter((id) => id !== p.id)
+                          : [...form.coordinator_ids, p.id];
+                        onChange({ ...form, coordinator_ids: next });
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                        active
+                          ? 'bg-[#003876] text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {p.full_name}
+                    </button>
+                  );
+                })}
+              </div>
+            </SettingsCard>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3 flex-shrink-0">
+          <button type="button" onClick={onCancel} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Cancelar
+          </button>
+          <button
+            type="button" onClick={onSave}
+            disabled={!form.name || saving}
+            className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando…</> : 'Salvar'}
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
 
-// ── Class inline form ─────────────────────────────────────────────────────────
-function ClassFormRow({ form, onChange, onSave, onCancel, saving, staffProfiles }: {
+// ── Class Drawer ──────────────────────────────────────────────────────────────
+function ClassDrawer({ isNew, segmentName, form, onChange, onSave, onCancel, saving, staffProfiles }: {
+  isNew: boolean;
+  segmentName: string;
   form: ClassForm;
   onChange: (f: ClassForm) => void;
   onSave: () => void;
@@ -488,83 +488,123 @@ function ClassFormRow({ form, onChange, onSave, onCancel, saving, staffProfiles 
 }) {
   const teachers = staffProfiles.filter((p) => ['teacher', 'coordinator', 'admin', 'super_admin'].includes(p.role));
   return (
-    <div className="px-4 py-3 pl-12 bg-blue-50/50 dark:bg-blue-900/10 border-t border-blue-100 dark:border-blue-900/20 space-y-2">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="block text-[10px] text-gray-500 mb-0.5">Nome</label>
-          <input
-            type="text" value={form.name}
-            onChange={(e) => onChange({ ...form, name: e.target.value })}
-            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 w-36"
-            placeholder="3º Ano A"
-          />
+    <>
+      <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40" onClick={onCancel} />
+      <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4" />
+            <div>
+              <h2 className="font-semibold text-sm">{isNew ? 'Nova Turma' : 'Editar Turma'}</h2>
+              {segmentName && <p className="text-[11px] text-white/60">{segmentName}</p>}
+            </div>
+          </div>
+          <button onClick={onCancel} className="p-1 rounded-md hover:bg-white/20 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <div>
-          <label className="block text-[10px] text-gray-500 mb-0.5">Ano</label>
-          <input
-            type="number" value={form.year}
-            onChange={(e) => onChange({ ...form, year: parseInt(e.target.value) || 2026 })}
-            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 w-20"
-          />
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <SettingsCard title="Identificação">
+            <div>
+              <label className={labelCls}>Nome da turma</label>
+              <input
+                type="text" value={form.name}
+                onChange={(e) => onChange({ ...form, name: e.target.value })}
+                className={inputCls} placeholder="3º Ano A"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Ano letivo</label>
+                <input
+                  type="number" value={form.year}
+                  onChange={(e) => onChange({ ...form, year: parseInt(e.target.value) || 2026 })}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Turno</label>
+                <div className="relative">
+                  <select
+                    value={form.shift}
+                    onChange={(e) => onChange({ ...form, shift: e.target.value as Shift })}
+                    className={`${inputCls} appearance-none pr-9`}
+                  >
+                    <option value="morning">Manhã</option>
+                    <option value="afternoon">Tarde</option>
+                    <option value="full">Integral</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Máx. alunos</label>
+              <input
+                type="number" value={form.max_students}
+                onChange={(e) => onChange({ ...form, max_students: e.target.value })}
+                className={inputCls} placeholder="Sem limite"
+              />
+            </div>
+          </SettingsCard>
+
+          <SettingsCard title="Status">
+            <Toggle
+              checked={form.is_active}
+              onChange={(v) => onChange({ ...form, is_active: v })}
+              label={form.is_active ? 'Turma ativa' : 'Turma inativa'}
+              description={form.is_active ? 'Visível no sistema' : 'Oculta no sistema'}
+              onColor="bg-emerald-500"
+            />
+          </SettingsCard>
+
+          {teachers.length > 0 && (
+            <SettingsCard title="Professores">
+              <div className="flex flex-wrap gap-2">
+                {teachers.map((p) => {
+                  const active = form.teacher_ids.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        const next = active
+                          ? form.teacher_ids.filter((id) => id !== p.id)
+                          : [...form.teacher_ids, p.id];
+                        onChange({ ...form, teacher_ids: next });
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                        active
+                          ? 'bg-[#003876] text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {p.full_name}
+                    </button>
+                  );
+                })}
+              </div>
+            </SettingsCard>
+          )}
         </div>
-        <div>
-          <label className="block text-[10px] text-gray-500 mb-0.5">Turno</label>
-          <select
-            value={form.shift}
-            onChange={(e) => onChange({ ...form, shift: e.target.value as Shift })}
-            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-          >
-            <option value="morning">Manhã</option>
-            <option value="afternoon">Tarde</option>
-            <option value="full">Integral</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-[10px] text-gray-500 mb-0.5">Max alunos</label>
-          <input
-            type="number" value={form.max_students}
-            onChange={(e) => onChange({ ...form, max_students: e.target.value })}
-            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 w-20"
-            placeholder="—"
-          />
-        </div>
-        <div className="flex items-center gap-1.5 ml-auto">
-          <button onClick={onCancel} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-            <X className="w-3.5 h-3.5" />
+
+        {/* Footer */}
+        <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3 flex-shrink-0">
+          <button type="button" onClick={onCancel} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Cancelar
           </button>
           <button
-            onClick={onSave}
+            type="button" onClick={onSave}
             disabled={!form.name || saving}
-            className="flex items-center gap-1 text-xs px-3 py-1.5 bg-[#003876] text-white rounded-lg hover:bg-[#002a5c] disabled:opacity-50"
+            className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-            Salvar
+            {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando…</> : 'Salvar'}
           </button>
         </div>
-      </div>
-      {teachers.length > 0 && (
-        <div>
-          <label className="block text-[10px] text-gray-500 mb-1">Professores</label>
-          <div className="flex flex-wrap gap-2">
-            {teachers.map((p) => (
-              <label key={p.id} className="flex items-center gap-1 text-xs cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.teacher_ids.includes(p.id)}
-                  onChange={() => {
-                    const next = form.teacher_ids.includes(p.id)
-                      ? form.teacher_ids.filter((id) => id !== p.id)
-                      : [...form.teacher_ids, p.id];
-                    onChange({ ...form, teacher_ids: next });
-                  }}
-                  className="rounded border-gray-300 dark:border-gray-600 text-[#003876]"
-                />
-                <span className="text-gray-700 dark:text-gray-300">{p.full_name}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+      </aside>
+    </>
   );
 }
