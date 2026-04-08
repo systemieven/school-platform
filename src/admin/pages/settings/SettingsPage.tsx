@@ -246,14 +246,21 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2500);
   }
 
-  // Tabs that have settings in the DB
+  // Tabs with their own custom panel never depend on the generic settings array
+  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional'];
+
+  // Tabs that have settings in the DB OR have a custom panel
   const availableTabs = TABS.filter(
-    (tab) => settings.some((s) => tab.categories.includes(s.category)),
+    (tab) =>
+      CUSTOM_PANEL_TABS.includes(tab.key) ||
+      settings.some((s) => tab.categories.includes(s.category)),
   );
 
   // Tabs without settings yet (show as "coming soon")
   const emptyTabs = TABS.filter(
-    (tab) => !settings.some((s) => tab.categories.includes(s.category)),
+    (tab) =>
+      !CUSTOM_PANEL_TABS.includes(tab.key) &&
+      !settings.some((s) => tab.categories.includes(s.category)),
   );
 
   if (loading) {
