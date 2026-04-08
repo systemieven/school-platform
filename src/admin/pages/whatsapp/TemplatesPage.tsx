@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { MODULE_VARIABLES, ALL_VARIABLES } from '../../lib/whatsapp-api';
@@ -283,6 +283,7 @@ function TemplateDrawer({
 
   const body = form.content.body || '';
   const detectedVars = extractVars(body);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-update variables from body
   const handleBodyChange = (val: string) => {
@@ -292,11 +293,24 @@ function TemplateDrawer({
 
   const insertVar = (v: string) => {
     const snippet = `{{${v}}}`;
-    setForm((p) => ({
-      ...p,
-      content: { ...p.content, body: (p.content.body || '') + snippet },
-      variables: [...new Set([...(p.variables || []), v])],
-    }));
+    const ta = textareaRef.current;
+    if (ta) {
+      const start = ta.selectionStart ?? ta.value.length;
+      const end = ta.selectionEnd ?? ta.value.length;
+      const newBody = ta.value.slice(0, start) + snippet + ta.value.slice(end);
+      handleBodyChange(newBody);
+      // Restore cursor after the inserted snippet
+      requestAnimationFrame(() => {
+        ta.focus();
+        ta.setSelectionRange(start + snippet.length, start + snippet.length);
+      });
+    } else {
+      setForm((p) => ({
+        ...p,
+        content: { ...p.content, body: (p.content.body || '') + snippet },
+        variables: [...new Set([...(p.variables || []), v])],
+      }));
+    }
   };
 
   const handleSave = async () => {
@@ -529,6 +543,7 @@ function TemplateDrawer({
                       Corpo da Mensagem *
                     </label>
                     <textarea
+                      ref={textareaRef}
                       value={body}
                       onChange={(e) => handleBodyChange(e.target.value)}
                       placeholder="Olá {{visitor_name}}! Sua visita ao Colégio Batista está confirmada para {{appointment_date}} às {{appointment_time}}."

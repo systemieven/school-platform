@@ -209,6 +209,7 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
                 user_name: profile.full_name ?? 'usuário',
                 temp_password: tempPassword,
                 system_url: systemUrl,
+                school_name: 'Colégio Batista em Caruaru',
               })
             : `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSeu acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi criado.\n\n🔑 *Senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
 
