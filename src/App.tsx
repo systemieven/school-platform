@@ -15,8 +15,9 @@ import EmConstrucao from './pages/EmConstrucao';
 import NotFound from './pages/NotFound';
 import { Loader2 } from 'lucide-react';
 
-// Lazy-load admin panel (separate bundle chunk)
-const AdminRoutes = lazy(() => import('./admin/routes'));
+// Lazy-load admin panel and student portal as separate bundle chunks
+const AdminRoutes  = lazy(() => import('./admin/routes'));
+const PortalRoutes = lazy(() => import('./portal/routes'));
 
 function AdminFallback() {
   return (
@@ -43,8 +44,6 @@ export default function App() {
         <Route path="termos-de-uso" element={<TermosUso />} />
         <Route path="sobre" element={<EmConstrucao />} />
         <Route path="estrutura" element={<EmConstrucao />} />
-        <Route path="portal-aluno" element={<EmConstrucao />} />
-        <Route path="biblioteca-virtual" element={<EmConstrucao />} />
         <Route path="area-professor" element={<EmConstrucao />} />
         <Route path="*" element={<NotFound />} />
       </Route>
@@ -55,6 +54,16 @@ export default function App() {
         element={
           <Suspense fallback={<AdminFallback />}>
             <AdminRoutes />
+          </Suspense>
+        }
+      />
+
+      {/* ── Student portal (lazy-loaded) ── */}
+      <Route
+        path="portal/*"
+        element={
+          <Suspense fallback={<AdminFallback />}>
+            <PortalRoutes />
           </Suspense>
         }
       />
