@@ -898,14 +898,12 @@ function ReminderChainSection() {
   }
 
   return (
-    <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-5">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h4 className="text-sm font-semibold text-gray-800 dark:text-white">Lembretes Automáticos</h4>
-          <p className="text-xs text-gray-400 mt-0.5">Cadeia de lembretes enviada antes da visita (requer template com trigger <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">on_reminder</code>).</p>
+    <div className="px-6 pt-2 pb-5">
+      {saving && (
+        <div className="flex justify-end mb-2">
+          <Loader2 className="w-4 h-4 animate-spin text-[#003876]" />
         </div>
-        {saving && <Loader2 className="w-4 h-4 animate-spin text-[#003876]" />}
-      </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
