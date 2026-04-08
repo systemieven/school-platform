@@ -455,7 +455,9 @@ export async function updatePresence(
  */
 export function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('55') && digits.length >= 12) return digits;
+  // Accept as-is only if already carries DDI 55 and has a valid length
+  // (12 = fixed line: 55 + 2 DDD + 8 digits; 13 = mobile: 55 + 2 DDD + 9 digits)
+  if (digits.startsWith('55') && digits.length >= 12 && digits.length <= 13) return digits;
   return `55${digits}`;
 }
 

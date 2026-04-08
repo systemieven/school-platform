@@ -14,8 +14,12 @@ export function useSettings(categories: string | string[]) {
   const [settings, setSettings] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
 
+  // Build a stable primitive key to avoid re-fetching on every render
+  // (JSON.stringify creates a new string reference each call)
+  const catsKey = Array.isArray(categories) ? categories.join(',') : categories;
+
   useEffect(() => {
-    const cats = Array.isArray(categories) ? categories : [categories];
+    const cats = catsKey.split(',');
 
     supabase
       .from('system_settings')
@@ -33,7 +37,7 @@ export function useSettings(categories: string | string[]) {
         setSettings(map);
         setLoading(false);
       });
-  }, [JSON.stringify(categories)]);
+  }, [catsKey]);
 
   return { settings, loading };
 }

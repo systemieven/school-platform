@@ -28,7 +28,9 @@ function render(body: string, vars: Record<string, string>): string {
 
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("55")) return digits;
+  // Accept as-is only if already carries DDI 55 with valid length
+  // (12 = fixed line: 55 + DDD2 + 8 digits; 13 = mobile: 55 + DDD2 + 9 digits)
+  if (digits.startsWith("55") && digits.length >= 12 && digits.length <= 13) return digits;
   return `55${digits}`;
 }
 
@@ -159,11 +161,11 @@ Deno.serve(async (req: Request) => {
       recipientPhone = rec.visitor_phone;
       recipientName = rec.visitor_name;
       const companions = Array.isArray(rec.companions) ? rec.companions : [];
-      vars.visitor_name = rec.visitor_name;
-      vars.visitor_phone = rec.visitor_phone;
-      vars.appointment_date = fmtDate(rec.appointment_date);
-      vars.appointment_time = fmtTime(rec.appointment_time);
-      vars.visit_reason = rec.visit_reason;
+      vars.visitor_name = rec.visitor_name || "Visitante";
+      vars.visitor_phone = rec.visitor_phone || "";
+      vars.appointment_date = fmtDate(rec.appointment_date) || "a confirmar";
+      vars.appointment_time = fmtTime(rec.appointment_time) || "a confirmar";
+      vars.visit_reason = rec.visit_reason || "Não informado";
       vars.companions_count = String(companions.length);
 
     } else if (mod === "matricula") {
@@ -176,9 +178,9 @@ Deno.serve(async (req: Request) => {
 
       recipientPhone = rec.guardian_phone;
       recipientName = rec.guardian_name;
-      vars.guardian_name = rec.guardian_name;
-      vars.student_name = rec.student_name;
-      vars.enrollment_status = rec.status;
+      vars.guardian_name = rec.guardian_name || "Responsável";
+      vars.student_name = rec.student_name || "Aluno";
+      vars.enrollment_status = rec.status || "";
       vars.enrollment_number = rec.enrollment_number || "";
       vars.pending_docs = "";
 
@@ -192,10 +194,10 @@ Deno.serve(async (req: Request) => {
 
       recipientPhone = rec.phone;
       recipientName = rec.name;
-      vars.contact_name = rec.name;
-      vars.contact_phone = rec.phone;
-      vars.contact_reason = rec.contact_reason || "";
-      vars.contact_status = rec.status;
+      vars.contact_name = rec.name || "Contato";
+      vars.contact_phone = rec.phone || "";
+      vars.contact_reason = rec.contact_reason || "Não informado";
+      vars.contact_status = rec.status || "";
     } else {
       return json({ skipped: true, reason: "unknown_module" });
     }
