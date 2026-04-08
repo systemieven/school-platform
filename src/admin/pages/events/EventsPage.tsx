@@ -33,11 +33,6 @@ const ROLES_LIST = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtDate(iso: string) {
-  return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  });
-}
 
 function fmtTime(t: string | null) {
   return t ? t.slice(0, 5) : null;
