@@ -619,99 +619,81 @@ function WhatsAppProvidersPanel() {
 
   return (
     <>
-      <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60">
-        {/* Card header */}
-        <div className="bg-gray-50 dark:bg-gray-900/40 px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">
-              <Wifi className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-              Provedores de API
-            </p>
-            <p className="text-xs text-gray-400 mt-1">Instâncias WhatsApp configuradas para envio de mensagens.</p>
+      <div className="space-y-4">
+        {loading ? (
+          <div className="flex items-center gap-2 text-gray-400 text-sm py-10 justify-center">
+            <Loader2 className="w-4 h-4 animate-spin" /> Carregando provedores…
           </div>
-          <button
-            onClick={handleAddNew}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all flex-shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Cadastrar API
-          </button>
-        </div>
+        ) : providers.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Nenhum provedor cadastrado ainda.</p>
+            <p className="text-xs mt-1 text-gray-300 dark:text-gray-600">Cadastre uma instância WhatsApp para começar a enviar mensagens.</p>
+          </div>
+        ) : (
+          providers.map((p) => {
+            const isDefault = p.is_default;
+            const isSettingThis = settingDefault === p.id;
+            const statusDot = isDefault
+              ? waState === 'connected'    ? 'bg-emerald-400'
+                : waState === 'connecting' ? 'bg-amber-400 animate-pulse'
+                : 'bg-red-400'
+              : 'bg-gray-300 dark:bg-gray-500';
+            const statusLabel = isDefault
+              ? waState === 'connected'    ? `Conectado · +${waPhone}`
+                : waState === 'connecting' ? 'Conectando…'
+                : waState === 'unknown'    ? 'Verificando…'
+                : 'Desconectado'
+              : p.instance_url || 'Sem URL configurada';
 
-        {/* Card body */}
-        <div className="bg-white dark:bg-gray-800/20 px-5 py-5">
-          {loading ? (
-            <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center">
-              <Loader2 className="w-4 h-4 animate-spin" /> Carregando provedores…
-            </div>
-          ) : providers.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">
-              <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Nenhum provedor cadastrado ainda.</p>
-              <p className="text-xs mt-1 text-gray-300 dark:text-gray-600">Cadastre uma API WhatsApp para começar a enviar mensagens.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {providers.map((p) => {
-                const isDefault = p.is_default;
-                const isSettingThis = settingDefault === p.id;
-                return (
-                  <button key={p.id}
+            return (
+              <div key={p.id} className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60">
+                {/* Card header */}
+                <div className="bg-gray-50 dark:bg-gray-900/40 px-5 py-3.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot}`} />
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{p.name}</span>
+                    {isDefault && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide uppercase text-[#003876] dark:text-[#ffd700] bg-[#003876]/10 dark:bg-[#ffd700]/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                        <Star className="w-2.5 h-2.5" /> Padrão
+                      </span>
+                    )}
+                  </div>
+                  <button
                     onClick={() => handleEdit(p)}
-                    className={`w-full rounded-xl border p-4 flex items-center gap-4 transition-all text-left group ${
-                      isDefault
-                        ? 'bg-[#003876]/5 dark:bg-[#003876]/10 border-[#003876]/20 dark:border-[#003876]/30 hover:border-[#003876]/40 dark:hover:border-[#003876]/50'
-                        : 'bg-gray-50 dark:bg-gray-700/30 border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
-                    }`}>
-                    {/* Status dot */}
-                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                      isDefault
-                        ? waState === 'connected'    ? 'bg-emerald-400'
-                          : waState === 'connecting' ? 'bg-amber-400 animate-pulse'
-                          : 'bg-red-400'
-                        : 'bg-gray-300 dark:bg-gray-600'
-                    }`} />
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{p.name}</span>
-                        {isDefault && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide uppercase text-[#003876] dark:text-[#ffd700] bg-[#003876]/10 dark:bg-[#ffd700]/10 px-2 py-0.5 rounded-full">
-                            <Star className="w-2.5 h-2.5" /> Padrão
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">
-                        {isDefault
-                          ? waState === 'connected'    ? `Conectado · +${waPhone}`
-                            : waState === 'connecting' ? 'Conectando…'
-                            : waState === 'unknown'    ? 'Verificando…'
-                            : 'Desconectado'
-                          : p.instance_url || 'Sem URL configurada'}
-                      </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {!isDefault && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleSetDefault(p.id); }}
-                          disabled={isSettingThis}
-                          title="Definir como provedor padrão"
-                          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] disabled:opacity-50 transition-colors">
-                          {isSettingThis ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
-                          Definir padrão
-                        </button>
-                      )}
-                      <Pencil className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] transition-colors flex-shrink-0" />
-                    </div>
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] transition-colors flex-shrink-0"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    Editar
                   </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                </div>
+
+                {/* Card body */}
+                <div className="bg-white dark:bg-gray-800/20 px-5 py-4 flex items-center justify-between gap-4">
+                  <p className="text-xs text-gray-400 truncate">{statusLabel}</p>
+                  {!isDefault && (
+                    <button
+                      onClick={() => handleSetDefault(p.id)}
+                      disabled={isSettingThis}
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] disabled:opacity-50 transition-colors flex-shrink-0"
+                    >
+                      {isSettingThis ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
+                      Definir padrão
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+
+        {/* Add new */}
+        <button
+          onClick={handleAddNew}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border-2 border-dashed border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] transition-colors w-full justify-center"
+        >
+          <Plus className="w-4 h-4" /> Cadastrar nova API
+        </button>
       </div>
 
       {drawerOpen && (
