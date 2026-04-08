@@ -9,7 +9,9 @@ import {
   AlertCircle, RefreshCw, MessageCircle, Plus,
   History, Filter, Square, CheckSquare,
   LayoutList, CalendarDays, ChevronLeft,
+  StickyNote, Send,
 } from 'lucide-react';
+import { SettingsCard } from '../../components/SettingsCard';
 
 // ── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; dot: string }> = {
@@ -171,6 +173,24 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
   );
 }
 
+// ── Internal notes helpers ───────────────────────────────────────────────────
+interface InternalNote {
+  id: string;
+  text: string;
+  author_id: string;
+  author_name: string;
+  created_at: string;
+}
+
+function parseNotes(raw: string | null): InternalNote[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as InternalNote[];
+  } catch { /* legacy plain text — discard */ }
+  return [];
+}
+
 // ── Drawer ───────────────────────────────────────────────────────────────────
 interface DrawerProps {
   apt: VisitAppointment | null;
@@ -182,7 +202,8 @@ interface DrawerProps {
 function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS }: DrawerProps) {
   const { profile } = useAdminAuth();
   const [saving, setSaving] = useState(false);
-  const [notes, setNotes] = useState('');
+  const [internalNotes, setInternalNotes] = useState<InternalNote[]>([]);
+  const [newNote, setNewNote] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
@@ -190,7 +211,8 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
 
   useEffect(() => {
     if (apt) {
-      setNotes(apt.internal_notes || '');
+      setInternalNotes(parseNotes(apt.internal_notes));
+      setNewNote('');
       setCancelReason('');
       setShowCancelForm(false);
       setTab('info');
@@ -211,17 +233,46 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
     setShowCancelForm(false);
   }
 
-  async function saveNotes() {
+  async function addNote() {
+    const text = newNote.trim();
+    if (!text || !profile) return;
+    const note: InternalNote = {
+      id: crypto.randomUUID(),
+      text,
+      author_id: profile.id,
+      author_name: profile.full_name || 'Equipe',
+      created_at: new Date().toISOString(),
+    };
+    const updated = [...internalNotes, note];
     setSaving(true);
-    const { error } = await supabase.from('visit_appointments').update({ internal_notes: notes }).eq('id', apt!.id);
+    const { error } = await supabase
+      .from('visit_appointments')
+      .update({ internal_notes: JSON.stringify(updated) })
+      .eq('id', apt!.id);
     if (!error) {
-      onUpdate(apt!.id, { internal_notes: notes });
+      setInternalNotes(updated);
+      setNewNote('');
+      onUpdate(apt!.id, { internal_notes: JSON.stringify(updated) });
       await supabase.from('appointment_history').insert({
         appointment_id: apt!.id,
         event_type: 'note',
-        description: 'Notas internas atualizadas',
-        created_by: profile?.id || null,
+        description: 'Nota interna adicionada',
+        created_by: profile.id,
       });
+    }
+    setSaving(false);
+  }
+
+  async function deleteNote(id: string) {
+    const updated = internalNotes.filter((n) => n.id !== id);
+    setSaving(true);
+    const { error } = await supabase
+      .from('visit_appointments')
+      .update({ internal_notes: updated.length ? JSON.stringify(updated) : null })
+      .eq('id', apt!.id);
+    if (!error) {
+      setInternalNotes(updated);
+      onUpdate(apt!.id, { internal_notes: updated.length ? JSON.stringify(updated) : null });
     }
     setSaving(false);
   }
@@ -231,20 +282,20 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
       <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-40" onClick={onClose} />
       <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center">
-              <span className="text-sm font-bold text-[#003876] dark:text-[#ffd700]">{apt.visitor_name.charAt(0).toUpperCase()}</span>
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-bold text-white">{apt.visitor_name.charAt(0).toUpperCase()}</span>
             </div>
-            <div>
-              <p className="font-semibold text-gray-900 dark:text-white text-sm">{apt.visitor_name}</p>
+            <div className="min-w-0">
+              <h2 className="font-display font-bold text-base text-white truncate">{apt.visitor_name}</h2>
               <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${s.color}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
                 {s.label}
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors text-white/70 flex-shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -268,85 +319,106 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {tab === 'info' && (
             <>
-              {/* Info grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { icon: CalendarCheck, label: 'Data', value: formatDate(apt.appointment_date) },
-                  { icon: Clock, label: 'Horário', value: formatTime(apt.appointment_time) },
-                  { icon: Phone, label: 'Telefone', value: formatPhone(apt.visitor_phone) },
-                  { icon: MapPin, label: 'Motivo', value: REASON_LABELS[apt.visit_reason] || apt.visit_reason },
-                ].map(({ icon: Icon, label, value }) => (
-                  <div key={label} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Icon className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{label}</span>
+              {/* Dados da visita */}
+              <SettingsCard title="Dados da Visita" icon={CalendarCheck}>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { icon: CalendarCheck, label: 'Data', value: formatDate(apt.appointment_date) },
+                    { icon: Clock, label: 'Horário', value: formatTime(apt.appointment_time) },
+                    { icon: Phone, label: 'Telefone', value: formatPhone(apt.visitor_phone) },
+                    { icon: MapPin, label: 'Motivo', value: REASON_LABELS[apt.visit_reason] || apt.visit_reason },
+                  ].map(({ icon: Icon, label, value }) => (
+                    <div key={label} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Icon className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{label}</span>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{value}</p>
                     </div>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {apt.visitor_email && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-                  <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">E-mail</p>
-                  <p className="text-sm text-gray-800 dark:text-gray-200">{apt.visitor_email}</p>
+                  ))}
                 </div>
-              )}
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">Origem:</span>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${apt.origin === 'internal' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
-                  {apt.origin === 'internal' ? 'Interno' : 'Site'}
-                </span>
-              </div>
+                {apt.visitor_email && (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                    <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">E-mail</p>
+                    <p className="text-sm text-gray-800 dark:text-gray-200">{apt.visitor_email}</p>
+                  </div>
+                )}
 
-              {Array.isArray(apt.companions) && apt.companions.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Acompanhantes</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">Origem:</span>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${apt.origin === 'internal' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
+                    {apt.origin === 'internal' ? 'Interno' : 'Site'}
+                  </span>
+                </div>
+
+                {Array.isArray(apt.companions) && apt.companions.length > 0 && (
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-gray-400" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">{apt.companions.length} acompanhante(s)</span>
                   </div>
-                </div>
-              )}
+                )}
+              </SettingsCard>
 
               {apt.notes && (
-                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
-                  <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">Observação do visitante</p>
+                <SettingsCard title="Observação do Visitante" icon={AlertCircle}>
                   <p className="text-sm text-gray-700 dark:text-gray-300">{apt.notes}</p>
-                </div>
+                </SettingsCard>
               )}
 
               {apt.status === 'cancelled' && apt.cancel_reason && (
-                <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-3">
-                  <p className="text-[11px] font-medium text-red-500 uppercase tracking-wide mb-1">Motivo do cancelamento</p>
+                <SettingsCard title="Motivo do Cancelamento" icon={Ban}>
                   <p className="text-sm text-gray-700 dark:text-gray-300">{apt.cancel_reason}</p>
-                </div>
+                </SettingsCard>
               )}
 
               {/* Internal notes */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Notas internas</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  placeholder="Notas visíveis apenas para a equipe..."
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none resize-none"
-                />
-                <div className="flex justify-end mt-2">
+              <SettingsCard title="Notas Internas" icon={StickyNote}>
+                {internalNotes.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {internalNotes.map((note) => (
+                      <span
+                        key={note.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 text-xs rounded-full max-w-full"
+                        title={`${note.author_name} · ${new Date(note.created_at).toLocaleDateString('pt-BR')}`}
+                      >
+                        <span className="truncate max-w-[200px]">{note.text}</span>
+                        {note.author_id === profile?.id && (
+                          <button
+                            onClick={() => deleteNote(note.id)}
+                            disabled={saving}
+                            className="flex-shrink-0 text-amber-400 hover:text-red-500 transition-colors disabled:opacity-40"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {internalNotes.length === 0 && (
+                  <p className="text-xs text-gray-400 italic">Nenhuma nota ainda. Adicione abaixo.</p>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <input
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNote(); } }}
+                    placeholder="Nova nota..."
+                    className="flex-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none"
+                  />
                   <button
-                    onClick={saveNotes}
-                    disabled={saving || notes === (apt.internal_notes || '')}
-                    className="text-xs px-3 py-1.5 bg-[#003876] text-white rounded-lg disabled:opacity-40 hover:bg-[#002855] transition-colors"
+                    onClick={addNote}
+                    disabled={!newNote.trim() || saving}
+                    className="px-3 py-2 bg-[#003876] hover:bg-[#002855] text-white rounded-xl transition-colors disabled:opacity-40 flex items-center gap-1.5 text-xs font-medium flex-shrink-0"
                   >
-                    {saving ? 'Salvando...' : 'Salvar notas'}
+                    <Send className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </div>
+              </SettingsCard>
 
               {showCancelForm && (
                 <div className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10 rounded-xl p-4 space-y-3">

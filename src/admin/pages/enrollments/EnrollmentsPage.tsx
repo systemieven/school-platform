@@ -807,8 +807,40 @@ interface CreateModalProps {
   onCreated: () => void;
 }
 
+// ── Mask helpers ─────────────────────────────────────────────────────────────
+function maskCPF(v: string) {
+  return v.replace(/\D/g, '').slice(0, 11)
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
+
+function maskPhone(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 10) return d.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+  return d.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+}
+
+function isValidCPF(cpf: string) {
+  const d = cpf.replace(/\D/g, '');
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += +d[i] * (10 - i);
+  let r = (sum * 10) % 11; if (r >= 10) r = 0;
+  if (r !== +d[9]) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += +d[i] * (11 - i);
+  r = (sum * 10) % 11; if (r >= 10) r = 0;
+  return r === +d[10];
+}
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     origin: 'in_person' as string,
     segment: '',
@@ -842,11 +874,79 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
 
   const set = (key: string, value: unknown) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const fieldClass = 'w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none';
+  const fieldClass = (err?: string) =>
+    `w-full px-3 py-2 text-sm rounded-xl border ${err ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20' : 'border-gray-200 dark:border-gray-700 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-[#003876]/20'} bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:ring-2 outline-none`;
   const labelClass = 'block text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1';
+
+  const setCPF = (key: string, raw: string) => {
+    const masked = maskCPF(raw);
+    set(key, masked);
+    const digits = masked.replace(/\D/g, '');
+    if (digits.length === 11) {
+      setErrors((p) => ({ ...p, [key]: isValidCPF(masked) ? '' : 'CPF inválido' }));
+    } else {
+      setErrors((p) => ({ ...p, [key]: '' }));
+    }
+  };
+
+  const setPhone = (key: string, raw: string) => {
+    set(key, maskPhone(raw));
+    setErrors((p) => ({ ...p, [key]: '' }));
+  };
+
+  const setEmail = (key: string, val: string) => {
+    set(key, val);
+    setErrors((p) => ({ ...p, [key]: val && !isValidEmail(val) ? 'E-mail inválido' : '' }));
+  };
+
+  // ── Field helpers ──
+  const cpfField = (key: string, label: string) => (
+    <div>
+      <label className={labelClass}>{label}</label>
+      <input
+        value={(form as Record<string, string>)[key]}
+        onChange={(e) => setCPF(key, e.target.value)}
+        placeholder="000.000.000-00"
+        className={fieldClass(errors[key])}
+        inputMode="numeric"
+      />
+      {errors[key] && <p className="text-[10px] text-red-500 mt-0.5">{errors[key]}</p>}
+    </div>
+  );
+
+  const phoneField = (key: string, label: string, required = false) => (
+    <div>
+      <label className={labelClass}>{label}{required && ' *'}</label>
+      <input
+        value={(form as Record<string, string>)[key]}
+        onChange={(e) => setPhone(key, e.target.value)}
+        placeholder="(00) 00000-0000"
+        className={fieldClass(errors[key])}
+        inputMode="numeric"
+        required={required}
+      />
+    </div>
+  );
+
+  const emailField = (key: string, label: string) => (
+    <div>
+      <label className={labelClass}>{label}</label>
+      <input
+        type="email"
+        value={(form as Record<string, string>)[key]}
+        onChange={(e) => setEmail(key, e.target.value)}
+        placeholder="email@exemplo.com"
+        className={fieldClass(errors[key])}
+      />
+      {errors[key] && <p className="text-[10px] text-red-500 mt-0.5">{errors[key]}</p>}
+    </div>
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Block if there are active validation errors
+    const hasErrors = Object.values(errors).some(Boolean);
+    if (hasErrors) return;
     if (!form.guardian_name || !form.guardian_phone || !form.student_name || !form.student_birth_date) return;
 
     setSaving(true);
@@ -892,7 +992,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Origem</label>
-                <select value={form.origin} onChange={(e) => set('origin', e.target.value)} className={fieldClass}>
+                <select value={form.origin} onChange={(e) => set('origin', e.target.value)} className={fieldClass()}>
                   <option value="in_person">Presencial</option>
                   <option value="phone">Telefone</option>
                   <option value="referral">Indicação</option>
@@ -901,7 +1001,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
               </div>
               <div>
                 <label className={labelClass}>Segmento</label>
-                <select value={form.segment} onChange={(e) => set('segment', e.target.value)} className={fieldClass}>
+                <select value={form.segment} onChange={(e) => set('segment', e.target.value)} className={fieldClass()}>
                   <option value="">Selecione...</option>
                   {SEGMENT_OPTIONS.map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
@@ -913,46 +1013,45 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
 
           {/* ── Responsável ── */}
           <SettingsCard title="Responsável">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
+            <div className="space-y-3">
+              <div>
                 <label className={labelClass}>Nome *</label>
-                <input value={form.guardian_name} onChange={(e) => set('guardian_name', e.target.value)} className={fieldClass} required />
+                <input value={form.guardian_name} onChange={(e) => set('guardian_name', e.target.value)} className={fieldClass()} required />
               </div>
-              <div>
-                <label className={labelClass}>CPF</label>
-                <input value={form.guardian_cpf} onChange={(e) => set('guardian_cpf', e.target.value)} className={fieldClass} />
+              {emailField('guardian_email', 'E-mail')}
+              <div className="grid grid-cols-2 gap-3">
+                {cpfField('guardian_cpf', 'CPF')}
+                {phoneField('guardian_phone', 'Telefone', true)}
               </div>
-              <div>
-                <label className={labelClass}>Telefone *</label>
-                <input value={form.guardian_phone} onChange={(e) => set('guardian_phone', e.target.value)} className={fieldClass} required />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>CEP</label>
+                  <input value={form.guardian_zip_code} onChange={(e) => set('guardian_zip_code', e.target.value)} className={fieldClass()} />
+                </div>
+                <div>
+                  <label className={labelClass}>Estado</label>
+                  <input value={form.guardian_state} onChange={(e) => set('guardian_state', e.target.value)} className={fieldClass()} maxLength={2} />
+                </div>
               </div>
-              <div className="col-span-2">
-                <label className={labelClass}>E-mail</label>
-                <input value={form.guardian_email} onChange={(e) => set('guardian_email', e.target.value)} className={fieldClass} type="email" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Rua</label>
+                  <input value={form.guardian_street} onChange={(e) => set('guardian_street', e.target.value)} className={fieldClass()} />
+                </div>
+                <div>
+                  <label className={labelClass}>Número</label>
+                  <input value={form.guardian_number} onChange={(e) => set('guardian_number', e.target.value)} className={fieldClass()} />
+                </div>
               </div>
-              <div>
-                <label className={labelClass}>CEP</label>
-                <input value={form.guardian_zip_code} onChange={(e) => set('guardian_zip_code', e.target.value)} className={fieldClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Rua</label>
-                <input value={form.guardian_street} onChange={(e) => set('guardian_street', e.target.value)} className={fieldClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Número</label>
-                <input value={form.guardian_number} onChange={(e) => set('guardian_number', e.target.value)} className={fieldClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Bairro</label>
-                <input value={form.guardian_neighborhood} onChange={(e) => set('guardian_neighborhood', e.target.value)} className={fieldClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Cidade</label>
-                <input value={form.guardian_city} onChange={(e) => set('guardian_city', e.target.value)} className={fieldClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Estado</label>
-                <input value={form.guardian_state} onChange={(e) => set('guardian_state', e.target.value)} className={fieldClass} maxLength={2} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Bairro</label>
+                  <input value={form.guardian_neighborhood} onChange={(e) => set('guardian_neighborhood', e.target.value)} className={fieldClass()} />
+                </div>
+                <div>
+                  <label className={labelClass}>Cidade</label>
+                  <input value={form.guardian_city} onChange={(e) => set('guardian_city', e.target.value)} className={fieldClass()} />
+                </div>
               </div>
             </div>
           </SettingsCard>
@@ -962,16 +1061,13 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className={labelClass}>Nome *</label>
-                <input value={form.student_name} onChange={(e) => set('student_name', e.target.value)} className={fieldClass} required />
+                <input value={form.student_name} onChange={(e) => set('student_name', e.target.value)} className={fieldClass()} required />
               </div>
               <div>
                 <label className={labelClass}>Data de Nascimento *</label>
-                <input type="date" value={form.student_birth_date} onChange={(e) => set('student_birth_date', e.target.value)} className={fieldClass} required />
+                <input type="date" value={form.student_birth_date} onChange={(e) => set('student_birth_date', e.target.value)} className={fieldClass()} required />
               </div>
-              <div>
-                <label className={labelClass}>CPF</label>
-                <input value={form.student_cpf} onChange={(e) => set('student_cpf', e.target.value)} className={fieldClass} />
-              </div>
+              {cpfField('student_cpf', 'CPF')}
               <div className="col-span-2">
                 <Toggle
                   checked={form.first_school as boolean}
@@ -983,51 +1079,43 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
                 <>
                   <div>
                     <label className={labelClass}>Última série</label>
-                    <input value={form.last_grade} onChange={(e) => set('last_grade', e.target.value)} className={fieldClass} />
+                    <input value={form.last_grade} onChange={(e) => set('last_grade', e.target.value)} className={fieldClass()} />
                   </div>
                   <div>
                     <label className={labelClass}>Escola anterior</label>
-                    <input value={form.previous_school_name} onChange={(e) => set('previous_school_name', e.target.value)} className={fieldClass} />
+                    <input value={form.previous_school_name} onChange={(e) => set('previous_school_name', e.target.value)} className={fieldClass()} />
                   </div>
                 </>
               )}
             </div>
           </SettingsCard>
 
-          {/* ── Pais ── */}
-          <SettingsCard title="Pais">
-            <div className="grid grid-cols-2 gap-3">
+          {/* ── Pai ── */}
+          <SettingsCard title="Pai">
+            <div className="space-y-3">
               <div>
-                <label className={labelClass}>Nome do Pai</label>
-                <input value={form.father_name} onChange={(e) => set('father_name', e.target.value)} className={fieldClass} />
+                <label className={labelClass}>Nome</label>
+                <input value={form.father_name} onChange={(e) => set('father_name', e.target.value)} className={fieldClass()} />
               </div>
-              <div>
-                <label className={labelClass}>CPF do Pai</label>
-                <input value={form.father_cpf} onChange={(e) => set('father_cpf', e.target.value)} className={fieldClass} />
+              {emailField('father_email', 'E-mail')}
+              <div className="grid grid-cols-2 gap-3">
+                {cpfField('father_cpf', 'CPF')}
+                {phoneField('father_phone', 'Telefone')}
               </div>
+            </div>
+          </SettingsCard>
+
+          {/* ── Mãe ── */}
+          <SettingsCard title="Mãe">
+            <div className="space-y-3">
               <div>
-                <label className={labelClass}>Tel. do Pai</label>
-                <input value={form.father_phone} onChange={(e) => set('father_phone', e.target.value)} className={fieldClass} />
+                <label className={labelClass}>Nome</label>
+                <input value={form.mother_name} onChange={(e) => set('mother_name', e.target.value)} className={fieldClass()} />
               </div>
-              <div>
-                <label className={labelClass}>E-mail do Pai</label>
-                <input value={form.father_email} onChange={(e) => set('father_email', e.target.value)} className={fieldClass} type="email" />
-              </div>
-              <div>
-                <label className={labelClass}>Nome da Mãe</label>
-                <input value={form.mother_name} onChange={(e) => set('mother_name', e.target.value)} className={fieldClass} />
-              </div>
-              <div>
-                <label className={labelClass}>CPF da Mãe</label>
-                <input value={form.mother_cpf} onChange={(e) => set('mother_cpf', e.target.value)} className={fieldClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Tel. da Mãe</label>
-                <input value={form.mother_phone} onChange={(e) => set('mother_phone', e.target.value)} className={fieldClass} />
-              </div>
-              <div>
-                <label className={labelClass}>E-mail da Mãe</label>
-                <input value={form.mother_email} onChange={(e) => set('mother_email', e.target.value)} className={fieldClass} type="email" />
+              {emailField('mother_email', 'E-mail')}
+              <div className="grid grid-cols-2 gap-3">
+                {cpfField('mother_cpf', 'CPF')}
+                {phoneField('mother_phone', 'Telefone')}
               </div>
             </div>
           </SettingsCard>
@@ -1039,7 +1127,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
               onChange={(e) => set('internal_notes', e.target.value)}
               rows={3}
               placeholder="Notas internas..."
-              className={fieldClass + ' resize-none'}
+              className={fieldClass() + ' resize-none'}
             />
           </SettingsCard>
         </form>
