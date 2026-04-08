@@ -7,7 +7,7 @@
  * - Outputs a 640×640 JPEG base64 string (as required by the WhatsApp API /profile/image endpoint)
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, ZoomIn, ZoomOut, Check } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, Check, Crop } from 'lucide-react';
 
 interface Props {
   src: string;           // data-URL of the selected image
@@ -203,7 +203,8 @@ export default function ImageCropModal({ src, onSave, onClose }: Props) {
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h3 className="font-display text-base font-bold text-gray-800 dark:text-white">
+          <h3 className="font-display text-base font-bold text-gray-800 dark:text-white flex items-center gap-2">
+            <Crop className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
             Ajustar foto de perfil
           </h3>
           <button onClick={onClose}

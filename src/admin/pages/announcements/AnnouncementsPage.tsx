@@ -506,7 +506,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
       <div className="w-full max-w-lg bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-[#003876] to-[#002255] text-white">
-          <h2 className="font-semibold text-sm">{announcement ? 'Editar Comunicado' : 'Novo Comunicado'}</h2>
+          <h2 className="font-semibold text-sm flex items-center gap-2"><Megaphone className="w-4 h-4" />{announcement ? 'Editar Comunicado' : 'Novo Comunicado'}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20"><X className="w-4 h-4" /></button>
         </div>
 

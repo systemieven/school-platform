@@ -231,7 +231,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-bold text-[#003876] dark:text-[#ffd700]">{contact.name.charAt(0).toUpperCase()}</span>
+              <Phone className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{contact.name}</p>

@@ -374,7 +374,8 @@ function TemplateDrawer({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
           <div>
-            <h2 className="font-display font-bold text-lg text-white">
+            <h2 className="font-display font-bold text-lg text-white flex items-center gap-2">
+              <FileText className="w-5 h-5" />
               {isEdit ? 'Editar Template' : 'Novo Template'}
             </h2>
             <p className="text-xs text-white/60 mt-0.5">

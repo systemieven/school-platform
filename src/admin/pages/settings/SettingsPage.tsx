@@ -1773,7 +1773,8 @@ function AppointmentsSettingsPanel() {
             <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40" onClick={closeDrawer} />
             <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
               <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
-                <h3 className="text-sm font-semibold text-white">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4" />
                   {drawerIsNew ? 'Novo motivo' : 'Editar motivo'}
                 </h3>
                 <div className="flex items-center gap-1">
@@ -2515,7 +2516,8 @@ function ContactSettingsPanel() {
             <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40" onClick={closeDrawer} />
             <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
               <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
-                <h3 className="text-sm font-semibold text-white">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4" />
                   {drawerIsNew ? 'Novo motivo' : 'Editar motivo'}
                 </h3>
                 <div className="flex items-center gap-1">

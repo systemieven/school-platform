@@ -455,9 +455,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-bold text-[#003876] dark:text-[#ffd700]">
-                {enr.student_name.charAt(0).toUpperCase()}
-              </span>
+              <GraduationCap className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" />
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{enr.student_name}</p>

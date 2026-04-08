@@ -5,7 +5,7 @@ import { ROLE_LABELS, ROLES } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
   Users, Search, Plus, Loader2, ShieldCheck, UserCheck,
-  X, ChevronDown, Pencil, Copy, Check, MessageCircle, KeyRound, Trash2, AlertTriangle,
+  X, ChevronDown, Pencil, Copy, Check, MessageCircle, KeyRound, Trash2, AlertTriangle, UserPlus,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
@@ -265,7 +265,10 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
       <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
-          <h2 className="font-semibold text-sm">Novo Usuário</h2>
+          <div className="flex items-center gap-2">
+              <UserPlus className="w-4 h-4" />
+              <h2 className="font-semibold text-sm">Novo Usuário</h2>
+            </div>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-white/20 transition-colors">
             <X className="w-4 h-4" />
           </button>
@@ -497,9 +500,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center">
-              <span className="text-sm font-bold text-[#003876] dark:text-[#ffd700]">
-                {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
-              </span>
+              <Pencil className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
             </div>
             <div>
               <p className="font-semibold text-gray-900 dark:text-white text-sm">{user.full_name || '—'}</p>

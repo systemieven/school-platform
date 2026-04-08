@@ -209,7 +209,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-[#003876] dark:bg-gray-800">
-          <h2 className="font-semibold text-white">{resource ? 'Editar Recurso' : 'Novo Recurso'}</h2>
+          <h2 className="font-semibold text-white flex items-center gap-2"><BookOpen className="w-4 h-4" />{resource ? 'Editar Recurso' : 'Novo Recurso'}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20 text-white"><X className="w-4 h-4" /></button>
         </div>
 

@@ -327,7 +327,7 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-bold text-white">{apt.visitor_name.charAt(0).toUpperCase()}</span>
+              <CalendarCheck className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0">
               <h2 className="font-display font-bold text-base text-white truncate">{apt.visitor_name}</h2>

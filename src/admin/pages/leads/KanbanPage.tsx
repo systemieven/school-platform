@@ -310,7 +310,7 @@ function NewLeadModal({ stages, onClose, onCreated }: {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h3 className="font-display font-bold text-gray-900 dark:text-white">Novo Lead</h3>
+            <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />Novo Lead</h3>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl">
               <X className="w-5 h-5 text-gray-400" />
             </button>
@@ -494,7 +494,7 @@ function LeadDetailModal({ lead, stages, onClose, onUpdated }: {
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
             <div>
-              <h3 className="font-display font-bold text-gray-900 dark:text-white">{lead.name}</h3>
+              <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />{lead.name}</h3>
               <div className="flex items-center gap-2 mt-1">
                 <div className={`flex items-center gap-1 text-[10px] font-medium ${p.color}`}>
                   <div className={`w-1.5 h-1.5 rounded-full ${p.dot}`} /> {p.label}

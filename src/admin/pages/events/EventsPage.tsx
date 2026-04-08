@@ -121,7 +121,7 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
       <div className="relative z-10 w-full max-w-lg h-full bg-white dark:bg-gray-800 shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-[#003876] to-[#002255] text-white">
-          <h2 className="font-semibold text-sm">{event ? 'Editar Evento' : 'Novo Evento'}</h2>
+          <h2 className="font-semibold text-sm flex items-center gap-2"><CalendarDays className="w-4 h-4" />{event ? 'Editar Evento' : 'Novo Evento'}</h2>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-white/20 transition-colors">
             <X className="w-4 h-4" />
           </button>
