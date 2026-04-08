@@ -1789,16 +1789,21 @@ const DEFAULT_ENROLLMENT: EnrollmentSettings = {
   require_documents: true,
 };
 
-const SEGMENT_OPTIONS = [
-  'Educação Infantil',
-  'Ensino Fundamental I',
-  'Ensino Fundamental II',
-  'Ensino Médio',
+const SEGMENT_OPTIONS: { label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+  { label: 'Educação Infantil',     Icon: Baby          },
+  { label: 'Ensino Fundamental I',  Icon: BookOpen      },
+  { label: 'Ensino Fundamental II', Icon: BookMarked    },
+  { label: 'Ensino Médio',          Icon: GraduationCap },
 ];
 
-const DOC_SUGGESTIONS = [
-  'RG', 'CPF', 'Certidão de Nascimento', 'Comprovante de Residência',
-  'Histórico Escolar', 'Carteira de Vacinação', 'Foto 3x4',
+const DOC_SUGGESTIONS: { label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+  { label: 'RG',                      Icon: User        },
+  { label: 'CPF',                     Icon: FileText    },
+  { label: 'Certidão de Nascimento',  Icon: Baby        },
+  { label: 'Comprovante de Residência', Icon: Home      },
+  { label: 'Histórico Escolar',       Icon: BookOpen    },
+  { label: 'Carteira de Vacinação',   Icon: Heart       },
+  { label: 'Foto 3x4',               Icon: UserCheck   },
 ];
 
 function EnrollmentSettingsPanel() {
@@ -1865,12 +1870,12 @@ function EnrollmentSettingsPanel() {
     setTimeout(() => setSaved(false), 2500);
   }
 
-  function toggleSegment(seg: string) {
+  function toggleSegment(label: string) {
     setData((prev) => ({
       ...prev,
-      segments_available: prev.segments_available.includes(seg)
-        ? prev.segments_available.filter((s) => s !== seg)
-        : [...prev.segments_available, seg],
+      segments_available: prev.segments_available.includes(label)
+        ? prev.segments_available.filter((s) => s !== label)
+        : [...prev.segments_available, label],
     }));
   }
 
@@ -1918,14 +1923,20 @@ function EnrollmentSettingsPanel() {
           <GraduationCap className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
           Segmentos Disponíveis
         </p>
-        <div className="flex flex-col gap-2">
-          {SEGMENT_OPTIONS.map((seg) => {
+        <div className="flex flex-wrap gap-2">
+          {SEGMENT_OPTIONS.map(({ label: seg, Icon: SegIcon }) => {
             const selected = data.segments_available.includes(seg);
             return (
-              <button key={seg} onClick={() => toggleSegment(seg)} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium transition-all text-left ${selected ? 'bg-[#003876]/5 dark:bg-[#003876]/10 border-[#003876]/30 text-[#003876] dark:text-[#ffd700]' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'}`}>
-                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${selected ? 'bg-[#003876] border-[#003876]' : 'border-gray-300 dark:border-gray-500'}`}>
-                  {selected && <Check className="w-3 h-3 text-white" />}
-                </div>
+              <button
+                key={seg}
+                onClick={() => toggleSegment(seg)}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                  selected
+                    ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                }`}
+              >
+                <SegIcon className="w-4 h-4 flex-shrink-0" />
                 {seg}
               </button>
             );
@@ -1939,26 +1950,36 @@ function EnrollmentSettingsPanel() {
           <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
           Documentos Obrigatórios
         </p>
-        {data.required_docs_list.length > 0 && (
+        {/* Sugestões rápidas como chips com ícone */}
+        <div className="flex flex-wrap gap-2">
+          {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
+            const added = data.required_docs_list.includes(s);
+            return (
+              <button
+                key={s}
+                onClick={() => added ? removeDoc(s) : addDoc(s)}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                  added
+                    ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                }`}
+              >
+                <DocIcon className="w-4 h-4 flex-shrink-0" />
+                {s}
+              </button>
+            );
+          })}
+        </div>
+        {/* Documentos customizados (fora das sugestões) */}
+        {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {data.required_docs_list.map((doc) => (
-              <span key={doc} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#003876]/10 dark:bg-[#003876]/20 text-[#003876] dark:text-[#ffd700] border border-[#003876]/20 rounded-full text-sm font-medium">
+            {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).map((doc) => (
+              <span key={doc} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border bg-[#003876] border-[#003876] text-white text-sm font-medium shadow-sm shadow-[#003876]/20">
+                <FileText className="w-4 h-4 flex-shrink-0" />
                 {doc}
-                <button onClick={() => removeDoc(doc)} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
+                <button onClick={() => removeDoc(doc)} className="opacity-70 hover:opacity-100 transition-opacity"><X className="w-3.5 h-3.5" /></button>
               </span>
             ))}
-          </div>
-        )}
-        {DOC_SUGGESTIONS.filter((s) => !data.required_docs_list.includes(s)).length > 0 && (
-          <div>
-            <p className="text-xs text-gray-400 mb-2">Sugestões rápidas:</p>
-            <div className="flex flex-wrap gap-1.5">
-              {DOC_SUGGESTIONS.filter((s) => !data.required_docs_list.includes(s)).map((s) => (
-                <button key={s} onClick={() => addDoc(s)} className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/50 hover:text-[#003876] dark:hover:text-[#ffd700] transition-colors">
-                  + {s}
-                </button>
-              ))}
-            </div>
           </div>
         )}
         <div className="flex gap-2">
