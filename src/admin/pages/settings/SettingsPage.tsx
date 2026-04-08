@@ -1952,34 +1952,34 @@ function EnrollmentSettingsPanel() {
           <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
           Documentos Obrigatórios
         </p>
-        {/* Grid unificado: sugestões + documentos customizados */}
-        <div className="grid grid-cols-2 gap-1.5">
+        {/* Sugestões como botões flex-wrap */}
+        <div className="flex flex-wrap gap-2">
           {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
             const added = data.required_docs_list.includes(s);
             return (
               <button
                 key={s}
                 onClick={() => added ? removeDoc(s) : addDoc(s)}
-                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all text-left ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
                   added
                     ? 'bg-[#003876] border-[#003876] text-white'
                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
                 }`}
               >
                 <DocIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="truncate flex-1">{s}</span>
-                {added && <Check className="w-3 h-3 flex-shrink-0 opacity-80" strokeWidth={3} />}
+                {s}
+                {added && <Check className="w-3 h-3 flex-shrink-0 opacity-80 ml-0.5" strokeWidth={3} />}
               </button>
             );
           })}
           {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).map((doc) => (
-            <div key={doc} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-[#003876] border-[#003876] text-white text-xs font-medium">
+            <span key={doc} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-[#003876] border-[#003876] text-white text-xs font-medium">
               <FileText className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate flex-1">{doc}</span>
-              <button onClick={() => removeDoc(doc)} className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity ml-auto">
+              {doc}
+              <button onClick={() => removeDoc(doc)} className="opacity-70 hover:opacity-100 transition-opacity ml-0.5">
                 <X className="w-3 h-3" />
               </button>
-            </div>
+            </span>
           ))}
         </div>
         <div className="flex gap-2">
