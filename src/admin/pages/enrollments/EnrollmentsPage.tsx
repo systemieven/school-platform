@@ -10,6 +10,8 @@ import {
   History, ClipboardCheck, CalendarPlus, Edit3, Save,
   Check, XCircle, Filter,
 } from 'lucide-react';
+import { SettingsCard } from '../../components/SettingsCard';
+import { Toggle } from '../../components/Toggle';
 
 // ── Pipeline config ──────────────────────────────────────────────────────────
 const PIPELINE: { key: EnrollmentStatus; label: string; color: string; dot: string }[] = [
@@ -873,44 +875,44 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
   return (
     <>
       <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl md:max-h-[85vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden">
+      <aside className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
-          <h2 className="font-display font-bold text-lg text-[#003876] dark:text-white flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Nova Pré-Matrícula
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+          <h2 className="font-semibold text-sm flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Nova Pré-Matrícula
           </h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-white/20 transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Origin + Segment */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Origem</label>
-              <select value={form.origin} onChange={(e) => set('origin', e.target.value)} className={fieldClass}>
-                <option value="in_person">Presencial</option>
-                <option value="phone">Telefone</option>
-                <option value="referral">Indicação</option>
-                <option value="website">Site</option>
-              </select>
+        <form id="enrollment-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* ── Origem ── */}
+          <SettingsCard title="Origem" description="Canal de entrada da pré-matrícula">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Origem</label>
+                <select value={form.origin} onChange={(e) => set('origin', e.target.value)} className={fieldClass}>
+                  <option value="in_person">Presencial</option>
+                  <option value="phone">Telefone</option>
+                  <option value="referral">Indicação</option>
+                  <option value="website">Site</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Segmento</label>
+                <select value={form.segment} onChange={(e) => set('segment', e.target.value)} className={fieldClass}>
+                  <option value="">Selecione...</option>
+                  {SEGMENT_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className={labelClass}>Segmento</label>
-              <select value={form.segment} onChange={(e) => set('segment', e.target.value)} className={fieldClass}>
-                <option value="">Selecione...</option>
-                {SEGMENT_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          </SettingsCard>
 
-          {/* Guardian */}
-          <fieldset className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
-            <legend className="text-xs font-semibold text-[#003876] dark:text-[#ffd700] px-2">Responsável</legend>
+          {/* ── Responsável ── */}
+          <SettingsCard title="Responsável">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className={labelClass}>Nome *</label>
@@ -953,11 +955,10 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
                 <input value={form.guardian_state} onChange={(e) => set('guardian_state', e.target.value)} className={fieldClass} maxLength={2} />
               </div>
             </div>
-          </fieldset>
+          </SettingsCard>
 
-          {/* Student */}
-          <fieldset className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
-            <legend className="text-xs font-semibold text-[#003876] dark:text-[#ffd700] px-2">Aluno</legend>
+          {/* ── Aluno ── */}
+          <SettingsCard title="Aluno">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className={labelClass}>Nome *</label>
@@ -971,11 +972,12 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
                 <label className={labelClass}>CPF</label>
                 <input value={form.student_cpf} onChange={(e) => set('student_cpf', e.target.value)} className={fieldClass} />
               </div>
-              <div className="col-span-2 flex items-center gap-3">
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                  <input type="checkbox" checked={form.first_school} onChange={(e) => set('first_school', e.target.checked)} className="rounded border-gray-300 text-[#003876]" />
-                  Primeira escola
-                </label>
+              <div className="col-span-2">
+                <Toggle
+                  checked={form.first_school as boolean}
+                  onChange={(v) => set('first_school', v)}
+                  label="Primeira escola"
+                />
               </div>
               {!form.first_school && (
                 <>
@@ -990,11 +992,10 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
                 </>
               )}
             </div>
-          </fieldset>
+          </SettingsCard>
 
-          {/* Parents */}
-          <fieldset className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
-            <legend className="text-xs font-semibold text-[#003876] dark:text-[#ffd700] px-2">Pais</legend>
+          {/* ── Pais ── */}
+          <SettingsCard title="Pais">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Nome do Pai</label>
@@ -1029,30 +1030,36 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
                 <input value={form.mother_email} onChange={(e) => set('mother_email', e.target.value)} className={fieldClass} type="email" />
               </div>
             </div>
-          </fieldset>
+          </SettingsCard>
 
-          {/* Notes */}
-          <div>
-            <label className={labelClass}>Notas internas</label>
+          {/* ── Observações ── */}
+          <SettingsCard title="Observações">
             <textarea
               value={form.internal_notes}
               onChange={(e) => set('internal_notes', e.target.value)}
-              rows={2}
-              placeholder="Observações..."
+              rows={3}
+              placeholder="Notas internas..."
               className={fieldClass + ' resize-none'}
             />
-          </div>
+          </SettingsCard>
+        </form>
 
+        {/* Footer */}
+        <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3 flex-shrink-0">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Cancelar
+          </button>
           <button
             type="submit"
+            form="enrollment-form"
             disabled={saving}
-            className="w-full py-3 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             {saving ? 'Criando...' : 'Criar Pré-Matrícula'}
           </button>
-        </form>
-      </div>
+        </div>
+      </aside>
     </>
   );
 }

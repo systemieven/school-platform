@@ -13,6 +13,8 @@ import {
   BookMarked, FileText, Video, Link2, File, ExternalLink, EyeOff, Search,
   Upload, Youtube, Globe, Users, BookOpen, User, Play,
 } from 'lucide-react';
+import { SettingsCard } from '../../components/SettingsCard';
+import { Toggle } from '../../components/Toggle';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -211,154 +213,145 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20 text-white"><X className="w-4 h-4" /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>}
 
-          {/* Resource type */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Tipo de recurso</label>
-            <div className="flex flex-wrap gap-2">
-              {TYPES.map((t) => {
-                const Icon = TYPE_ICON[t];
-                return (
-                  <button key={t} type="button" onClick={() => setType(t)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      form.resource_type === t
-                        ? 'border-[#003876] bg-[#003876] text-white dark:border-[#ffd700] dark:bg-[#ffd700] dark:text-gray-900'
-                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'
-                    }`}>
-                    <Icon className="w-3.5 h-3.5" /> {RESOURCE_TYPE_LABELS[t]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Subtype (when multiple options exist) */}
-          {SUBTYPES[form.resource_type]?.length > 1 && (
+          {/* ── Recurso ── */}
+          <SettingsCard title="Recurso" icon={File}>
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Formato</label>
-              <div className="flex gap-2">
-                {SUBTYPES[form.resource_type].map(({ value, label, icon: Icon }) => (
-                  <button key={value} type="button"
-                    onClick={() => { setForm((p) => ({ ...p, resource_subtype: value })); setFile(null); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      form.resource_subtype === value
-                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
-                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
-                    }`}>
-                    <Icon className="w-3.5 h-3.5" /> {label}
-                  </button>
-                ))}
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Tipo de recurso</label>
+              <div className="flex flex-wrap gap-2">
+                {TYPES.map((t) => {
+                  const Icon = TYPE_ICON[t];
+                  return (
+                    <button key={t} type="button" onClick={() => setType(t)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        form.resource_type === t
+                          ? 'border-[#003876] bg-[#003876] text-white dark:border-[#ffd700] dark:bg-[#ffd700] dark:text-gray-900'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'
+                      }`}>
+                      <Icon className="w-3.5 h-3.5" /> {RESOURCE_TYPE_LABELS[t]}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
 
-          {/* URL field */}
-          {!needsUpload(form.resource_subtype) && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-                {form.resource_subtype === 'youtube' ? 'URL do YouTube' : 'URL / Link'}
-              </label>
-              <input value={form.external_url}
-                onChange={(e) => setForm((p) => ({ ...p, external_url: e.target.value }))}
-                placeholder={form.resource_subtype === 'youtube' ? 'https://youtube.com/watch?v=...' : 'https://...'}
-                className={inp} />
-              {/* YouTube inline preview */}
-              {youtubeId && (
-                <div className="mt-2 relative rounded-lg overflow-hidden" style={{ paddingBottom: '56.25%' }}>
-                  <iframe className="absolute inset-0 w-full h-full"
-                    src={`https://www.youtube.com/embed/${youtubeId}`}
-                    allowFullScreen title="preview" />
+            {SUBTYPES[form.resource_type]?.length > 1 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Formato</label>
+                <div className="flex gap-2">
+                  {SUBTYPES[form.resource_type].map(({ value, label, icon: Icon }) => (
+                    <button key={value} type="button"
+                      onClick={() => { setForm((p) => ({ ...p, resource_subtype: value })); setFile(null); }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        form.resource_subtype === value
+                          ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                      }`}>
+                      <Icon className="w-3.5 h-3.5" /> {label}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* File upload area */}
-          {needsUpload(form.resource_subtype) && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-                Arquivo ({form.resource_subtype === 'pdf' ? 'PDF' : form.resource_subtype === 'image' ? 'Imagem' : 'Vídeo'})
-              </label>
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault(); setDragOver(false);
-                  const f = e.dataTransfer.files[0];
-                  if (f) setFile(f);
-                }}
-                onClick={() => fileRef.current?.click()}
-                className={`relative flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
-                  dragOver
-                    ? 'border-[#003876] bg-[#003876]/5 dark:border-[#ffd700] dark:bg-[#ffd700]/5'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                }`}>
-                <Upload className="w-6 h-6 text-gray-400" />
-                <div className="text-center">
-                  {file ? (
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{file.name}</p>
-                  ) : resource?.file_url ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Arquivo já enviado — clique para substituir</p>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Arraste o arquivo ou clique para selecionar</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {form.resource_subtype === 'pdf' ? 'PDF até 100 MB'
-                      : form.resource_subtype === 'image' ? 'JPG, PNG, WebP até 20 MB'
-                      : 'MP4, MOV, WebM até 500 MB'}
-                  </p>
-                </div>
-                <input ref={fileRef} type="file" className="hidden"
-                  accept={UPLOAD_ACCEPTS[form.resource_subtype]}
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); }} />
               </div>
+            )}
 
-              {/* Upload progress */}
-              {uploading && (
-                <div className="mt-2 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-                  <div className="bg-[#003876] dark:bg-[#ffd700] h-1.5 rounded-full transition-all"
-                    style={{ width: `${uploadPct}%` }} />
+            {!needsUpload(form.resource_subtype) && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                  {form.resource_subtype === 'youtube' ? 'URL do YouTube' : 'URL / Link'}
+                </label>
+                <input value={form.external_url}
+                  onChange={(e) => setForm((p) => ({ ...p, external_url: e.target.value }))}
+                  placeholder={form.resource_subtype === 'youtube' ? 'https://youtube.com/watch?v=...' : 'https://...'}
+                  className={inp} />
+                {youtubeId && (
+                  <div className="mt-2 relative rounded-lg overflow-hidden" style={{ paddingBottom: '56.25%' }}>
+                    <iframe className="absolute inset-0 w-full h-full"
+                      src={`https://www.youtube.com/embed/${youtubeId}`}
+                      allowFullScreen title="preview" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {needsUpload(form.resource_subtype) && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                  Arquivo ({form.resource_subtype === 'pdf' ? 'PDF' : form.resource_subtype === 'image' ? 'Imagem' : 'Vídeo'})
+                </label>
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault(); setDragOver(false);
+                    const f = e.dataTransfer.files[0];
+                    if (f) setFile(f);
+                  }}
+                  onClick={() => fileRef.current?.click()}
+                  className={`relative flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+                    dragOver
+                      ? 'border-[#003876] bg-[#003876]/5 dark:border-[#ffd700] dark:bg-[#ffd700]/5'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                  }`}>
+                  <Upload className="w-6 h-6 text-gray-400" />
+                  <div className="text-center">
+                    {file ? (
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{file.name}</p>
+                    ) : resource?.file_url ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Arquivo já enviado — clique para substituir</p>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Arraste o arquivo ou clique para selecionar</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {form.resource_subtype === 'pdf' ? 'PDF até 100 MB'
+                        : form.resource_subtype === 'image' ? 'JPG, PNG, WebP até 20 MB'
+                        : 'MP4, MOV, WebM até 500 MB'}
+                    </p>
+                  </div>
+                  <input ref={fileRef} type="file" className="hidden"
+                    accept={UPLOAD_ACCEPTS[form.resource_subtype]}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); }} />
                 </div>
-              )}
+                {uploading && (
+                  <div className="mt-2 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                    <div className="bg-[#003876] dark:bg-[#ffd700] h-1.5 rounded-full transition-all"
+                      style={{ width: `${uploadPct}%` }} />
+                  </div>
+                )}
+                {!file && resource?.file_url && form.resource_subtype === 'pdf' && (
+                  <a href={resource.file_url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-2 text-xs text-[#003876] dark:text-[#ffd700] hover:underline">
+                    <ExternalLink className="w-3 h-3" /> Ver arquivo atual
+                  </a>
+                )}
+              </div>
+            )}
+          </SettingsCard>
 
-              {/* Existing file preview */}
-              {!file && resource?.file_url && form.resource_subtype === 'pdf' && (
-                <a href={resource.file_url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 mt-2 text-xs text-[#003876] dark:text-[#ffd700] hover:underline">
-                  <ExternalLink className="w-3 h-3" /> Ver arquivo atual
-                </a>
-              )}
+          {/* ── Informações ── */}
+          <SettingsCard title="Informações" icon={FileText}>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Título *</label>
+              <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                placeholder="Ex: Introdução à Álgebra" className={inp} />
             </div>
-          )}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Disciplina</label>
+              <input value={form.subject} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))}
+                placeholder="Ex: Matemática" className={inp} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Descrição</label>
+              <textarea value={form.description}
+                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                rows={2} placeholder="Breve descrição..."
+                className={`${inp} resize-none`} />
+            </div>
+          </SettingsCard>
 
-          {/* Title */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Título *</label>
-            <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-              placeholder="Ex: Introdução à Álgebra" className={inp} />
-          </div>
-
-          {/* Subject */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Disciplina</label>
-            <input value={form.subject} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))}
-              placeholder="Ex: Matemática" className={inp} />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Descrição</label>
-            <textarea value={form.description}
-              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-              rows={2} placeholder="Breve descrição..."
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none resize-none" />
-          </div>
-
-          {/* Target type */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Público-alvo</label>
+          {/* ── Público-alvo ── */}
+          <SettingsCard title="Público-alvo" icon={Users}>
             <div className="flex flex-wrap gap-2">
               {([
                 { value: 'all',     label: 'Todos',             icon: Globe   },
@@ -377,58 +370,55 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Segment picker */}
-          {form.target_type === 'segment' && (
-            <div className="flex flex-wrap gap-2">
-              {segments.map((s) => (
-                <button key={s.id} type="button" onClick={() => toggleTargetId(s.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                    form.target_ids.includes(s.id)
-                      ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
-                      : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
-                  }`}>{s.name}</button>
-              ))}
-            </div>
-          )}
+            {form.target_type === 'segment' && (
+              <div className="flex flex-wrap gap-2">
+                {segments.map((s) => (
+                  <button key={s.id} type="button" onClick={() => toggleTargetId(s.id)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                      form.target_ids.includes(s.id)
+                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                    }`}>{s.name}</button>
+                ))}
+              </div>
+            )}
 
-          {/* Class picker */}
-          {form.target_type === 'class' && (
-            <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
-              {classes.map((c) => (
-                <button key={c.id} type="button" onClick={() => toggleTargetId(c.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                    form.target_ids.includes(c.id)
-                      ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
-                      : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
-                  }`}>{c.name} {c.year}</button>
-              ))}
-            </div>
-          )}
+            {form.target_type === 'class' && (
+              <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
+                {classes.map((c) => (
+                  <button key={c.id} type="button" onClick={() => toggleTargetId(c.id)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                      form.target_ids.includes(c.id)
+                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                    }`}>{c.name} {c.year}</button>
+                ))}
+              </div>
+            )}
 
-          {/* Student picker */}
-          {form.target_type === 'student' && (
-            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto">
-              {students.map((s) => (
-                <button key={s.id} type="button" onClick={() => toggleTargetId(s.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                    form.target_ids.includes(s.id)
-                      ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
-                      : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
-                  }`}>{s.full_name}</button>
-              ))}
-            </div>
-          )}
+            {form.target_type === 'student' && (
+              <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto">
+                {students.map((s) => (
+                  <button key={s.id} type="button" onClick={() => toggleTargetId(s.id)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                      form.target_ids.includes(s.id)
+                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                    }`}>{s.full_name}</button>
+                ))}
+              </div>
+            )}
+          </SettingsCard>
 
-          {/* Visibility */}
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <button type="button" onClick={() => setForm((p) => ({ ...p, is_visible: !p.is_visible }))}
-              className={`w-10 h-6 rounded-full transition-colors ${form.is_visible ? 'bg-[#003876]' : 'bg-gray-300 dark:bg-gray-600'}`}>
-              <span className={`block w-4 h-4 bg-white rounded-full shadow mx-1 transition-transform ${form.is_visible ? 'translate-x-4' : ''}`} />
-            </button>
-            <span className="text-sm text-gray-700 dark:text-gray-300">Visível para alunos</span>
-          </label>
+          {/* ── Visibilidade ── */}
+          <SettingsCard title="Visibilidade" icon={EyeOff}>
+            <Toggle
+              checked={form.is_visible}
+              onChange={(v) => setForm((p) => ({ ...p, is_visible: v }))}
+              label="Visível para alunos"
+            />
+          </SettingsCard>
         </div>
 
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700">

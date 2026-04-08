@@ -10,6 +10,10 @@ import {
   Users, Globe, BookOpen, MapPin, Clock, Send, Eye, EyeOff,
   CheckCircle2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
+import { SettingsCard } from '../../components/SettingsCard';
+import { Toggle } from '../../components/Toggle';
+import { AnnouncementDrawer } from '../announcements/AnnouncementsPage';
+import type { DrawerProps as AnnouncementDrawerProps } from '../announcements/AnnouncementsPage';
 
 const TARGETS: EventTargetType[] = ['all', 'segment', 'class', 'role'];
 
@@ -46,7 +50,7 @@ interface DrawerProps {
   segments: SchoolSegment[];
   classes: SchoolClass[];
   onClose: () => void;
-  onSaved: (e: SchoolEvent) => void;
+  onSaved: (e: SchoolEvent, openWACampaign?: boolean) => void;
 }
 
 function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps) {
@@ -106,7 +110,7 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
     }
 
     if (dbErr || !data) { setError(dbErr?.message ?? 'Erro ao salvar.'); setSaving(false); return; }
-    onSaved(data);
+    onSaved(data, sendWA);
   }
 
   const inp = 'w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]';
@@ -127,46 +131,41 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
         <form onSubmit={save} className="flex-1 overflow-y-auto p-5 space-y-4">
           {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>}
 
-          {/* Title */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Título *</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Festa Junina 2025"
-              className={inp} />
-          </div>
-
-          {/* Date + times */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-3 sm:col-span-1">
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Data *</label>
-              <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className={inp} />
+          {/* ── Informações do Evento ── */}
+          <SettingsCard title="Informações do Evento" icon={CalendarDays}>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Título *</label>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Festa Junina 2025"
+                className={inp} />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-3 sm:col-span-1">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Data *</label>
+                <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className={inp} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Início</label>
+                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={inp} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Término</label>
+                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className={inp} />
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Início</label>
-              <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={inp} />
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Local</label>
+              <input value={location} onChange={(e) => setLocation(e.target.value)}
+                placeholder="Ex: Quadra poliesportiva" className={inp} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Término</label>
-              <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className={inp} />
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Descrição</label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+                rows={3} placeholder="Detalhes do evento..." className={`${inp} resize-none`} />
             </div>
-          </div>
+          </SettingsCard>
 
-          {/* Location */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Local</label>
-            <input value={location} onChange={(e) => setLocation(e.target.value)}
-              placeholder="Ex: Quadra poliesportiva" className={inp} />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Descrição</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-              rows={3} placeholder="Detalhes do evento..." className={`${inp} resize-none`} />
-          </div>
-
-          {/* Target */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Público-alvo</label>
+          {/* ── Público-alvo ── */}
+          <SettingsCard title="Público-alvo" icon={Users}>
             <div className="grid grid-cols-2 gap-2">
               {TARGETS.map((t) => {
                 const Icon = TARGET_ICON[t];
@@ -182,12 +181,8 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
                 );
               })}
             </div>
-          </div>
 
-          {/* Segment picker */}
-          {targetType === 'segment' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Segmentos</label>
+            {targetType === 'segment' && (
               <div className="flex flex-wrap gap-2">
                 {segments.map((s) => (
                   <button key={s.id} type="button" onClick={() => setTargetIds((p) => toggleId(p, s.id))}
@@ -199,13 +194,9 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Class picker */}
-          {targetType === 'class' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Turmas</label>
+            {targetType === 'class' && (
               <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                 {classes.map((c) => (
                   <button key={c.id} type="button" onClick={() => setTargetIds((p) => toggleId(p, c.id))}
@@ -217,13 +208,9 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Role picker */}
-          {targetType === 'role' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Cargos</label>
+            {targetType === 'role' && (
               <div className="flex flex-wrap gap-2">
                 {ROLES_LIST.map((r) => (
                   <button key={r.value} type="button" onClick={() => setTargetRoles((p) => toggleId(p, r.value))}
@@ -235,26 +222,24 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </SettingsCard>
 
-          {/* Options */}
-          <div className="space-y-2 pt-1">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <div onClick={() => setSendWA((p) => !p)}
-                className={`w-9 h-5 rounded-full relative transition-colors ${sendWA ? 'bg-[#003876] dark:bg-[#ffd700]' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${sendWA ? 'translate-x-4' : ''}`} />
-              </div>
-              <span className="text-xs text-gray-600 dark:text-gray-400">Enviar lembrete via WhatsApp</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <div onClick={() => setIsPublished((p) => !p)}
-                className={`w-9 h-5 rounded-full relative transition-colors ${isPublished ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isPublished ? 'translate-x-4' : ''}`} />
-              </div>
-              <span className="text-xs text-gray-600 dark:text-gray-400">Publicar (visível no portal)</span>
-            </label>
-          </div>
+          {/* ── Opções ── */}
+          <SettingsCard title="Opções">
+            <Toggle
+              checked={sendWA}
+              onChange={setSendWA}
+              label="Enviar lembrete via WhatsApp"
+              description="Abre o formulário de comunicado pré-preenchido ao salvar"
+            />
+            <Toggle
+              checked={isPublished}
+              onChange={setIsPublished}
+              label="Publicar (visível no portal)"
+              onColor="bg-emerald-500"
+            />
+          </SettingsCard>
         </form>
 
         {/* Footer */}
@@ -352,6 +337,7 @@ export default function EventsPage() {
   const [classes,  setClasses]  = useState<SchoolClass[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [drawerEvent, setDrawerEvent] = useState<SchoolEvent | null | undefined>(undefined); // undefined=closed, null=new
+  const [waCampaignDraft, setWaCampaignDraft] = useState<AnnouncementDrawerProps['initialValues'] | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [calMonth, setCalMonth] = useState(() => {
     const d = new Date(); d.setDate(1); return d;
@@ -390,12 +376,31 @@ export default function EventsPage() {
     if (data) setEvents((p) => p.map((e) => e.id === ev.id ? data as SchoolEvent : e));
   }
 
-  function handleSaved(saved: SchoolEvent) {
+  function handleSaved(saved: SchoolEvent, openWACampaign?: boolean) {
     setEvents((p) => {
       const idx = p.findIndex((e) => e.id === saved.id);
       return idx >= 0 ? p.map((e) => e.id === saved.id ? saved : e) : [saved, ...p];
     });
     setDrawerEvent(undefined);
+
+    if (openWACampaign) {
+      // Build announcement body: description + "Local: ..." on last line
+      const bodyParts = [saved.description ?? ''];
+      if (saved.location) bodyParts.push(`Local: ${saved.location}`);
+      const body = bodyParts.filter(Boolean).join('\n\n');
+
+      // Map event target to announcement target (role → all, since announcement doesn't support role)
+      const annTarget = (saved.target_type === 'role' ? 'all' : saved.target_type) as 'all' | 'segment' | 'class';
+
+      setWaCampaignDraft({
+        title:         saved.title,
+        body,
+        target_type:   annTarget,
+        target_ids:    saved.target_ids ?? [],
+        target_roles:  saved.target_roles ?? [],
+        send_whatsapp: true,
+      });
+    }
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -565,6 +570,17 @@ export default function EventsPage() {
           classes={classes}
           onClose={() => setDrawerEvent(undefined)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {waCampaignDraft !== null && (
+        <AnnouncementDrawer
+          announcement={null}
+          initialValues={waCampaignDraft}
+          segments={segments}
+          classes={classes}
+          onClose={() => setWaCampaignDraft(null)}
+          onSaved={() => setWaCampaignDraft(null)}
         />
       )}
     </div>

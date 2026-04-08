@@ -4,10 +4,12 @@ import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { MODULE_VARIABLES, ALL_VARIABLES } from '../../lib/whatsapp-api';
 import type { WhatsAppTemplate, TemplateCategory, MessageType } from '../../types/admin.types';
 import {
-  MessageCircle, Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
+  MessageCircle, Plus, Pencil, Trash2,
   X, Save, Loader2, ChevronDown, Eye, EyeOff,
-  Zap, Clock, Tag, AlertCircle,
+  Zap, Clock, Tag, AlertCircle, FileText,
 } from 'lucide-react';
+import { SettingsCard } from '../../components/SettingsCard';
+import { Toggle } from '../../components/Toggle';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -174,16 +176,11 @@ function TemplateCard({
             {template.name}
           </h3>
         </div>
-        <button
-          onClick={() => onToggle(template)}
-          className="flex-shrink-0 transition-colors"
-          title={template.is_active ? 'Desativar' : 'Ativar'}
-        >
-          {template.is_active
-            ? <ToggleRight className="w-7 h-7 text-green-500" />
-            : <ToggleLeft className="w-7 h-7 text-gray-300 dark:text-gray-600" />
-          }
-        </button>
+        <Toggle
+          checked={template.is_active}
+          onChange={() => onToggle(template)}
+          onColor="bg-emerald-500"
+        />
       </div>
 
       {/* ── Body — white ── */}
@@ -336,29 +333,34 @@ function TemplateDrawer({
       {/* Drawer */}
       <aside className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
           <div>
-            <h2 className="font-display font-bold text-lg text-gray-900 dark:text-white">
+            <h2 className="font-display font-bold text-lg text-white">
               {isEdit ? 'Editar Template' : 'Novo Template'}
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-white/60 mt-0.5">
               Use {'{{variável}}'} para campos dinâmicos
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <Toggle
+              checked={form.is_active}
+              onChange={(v) => setForm((p) => ({ ...p, is_active: v }))}
+              onColor="bg-emerald-500"
+            />
             <button
               onClick={() => setShowPreview((p) => !p)}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${
                 showPreview
-                  ? 'bg-[#003876] text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20'
               }`}
             >
               {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               Preview
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
-              <X className="w-5 h-5 text-gray-400" />
+            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors text-white/70">
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -366,159 +368,239 @@ function TemplateDrawer({
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
           {showPreview ? (
-            /* Preview mode */
-            <div className="p-6">
-              <div className="bg-[#dcf8c6] dark:bg-green-900/20 rounded-2xl p-4 max-w-sm ml-auto shadow-sm">
-                <p className="text-sm text-gray-800 dark:text-green-100 whitespace-pre-wrap leading-relaxed">
-                  {renderPreview(body, detectedVars)}
-                </p>
-                <p className="text-[10px] text-gray-400 dark:text-green-400/60 text-right mt-2">
-                  {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} ✓✓
-                </p>
+            /* Preview mode — phone mockup */
+            <div className="flex flex-col items-center justify-start py-8 px-4">
+              {/* Phone shell */}
+              <div className="relative w-[280px] rounded-[2.8rem] bg-gray-900 shadow-2xl ring-4 ring-gray-800 select-none">
+                {/* Notch */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-7 bg-gray-900 rounded-b-2xl z-10 flex items-center justify-center gap-2 px-4">
+                  <div className="w-2 h-2 rounded-full bg-gray-700" />
+                  <div className="flex-1 h-1.5 rounded-full bg-gray-700" />
+                </div>
+
+                {/* Screen */}
+                <div className="mx-[3px] mt-[3px] mb-[3px] rounded-[2.4rem] overflow-hidden bg-[#0b141a]" style={{ minHeight: 520 }}>
+                  {/* Status bar */}
+                  <div className="flex items-center justify-between px-6 pt-10 pb-1 bg-[#0b141a]">
+                    <span className="text-[10px] font-semibold text-white">
+                      {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3 text-white fill-current" viewBox="0 0 24 24"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/></svg>
+                      <svg className="w-3 h-3 text-white fill-current" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2" fill="currentColor" opacity=".3"/><rect x="2" y="7" width="14" height="11" rx="2" fill="currentColor"/><path d="M22 11v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                    </div>
+                  </div>
+
+                  {/* WA header bar */}
+                  <div className="flex items-center gap-3 px-3 py-2 bg-[#1f2c34]">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">CB</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-[13px] font-semibold leading-tight truncate">Colégio Batista</p>
+                      <p className="text-[10px] text-gray-400">online</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <svg className="w-4 h-4 text-gray-400 fill-current" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.4 11.5 19.79 19.79 0 01.36 2.9 2 2 0 012.34.93h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.35a16 16 0 006.29 6.29l1.78-1.78a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                      <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </div>
+                  </div>
+
+                  {/* Chat area */}
+                  <div
+                    className="px-3 py-3 space-y-2 overflow-y-auto"
+                    style={{
+                      minHeight: 360,
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%230b141a'/%3E%3C/svg%3E")`,
+                      backgroundColor: '#0b141a',
+                    }}
+                  >
+                    {/* Date pill */}
+                    <div className="flex justify-center mb-2">
+                      <span className="text-[10px] bg-[#1f2c34] text-gray-400 px-3 py-0.5 rounded-full">Hoje</span>
+                    </div>
+
+                    {/* Message bubble */}
+                    <div className="flex justify-end">
+                      <div className="relative max-w-[85%] bg-[#005c4b] rounded-2xl rounded-tr-sm px-3 pt-2 pb-1 shadow-md">
+                        {/* Triangle */}
+                        <div className="absolute -right-[6px] top-0 w-0 h-0" style={{ borderLeft: '7px solid #005c4b', borderBottom: '7px solid transparent' }} />
+                        <p className="text-[12px] text-[#e9edef] whitespace-pre-wrap leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: renderPreview(body, detectedVars)
+                            .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+                            .replace(/_(.*?)_/g, '<em>$1</em>')
+                            .replace(/~(.*?)~/g, '<s>$1</s>')
+                          }}
+                        />
+                        <div className="flex items-center justify-end gap-1 mt-0.5">
+                          <span className="text-[9px] text-[#8696a0]">
+                            {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <svg className="w-3 h-3 text-[#53bdeb]" viewBox="0 0 16 11" fill="currentColor">
+                            <path d="M11.071.653a.56.56 0 0 0-.812 0L4.743 6.44 2.157 3.62a.56.56 0 0 0-.812 0l-.812.857a.616.616 0 0 0 0 .849l3.804 4.016a.56.56 0 0 0 .812 0l1.624-1.715L11.883 2.36l-.812-.857z"/><path d="M15.667.653a.56.56 0 0 0-.812 0L9.339 6.44l-.9-.948-.812.857.9.948a.56.56 0 0 0 .812 0l6.14-6.787-.812-.857z"/>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Input bar */}
+                  <div className="flex items-center gap-2 px-2 py-2 bg-[#1f2c34]">
+                    <div className="flex-1 bg-[#2a3942] rounded-full px-4 py-2">
+                      <span className="text-[11px] text-gray-500">Mensagem</span>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22 11 13 2 9l20-7z"/></svg>
+                    </div>
+                  </div>
+                </div>
               </div>
+
               <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-4">
                 Preview com dados de exemplo
               </p>
             </div>
           ) : (
-            <div className="p-6 space-y-6">
-              {/* Nome */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Nome do Template *
-                </label>
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="Ex: Confirmação de Visita"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
-                />
-              </div>
+            <div className="p-6 space-y-4">
 
-              {/* Categoria + Tipo */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    Categoria
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={form.category}
-                      onChange={(e) => setForm((p) => ({ ...p, category: e.target.value as TemplateCategory }))}
-                      className="w-full appearance-none px-4 py-2.5 pr-9 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
-                    >
-                      {CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
+              {/* Identificação */}
+              <SettingsCard title="Identificação" icon={Tag}>
+                <div className="space-y-4">
+                  {/* Nome */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      Nome do Template *
+                    </label>
+                    <input
+                      value={form.name}
+                      onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                      placeholder="Ex: Confirmação de Visita"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
+                    />
+                  </div>
+
+                  {/* Categoria + Tipo */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Categoria
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={form.category}
+                          onChange={(e) => setForm((p) => ({ ...p, category: e.target.value as TemplateCategory }))}
+                          className="w-full appearance-none px-4 py-2.5 pr-9 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
+                        >
+                          {CATEGORIES.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Tipo de Mensagem
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={form.message_type}
+                          onChange={(e) => setForm((p) => ({ ...p, message_type: e.target.value as MessageType, content: { ...p.content } }))}
+                          className="w-full appearance-none px-4 py-2.5 pr-9 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
+                        >
+                          {MESSAGE_TYPES.map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        {MESSAGE_TYPES.find((t) => t.value === form.message_type)?.desc}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </SettingsCard>
+
+              {/* Conteúdo */}
+              <SettingsCard title="Conteúdo da Mensagem" icon={FileText}>
+                <div className="space-y-4">
+                  {/* Corpo */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      Corpo da Mensagem *
+                    </label>
+                    <textarea
+                      value={body}
+                      onChange={(e) => handleBodyChange(e.target.value)}
+                      placeholder="Olá {{visitor_name}}! Sua visita ao Colégio Batista está confirmada para {{appointment_date}} às {{appointment_time}}."
+                      rows={6}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all resize-y font-mono leading-relaxed"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      *negrito*, _itálico_, ~tachado~, ```código```
+                    </p>
+                  </div>
+
+                  {/* URL de mídia (se tipo = media) */}
+                  {form.message_type === 'media' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        URL da Mídia
+                      </label>
+                      <input
+                        value={form.content.media_url || ''}
+                        onChange={(e) => setForm((p) => ({ ...p, content: { ...p.content, media_url: e.target.value } }))}
+                        placeholder="https://..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
+                      />
+                      <div className="flex gap-2 mt-2">
+                        {(['image','video','document','audio'] as const).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setForm((p) => ({ ...p, content: { ...p.content, media_type: t } }))}
+                            className={`text-xs px-3 py-1 rounded-lg transition-colors ${
+                              form.content.media_type === t
+                                ? 'bg-[#003876] text-white'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Variable picker */}
+                  <div>
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <Tag className="w-3.5 h-3.5" />
+                      Variáveis disponíveis
+                      <span className="text-[11px] text-gray-400 font-normal">(clique para inserir)</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestedVars.map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => insertVar(v)}
+                          className={`text-[11px] px-2.5 py-1 rounded-lg font-mono transition-colors ${
+                            detectedVars.includes(v)
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600'
+                          }`}
+                        >
+                          {`{{${v}}}`}
+                        </button>
                       ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    Tipo de Mensagem
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={form.message_type}
-                      onChange={(e) => setForm((p) => ({ ...p, message_type: e.target.value as MessageType, content: { ...p.content } }))}
-                      className="w-full appearance-none px-4 py-2.5 pr-9 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
-                    >
-                      {MESSAGE_TYPES.map((t) => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    {MESSAGE_TYPES.find((t) => t.value === form.message_type)?.desc}
-                  </p>
-                </div>
-              </div>
-
-              {/* Corpo */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Corpo da Mensagem *
-                </label>
-                <textarea
-                  value={body}
-                  onChange={(e) => handleBodyChange(e.target.value)}
-                  placeholder="Olá {{visitor_name}}! Sua visita ao Colégio Batista está confirmada para {{appointment_date}} às {{appointment_time}}."
-                  rows={6}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all resize-y font-mono leading-relaxed"
-                />
-                <p className="text-[11px] text-gray-400 mt-1">
-                  *negrito*, _itálico_, ~tachado~, ```código```
-                </p>
-              </div>
-
-              {/* URL de mídia (se tipo = media) */}
-              {form.message_type === 'media' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    URL da Mídia
-                  </label>
-                  <input
-                    value={form.content.media_url || ''}
-                    onChange={(e) => setForm((p) => ({ ...p, content: { ...p.content, media_url: e.target.value } }))}
-                    placeholder="https://..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
-                  />
-                  <div className="flex gap-2 mt-2">
-                    {(['image','video','document','audio'] as const).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setForm((p) => ({ ...p, content: { ...p.content, media_type: t } }))}
-                        className={`text-xs px-3 py-1 rounded-lg transition-colors ${
-                          form.content.media_type === t
-                            ? 'bg-[#003876] text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Variable picker */}
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Tag className="w-3.5 h-3.5" />
-                  Variáveis disponíveis
-                  <span className="text-[11px] text-gray-400 font-normal">(clique para inserir no corpo)</span>
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {suggestedVars.map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => insertVar(v)}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg font-mono transition-colors ${
-                        detectedVars.includes(v)
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600'
-                      }`}
-                    >
-                      {`{{${v}}}`}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              </SettingsCard>
 
               {/* Trigger */}
-              <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 rounded-2xl p-4 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Disparo Automático
-                  </span>
-                  <span className="text-[11px] text-gray-400">(opcional)</span>
-                </div>
-
+              <SettingsCard title="Disparo Automático" icon={Zap}>
+                <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Evento</label>
@@ -610,7 +692,8 @@ function TemplateDrawer({
                     </div>
                   );
                 })()}
-              </div>
+                </div>
+              </SettingsCard>
 
               {error && (
                 <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-3">

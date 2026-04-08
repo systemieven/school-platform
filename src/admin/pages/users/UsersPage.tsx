@@ -5,8 +5,10 @@ import { ROLE_LABELS, ROLES } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
   Users, Search, Plus, Loader2, ShieldCheck, UserCheck,
-  X, Eye, EyeOff, ChevronDown, ToggleLeft, ToggleRight, Pencil,
+  X, Eye, EyeOff, ChevronDown, Pencil,
 } from 'lucide-react';
+import { SettingsCard } from '../../components/SettingsCard';
+import { Toggle } from '../../components/Toggle';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
@@ -27,7 +29,7 @@ interface CreateModalProps {
   onCreated: (p: Profile) => void;
 }
 
-function CreateUserModal({ callerRole, onClose, onCreated }: CreateModalProps) {
+function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) {
   const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'user' as Role, phone: '' });
   const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -35,7 +37,7 @@ function CreateUserModal({ callerRole, onClose, onCreated }: CreateModalProps) {
 
   const allowedRoles = ROLES.filter((r) => {
     if (r === 'super_admin') return callerRole === 'super_admin';
-    if (r === 'student') return false; // students created via enrollment confirmation
+    if (r === 'student') return false;
     return true;
   });
 
@@ -47,9 +49,7 @@ function CreateUserModal({ callerRole, onClose, onCreated }: CreateModalProps) {
     }
     setSaving(true);
     setError('');
-    const { data, error: fnError } = await supabase.functions.invoke('create-admin-user', {
-      body: form,
-    });
+    const { data, error: fnError } = await supabase.functions.invoke('create-admin-user', { body: form });
     setSaving(false);
     if (fnError || data?.error) {
       setError(data?.error ?? fnError?.message ?? 'Erro ao criar usuário.');
@@ -65,34 +65,32 @@ function CreateUserModal({ callerRole, onClose, onCreated }: CreateModalProps) {
   return (
     <>
       <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h2 className="font-display text-lg font-bold text-[#003876] dark:text-white">Novo Usuário</h2>
-            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+      <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+          <h2 className="font-semibold text-sm">Novo Usuário</h2>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-white/20 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-xl px-4 py-3">
-                {error}
-              </div>
-            )}
+        {/* Body */}
+        <form id="create-user-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-xl px-4 py-3">
+              {error}
+            </div>
+          )}
 
+          <SettingsCard title="Identidade">
             <div>
               <label className={labelCls}>Nome completo</label>
               <input type="text" placeholder="Maria da Silva" value={form.full_name} onChange={(e) => set('full_name', e.target.value)} className={inputCls} required />
             </div>
-
             <div>
               <label className={labelCls}>E-mail</label>
               <input type="email" placeholder="maria@escola.com" value={form.email} onChange={(e) => set('email', e.target.value)} className={inputCls} required />
             </div>
-
             <div>
               <label className={labelCls}>Senha temporária</label>
               <div className="relative">
@@ -110,7 +108,9 @@ function CreateUserModal({ callerRole, onClose, onCreated }: CreateModalProps) {
                 </button>
               </div>
             </div>
+          </SettingsCard>
 
+          <SettingsCard title="Acesso">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Função</label>
@@ -128,18 +128,19 @@ function CreateUserModal({ callerRole, onClose, onCreated }: CreateModalProps) {
                 <input type="tel" placeholder="(81) 99999-9999" value={form.phone} onChange={(e) => set('phone', e.target.value)} className={inputCls} />
               </div>
             </div>
+          </SettingsCard>
+        </form>
 
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                Cancelar
-              </button>
-              <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Criando…</> : 'Criar Usuário'}
-              </button>
-            </div>
-          </form>
+        {/* Footer */}
+        <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3 flex-shrink-0">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Cancelar
+          </button>
+          <button type="submit" form="create-user-form" disabled={saving} className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+            {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Criando…</> : 'Criar Usuário'}
+          </button>
         </div>
-      </div>
+      </aside>
     </>
   );
 }
@@ -206,47 +207,37 @@ function EditUserDrawer({ user, callerRole, onClose, onUpdated }: EditDrawerProp
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-xl px-4 py-3">{error}</div>
           )}
 
-          <div>
-            <label className={labelCls}>Nome completo</label>
-            <input type="text" value={form.full_name} onChange={(e) => set('full_name', e.target.value)} className={inputCls} />
-          </div>
-
-          <div>
-            <label className={labelCls}>Telefone</label>
-            <input type="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="(81) 99999-9999" className={inputCls} />
-          </div>
-
-          <div>
-            <label className={labelCls}>Função</label>
-            <div className="relative">
-              <select value={form.role} onChange={(e) => set('role', e.target.value as Role)} className={`${inputCls} pr-9 appearance-none`}>
-                {allowedRoles.map((r) => (
-                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Status toggle */}
-          <div className="flex items-center justify-between py-3 border-t border-gray-100 dark:border-gray-800">
+          <SettingsCard title="Dados">
             <div>
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Status do usuário</p>
-              <p className="text-xs text-gray-400">{form.is_active ? 'Usuário ativo no sistema' : 'Acesso bloqueado'}</p>
+              <label className={labelCls}>Nome completo</label>
+              <input type="text" value={form.full_name} onChange={(e) => set('full_name', e.target.value)} className={inputCls} />
             </div>
-            <button
-              onClick={() => set('is_active', !form.is_active)}
-              className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-xl transition-colors ${
-                form.is_active
-                  ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100'
-                  : 'text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100'
-              }`}
-            >
-              {form.is_active
-                ? <><ToggleRight className="w-4 h-4" />Ativo</>
-                : <><ToggleLeft className="w-4 h-4" />Inativo</>}
-            </button>
-          </div>
+            <div>
+              <label className={labelCls}>Telefone</label>
+              <input type="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="(81) 99999-9999" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Função</label>
+              <div className="relative">
+                <select value={form.role} onChange={(e) => set('role', e.target.value as Role)} className={`${inputCls} pr-9 appearance-none`}>
+                  {allowedRoles.map((r) => (
+                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+          </SettingsCard>
+
+          <SettingsCard title="Status">
+            <Toggle
+              checked={form.is_active}
+              onChange={(v) => set('is_active', v)}
+              label={form.is_active ? 'Usuário ativo' : 'Acesso bloqueado'}
+              description={form.is_active ? 'Usuário pode acessar o sistema normalmente' : 'Acesso ao sistema bloqueado'}
+              onColor="bg-emerald-500"
+            />
+          </SettingsCard>
         </div>
 
         {/* Footer */}
@@ -403,7 +394,7 @@ export default function UsersPage() {
 
       {/* Modals */}
       {showCreate && currentUser && (
-        <CreateUserModal
+        <CreateUserDrawer
           callerRole={currentUser.role}
           onClose={() => setShowCreate(false)}
           onCreated={(p) => {

@@ -30,7 +30,7 @@ import {
 
 const inputCls = 'w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all';
 const selectCls = `${inputCls} appearance-none`;
-const cardCls  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700';
+const cardCls  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60';
 const cardHead = 'bg-gray-50 dark:bg-gray-700/30 px-5 py-3.5 flex items-center gap-2';
 const cardBody = 'bg-white dark:bg-gray-800 px-5 py-4';
 
@@ -269,7 +269,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
       <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-white dark:bg-gray-800 z-[70] flex flex-col shadow-2xl overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900/40">
+        <div className="flex items-center gap-3 px-5 py-4 flex-shrink-0 bg-gradient-to-r from-[#003876] to-[#002255]">
           <div className="flex-1 min-w-0">
             {editingName ? (
               <input
@@ -289,7 +289,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                 }}
                 onKeyDown={e => { if (e.key === 'Enter' && providerName.trim()) { e.currentTarget.blur(); } }}
                 placeholder="Nome do provedor (ex.: Número Principal)"
-                className="w-full text-base font-semibold bg-transparent text-gray-800 dark:text-white placeholder:text-gray-400 outline-none border-b-2 border-[#003876] dark:border-[#ffd700] transition-colors pb-0.5"
+                className="w-full text-sm font-semibold bg-transparent text-white placeholder:text-white/50 outline-none border-b border-white/40 transition-colors pb-0.5"
                 autoFocus
               />
             ) : (
@@ -298,26 +298,26 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                 onClick={() => { setEditingName(true); setTimeout(() => nameInputRef.current?.focus(), 0); }}
                 className="group flex items-center gap-1.5 max-w-full text-left"
               >
-                <span className="text-base font-semibold text-gray-800 dark:text-white truncate">
+                <span className="text-sm font-semibold text-white truncate">
                   {providerName || 'Sem nome'}
                 </span>
-                <Pencil className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] flex-shrink-0 transition-colors" />
+                <Pencil className="w-3 h-3 text-white/40 group-hover:text-white flex-shrink-0 transition-colors" />
               </button>
             )}
             {isDefault && (
-              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold tracking-wide uppercase text-[#003876] dark:text-[#ffd700] bg-[#003876]/10 dark:bg-[#ffd700]/10 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold tracking-wide uppercase text-[#ffd700] bg-white/10 px-2 py-0.5 rounded-full">
                 Provedor padrão
               </span>
             )}
             {isNew && (
-              <p className="text-xs text-gray-400 mt-0.5">Novo provedor</p>
+              <p className="text-xs text-white/60 mt-0.5">Novo provedor</p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+            className="p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/20 transition-colors flex-shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 

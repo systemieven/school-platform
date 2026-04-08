@@ -4,6 +4,7 @@ import {
   Loader2, Save, Check, Link2, Upload, AlertCircle, ExternalLink,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { SettingsCard } from '../../components/SettingsCard';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,8 +84,6 @@ const SUB_TABS: { key: PageKey; label: string }[] = [
 
 // ── Shared style constants ────────────────────────────────────────────────────
 
-const sectionCard  = 'bg-gray-50 dark:bg-gray-900/30 rounded-2xl p-5 space-y-4';
-const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 mb-4';
 const inputCls     = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003876]/30 focus:border-[#003876] bg-white dark:bg-gray-800 dark:border-gray-700';
 const textareaCls  = `${inputCls} resize-none`;
 const labelCls     = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5';
@@ -272,9 +271,7 @@ function HeroFieldsBlock({
   const set = (key: keyof HeroFields, value: string) => onChange({ ...data, [key]: value });
 
   return (
-    <div className={sectionCard}>
-      <p className={sectionTitle}>Hero da Página</p>
-
+    <SettingsCard title="Hero da Página">
       <div>
         <label className={labelCls}>Badge</label>
         <input type="text" value={data.badge} onChange={(e) => set('badge', e.target.value)} placeholder="Ex: Matrículas 2026 abertas" className={inputCls} />
@@ -302,7 +299,7 @@ function HeroFieldsBlock({
         onChange={(v) => set('image', v)}
         storageKey={`${pageKey}_hero`}
       />
-    </div>
+    </SettingsCard>
   );
 }
 
@@ -403,9 +400,7 @@ export default function AppearanceSettingsPanel() {
       {/* ── Home ── */}
       {activeTab === 'home' && (
         <>
-          <div className={sectionCard}>
-            <p className={sectionTitle}>Hero da Página</p>
-
+          <SettingsCard title="Hero da Página">
             <div>
               <label className={labelCls}>Badge</label>
               <input type="text" value={home.badge} onChange={(e) => updateHome({ badge: e.target.value })} placeholder="Ex: Matrículas 2026 abertas" className={inputCls} />
@@ -432,13 +427,9 @@ export default function AppearanceSettingsPanel() {
               <p className="text-xs text-gray-400 mb-1.5">Somente link — upload de vídeo não é suportado pelo tamanho dos arquivos.</p>
               <input type="text" value={home.video_url} onChange={(e) => updateHome({ video_url: e.target.value })} placeholder="https://..." className={inputCls} />
             </div>
-          </div>
+          </SettingsCard>
 
-          <div className={sectionCard}>
-            <p className={sectionTitle}>Cards dos Segmentos</p>
-            <p className="text-xs text-gray-400 -mt-2">
-              4 cards exibidos na seção de segmentos da Home. Edite a imagem e a descrição de cada um.
-            </p>
+          <SettingsCard title="Cards dos Segmentos" description="4 cards exibidos na seção de segmentos da Home. Edite a imagem e a descrição de cada um.">
             <div className="space-y-5 pt-1">
               {home.segments.map((seg, i) => (
                 <div key={i} className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
@@ -464,7 +455,7 @@ export default function AppearanceSettingsPanel() {
                 </div>
               ))}
             </div>
-          </div>
+          </SettingsCard>
         </>
       )}
 
@@ -488,10 +479,7 @@ export default function AppearanceSettingsPanel() {
             onChange={(d) => updatePage('contato', { ...contato, ...d })}
           />
 
-          <div className={sectionCard}>
-            <p className={sectionTitle}>Informações de Contato</p>
-            <p className="text-xs text-gray-400 -mt-2">Exibidas no sidebar da página de contato.</p>
-
+          <SettingsCard title="Informações de Contato" description="Exibidas no sidebar da página de contato.">
             <div>
               <label className={labelCls}>Telefone</label>
               <input type="text" value={contato.phone} onChange={(e) => updatePage('contato', { ...contato, phone: e.target.value })} placeholder="(81) 3721-4787" className={inputCls} />
@@ -507,7 +495,7 @@ export default function AppearanceSettingsPanel() {
               <label className={labelCls}>Horário de Atendimento</label>
               <input type="text" value={contato.hours} onChange={(e) => updatePage('contato', { ...contato, hours: e.target.value })} placeholder="Segunda a Sexta: 7h às 17h" className={inputCls} />
             </div>
-          </div>
+          </SettingsCard>
         </>
       )}
 

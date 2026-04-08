@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import AppearanceSettingsPanel from './AppearanceSettingsPanel';
+import { CARD_CLS, HEAD_CLS, BODY_CLS, TITLE_CLS } from '../../components/SettingsCard';
 import { supabase } from '../../../lib/supabase';
 import { getProviders, setDefaultProvider } from '../../lib/whatsapp-api';
 import type { WhatsAppProvider } from '../../lib/whatsapp-api';
@@ -1450,11 +1451,6 @@ function AppointmentsSettingsPanel() {
     setData((prev) => ({ ...prev, reasons: prev.reasons.filter((r) => r.key !== key) }));
   }
 
-  const sectionCard  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60';
-  const sectionHead  = 'bg-gray-50 dark:bg-gray-900/40 px-5 py-4';
-  const sectionBody  = 'bg-white dark:bg-gray-800/20 px-5 py-5 space-y-4';
-  const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400';
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -1467,14 +1463,14 @@ function AppointmentsSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* Horário de Atendimento */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Horário de Atendimento
           </p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Início</label>
@@ -1500,14 +1496,14 @@ function AppointmentsSettingsPanel() {
       </div>
 
       {/* Duração do Slot */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <Hash className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Duração do Slot
           </p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="flex flex-wrap gap-2">
             {SLOT_OPTIONS.map((min) => (
               <button
@@ -1527,12 +1523,12 @@ function AppointmentsSettingsPanel() {
       </div>
 
       {/* Dias Bloqueados */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>Dias Bloqueados</p>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>Dias Bloqueados</p>
           <p className="text-xs text-gray-400 mt-1">Dias marcados em azul não aceitam agendamentos.</p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="flex gap-2 flex-wrap">
             {WEEKDAYS.map((name, idx) => {
               const isBlocked = data.blocked_weekdays.includes(idx);
@@ -1556,9 +1552,9 @@ function AppointmentsSettingsPanel() {
       </div>
 
       {/* Motivos de Visita */}
-      <div className={sectionCard}>
-        <div className={`${sectionHead} flex items-center justify-between`}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={`${HEAD_CLS} flex items-center justify-between`}>
+          <p className={TITLE_CLS}>
             <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Motivos de Visita
           </p>
@@ -1575,7 +1571,7 @@ function AppointmentsSettingsPanel() {
             )}
           </div>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           {data.reasons.length === 0 ? (
             <p className="text-xs text-gray-400 italic">Nenhum motivo cadastrado.</p>
           ) : (
@@ -1612,14 +1608,14 @@ function AppointmentsSettingsPanel() {
       </div>
 
       {/* Dias Fechados */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <CalendarX2 className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Dias Fechados
           </p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="space-y-2">
             {blockedDates.length === 0 && (
               <p className="text-xs text-gray-400 italic">Nenhum dia fechado cadastrado.</p>
@@ -1667,15 +1663,15 @@ function AppointmentsSettingsPanel() {
       </div>
 
       {/* Feriados */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <Calendar className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Feriados
           </p>
           <p className="text-xs text-gray-400 mt-1">Datas fixas recorrentes (dia/mês). Feriados variáveis use Dias Fechados.</p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="space-y-2">
             {holidays.length === 0 && (
               <p className="text-xs text-gray-400 italic">Nenhum feriado cadastrado.</p>
@@ -1717,15 +1713,15 @@ function AppointmentsSettingsPanel() {
       </div>
 
       {/* Lembretes Automáticos */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <Bell className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Lembretes Automáticos
           </p>
           <p className="text-xs text-gray-400 mt-1">Cadeia de lembretes enviada antes da visita. Requer template com trigger <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">on_reminder</code>.</p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <ReminderChainSection />
         </div>
       </div>
@@ -1757,21 +1753,21 @@ function AppointmentsSettingsPanel() {
           <>
             <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40" onClick={closeDrawer} />
             <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 flex-shrink-0">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
+              <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
+                <h3 className="text-sm font-semibold text-white">
                   {drawerIsNew ? 'Novo motivo' : 'Editar motivo'}
                 </h3>
                 <div className="flex items-center gap-1">
                   {!drawerIsNew && (
                     <button
                       onClick={() => { removeReason(d.key); closeDrawer(); }}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      className="p-1.5 rounded-md text-white/60 hover:text-red-300 hover:bg-white/10 transition-colors"
                       title="Excluir motivo"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
-                  <button onClick={closeDrawer} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                  <button onClick={closeDrawer} className="p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/20 transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -2063,11 +2059,6 @@ function EnrollmentSettingsPanel() {
     setData((prev) => ({ ...prev, required_docs_list: prev.required_docs_list.filter((d) => d !== doc) }));
   }
 
-  const sectionCard  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60';
-  const sectionHead  = 'bg-gray-50 dark:bg-gray-900/40 px-5 py-4';
-  const sectionBody  = 'bg-white dark:bg-gray-800/20 px-5 py-5 space-y-4';
-  const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400';
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -2080,11 +2071,11 @@ function EnrollmentSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* Idade Mínima */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>Idade Mínima</p>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>Idade Mínima</p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="flex items-center gap-4">
             <button onClick={() => setData((p) => ({ ...p, min_age: Math.max(0, p.min_age - 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
             <div className="flex items-baseline gap-2">
@@ -2097,14 +2088,14 @@ function EnrollmentSettingsPanel() {
       </div>
 
       {/* Segmentos Disponíveis */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <GraduationCap className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Segmentos Disponíveis
           </p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="flex flex-wrap gap-2">
             {SEGMENT_OPTIONS.map(({ label: seg, Icon: SegIcon }) => {
               const selected = data.segments_available.includes(seg);
@@ -2128,14 +2119,14 @@ function EnrollmentSettingsPanel() {
       </div>
 
       {/* Documentos Obrigatórios */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Documentos Obrigatórios
           </p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="flex flex-wrap gap-2">
             {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
               const added = data.required_docs_list.includes(s);
@@ -2173,14 +2164,14 @@ function EnrollmentSettingsPanel() {
       </div>
 
       {/* Opções booleanas */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <UserCheck className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Opções
           </p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="space-y-3">
             {(
               [
@@ -2378,11 +2369,6 @@ function ContactSettingsPanel() {
     setData((prev) => ({ ...prev, reasons: prev.reasons.filter((r) => r.key !== key) }));
   }
 
-  const sectionCard  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60';
-  const sectionHead  = 'bg-gray-50 dark:bg-gray-900/40 px-5 py-4';
-  const sectionBody  = 'bg-white dark:bg-gray-800/20 px-5 py-5 space-y-4';
-  const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400';
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -2395,29 +2381,29 @@ function ContactSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* SLA de Resposta */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             SLA de Resposta
           </p>
           <p className="text-xs text-gray-400 mt-1">Prazo máximo esperado para responder a um contato recebido.</p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <SLASlider value={data.sla_hours} onChange={(v) => setData((p) => ({ ...p, sla_hours: v }))} />
         </div>
       </div>
 
       {/* Campos Obrigatórios */}
-      <div className={sectionCard}>
-        <div className={sectionHead}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={HEAD_CLS}>
+          <p className={TITLE_CLS}>
             <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Campos Obrigatórios
           </p>
           <p className="text-xs text-gray-400 mt-1">Campos que o visitante precisa preencher no formulário.</p>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           <div className="flex flex-wrap gap-2">
             {REQUIRED_FIELD_OPTIONS.map(({ key, label, Icon }) => {
               const active = data.required_fields.includes(key);
@@ -2441,9 +2427,9 @@ function ContactSettingsPanel() {
       </div>
 
       {/* Motivos de Contato */}
-      <div className={sectionCard}>
-        <div className={`${sectionHead} flex items-center justify-between`}>
-          <p className={sectionTitle}>
+      <div className={CARD_CLS}>
+        <div className={`${HEAD_CLS} flex items-center justify-between`}>
+          <p className={TITLE_CLS}>
             <MessageSquare className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Motivos de Contato
           </p>
@@ -2457,7 +2443,7 @@ function ContactSettingsPanel() {
             )}
           </div>
         </div>
-        <div className={sectionBody}>
+        <div className={BODY_CLS}>
           {data.reasons.length === 0 ? (
             <p className="text-xs text-gray-400 italic">Nenhum motivo cadastrado.</p>
           ) : (
@@ -2509,17 +2495,17 @@ function ContactSettingsPanel() {
           <>
             <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40" onClick={closeDrawer} />
             <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 flex-shrink-0">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
+              <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
+                <h3 className="text-sm font-semibold text-white">
                   {drawerIsNew ? 'Novo motivo' : 'Editar motivo'}
                 </h3>
                 <div className="flex items-center gap-1">
                   {!drawerIsNew && (
-                    <button onClick={() => { removeReason(d.key); closeDrawer(); }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir motivo">
+                    <button onClick={() => { removeReason(d.key); closeDrawer(); }} className="p-1.5 rounded-lg text-white/60 hover:text-red-300 hover:bg-white/10 transition-colors" title="Excluir motivo">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
-                  <button onClick={closeDrawer} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                  <button onClick={closeDrawer} className="p-1.5 rounded-lg text-white/70 hover:bg-white/20 transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>

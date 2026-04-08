@@ -16,6 +16,8 @@ import {
   Pause, Play, ChevronDown, ChevronUp, RefreshCw, Trash,
   MessageSquare, Clock, AlertTriangle, Inbox,
 } from 'lucide-react';
+import { SettingsCard } from '../../components/SettingsCard';
+import { Toggle } from '../../components/Toggle';
 
 const TARGETS: AnnouncementTarget[] = ['all', 'segment', 'class', 'role'];
 
@@ -333,8 +335,17 @@ function CampaignsTab() {
 
 // ── Drawer ────────────────────────────────────────────────────────────────────
 
-interface DrawerProps {
+export interface DrawerProps {
   announcement: Announcement | null;
+  /** Pre-fill form when creating a new announcement (announcement === null) */
+  initialValues?: Partial<{
+    title: string;
+    body: string;
+    target_type: AnnouncementTarget;
+    target_ids: string[];
+    target_roles: string[];
+    send_whatsapp: boolean;
+  }>;
   segments: SchoolSegment[];
   classes: SchoolClass[];
   onClose: () => void;
@@ -356,7 +367,7 @@ const emptyForm = () => ({
   scheduledFor: '',   // datetime-local string
 });
 
-function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved }: DrawerProps) {
+export function AnnouncementDrawer({ announcement, initialValues, segments, classes, onClose, onSaved }: DrawerProps) {
   const { profile } = useAdminAuth();
   const [form, setForm] = useState(announcement ? {
     title:         announcement.title,
@@ -370,7 +381,7 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
     delayMin:      5,
     delayMax:      15,
     scheduledFor:  '',
-  } : emptyForm());
+  } : { ...emptyForm(), ...initialValues });
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState('');
   const [waStatus, setWaStatus] = useState('');
@@ -499,27 +510,26 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20"><X className="w-4 h-4" /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>}
 
-          {/* Title */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Título *</label>
-            <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-              placeholder="Ex: Reunião de pais — 3º Bimestre" className={cls} />
-          </div>
+          {/* ── Conteúdo ── */}
+          <SettingsCard title="Conteúdo" icon={Megaphone}>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Título *</label>
+              <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                placeholder="Ex: Reunião de pais — 3º Bimestre" className={cls} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Conteúdo *</label>
+              <textarea value={form.body} onChange={(e) => setForm((p) => ({ ...p, body: e.target.value }))}
+                rows={5} placeholder="Escreva o comunicado aqui..."
+                className={`${cls} resize-none`} />
+            </div>
+          </SettingsCard>
 
-          {/* Body */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Conteúdo *</label>
-            <textarea value={form.body} onChange={(e) => setForm((p) => ({ ...p, body: e.target.value }))}
-              rows={5} placeholder="Escreva o comunicado aqui..."
-              className={`${cls} resize-none`} />
-          </div>
-
-          {/* Target */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">Público-alvo</label>
+          {/* ── Público-alvo ── */}
+          <SettingsCard title="Público-alvo" icon={Users}>
             <div className="flex gap-2 flex-wrap">
               {TARGETS.map((t) => {
                 const Icon = TARGET_ICON[t];
@@ -535,12 +545,8 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
                 );
               })}
             </div>
-          </div>
 
-          {/* Segment picker */}
-          {form.target_type === 'segment' && segments.length > 0 && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">Segmentos</label>
+            {form.target_type === 'segment' && segments.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {segments.map((s) => (
                   <button key={s.id} type="button" onClick={() => toggleTargetId(s.id)}
@@ -552,13 +558,9 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Class picker */}
-          {form.target_type === 'class' && classes.length > 0 && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">Turmas</label>
+            {form.target_type === 'class' && classes.length > 0 && (
               <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                 {classes.map((c) => (
                   <button key={c.id} type="button" onClick={() => toggleTargetId(c.id)}
@@ -570,13 +572,9 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Role picker */}
-          {form.target_type === 'role' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">Cargos</label>
+            {form.target_type === 'role' && (
               <div className="flex flex-wrap gap-2">
                 {ROLES_LIST.map((r) => (
                   <button key={r.value} type="button" onClick={() => toggleRole(r.value)}
@@ -588,75 +586,69 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </SettingsCard>
 
-          {/* Publish date */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Data de publicação</label>
-            <input type="datetime-local" value={form.publish_at}
-              onChange={(e) => setForm((p) => ({ ...p, publish_at: e.target.value }))} className={cls} />
-          </div>
-
-          {/* WhatsApp toggle */}
-          <label className="flex items-center gap-3 cursor-pointer select-none p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800">
-            <button type="button" onClick={() => setForm((p) => ({ ...p, send_whatsapp: !p.send_whatsapp }))}
-              className={`w-10 h-6 rounded-full transition-colors flex-shrink-0 ${form.send_whatsapp ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
-              <span className={`block w-4 h-4 bg-white rounded-full shadow mx-1 transition-transform ${form.send_whatsapp ? 'translate-x-4' : ''}`} />
-            </button>
+          {/* ── Publicação ── */}
+          <SettingsCard title="Publicação" icon={Calendar}>
             <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Enviar por WhatsApp</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Cria campanha em massa para os responsáveis ao publicar</p>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Data de publicação</label>
+              <input type="datetime-local" value={form.publish_at}
+                onChange={(e) => setForm((p) => ({ ...p, publish_at: e.target.value }))} className={cls} />
             </div>
-          </label>
 
-          {/* Campaign settings (when WhatsApp is on) */}
-          {form.send_whatsapp && (
-            <div className="space-y-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-              <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
-                <MessageSquare className="w-3.5 h-3.5" /> Configurações da campanha
+            <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800">
+              <Toggle
+                checked={form.send_whatsapp}
+                onChange={(v) => setForm((p) => ({ ...p, send_whatsapp: v }))}
+                label="Enviar por WhatsApp"
+                description="Cria campanha em massa para os responsáveis ao publicar"
+                onColor="bg-emerald-600"
+              />
+            </div>
+
+            {form.send_whatsapp && (
+              <div className="space-y-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5" /> Configurações da campanha
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Delay mínimo (seg)</label>
+                    <input type="number" min={1} max={300} value={form.delayMin}
+                      onChange={(e) => setForm((p) => ({ ...p, delayMin: Math.max(1, +e.target.value) }))}
+                      className={cls} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Delay máximo (seg)</label>
+                    <input type="number" min={1} max={600} value={form.delayMax}
+                      onChange={(e) => setForm((p) => ({ ...p, delayMax: Math.max(form.delayMin, +e.target.value) }))}
+                      className={cls} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Agendar envio <span className="text-gray-400">(opcional — vazio = imediato)</span>
+                  </label>
+                  <input type="datetime-local" value={form.scheduledFor}
+                    onChange={(e) => setForm((p) => ({ ...p, scheduledFor: e.target.value }))}
+                    className={cls} />
+                </div>
+              </div>
+            )}
+
+            {waStatus && (
+              <p className={`text-xs px-3 py-2 rounded-lg ${
+                waStatus.startsWith('⚠') ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                : waStatus.startsWith('✓') ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'}`}>
+                {saving && !waStatus.startsWith('✓') && !waStatus.startsWith('⚠') && (
+                  <Loader2 className="w-3 h-3 animate-spin inline mr-1.5" />
+                )}
+                {waStatus}
               </p>
-
-              {/* Delay */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Delay mínimo (seg)</label>
-                  <input type="number" min={1} max={300} value={form.delayMin}
-                    onChange={(e) => setForm((p) => ({ ...p, delayMin: Math.max(1, +e.target.value) }))}
-                    className={cls} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Delay máximo (seg)</label>
-                  <input type="number" min={1} max={600} value={form.delayMax}
-                    onChange={(e) => setForm((p) => ({ ...p, delayMax: Math.max(form.delayMin, +e.target.value) }))}
-                    className={cls} />
-                </div>
-              </div>
-
-              {/* Schedule */}
-              <div>
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  Agendar envio <span className="text-gray-400">(opcional — vazio = imediato)</span>
-                </label>
-                <input type="datetime-local" value={form.scheduledFor}
-                  onChange={(e) => setForm((p) => ({ ...p, scheduledFor: e.target.value }))}
-                  className={cls} />
-              </div>
-            </div>
-          )}
-
-          {/* Campaign creation status */}
-          {waStatus && (
-            <p className={`text-xs px-3 py-2 rounded-lg ${
-              waStatus.startsWith('⚠') ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-              : waStatus.startsWith('✓') ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-              : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'}`}>
-              {saving && !waStatus.startsWith('✓') && !waStatus.startsWith('⚠') && (
-                <Loader2 className="w-3 h-3 animate-spin inline mr-1.5" />
-              )}
-              {waStatus}
-            </p>
-          )}
+            )}
+          </SettingsCard>
         </div>
 
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex gap-3">
