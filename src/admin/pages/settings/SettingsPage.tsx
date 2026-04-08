@@ -128,6 +128,7 @@ const KEY_META: Record<string, { label: string; placeholder?: string; secret?: b
   auto_qualify_as_lead: { label: 'Qualificar Contato como Lead Automaticamente', type: 'boolean' },
   sla_hours:            { label: 'SLA de Resposta (horas)', placeholder: '48', type: 'number' },
   // notifications
+  notify_wa_connection:    { label: 'Alertas de conexão WhatsApp', type: 'boolean' },
   admin_email_alerts:      { label: 'Alertas por E-mail (Admin)', type: 'boolean' },
   auto_notify_on_contact:  { label: 'Notificar ao Receber Contato', type: 'boolean' },
   auto_notify_on_visit:    { label: 'Notificar ao Receber Agendamento', type: 'boolean' },
@@ -415,7 +416,9 @@ export default function SettingsPage() {
                 <EmptyTabState tab={currentTab} />
               ) : (
                 <SettingsFieldGroup
-                  settings={tabSettings}
+                  settings={activeTab === 'notifications'
+                    ? tabSettings.filter((s) => s.key !== 'reminder_hours_before')
+                    : tabSettings}
                   editValues={editValues}
                   toStr={toStr}
                   onChange={(id, val) =>
