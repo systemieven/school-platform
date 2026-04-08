@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
-import { sendWhatsAppText } from '../../lib/whatsapp-api';
+import { sendWhatsAppText, renderTemplate } from '../../lib/whatsapp-api';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
@@ -31,45 +31,77 @@ interface TempPasswordModalProps {
 }
 
 function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModalProps) {
-  const [copied, setCopied]   = useState(false);
-  const [sending, setSending] = useState(false);
-  const [sent, setSent]       = useState(false);
+  const [copied, setCopied]       = useState(false);
+  const [sending, setSending]     = useState(!!profile.phone);
+  const [sent, setSent]           = useState(false);
   const [sendError, setSendError] = useState('');
+
+  // Auto-send template on mount if user has a phone
+  useEffect(() => {
+    if (!profile.phone) return;
+
+    async function autoSend() {
+      try {
+        const systemUrl = window.location.origin + '/admin/login';
+
+        // Try to load the senha_temporaria template
+        const { data: tpl } = await supabase
+          .from('whatsapp_templates')
+          .select('content, variables')
+          .eq('name', 'senha_temporaria')
+          .eq('is_active', true)
+          .maybeSingle();
+
+        let text: string;
+
+        if (tpl?.content?.body) {
+          text = renderTemplate(tpl.content.body as string, {
+            user_name:    profile.full_name ?? 'usuário',
+            temp_password: tempPassword,
+            system_url:   systemUrl,
+          });
+        } else {
+          // Fallback if template not seeded yet
+          text =
+            `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\n` +
+            `Seu acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi criado.\n\n` +
+            `🔑 *Senha temporária:* ${tempPassword}\n\n` +
+            `*Como acessar:*\n` +
+            `1. Acesse: ${systemUrl}\n` +
+            `2. Entre com seu e-mail e a senha acima\n` +
+            `3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n` +
+            `_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+        }
+
+        const result = await sendWhatsAppText({
+          phone: profile.phone!,
+          text,
+          templateId: tpl ? (tpl as unknown as { id: string }).id : undefined,
+          recipientName: profile.full_name ?? undefined,
+          relatedModule: 'usuario',
+          relatedRecordId: profile.id,
+        });
+
+        if (result.success) {
+          setSent(true);
+        } else {
+          setSendError(result.error ?? 'Erro ao enviar mensagem.');
+        }
+      } catch {
+        setSendError('Erro inesperado ao enviar mensagem.');
+      } finally {
+        setSending(false);
+      }
+    }
+
+    autoSend();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function copyPassword() {
     navigator.clipboard.writeText(tempPassword);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function sendWhatsApp() {
-    if (!profile.phone) return;
-    setSending(true);
-    setSendError('');
-    const systemUrl = window.location.origin + '/admin/login';
-    const text =
-      `Olá, ${profile.full_name || 'usuário'}! 🎓\n\n` +
-      `Seu acesso ao Painel Administrativo do *Colégio Batista em Caruaru* foi criado.\n\n` +
-      `🔑 *Senha temporária:* \`${tempPassword}\`\n\n` +
-      `Para acessar o sistema:\n` +
-      `1. Acesse: ${systemUrl}\n` +
-      `2. Entre com seu e-mail e a senha temporária acima\n` +
-      `3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n` +
-      `_Esta senha expira no primeiro acesso. Não a compartilhe com ninguém._`;
-
-    const result = await sendWhatsAppText({
-      phone: profile.phone,
-      text,
-      recipientName: profile.full_name ?? undefined,
-      relatedModule: 'usuario',
-      relatedRecordId: profile.id,
-    });
-    setSending(false);
-    if (result.success) {
-      setSent(true);
-    } else {
-      setSendError(result.error ?? 'Erro ao enviar mensagem.');
-    }
   }
 
   return (
@@ -90,7 +122,7 @@ function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModal
 
           <div className="p-5 space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              O usuário <span className="font-semibold text-gray-800 dark:text-gray-200">{profile.full_name}</span> foi criado com a senha temporária abaixo. Ele será obrigado a alterá-la no primeiro acesso.
+              O usuário <span className="font-semibold text-gray-800 dark:text-gray-200">{profile.full_name}</span> foi criado. A senha temporária abaixo deve ser alterada no primeiro acesso.
             </p>
 
             {/* Temp password display */}
@@ -110,33 +142,28 @@ function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModal
               </div>
             </div>
 
-            {sendError && (
-              <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
-                {sendError}
-              </p>
+            {/* WhatsApp send status */}
+            {profile.phone && (
+              <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${
+                sending
+                  ? 'bg-gray-50 dark:bg-gray-800 text-gray-400'
+                  : sent
+                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-500'
+              }`}>
+                {sending ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" /> Enviando template via WhatsApp…</>
+                ) : sent ? (
+                  <><Check className="w-3.5 h-3.5 flex-shrink-0" /> Template <strong>senha_temporaria</strong> enviado para {profile.phone}</>
+                ) : (
+                  <><MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> {sendError}</>
+                )}
+              </div>
             )}
 
-            {/* Actions */}
-            <div className="flex flex-col gap-2">
-              {profile.phone && !sent && (
-                <button
-                  onClick={sendWhatsApp}
-                  disabled={sending}
-                  className="flex items-center justify-center gap-2 py-2.5 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
-                  {sending ? 'Enviando…' : 'Enviar por WhatsApp'}
-                </button>
-              )}
-              {sent && (
-                <p className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 justify-center py-1">
-                  <Check className="w-4 h-4" /> Mensagem enviada com sucesso!
-                </p>
-              )}
-              <button onClick={onClose} className="py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors">
-                Concluir
-              </button>
-            </div>
+            <button onClick={onClose} className="w-full py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors">
+              Concluir
+            </button>
           </div>
         </div>
       </div>
