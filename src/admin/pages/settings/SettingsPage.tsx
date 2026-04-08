@@ -689,16 +689,15 @@ function WhatsAppProvidersPanel() {
           </div>
         )}
 
-        {/* Add new — expandable pill below grid */}
-        <div className="flex">
+        {/* Add new */}
+        <div className="flex items-center gap-4 pt-1">
+          <div className="flex-1 border-t border-gray-100 dark:border-gray-700" />
           <button
             onClick={handleAddNew}
-            className="group inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#003876]/60 dark:hover:border-[#ffd700]/50 bg-white dark:bg-gray-800/20 hover:bg-[#003876]/5 dark:hover:bg-[#ffd700]/5 px-3 py-2 text-gray-400 dark:text-gray-500 hover:text-[#003876] dark:hover:text-[#ffd700] transition-all duration-300"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all flex-shrink-0"
           >
-            <Plug className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="overflow-hidden max-w-0 group-hover:max-w-[96px] whitespace-nowrap text-xs font-medium transition-all duration-300">
-              Adicionar API
-            </span>
+            <Plug className="w-3.5 h-3.5" />
+            Adicionar API
           </button>
         </div>
       </div>
