@@ -16,6 +16,7 @@ interface AdminAuthContextValue extends AdminAuthState {
   signOut: () => Promise<void>;
   hasRole: (...roles: Role[]) => boolean;
   isAdmin: boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 export const AdminAuthContext = createContext<AdminAuthContextValue | null>(null);
@@ -139,8 +140,14 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = state.profile ? ['super_admin', 'admin'].includes(state.profile.role) : false;
 
+  const refreshProfile = async () => {
+    if (!state.user) return;
+    const profile = await fetchProfile(state.user.id);
+    if (profile) setState((s) => ({ ...s, profile }));
+  };
+
   return (
-    <AdminAuthContext.Provider value={{ ...state, signIn, signOut, hasRole, isAdmin }}>
+    <AdminAuthContext.Provider value={{ ...state, signIn, signOut, hasRole, isAdmin, refreshProfile }}>
       {children}
     </AdminAuthContext.Provider>
   );

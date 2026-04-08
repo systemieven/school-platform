@@ -3,6 +3,7 @@ import { AdminAuthProvider } from './contexts/AdminAuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './AdminLayout';
 import LoginPage from './pages/login/LoginPage';
+import ForcePasswordChange from './pages/auth/ForcePasswordChange';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import UsersPage from './pages/users/UsersPage';
 import SettingsPage from './pages/settings/SettingsPage';
@@ -23,6 +24,14 @@ export default function AdminRoutes() {
     <AdminAuthProvider>
       <Routes>
         <Route path="login" element={<LoginPage />} />
+        <Route
+          path="alterar-senha"
+          element={
+            <ProtectedRoute>
+              <ForcePasswordChange />
+            </ProtectedRoute>
+          }
+        />
 
         {/* All protected admin routes share the AdminLayout */}
         <Route

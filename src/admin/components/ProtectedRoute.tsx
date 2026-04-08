@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import type { Role } from '../types/admin.types';
 import { Loader2 } from 'lucide-react';
@@ -10,6 +10,7 @@ interface Props {
 
 export default function ProtectedRoute({ children, roles }: Props) {
   const { profile, loading } = useAdminAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -21,6 +22,11 @@ export default function ProtectedRoute({ children, roles }: Props) {
 
   if (!profile) {
     return <Navigate to="/admin/login" replace />;
+  }
+
+  // First-access: force password change before anything else
+  if (profile.must_change_password && location.pathname !== '/admin/alterar-senha') {
+    return <Navigate to="/admin/alterar-senha" replace />;
   }
 
   if (roles && !roles.includes(profile.role)) {

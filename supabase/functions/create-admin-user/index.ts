@@ -6,6 +6,32 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/** Generates a cryptographically random temporary password that satisfies
+ *  basic complexity: at least one uppercase, one digit, one special char. */
+function generateTempPassword(): string {
+  const upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower   = 'abcdefghjkmnpqrstuvwxyz';
+  const digits  = '23456789';
+  const special = '@#$!%?';
+  const all     = upper + lower + digits + special;
+
+  const rand = (set: string) => set[Math.floor(Math.random() * set.length)];
+
+  // Guarantee at least one of each required class
+  const required = [rand(upper), rand(lower), rand(digits), rand(special)];
+
+  // Fill up to 12 chars total
+  const extra = Array.from({ length: 8 }, () => rand(all));
+
+  // Shuffle
+  const chars = [...required, ...extra];
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -48,9 +74,9 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const { email, password, full_name, role, phone } = await req.json();
-  if (!email || !password || !full_name || !role) {
-    return new Response(JSON.stringify({ error: 'Missing required fields: email, password, full_name, role' }), {
+  const { email, full_name, role, phone } = await req.json();
+  if (!email || !full_name || !role) {
+    return new Response(JSON.stringify({ error: 'Missing required fields: email, full_name, role' }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -61,9 +87,12 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Generate temporary password — returned to caller so they can send via WhatsApp
+  const temp_password = generateTempPassword();
+
   const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
     email,
-    password,
+    password: temp_password,
     email_confirm: true,
     user_metadata: { full_name },
   });
@@ -76,7 +105,15 @@ Deno.serve(async (req: Request) => {
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .upsert({ id: newUser.user.id, email, full_name, role, phone: phone ?? null, is_active: true })
+    .upsert({
+      id: newUser.user.id,
+      email,
+      full_name,
+      role,
+      phone: phone ?? null,
+      is_active: true,
+      must_change_password: true,
+    })
     .select().single();
 
   if (profileError) {
@@ -86,7 +123,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  return new Response(JSON.stringify({ profile }), {
+  return new Response(JSON.stringify({ profile, temp_password }), {
     status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });

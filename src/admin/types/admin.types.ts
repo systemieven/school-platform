@@ -22,9 +22,34 @@ export interface Profile {
   role: Role;
   phone?: string | null;
   is_active: boolean;
+  must_change_password: boolean;
+  password_changed_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+// ── Password Policy ──
+export interface PasswordPolicy {
+  min_length: number;
+  require_uppercase: boolean;
+  require_lowercase: boolean;
+  require_numbers: boolean;
+  require_special: boolean;
+  /** 0 = never expires */
+  password_lifetime_days: number;
+  /** 0 = no restriction */
+  password_history_count: number;
+}
+
+export const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
+  min_length: 8,
+  require_uppercase: false,
+  require_lowercase: false,
+  require_numbers: false,
+  require_special: false,
+  password_lifetime_days: 0,
+  password_history_count: 0,
+};
 
 // ── System Settings ──
 export interface SystemSetting {

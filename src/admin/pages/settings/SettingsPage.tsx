@@ -20,7 +20,9 @@ import {
   Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
   Users, User, FileText, Trash2,
   Hash, CalendarX2, Clock, ChevronDown, ChevronUp,
+  Shield,
 } from 'lucide-react';
+import SecuritySettingsPanel from './SecuritySettingsPanel';
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
 interface TabDef {
@@ -88,6 +90,14 @@ const TABS: TabDef[] = [
     icon: Palette,
     categories: ['appearance'],
     description: 'Personalize textos do site, banners e elementos visuais.',
+  },
+  {
+    key: 'security',
+    label: 'Segurança',
+    shortLabel: 'Segurança',
+    icon: Shield,
+    categories: ['security'],
+    description: 'Defina critérios de senhas, tempo de vida e reutilização.',
   },
 ];
 
@@ -375,7 +385,7 @@ export default function SettingsPage() {
               </div>
 
               {/* Save button — only for generic tabs; custom panels have their own saves */}
-              {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance'].includes(activeTab) && (
+              {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security'].includes(activeTab) && (
                 <button
                   onClick={handleSave}
                   disabled={!tabHasChanges || saving}
@@ -405,7 +415,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'institutional'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'institutional', 'security'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
@@ -416,6 +426,8 @@ export default function SettingsPage() {
                 <ContactSettingsPanel />
               ) : activeTab === 'appearance' ? (
                 <AppearanceSettingsPanel />
+              ) : activeTab === 'security' ? (
+                <SecuritySettingsPanel />
               ) : activeTab === 'institutional' ? (
                 <InstitutionalSettingsPanel
                   settings={tabSettings}
