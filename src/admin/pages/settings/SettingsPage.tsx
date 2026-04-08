@@ -689,16 +689,18 @@ function WhatsAppProvidersPanel() {
           </div>
         )}
 
-        {/* Add new — ghost card, fits naturally in the grid */}
-        <button
-          onClick={handleAddNew}
-          className="group rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-[#003876]/50 dark:hover:border-[#ffd700]/40 transition-all duration-200 flex flex-col items-center justify-center gap-2 py-6 text-gray-300 dark:text-gray-600 hover:text-[#003876] dark:hover:text-[#ffd700]"
-        >
-          <div className="w-9 h-9 rounded-xl border-2 border-dashed border-current flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
-            <Plug className="w-4 h-4" />
-          </div>
-          <span className="text-xs font-medium">Conectar nova API</span>
-        </button>
+        {/* Add new — expandable pill below grid */}
+        <div className="flex">
+          <button
+            onClick={handleAddNew}
+            className="group inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#003876]/60 dark:hover:border-[#ffd700]/50 bg-white dark:bg-gray-800/20 hover:bg-[#003876]/5 dark:hover:bg-[#ffd700]/5 px-3 py-2 text-gray-400 dark:text-gray-500 hover:text-[#003876] dark:hover:text-[#ffd700] transition-all duration-300"
+          >
+            <Plug className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="overflow-hidden max-w-0 group-hover:max-w-[96px] whitespace-nowrap text-xs font-medium transition-all duration-300">
+              Adicionar API
+            </span>
+          </button>
+        </div>
       </div>
 
       {drawerOpen && (
