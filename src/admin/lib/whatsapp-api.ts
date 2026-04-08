@@ -443,6 +443,13 @@ export async function updatePresence(
 ): Promise<ProfileUpdateResult> {
   const { error } = await callProxy('/instance/presence', 'POST', { presence });
   if (error) return { success: false, error };
+  // Persist so the UI can restore the correct state on next load
+  await supabase
+    .from('system_settings')
+    .upsert(
+      { category: 'whatsapp', key: 'presence', value: presence },
+      { onConflict: 'category,key' },
+    );
   return { success: true };
 }
 

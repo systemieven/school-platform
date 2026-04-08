@@ -101,7 +101,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
   const [regResult,        setRegResult]        = useState<{ success: boolean; error?: string } | null>(null);
   const [webhookUrlInDb,   setWebhookUrlInDb]   = useState('');
   const [copied,           setCopied]           = useState(false);
-  const [selectedEvents,   setSelectedEvents]   = useState<string[]>(['messages_update']);
+  const [selectedEvents,   setSelectedEvents]   = useState<string[]>(['messages_update', 'connection_update']);
 
   // ── Load webhook settings (always from system_settings)
   useEffect(() => {
@@ -922,16 +922,24 @@ function WaPrivacySection() {
 }
 
 function WaPresenceSection() {
-  const { instanceData, refresh } = useWhatsAppStatus();
-  const initial = (instanceData?.['current_presence'] as string) === 'available' ? 'available' : 'unavailable';
-  const [presence, setPresence] = useState<'available' | 'unavailable'>(initial as 'available' | 'unavailable');
+  const { refresh } = useWhatsAppStatus();
+  const [presence, setPresence] = useState<'available' | 'unavailable'>('unavailable');
   const [saving,   setSaving]   = useState(false);
   const [result,   setResult]   = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // Load persisted value from system_settings on mount
   useEffect(() => {
-    const p = instanceData?.['current_presence'] as string;
-    if (p === 'available' || p === 'unavailable') setPresence(p);
-  }, [instanceData]);
+    supabase
+      .from('system_settings')
+      .select('value')
+      .eq('category', 'whatsapp')
+      .eq('key', 'presence')
+      .maybeSingle()
+      .then(({ data }) => {
+        const v = data?.value as string | undefined;
+        if (v === 'available' || v === 'unavailable') setPresence(v);
+      });
+  }, []);
 
   const handleSave = async (value: 'available' | 'unavailable') => {
     setPresence(value); setSaving(true); setResult(null);
