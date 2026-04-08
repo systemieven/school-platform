@@ -898,7 +898,7 @@ function ReminderChainSection() {
   }
 
   return (
-    <div className="px-6 pt-2 pb-5">
+    <div>
       {saving && (
         <div className="flex justify-end mb-2">
           <Loader2 className="w-4 h-4 animate-spin text-[#003876]" />
@@ -1346,8 +1346,10 @@ function AppointmentsSettingsPanel() {
     setData((prev) => ({ ...prev, reasons: prev.reasons.filter((r) => r.key !== key) }));
   }
 
-  const sectionCard  = 'bg-gray-50 dark:bg-gray-900/30 rounded-2xl p-5 space-y-4';
-  const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 mb-4';
+  const sectionCard  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60';
+  const sectionHead  = 'bg-gray-50 dark:bg-gray-900/40 px-5 py-4';
+  const sectionBody  = 'bg-white dark:bg-gray-800/20 px-5 py-5 space-y-4';
+  const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400';
 
   if (loading) {
     return (
@@ -1362,84 +1364,96 @@ function AppointmentsSettingsPanel() {
 
       {/* Horário de Atendimento */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>
-          <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-          Horário de Atendimento
-        </p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Início</label>
-            <input type="time" value={data.start_hour} onChange={(e) => setData((p) => ({ ...p, start_hour: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Término</label>
-            <input type="time" value={data.end_hour} onChange={(e) => setData((p) => ({ ...p, end_hour: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
-          </div>
+        <div className={sectionHead}>
+          <p className={sectionTitle}>
+            <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+            Horário de Atendimento
+          </p>
         </div>
-        <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 pt-2">Intervalo de Almoço</p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Início</label>
-            <input type="time" value={data.lunch_start} onChange={(e) => setData((p) => ({ ...p, lunch_start: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
+        <div className={sectionBody}>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Início</label>
+              <input type="time" value={data.start_hour} onChange={(e) => setData((p) => ({ ...p, start_hour: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Término</label>
+              <input type="time" value={data.end_hour} onChange={(e) => setData((p) => ({ ...p, end_hour: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Término</label>
-            <input type="time" value={data.lunch_end} onChange={(e) => setData((p) => ({ ...p, lunch_end: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
+          <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">Intervalo de Almoço</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Início</label>
+              <input type="time" value={data.lunch_start} onChange={(e) => setData((p) => ({ ...p, lunch_start: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Término</label>
+              <input type="time" value={data.lunch_end} onChange={(e) => setData((p) => ({ ...p, lunch_end: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Duração do Slot */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>
-          <Hash className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-          Duração do Slot
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {SLOT_OPTIONS.map((min) => (
-            <button
-              key={min}
-              onClick={() => setData((p) => ({ ...p, slot_duration: min }))}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                data.slot_duration === min
-                  ? 'bg-[#003876] text-white shadow-md'
-                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#003876]/50'
-              }`}
-            >
-              {min} min
-            </button>
-          ))}
+        <div className={sectionHead}>
+          <p className={sectionTitle}>
+            <Hash className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+            Duração do Slot
+          </p>
+        </div>
+        <div className={sectionBody}>
+          <div className="flex flex-wrap gap-2">
+            {SLOT_OPTIONS.map((min) => (
+              <button
+                key={min}
+                onClick={() => setData((p) => ({ ...p, slot_duration: min }))}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  data.slot_duration === min
+                    ? 'bg-[#003876] text-white shadow-md'
+                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#003876]/50'
+                }`}
+              >
+                {min} min
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Dias Bloqueados */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>Dias Bloqueados</p>
-        <p className="text-xs text-gray-400 -mt-2 mb-3">Dias marcados em azul não aceitam agendamentos.</p>
-        <div className="flex gap-2 flex-wrap">
-          {WEEKDAYS.map((name, idx) => {
-            const isBlocked = data.blocked_weekdays.includes(idx);
-            return (
-              <button
-                key={idx}
-                onClick={() => toggleWeekday(idx)}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all ${
-                  isBlocked
-                    ? 'bg-[#003876] text-white shadow-md'
-                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#003876]/50'
-                }`}
-              >
-                {isBlocked && <X className="w-3 h-3" />}
-                {name}
-              </button>
-            );
-          })}
+        <div className={sectionHead}>
+          <p className={sectionTitle}>Dias Bloqueados</p>
+          <p className="text-xs text-gray-400 mt-1">Dias marcados em azul não aceitam agendamentos.</p>
+        </div>
+        <div className={sectionBody}>
+          <div className="flex gap-2 flex-wrap">
+            {WEEKDAYS.map((name, idx) => {
+              const isBlocked = data.blocked_weekdays.includes(idx);
+              return (
+                <button
+                  key={idx}
+                  onClick={() => toggleWeekday(idx)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all ${
+                    isBlocked
+                      ? 'bg-[#003876] text-white shadow-md'
+                      : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#003876]/50'
+                  }`}
+                >
+                  {isBlocked && <X className="w-3 h-3" />}
+                  {name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Motivos de Visita */}
       <div className={sectionCard}>
-        <div className="flex items-center justify-between mb-3">
+        <div className={`${sectionHead} flex items-center justify-between`}>
           <p className={sectionTitle}>
             <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Motivos de Visita
@@ -1457,149 +1471,159 @@ function AppointmentsSettingsPanel() {
             )}
           </div>
         </div>
-        {data.reasons.length === 0 ? (
-          <p className="text-xs text-gray-400 italic">Nenhum motivo cadastrado.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            {data.reasons.map((r) => {
-              const iconOpt = REASON_ICON_OPTIONS.find((o) => o.key === (r.icon || 'FileText'));
-              const IconComp = iconOpt?.Icon ?? FileText;
-              return (
-                <button
-                  key={r.key}
-                  onClick={() => openDrawer(r.key)}
-                  className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-[#003876]/50 hover:shadow-sm transition-all text-left group"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#003876]/8 dark:bg-[#003876]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#003876]/15 transition-colors">
-                    <IconComp className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{r.label}</p>
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <span className="text-[10px] text-gray-400">{r.duration_minutes}min</span>
-                      {(r.buffer_minutes ?? 0) > 0 && <span className="text-[10px] text-gray-400">+{r.buffer_minutes}buf</span>}
-                      <span className="text-[10px] text-gray-400">×{r.max_per_slot ?? 1}</span>
-                      {(r.lead_integrated ?? false) && (
-                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#003876]/10 text-[#003876] dark:text-[#ffd700]">Lead</span>
-                      )}
+        <div className={sectionBody}>
+          {data.reasons.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">Nenhum motivo cadastrado.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {data.reasons.map((r) => {
+                const iconOpt = REASON_ICON_OPTIONS.find((o) => o.key === (r.icon || 'FileText'));
+                const IconComp = iconOpt?.Icon ?? FileText;
+                return (
+                  <button
+                    key={r.key}
+                    onClick={() => openDrawer(r.key)}
+                    className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-[#003876]/50 hover:shadow-sm transition-all text-left group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-[#003876]/8 dark:bg-[#003876]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#003876]/15 transition-colors">
+                      <IconComp className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
                     </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{r.label}</p>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className="text-[10px] text-gray-400">{r.duration_minutes}min</span>
+                        {(r.buffer_minutes ?? 0) > 0 && <span className="text-[10px] text-gray-400">+{r.buffer_minutes}buf</span>}
+                        <span className="text-[10px] text-gray-400">×{r.max_per_slot ?? 1}</span>
+                        {(r.lead_integrated ?? false) && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#003876]/10 text-[#003876] dark:text-[#ffd700]">Lead</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Dias Fechados */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>
-          <CalendarX2 className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-          Dias Fechados
-        </p>
-        <div className="space-y-2">
-          {blockedDates.length === 0 && (
-            <p className="text-xs text-gray-400 italic">Nenhum dia fechado cadastrado.</p>
-          )}
-          {blockedDates.map((d) => {
-            const [year, month, day] = d.blocked_date.split('-');
-            const formatted = `${day}/${month}/${year}`;
-            return (
-              <div key={d.id} className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800/40 rounded-xl">
-                <CalendarX2 className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">{formatted}</span>
-                {d.reason && <span className="text-xs text-gray-400 truncate max-w-[120px]">{d.reason}</span>}
-                <button onClick={() => removeBlockedDate(d.id)} className="p-1 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            );
-          })}
+        <div className={sectionHead}>
+          <p className={sectionTitle}>
+            <CalendarX2 className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+            Dias Fechados
+          </p>
         </div>
-        <div className="flex gap-2 pt-1 flex-wrap items-center">
-          <select value={newBlockedDay} onChange={(e) => setNewBlockedDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
-            <option value="">Dia</option>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-              <option key={d} value={d}>{String(d).padStart(2, '0')}</option>
-            ))}
-          </select>
-          <select value={newBlockedMonth} onChange={(e) => setNewBlockedMonth(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
-            <option value="">Mês</option>
-            {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'].map((m, i) => (
-              <option key={i + 1} value={i + 1}>{m}</option>
-            ))}
-          </select>
-          <select value={newBlockedYear} onChange={(e) => setNewBlockedYear(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
-            <option value="">Ano</option>
-            {Array.from({ length: 3 }, (_, i) => new Date().getFullYear() + i).map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-          <input type="text" value={newBlockedReason} onChange={(e) => setNewBlockedReason(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addBlockedDate()} placeholder="Motivo (opcional)" className="flex-1 min-w-[120px] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
-          <button onClick={addBlockedDate} disabled={!newBlockedDay || !newBlockedMonth || !newBlockedYear} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">
-            Adicionar
-          </button>
+        <div className={sectionBody}>
+          <div className="space-y-2">
+            {blockedDates.length === 0 && (
+              <p className="text-xs text-gray-400 italic">Nenhum dia fechado cadastrado.</p>
+            )}
+            {blockedDates.map((d) => {
+              const [year, month, day] = d.blocked_date.split('-');
+              const formatted = `${day}/${month}/${year}`;
+              return (
+                <div key={d.id} className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800/40 rounded-xl">
+                  <CalendarX2 className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                  <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">{formatted}</span>
+                  {d.reason && <span className="text-xs text-gray-400 truncate max-w-[120px]">{d.reason}</span>}
+                  <button onClick={() => removeBlockedDate(d.id)} className="p-1 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex gap-2 flex-wrap items-center">
+            <select value={newBlockedDay} onChange={(e) => setNewBlockedDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+              <option value="">Dia</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={d}>{String(d).padStart(2, '0')}</option>
+              ))}
+            </select>
+            <select value={newBlockedMonth} onChange={(e) => setNewBlockedMonth(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+              <option value="">Mês</option>
+              {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'].map((m, i) => (
+                <option key={i + 1} value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <select value={newBlockedYear} onChange={(e) => setNewBlockedYear(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+              <option value="">Ano</option>
+              {Array.from({ length: 3 }, (_, i) => new Date().getFullYear() + i).map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <input type="text" value={newBlockedReason} onChange={(e) => setNewBlockedReason(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addBlockedDate()} placeholder="Motivo (opcional)" className="flex-1 min-w-[120px] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
+            <button onClick={addBlockedDate} disabled={!newBlockedDay || !newBlockedMonth || !newBlockedYear} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">
+              Adicionar
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Feriados */}
       <div className={sectionCard}>
-        <div className="mb-1">
+        <div className={sectionHead}>
           <p className={sectionTitle}>
             <Calendar className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Feriados
           </p>
-          <p className="text-xs text-gray-400 -mt-3">Datas fixas recorrentes (dia/mês). Feriados variáveis use Dias Fechados.</p>
+          <p className="text-xs text-gray-400 mt-1">Datas fixas recorrentes (dia/mês). Feriados variáveis use Dias Fechados.</p>
         </div>
-        <div className="space-y-2">
-          {holidays.length === 0 && (
-            <p className="text-xs text-gray-400 italic">Nenhum feriado cadastrado.</p>
-          )}
-          {holidays.map((h, idx) => {
-            const dd = String(h.day).padStart(2, '0');
-            const mm = String(h.month).padStart(2, '0');
-            return (
-              <div key={idx} className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800/40 rounded-xl">
-                <Calendar className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">{h.name}</span>
-                <span className="text-xs text-gray-400">{dd}/{mm}</span>
-                <button onClick={() => removeHoliday(idx)} className="p-1 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-        <div className="flex gap-2 pt-1 flex-wrap items-center">
-          <select value={newHolidayDay} onChange={(e) => setNewHolidayDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
-            <option value="">Dia</option>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-              <option key={d} value={d}>{String(d).padStart(2, '0')}</option>
-            ))}
-          </select>
-          <select value={newHolidayMonth} onChange={(e) => setNewHolidayMonth(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
-            <option value="">Mês</option>
-            {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'].map((m, i) => (
-              <option key={i + 1} value={i + 1}>{m}</option>
-            ))}
-          </select>
-          <input type="text" value={newHolidayName} onChange={(e) => setNewHolidayName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addHoliday()} placeholder="Nome do feriado" className="flex-1 min-w-[140px] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
-          <button onClick={addHoliday} disabled={!newHolidayDay || !newHolidayMonth || !newHolidayName.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">
-            Adicionar
-          </button>
+        <div className={sectionBody}>
+          <div className="space-y-2">
+            {holidays.length === 0 && (
+              <p className="text-xs text-gray-400 italic">Nenhum feriado cadastrado.</p>
+            )}
+            {holidays.map((h, idx) => {
+              const dd = String(h.day).padStart(2, '0');
+              const mm = String(h.month).padStart(2, '0');
+              return (
+                <div key={idx} className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800/40 rounded-xl">
+                  <Calendar className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                  <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">{h.name}</span>
+                  <span className="text-xs text-gray-400">{dd}/{mm}</span>
+                  <button onClick={() => removeHoliday(idx)} className="p-1 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex gap-2 flex-wrap items-center">
+            <select value={newHolidayDay} onChange={(e) => setNewHolidayDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+              <option value="">Dia</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={d}>{String(d).padStart(2, '00')}</option>
+              ))}
+            </select>
+            <select value={newHolidayMonth} onChange={(e) => setNewHolidayMonth(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+              <option value="">Mês</option>
+              {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'].map((m, i) => (
+                <option key={i + 1} value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <input type="text" value={newHolidayName} onChange={(e) => setNewHolidayName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addHoliday()} placeholder="Nome do feriado" className="flex-1 min-w-[140px] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
+            <button onClick={addHoliday} disabled={!newHolidayDay || !newHolidayMonth || !newHolidayName.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">
+              Adicionar
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Lembretes Automáticos */}
       <div className={sectionCard}>
-        <div className="mb-1">
+        <div className={sectionHead}>
           <p className={sectionTitle}>
             <Bell className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Lembretes Automáticos
           </p>
-          <p className="text-xs text-gray-400 -mt-3">Cadeia de lembretes enviada antes da visita. Requer template com trigger <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded text-[10px]">on_reminder</code>.</p>
+          <p className="text-xs text-gray-400 mt-1">Cadeia de lembretes enviada antes da visita. Requer template com trigger <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">on_reminder</code>.</p>
         </div>
-        <ReminderChainSection />
+        <div className={sectionBody}>
+          <ReminderChainSection />
+        </div>
       </div>
 
       {/* Floating save */}
@@ -1893,8 +1917,10 @@ function EnrollmentSettingsPanel() {
     setData((prev) => ({ ...prev, required_docs_list: prev.required_docs_list.filter((d) => d !== doc) }));
   }
 
-  const sectionCard  = 'bg-gray-50 dark:bg-gray-900/30 rounded-2xl p-5 space-y-4';
-  const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 mb-4';
+  const sectionCard  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60';
+  const sectionHead  = 'bg-gray-50 dark:bg-gray-900/40 px-5 py-4';
+  const sectionBody  = 'bg-white dark:bg-gray-800/20 px-5 py-5 space-y-4';
+  const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400';
 
   if (loading) {
     return (
@@ -1909,118 +1935,133 @@ function EnrollmentSettingsPanel() {
 
       {/* Idade Mínima */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>Idade Mínima</p>
-        <div className="flex items-center gap-4">
-          <button onClick={() => setData((p) => ({ ...p, min_age: Math.max(0, p.min_age - 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-[#003876] dark:text-white">{data.min_age}</span>
-            <span className="text-sm text-gray-400">anos</span>
+        <div className={sectionHead}>
+          <p className={sectionTitle}>Idade Mínima</p>
+        </div>
+        <div className={sectionBody}>
+          <div className="flex items-center gap-4">
+            <button onClick={() => setData((p) => ({ ...p, min_age: Math.max(0, p.min_age - 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-[#003876] dark:text-white">{data.min_age}</span>
+              <span className="text-sm text-gray-400">anos</span>
+            </div>
+            <button onClick={() => setData((p) => ({ ...p, min_age: Math.min(18, p.min_age + 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
           </div>
-          <button onClick={() => setData((p) => ({ ...p, min_age: Math.min(18, p.min_age + 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
         </div>
       </div>
 
       {/* Segmentos Disponíveis */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>
-          <GraduationCap className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-          Segmentos Disponíveis
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {SEGMENT_OPTIONS.map(({ label: seg, Icon: SegIcon }) => {
-            const selected = data.segments_available.includes(seg);
-            return (
-              <button
-                key={seg}
-                onClick={() => toggleSegment(seg)}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                  selected
-                    ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
-                }`}
-              >
-                <SegIcon className="w-4 h-4 flex-shrink-0" />
-                {seg}
-              </button>
-            );
-          })}
+        <div className={sectionHead}>
+          <p className={sectionTitle}>
+            <GraduationCap className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+            Segmentos Disponíveis
+          </p>
+        </div>
+        <div className={sectionBody}>
+          <div className="flex flex-wrap gap-2">
+            {SEGMENT_OPTIONS.map(({ label: seg, Icon: SegIcon }) => {
+              const selected = data.segments_available.includes(seg);
+              return (
+                <button
+                  key={seg}
+                  onClick={() => toggleSegment(seg)}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                    selected
+                      ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                  }`}
+                >
+                  <SegIcon className="w-4 h-4 flex-shrink-0" />
+                  {seg}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Documentos Obrigatórios */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>
-          <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-          Documentos Obrigatórios
-        </p>
-        {/* Sugestões como botões flex-wrap */}
-        <div className="flex flex-wrap gap-2">
-          {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
-            const added = data.required_docs_list.includes(s);
-            return (
-              <button
-                key={s}
-                onClick={() => added ? removeDoc(s) : addDoc(s)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                  added
-                    ? 'bg-[#003876] border-[#003876] text-white'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
-                }`}
-              >
-                <DocIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                {s}
-                {added && <Check className="w-3 h-3 flex-shrink-0 opacity-80 ml-0.5" strokeWidth={3} />}
-              </button>
-            );
-          })}
-          {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).map((doc) => (
-            <span key={doc} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-[#003876] border-[#003876] text-white text-xs font-medium">
-              <FileText className="w-3.5 h-3.5 flex-shrink-0" />
-              {doc}
-              <button onClick={() => removeDoc(doc)} className="opacity-70 hover:opacity-100 transition-opacity ml-0.5">
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
+        <div className={sectionHead}>
+          <p className={sectionTitle}>
+            <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+            Documentos Obrigatórios
+          </p>
         </div>
-        <div className="flex gap-2">
-          <input type="text" value={newDoc} onChange={(e) => setNewDoc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addDoc(newDoc)} placeholder="Outro documento..." className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
-          <button onClick={() => addDoc(newDoc)} disabled={!newDoc.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">Adicionar</button>
+        <div className={sectionBody}>
+          <div className="flex flex-wrap gap-2">
+            {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
+              const added = data.required_docs_list.includes(s);
+              return (
+                <button
+                  key={s}
+                  onClick={() => added ? removeDoc(s) : addDoc(s)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                    added
+                      ? 'bg-[#003876] border-[#003876] text-white'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                  }`}
+                >
+                  <DocIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                  {s}
+                  {added && <Check className="w-3 h-3 flex-shrink-0 opacity-80 ml-0.5" strokeWidth={3} />}
+                </button>
+              );
+            })}
+            {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).map((doc) => (
+              <span key={doc} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-[#003876] border-[#003876] text-white text-xs font-medium">
+                <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                {doc}
+                <button onClick={() => removeDoc(doc)} className="opacity-70 hover:opacity-100 transition-opacity ml-0.5">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input type="text" value={newDoc} onChange={(e) => setNewDoc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addDoc(newDoc)} placeholder="Outro documento..." className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
+            <button onClick={() => addDoc(newDoc)} disabled={!newDoc.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">Adicionar</button>
+          </div>
         </div>
       </div>
 
       {/* Opções booleanas */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>
-          <UserCheck className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-          Opções
-        </p>
-        <div className="space-y-3">
-          {(
-            [
-              { key: 'require_parents_data', label: 'Exigir Dados dos Pais', desc: 'Solicita nome, CPF e contato dos responsáveis no formulário.' },
-              { key: 'require_documents',    label: 'Exigir Documentos',     desc: 'Exige o envio dos documentos listados acima na pré-matrícula.' },
-            ] as const
-          ).map(({ key, label, desc }) => {
-            const isOn = data[key];
-            return (
-              <div key={key} className="flex items-center justify-between gap-4 py-1">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+        <div className={sectionHead}>
+          <p className={sectionTitle}>
+            <UserCheck className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+            Opções
+          </p>
+        </div>
+        <div className={sectionBody}>
+          <div className="space-y-3">
+            {(
+              [
+                { key: 'require_parents_data', label: 'Exigir Dados dos Pais', desc: 'Solicita nome, CPF e contato dos responsáveis no formulário.' },
+                { key: 'require_documents',    label: 'Exigir Documentos',     desc: 'Exige o envio dos documentos listados acima na pré-matrícula.' },
+              ] as const
+            ).map(({ key, label, desc }) => {
+              const isOn = data[key];
+              return (
+                <div key={key} className="flex items-center justify-between gap-4 py-1">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setData((p) => ({ ...p, [key]: !p[key] }))}
+                    className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${isOn ? 'bg-[#003876]' : 'bg-gray-300 dark:bg-gray-600'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${isOn ? 'translate-x-6' : 'translate-x-0'}`}>
+                      {isOn && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                    </span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setData((p) => ({ ...p, [key]: !p[key] }))}
-                  className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${isOn ? 'bg-[#003876]' : 'bg-gray-300 dark:bg-gray-600'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${isOn ? 'translate-x-6' : 'translate-x-0'}`}>
-                    {isOn && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
-                  </span>
-                </button>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -2191,8 +2232,10 @@ function ContactSettingsPanel() {
     setData((prev) => ({ ...prev, reasons: prev.reasons.filter((r) => r.key !== key) }));
   }
 
-  const sectionCard  = 'bg-gray-50 dark:bg-gray-900/30 rounded-2xl p-5 space-y-4';
-  const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 mb-4';
+  const sectionCard  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60';
+  const sectionHead  = 'bg-gray-50 dark:bg-gray-900/40 px-5 py-4';
+  const sectionBody  = 'bg-white dark:bg-gray-800/20 px-5 py-5 space-y-4';
+  const sectionTitle = 'text-xs font-semibold tracking-[0.12em] uppercase text-gray-400';
 
   if (loading) {
     return (
@@ -2207,45 +2250,53 @@ function ContactSettingsPanel() {
 
       {/* SLA de Resposta */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>
-          <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-          SLA de Resposta
-        </p>
-        <p className="text-xs text-gray-400 -mt-2 mb-3">Prazo máximo esperado para responder a um contato recebido.</p>
-        <SLASlider value={data.sla_hours} onChange={(v) => setData((p) => ({ ...p, sla_hours: v }))} />
+        <div className={sectionHead}>
+          <p className={sectionTitle}>
+            <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+            SLA de Resposta
+          </p>
+          <p className="text-xs text-gray-400 mt-1">Prazo máximo esperado para responder a um contato recebido.</p>
+        </div>
+        <div className={sectionBody}>
+          <SLASlider value={data.sla_hours} onChange={(v) => setData((p) => ({ ...p, sla_hours: v }))} />
+        </div>
       </div>
 
       {/* Campos Obrigatórios */}
       <div className={sectionCard}>
-        <p className={sectionTitle}>
-          <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-          Campos Obrigatórios
-        </p>
-        <p className="text-xs text-gray-400 -mt-2 mb-3">Campos que o visitante precisa preencher no formulário.</p>
-        <div className="flex flex-wrap gap-2">
-          {REQUIRED_FIELD_OPTIONS.map(({ key, label, Icon }) => {
-            const active = data.required_fields.includes(key);
-            return (
-              <button
-                key={key}
-                onClick={() => toggleField(key)}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                  active
-                    ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
-                }`}
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                {label}
-              </button>
-            );
-          })}
+        <div className={sectionHead}>
+          <p className={sectionTitle}>
+            <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+            Campos Obrigatórios
+          </p>
+          <p className="text-xs text-gray-400 mt-1">Campos que o visitante precisa preencher no formulário.</p>
+        </div>
+        <div className={sectionBody}>
+          <div className="flex flex-wrap gap-2">
+            {REQUIRED_FIELD_OPTIONS.map(({ key, label, Icon }) => {
+              const active = data.required_fields.includes(key);
+              return (
+                <button
+                  key={key}
+                  onClick={() => toggleField(key)}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                    active
+                      ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Motivos de Contato */}
       <div className={sectionCard}>
-        <div className="flex items-center justify-between mb-3">
+        <div className={`${sectionHead} flex items-center justify-between`}>
           <p className={sectionTitle}>
             <MessageSquare className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Motivos de Contato
@@ -2260,29 +2311,31 @@ function ContactSettingsPanel() {
             )}
           </div>
         </div>
-        {data.reasons.length === 0 ? (
-          <p className="text-xs text-gray-400 italic">Nenhum motivo cadastrado.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            {data.reasons.map((r) => {
-              const iconOpt = REASON_ICON_OPTIONS.find((o) => o.key === (r.icon || 'MessageSquare'));
-              const IconComp = iconOpt?.Icon ?? MessageSquare;
-              return (
-                <button key={r.key} onClick={() => openDrawer(r.key)} className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-[#003876]/50 hover:shadow-sm transition-all text-left group">
-                  <div className="w-9 h-9 rounded-xl bg-[#003876]/8 dark:bg-[#003876]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#003876]/15 transition-colors">
-                    <IconComp className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{r.label}</p>
-                    {r.lead_integrated && (
-                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#003876]/10 text-[#003876] dark:text-[#ffd700] mt-1 inline-block">Lead</span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div className={sectionBody}>
+          {data.reasons.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">Nenhum motivo cadastrado.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {data.reasons.map((r) => {
+                const iconOpt = REASON_ICON_OPTIONS.find((o) => o.key === (r.icon || 'MessageSquare'));
+                const IconComp = iconOpt?.Icon ?? MessageSquare;
+                return (
+                  <button key={r.key} onClick={() => openDrawer(r.key)} className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-[#003876]/50 hover:shadow-sm transition-all text-left group">
+                    <div className="w-9 h-9 rounded-xl bg-[#003876]/8 dark:bg-[#003876]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#003876]/15 transition-colors">
+                      <IconComp className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{r.label}</p>
+                      {r.lead_integrated && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#003876]/10 text-[#003876] dark:text-[#ffd700] mt-1 inline-block">Lead</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Floating save */}
