@@ -397,3 +397,68 @@ export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
   justified: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
   late:      'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
 };
+
+// ── Library Resources (F5.4) ──────────────────────────────────────────────────
+
+export type ResourceType = 'book' | 'article' | 'video' | 'link' | 'document';
+
+export const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
+  book:     'Livro',
+  article:  'Artigo',
+  video:    'Vídeo',
+  link:     'Link',
+  document: 'Documento',
+};
+
+export const RESOURCE_TYPE_ICONS: Record<ResourceType, string> = {
+  book:     'BookMarked',
+  article:  'FileText',
+  video:    'Video',
+  link:     'Link2',
+  document: 'File',
+};
+
+export interface LibraryResource {
+  id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  resource_type: ResourceType;
+  subject: string | null;
+  segment_ids: string[];
+  class_ids: string[];
+  external_url: string | null;
+  is_visible: boolean;
+  created_at: string;
+  updated_at: string;
+  creator?: { full_name: string } | null;
+}
+
+// ── Announcements (F5.5) ──────────────────────────────────────────────────────
+
+export type AnnouncementTarget = 'all' | 'segment' | 'class' | 'role';
+
+export const ANNOUNCEMENT_TARGET_LABELS: Record<AnnouncementTarget, string> = {
+  all:     'Todos',
+  segment: 'Segmento',
+  class:   'Turma',
+  role:    'Cargo',
+};
+
+export interface Announcement {
+  id: string;
+  created_by: string;
+  title: string;
+  body: string;
+  target_type: AnnouncementTarget;
+  target_ids: string[];
+  target_roles: string[];
+  send_whatsapp: boolean;
+  whatsapp_template_id: string | null;
+  publish_at: string;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+  creator?: { full_name: string } | null;
+  reads?: { user_id: string }[];
+}

@@ -82,6 +82,20 @@ export const ADMIN_NAV: NavGroup[] = [
         path: '/admin/area-professor',
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
       },
+      {
+        key: 'library',
+        label: 'Biblioteca Virtual',
+        icon: 'Library',
+        path: '/admin/biblioteca',
+        roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
+      },
+      {
+        key: 'announcements',
+        label: 'Comunicados',
+        icon: 'Megaphone',
+        path: '/admin/comunicados',
+        roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
+      },
     ],
   },
   {

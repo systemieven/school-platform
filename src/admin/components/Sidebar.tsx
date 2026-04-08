@@ -20,6 +20,8 @@ import {
   School,
   UserCheck,
   BookOpen,
+  Library,
+  Megaphone,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -37,6 +39,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   School,
   UserCheck,
   BookOpen,
+  Library,
+  Megaphone,
 };
 
 interface Props {

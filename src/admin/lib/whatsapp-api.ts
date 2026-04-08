@@ -249,24 +249,31 @@ export async function checkWhatsAppStatus(): Promise<{
   const { data, error } = await callProxy('/instance/status', 'GET');
   if (error) return { connected: false, error };
 
-  // API v2 returns { instance: {...}, status: { connected: bool, ... } }
-  const d = data as {
-    instance?: Record<string, unknown>;
-    status?:   Record<string, unknown>;
-  } | null;
+  // UazAPI v2 can return several shapes; normalise all of them:
+  //   { instance: { state: "open", ... } }           ← Baileys state (most common)
+  //   { instance: { status: "connected", ... } }
+  //   { status: { connected: true, ... } }
+  //   { state: "open", ... }                         ← flat response
+  const d = data as Record<string, unknown> | null;
+  const inst = (d?.['instance'] as Record<string, unknown>) ?? {};
+  const stat = (d?.['status']   as Record<string, unknown>) ?? {};
 
   const connected =
-    d?.status?.['connected'] === true ||
-    d?.instance?.['status'] === 'connected';
+    stat['connected'] === true           ||   // { status: { connected: true } }
+    inst['status']    === 'connected'    ||   // { instance: { status: "connected" } }
+    inst['state']     === 'open'         ||   // { instance: { state: "open" } }  ← Baileys
+    d?.['state']      === 'open'         ||   // flat { state: "open" }
+    d?.['connected']  === true           ||   // flat { connected: true }
+    d?.['status']     === 'connected';        // flat { status: "connected" }
 
   // Normalise to our WhatsAppApiStatus shape
-  const raw = d?.instance || {};
+  const raw = inst;
   const phone = String(raw['owner'] || '').replace(/:.*$/, ''); // strip WA resource
   const status: WhatsAppApiStatus = {
     state:      connected ? 'connected' : 'disconnected',
     name:       String(raw['profileName'] || raw['name'] || ''),
     phone:      phone || undefined,
-    loggedIn:      d?.status?.['loggedIn'] as boolean | undefined,
+    loggedIn:      stat['loggedIn'] as boolean | undefined,
     profilePicUrl: String(raw['profilePicUrl'] || '') || undefined,
     qrcode:        String(raw['qrcode'] || '') || undefined,
     pairingCode:   String(raw['paircode'] || '') || undefined,
