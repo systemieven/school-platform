@@ -187,8 +187,15 @@ function parseNotes(raw: string | null): InternalNote[] {
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed as InternalNote[];
-  } catch { /* legacy plain text — discard */ }
-  return [];
+  } catch { /* legacy plain text — wrap as single note */ }
+  // Legacy: plain string stored before badge format
+  return [{
+    id: 'legacy',
+    text: raw,
+    author_id: '',
+    author_name: 'Equipe',
+    created_at: '',
+  }];
 }
 
 // ── Drawer ───────────────────────────────────────────────────────────────────
