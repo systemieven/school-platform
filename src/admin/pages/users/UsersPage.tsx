@@ -436,7 +436,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
           const { data: tpl } = await supabase
             .from('whatsapp_templates')
             .select('content, variables')
-            .eq('name', 'senha_temporaria')
+            .eq('name', 'redefinicao_senha')
             .eq('is_active', true)
             .maybeSingle();
 
@@ -447,7 +447,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
                 system_url: systemUrl,
                 school_name: 'Colégio Batista em Caruaru',
               })
-            : `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSua senha de acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi redefinida.\n\n🔑 *Nova senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+            : `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSua senha de acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi redefinida por um administrador.\n\n🔑 *Nova senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no próximo acesso\n\n_Se você não solicitou esta alteração, entre em contato com o administrador imediatamente._\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
 
           const result = await sendWhatsAppText({
             phone,
