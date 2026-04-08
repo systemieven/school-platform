@@ -97,7 +97,6 @@ interface FormData {
   celularMae: string;
   emailMae: string;
   documentos: DocumentEntry[];
-  segment: string;
 }
 
 interface DocumentEntry {
@@ -120,12 +119,20 @@ function calcAge(birthDate: string): number {
   return age;
 }
 
-const GRADES = [
-  { group: 'Ensino Infantil', options: ['Maternal I', 'Maternal II', 'Jardim I', 'Jardim II'] },
-  { group: 'Fundamental I',   options: ['1º ano', '2º ano', '3º ano', '4º ano', '5º ano'] },
-  { group: 'Fundamental II',  options: ['6º ano', '7º ano', '8º ano', '9º ano'] },
-  { group: 'Ensino Médio',    options: ['1º ano ', '2º ano ', '3º ano '] },
+const ALL_GRADES = [
+  { group: 'Ensino Infantil', segment: 'Educação Infantil',    options: ['Maternal I', 'Maternal II', 'Jardim I', 'Jardim II'] },
+  { group: 'Fundamental I',   segment: 'Ensino Fundamental I', options: ['1º ano', '2º ano', '3º ano', '4º ano', '5º ano'] },
+  { group: 'Fundamental II',  segment: 'Ensino Fundamental II',options: ['6º ano', '7º ano', '8º ano', '9º ano'] },
+  { group: 'Ensino Médio',    segment: 'Ensino Médio',         options: ['1º ano ', '2º ano ', '3º ano '] },
 ] as const;
+
+/** Derives the admin segment label from a selected grade string */
+function deriveSegment(grade: string): string {
+  for (const g of ALL_GRADES) {
+    if ((g.options as readonly string[]).includes(grade)) return g.segment;
+  }
+  return '';
+}
 
 // Séries a partir das quais "nome da escola anterior" aparece
 const SHOW_PREV_SCHOOL_FROM = new Set([
@@ -380,6 +387,11 @@ export default function Matricula() {
   const requireDocuments = (settings.require_documents as boolean | undefined) ?? true;
   const requiredDocsList = (settings.required_docs_list as string[] | undefined) ?? [];
 
+  // Filter grade groups to those whose segment is open for enrollment
+  const filteredGrades = segmentsAvailable.length > 0
+    ? ALL_GRADES.filter((g) => segmentsAvailable.includes(g.segment))
+    : ALL_GRADES;
+
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsChecked, setTermsChecked]   = useState(false);
   const [legalConsent, setLegalConsent]   = useState(false);
@@ -415,7 +427,6 @@ export default function Matricula() {
     celularMae: '',
     emailMae: '',
     documentos: [] as DocumentEntry[],
-    segment: '',
   });
 
   const setField = (name: keyof FormData, value: string) => {
@@ -477,7 +488,6 @@ export default function Matricula() {
 
   const validateTab0 = (): boolean => {
     const errs: Errors = {};
-    if (segmentsAvailable.length > 0 && !formData.segment) errs.segment = 'Selecione o segmento de interesse';
     if (!formData.nomeResponsavel.trim()) errs.nomeResponsavel = 'Nome obrigatório';
     if (!formData.cpfResponsavel.trim()) errs.cpfResponsavel = 'CPF obrigatório';
     else if (!validateCPF(formData.cpfResponsavel)) errs.cpfResponsavel = 'CPF inválido';
@@ -654,7 +664,7 @@ export default function Matricula() {
       const { data: enrollment, error: enrollmentError } = await supabase
         .from('enrollments')
         .insert({
-          segment:               formData.segment || null,
+          segment:               deriveSegment(formData.ultimaSerie) || null,
           guardian_name:         formData.nomeResponsavel,
           guardian_cpf:          formData.cpfResponsavel,
           guardian_phone:        formData.celularResponsavel,
@@ -918,40 +928,6 @@ export default function Matricula() {
           ) : (
           <>
 
-          {/* ── Segmento de interesse ── */}
-          {segmentsAvailable.length > 0 && (
-            <div className="mb-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <p className="text-sm font-semibold text-[#003876] mb-3">
-                Segmento de interesse <span className="text-red-500">*</span>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {segmentsAvailable.map((seg) => (
-                  <button
-                    key={seg}
-                    type="button"
-                    onClick={() => {
-                      setFormData((p) => ({ ...p, segment: seg }));
-                      setErrors((e) => ({ ...e, segment: undefined }));
-                    }}
-                    className={[
-                      'px-4 py-2 rounded-lg text-sm font-medium border transition-all duration-200',
-                      formData.segment === seg
-                        ? 'bg-[#003876] text-white border-[#003876]'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876]/40 hover:text-[#003876]',
-                    ].join(' ')}
-                  >
-                    {seg}
-                  </button>
-                ))}
-              </div>
-              {errors.segment && (
-                <p className="mt-2 text-xs text-red-500 flex items-center gap-1">
-                  <XCircle className="w-3 h-3" /> {errors.segment}
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Tabs */}
           <div className="flex mb-8 bg-white rounded-xl shadow-sm overflow-hidden">
             {tabs.map((tab, i) => (
@@ -1165,7 +1141,7 @@ export default function Matricula() {
                           }}
                         >
                           <option value="">Selecione...</option>
-                          {GRADES.map(({ group, options }) => (
+                          {filteredGrades.map(({ group, options }) => (
                             <optgroup key={group} label={group}>
                               {options.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
