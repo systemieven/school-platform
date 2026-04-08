@@ -1952,7 +1952,7 @@ function EnrollmentSettingsPanel() {
           <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
           Documentos Obrigatórios
         </p>
-        {/* Sugestões rápidas em grid 2 colunas */}
+        {/* Grid unificado: sugestões + documentos customizados */}
         <div className="grid grid-cols-2 gap-1.5">
           {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
             const added = data.required_docs_list.includes(s);
@@ -1962,28 +1962,26 @@ function EnrollmentSettingsPanel() {
                 onClick={() => added ? removeDoc(s) : addDoc(s)}
                 className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all text-left ${
                   added
-                    ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
+                    ? 'bg-[#003876] border-[#003876] text-white'
                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
                 }`}
               >
                 <DocIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="truncate">{s}</span>
+                <span className="truncate flex-1">{s}</span>
+                {added && <Check className="w-3 h-3 flex-shrink-0 opacity-80" strokeWidth={3} />}
               </button>
             );
           })}
+          {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).map((doc) => (
+            <div key={doc} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-[#003876] border-[#003876] text-white text-xs font-medium">
+              <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate flex-1">{doc}</span>
+              <button onClick={() => removeDoc(doc)} className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity ml-auto">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
         </div>
-        {/* Documentos customizados (fora das sugestões) */}
-        {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).map((doc) => (
-              <span key={doc} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border bg-[#003876] border-[#003876] text-white text-sm font-medium shadow-sm shadow-[#003876]/20">
-                <FileText className="w-4 h-4 flex-shrink-0" />
-                {doc}
-                <button onClick={() => removeDoc(doc)} className="opacity-70 hover:opacity-100 transition-opacity"><X className="w-3.5 h-3.5" /></button>
-              </span>
-            ))}
-          </div>
-        )}
         <div className="flex gap-2">
           <input type="text" value={newDoc} onChange={(e) => setNewDoc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addDoc(newDoc)} placeholder="Outro documento..." className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
           <button onClick={() => addDoc(newDoc)} disabled={!newDoc.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">Adicionar</button>
