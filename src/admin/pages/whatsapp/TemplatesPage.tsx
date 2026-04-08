@@ -147,55 +147,53 @@ function TemplateCard({
   const hasAutoTrigger = Boolean(template.trigger_event);
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-2xl border transition-all duration-200 ${
+    <div className={`rounded-2xl overflow-hidden border transition-all duration-200 ${
       template.is_active
-        ? 'border-gray-100 dark:border-gray-700 hover:border-green-200 dark:hover:border-green-800 hover:shadow-md'
-        : 'border-gray-100 dark:border-gray-700 opacity-60'
+        ? 'border-gray-100 dark:border-gray-700/60 hover:border-green-200 dark:hover:border-green-800 hover:shadow-md'
+        : 'border-gray-100 dark:border-gray-700/60 opacity-60'
     }`}>
-      <div className="p-5">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${catColor}`}>
-                {catLabel}
+
+      {/* ── Header — gray ── */}
+      <div className="bg-gray-50 dark:bg-gray-900/40 px-5 py-3.5 flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${catColor}`}>
+              {catLabel}
+            </span>
+            <span className="text-[11px] text-gray-400 bg-gray-200/70 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+              {typeLabel}
+            </span>
+            {hasAutoTrigger && (
+              <span className="text-[11px] text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Zap className="w-2.5 h-2.5" />
+                Auto
               </span>
-              <span className="text-[11px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                {typeLabel}
-              </span>
-              {hasAutoTrigger && (
-                <span className="text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Zap className="w-2.5 h-2.5" />
-                  Auto
-                </span>
-              )}
-            </div>
-            <h3 className="font-semibold text-gray-800 dark:text-white text-sm leading-tight">
-              {template.name}
-            </h3>
+            )}
           </div>
-
-          {/* Toggle active */}
-          <button
-            onClick={() => onToggle(template)}
-            className="flex-shrink-0 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] transition-colors"
-            title={template.is_active ? 'Desativar' : 'Ativar'}
-          >
-            {template.is_active
-              ? <ToggleRight className="w-7 h-7 text-green-500" />
-              : <ToggleLeft className="w-7 h-7" />
-            }
-          </button>
+          <h3 className="font-semibold text-gray-800 dark:text-white text-sm leading-tight truncate">
+            {template.name}
+          </h3>
         </div>
+        <button
+          onClick={() => onToggle(template)}
+          className="flex-shrink-0 transition-colors"
+          title={template.is_active ? 'Desativar' : 'Ativar'}
+        >
+          {template.is_active
+            ? <ToggleRight className="w-7 h-7 text-green-500" />
+            : <ToggleLeft className="w-7 h-7 text-gray-300 dark:text-gray-600" />
+          }
+        </button>
+      </div>
 
-        {/* Preview body */}
+      {/* ── Body — white ── */}
+      <div className="bg-white dark:bg-gray-800/20 px-5 py-4 space-y-3">
         <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 font-mono">
           {body.slice(0, 200)}{body.length > 200 ? '…' : ''}
         </p>
 
-        {/* Variables */}
         {template.variables.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-3">
+          <div className="flex flex-wrap gap-1">
             {template.variables.map((v) => (
               <span key={v} className="text-[10px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-mono">
                 {`{{${v}}}`}
@@ -204,10 +202,9 @@ function TemplateCard({
           </div>
         )}
 
-        {/* Trigger info */}
         {hasAutoTrigger && (
-          <div className="mt-3 flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
-            <Clock className="w-3 h-3" />
+          <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
+            <Clock className="w-3 h-3 flex-shrink-0" />
             <span>
               {TRIGGER_EVENTS.find((e) => e.value === template.trigger_event)?.label}
               {template.trigger_delay_minutes > 0 && ` · ${template.trigger_delay_minutes} min depois`}
@@ -216,18 +213,18 @@ function TemplateCard({
         )}
       </div>
 
-      {/* Actions footer */}
-      <div className="flex items-center gap-1 px-5 py-3 border-t border-gray-100 dark:border-gray-700">
+      {/* ── Footer — gray ── */}
+      <div className="bg-gray-50 dark:bg-gray-900/40 flex items-center gap-1 px-4 py-2.5 border-t border-gray-100 dark:border-gray-700/60">
         <button
           onClick={() => onEdit(template)}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#003876] dark:hover:text-white px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-[#003876] dark:hover:text-white px-3 py-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700/60 transition-colors"
         >
           <Pencil className="w-3.5 h-3.5" />
           Editar
         </button>
         <button
           onClick={() => onDelete(template)}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors ml-auto"
+          className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 px-3 py-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700/60 transition-colors ml-auto"
         >
           <Trash2 className="w-3.5 h-3.5" />
           Excluir
