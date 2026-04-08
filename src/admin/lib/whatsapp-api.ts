@@ -503,3 +503,131 @@ export const MODULE_VARIABLES: Record<string, string[]> = {
 };
 
 export const ALL_VARIABLES = [...new Set(Object.values(MODULE_VARIABLES).flat())];
+
+// ── Mass Campaign ─────────────────────────────────────────────────────────────
+
+export type CampaignStatus = 'scheduled' | 'sending' | 'paused' | 'done' | 'deleting';
+
+export interface CampaignFolder {
+  folder_id: string;
+  folder:    string;
+  status:    CampaignStatus;
+  createdAt: string;
+  info?:     string;
+  total?:    number;
+  sent?:     number;
+  failed?:   number;
+}
+
+export interface CampaignMessage {
+  number:    string;
+  status:    'Scheduled' | 'Sent' | 'Failed';
+  text:      string;
+  sentAt?:   string;
+  track_id?: string;
+}
+
+export interface CreateCampaignOptions {
+  folder:          string;
+  info?:           string;
+  messages:        Array<{ number: string; text: string }>;
+  delayMin?:       number;   // seconds
+  delayMax?:       number;   // seconds
+  scheduledFor?:   number;   // unix timestamp ms
+  announcementId?: string;
+  createdBy?:      string;
+}
+
+export interface CreateCampaignResult {
+  success:    boolean;
+  folder_id?: string;
+  error?:     string;
+}
+
+/** Create a mass WhatsApp campaign via /sender/advanced and pre-log all recipients. */
+export async function createMassCampaign(
+  opts: CreateCampaignOptions,
+): Promise<CreateCampaignResult> {
+  if (!opts.messages.length) return { success: false, error: 'Nenhum destinatário.' };
+
+  // Pre-insert one log entry per recipient so they appear in the history tab
+  const logRows = opts.messages.map((m) => ({
+    recipient_phone:   m.number,
+    rendered_content:  { body: m.text, type: 'text', campaign: opts.folder },
+    status:            'queued',
+    related_module:    'announcement',
+    related_record_id: opts.announcementId ?? null,
+    sent_by:           opts.createdBy ?? null,
+  }));
+  await supabase.from('whatsapp_message_log').insert(logRows);
+
+  // Call UazAPI /sender/advanced
+  const { data, error } = await callProxy('/sender/advanced', 'POST', {
+    folder:        opts.folder,
+    info:          opts.info ?? opts.folder,
+    delayMin:      opts.delayMin  ?? 5,
+    delayMax:      opts.delayMax  ?? 15,
+    ...(opts.scheduledFor ? { scheduled_for: opts.scheduledFor } : {}),
+    messages: opts.messages.map((m) => ({
+      number: normalizePhone(m.number),
+      text:   m.text,
+    })),
+  });
+
+  if (error) return { success: false, error };
+
+  const d = data as Record<string, unknown> | null;
+  const folder_id = d?.folder_id as string | undefined;
+  return { success: true, folder_id };
+}
+
+/** Pause, resume or delete a campaign. */
+export async function controlCampaign(
+  folder_id: string,
+  action: 'stop' | 'continue' | 'delete',
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await callProxy('/sender/edit', 'POST', { folder_id, action });
+  if (error) return { success: false, error };
+  return { success: true };
+}
+
+/** List all campaigns, optionally filtered by status. */
+export async function listCampaigns(
+  status?: CampaignStatus,
+): Promise<{ data: CampaignFolder[]; error?: string }> {
+  const path = status ? `/sender/listfolders?status=${status}` : '/sender/listfolders';
+  const { data, error } = await callProxy(path, 'GET');
+  if (error) return { data: [], error };
+  return { data: (Array.isArray(data) ? data : []) as CampaignFolder[] };
+}
+
+/** List messages inside a campaign with optional status filter and pagination. */
+export async function listCampaignMessages(
+  folder_id: string,
+  opts?: { messageStatus?: 'Scheduled' | 'Sent' | 'Failed'; limit?: number; offset?: number },
+): Promise<{ data: CampaignMessage[]; total: number; error?: string }> {
+  const { data, error } = await callProxy('/sender/listmessages', 'POST', {
+    folder_id,
+    ...(opts?.messageStatus ? { messageStatus: opts.messageStatus } : {}),
+    limit:  opts?.limit  ?? 30,
+    offset: opts?.offset ?? 0,
+  });
+  if (error) return { data: [], total: 0, error };
+  const d = data as { messages?: CampaignMessage[]; total?: number } | CampaignMessage[] | null;
+  if (Array.isArray(d)) return { data: d, total: d.length };
+  return { data: d?.messages ?? [], total: d?.total ?? 0 };
+}
+
+/** Delete sent messages older than `hours` hours (default: 7 days). */
+export async function cleanDoneMessages(hours = 168): Promise<{ success: boolean; error?: string }> {
+  const { error } = await callProxy('/sender/cleardone', 'POST', { hours });
+  if (error) return { success: false, error };
+  return { success: true };
+}
+
+/** ⚠️ Irreversible: clears ALL messages in the queue (pending + sent). */
+export async function clearAllQueue(): Promise<{ success: boolean; error?: string }> {
+  const { error } = await callProxy('/sender/clearall', 'DELETE');
+  if (error) return { success: false, error };
+  return { success: true };
+}

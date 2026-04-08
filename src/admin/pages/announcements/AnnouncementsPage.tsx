@@ -5,10 +5,16 @@ import type {
 } from '../../types/admin.types';
 import { ANNOUNCEMENT_TARGET_LABELS } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
-import { sendWhatsAppText } from '../../lib/whatsapp-api';
+import {
+  createMassCampaign, listCampaigns, controlCampaign,
+  listCampaignMessages, cleanDoneMessages, clearAllQueue,
+  type CampaignFolder, type CampaignMessage,
+} from '../../lib/whatsapp-api';
 import {
   Loader2, Plus, Pencil, Trash2, Megaphone, X, Save,
   Users, Globe, BookOpen, Send, Eye, CheckCircle2, Calendar,
+  Pause, Play, ChevronDown, ChevronUp, RefreshCw, Trash,
+  MessageSquare, Clock, AlertTriangle, Inbox,
 } from 'lucide-react';
 
 const TARGETS: AnnouncementTarget[] = ['all', 'segment', 'class', 'role'];
@@ -19,6 +25,311 @@ const TARGET_ICON: Record<AnnouncementTarget, React.ComponentType<{ className?: 
   class:   Users,
   role:    Users,
 };
+
+const ROLES_LIST = [
+  { value: 'student',     label: 'Alunos' },
+  { value: 'teacher',     label: 'Professores' },
+  { value: 'coordinator', label: 'Coordenadores' },
+  { value: 'admin',       label: 'Administradores' },
+];
+
+// ── Campaign status helpers ───────────────────────────────────────────────────
+
+const CAMPAIGN_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  scheduled: { label: 'Agendada',  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+  sending:   { label: 'Enviando',  color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+  paused:    { label: 'Pausada',   color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
+  done:      { label: 'Concluída', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
+  deleting:  { label: 'Excluindo', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' },
+};
+
+const MSG_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  Scheduled: { label: 'Aguardando', color: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400' },
+  Sent:      { label: 'Enviada',    color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
+  Failed:    { label: 'Falhou',     color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' },
+};
+
+// ── Campaign messages sub-panel ───────────────────────────────────────────────
+
+function CampaignMessagesPanel({ folderId }: { folderId: string }) {
+  const [messages,  setMessages]  = useState<CampaignMessage[]>([]);
+  const [total,     setTotal]     = useState(0);
+  const [offset,    setOffset]    = useState(0);
+  const [loading,   setLoading]   = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'Scheduled' | 'Sent' | 'Failed' | ''>('');
+  const limit = 20;
+
+  const load = useCallback(async (off = 0, sf = statusFilter) => {
+    setLoading(true);
+    const res = await listCampaignMessages(folderId, {
+      ...(sf ? { messageStatus: sf as 'Scheduled' | 'Sent' | 'Failed' } : {}),
+      limit,
+      offset: off,
+    });
+    setMessages(res.data);
+    setTotal(res.total);
+    setOffset(off);
+    setLoading(false);
+  }, [folderId, statusFilter]);
+
+  useEffect(() => { load(0, statusFilter); }, [folderId]); // eslint-disable-line
+
+  function changeFilter(sf: typeof statusFilter) {
+    setStatusFilter(sf);
+    load(0, sf);
+  }
+
+  return (
+    <div className="border-t border-gray-100 dark:border-gray-700 px-4 pb-4 pt-3 space-y-3">
+      {/* Filter */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {(['', 'Scheduled', 'Sent', 'Failed'] as const).map((s) => (
+          <button key={s} onClick={() => changeFilter(s)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+              statusFilter === s
+                ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+            {s === '' ? 'Todas' : MSG_STATUS_CONFIG[s]?.label ?? s}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-gray-400">{total} mensagem{total !== 1 ? 's' : ''}</span>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-4">
+          <Loader2 className="w-4 h-4 animate-spin text-[#003876] dark:text-[#ffd700]" />
+        </div>
+      ) : messages.length === 0 ? (
+        <p className="text-xs text-center text-gray-400 py-3">Nenhuma mensagem encontrada.</p>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            {messages.map((m, i) => {
+              const sc = MSG_STATUS_CONFIG[m.status] ?? MSG_STATUS_CONFIG.Scheduled;
+              return (
+                <div key={i}
+                  className="flex items-start gap-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-xs">
+                  <span className={`px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${sc.color}`}>
+                    {sc.label}
+                  </span>
+                  <span className="text-gray-600 dark:text-gray-300 font-medium flex-shrink-0">{m.number}</span>
+                  <span className="text-gray-500 dark:text-gray-400 flex-1 truncate">{m.text}</span>
+                  {m.sentAt && (
+                    <span className="text-gray-400 flex-shrink-0">
+                      {new Date(m.sentAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          {total > limit && (
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>{offset + 1}–{Math.min(offset + limit, total)} de {total}</span>
+              <div className="flex gap-1">
+                <button disabled={offset === 0} onClick={() => load(offset - limit)}
+                  className="px-2 py-1 rounded disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-700">‹</button>
+                <button disabled={offset + limit >= total} onClick={() => load(offset + limit)}
+                  className="px-2 py-1 rounded disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-700">›</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Campaigns tab ─────────────────────────────────────────────────────────────
+
+function CampaignsTab() {
+  const [campaigns,   setCampaigns]   = useState<CampaignFolder[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [expanded,    setExpanded]    = useState<string | null>(null);
+  const [acting,      setActing]      = useState<string | null>(null); // folder_id being acted on
+  const [cleanHours,  setCleanHours]  = useState(168);
+  const [cleaning,    setCleaning]    = useState(false);
+  const [clearMsg,    setClearMsg]    = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await listCampaigns();
+    setCampaigns(data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function act(folderId: string, action: 'stop' | 'continue' | 'delete') {
+    if (action === 'delete' && !confirm('Excluir campanha? As mensagens já enviadas serão preservadas no histórico.')) return;
+    setActing(folderId);
+    const res = await controlCampaign(folderId, action);
+    if (res.error) alert(res.error);
+    else await load();
+    setActing(null);
+  }
+
+  async function doClean() {
+    setCleaning(true);
+    const res = await cleanDoneMessages(cleanHours);
+    setClearMsg(res.success ? `Limpeza iniciada (mensagens > ${cleanHours}h).` : (res.error ?? 'Erro'));
+    setCleaning(false);
+    setTimeout(() => setClearMsg(''), 4000);
+  }
+
+  async function doClearAll() {
+    if (!confirm('⚠️ ATENÇÃO: Isso vai excluir TODAS as mensagens da fila (pendentes e enviadas). Essa ação é irreversível. Continuar?')) return;
+    setCleaning(true);
+    const res = await clearAllQueue();
+    setClearMsg(res.success ? 'Fila limpa com sucesso.' : (res.error ?? 'Erro'));
+    setCleaning(false);
+    setTimeout(() => setClearMsg(''), 4000);
+    await load();
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Reload */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {campaigns.length} campanha{campaigns.length !== 1 ? 's' : ''}
+        </p>
+        <button onClick={load} disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Atualizar
+        </button>
+      </div>
+
+      {/* Campaign list */}
+      {loading && campaigns.length === 0 ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="w-5 h-5 animate-spin text-[#003876] dark:text-[#ffd700]" />
+        </div>
+      ) : campaigns.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <Inbox className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">Nenhuma campanha encontrada.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {campaigns.map((c) => {
+            const sc    = CAMPAIGN_STATUS_CONFIG[c.status] ?? CAMPAIGN_STATUS_CONFIG.scheduled;
+            const isExp = expanded === c.folder_id;
+            const busy  = acting === c.folder_id;
+            return (
+              <div key={c.folder_id}
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="flex items-start justify-between gap-3 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-sm text-gray-800 dark:text-gray-100 truncate">{c.folder}</p>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sc.color}`}>
+                        {sc.label}
+                        {c.status === 'sending' && <span className="ml-1 animate-pulse">•</span>}
+                      </span>
+                    </div>
+                    {c.info && c.info !== c.folder && (
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">{c.info}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">
+                      <Clock className="w-3 h-3 inline mr-1" />
+                      {new Date(c.createdAt).toLocaleDateString('pt-BR', {
+                        day: '2-digit', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Pause / Resume */}
+                    {(c.status === 'sending' || c.status === 'scheduled') && (
+                      <button onClick={() => act(c.folder_id, 'stop')} disabled={busy}
+                        title="Pausar campanha"
+                        className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50">
+                        {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                    {c.status === 'paused' && (
+                      <button onClick={() => act(c.folder_id, 'continue')} disabled={busy}
+                        title="Retomar campanha"
+                        className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50">
+                        {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                    {/* Delete */}
+                    {c.status !== 'sending' && c.status !== 'deleting' && (
+                      <button onClick={() => act(c.folder_id, 'delete')} disabled={busy}
+                        title="Excluir campanha"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Expand messages */}
+                    <button onClick={() => setExpanded((p) => p === c.folder_id ? null : c.folder_id)}
+                      title="Ver mensagens"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      {isExp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {isExp && <CampaignMessagesPanel folderId={c.folder_id} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Queue management */}
+      <div className="border-t border-gray-100 dark:border-gray-700 pt-5 space-y-4">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gestão da fila</p>
+
+        {clearMsg && (
+          <p className={`text-xs px-3 py-2 rounded-lg ${
+            clearMsg.includes('Erro') || clearMsg.includes('erro')
+              ? 'bg-red-50 text-red-600 dark:bg-red-900/20'
+              : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'}`}>
+            {clearMsg}
+          </p>
+        )}
+
+        {/* Clean done */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0">
+            Limpar mensagens enviadas há mais de
+          </label>
+          <div className="flex items-center gap-2">
+            <input type="number" min={1} value={cleanHours}
+              onChange={(e) => setCleanHours(Math.max(1, +e.target.value))}
+              className="w-20 px-2 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none" />
+            <span className="text-xs text-gray-500">horas</span>
+          </div>
+          <button onClick={doClean} disabled={cleaning}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition-colors disabled:opacity-50">
+            {cleaning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash className="w-3 h-3" />}
+            Limpar antigas
+          </button>
+        </div>
+
+        {/* Clear all */}
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+          <span className="text-xs text-gray-500 dark:text-gray-400 flex-1">
+            Limpar <strong>toda</strong> a fila (pendentes + enviadas). Irreversível.
+          </span>
+          <button onClick={doClearAll} disabled={cleaning}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 transition-colors disabled:opacity-50">
+            {cleaning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+            Limpar tudo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Drawer ────────────────────────────────────────────────────────────────────
 
@@ -31,29 +342,38 @@ interface DrawerProps {
 }
 
 const emptyForm = () => ({
-  title: '', body: '',
-  target_type: 'all' as AnnouncementTarget,
-  target_ids: [] as string[],
+  title:        '',
+  body:         '',
+  target_type:  'all' as AnnouncementTarget,
+  target_ids:   [] as string[],
   target_roles: [] as string[],
   send_whatsapp: false,
-  publish_at: new Date().toISOString().slice(0, 16),
+  publish_at:   new Date().toISOString().slice(0, 16),
   is_published: false,
+  // Campaign settings
+  delayMin:     5,
+  delayMax:     15,
+  scheduledFor: '',   // datetime-local string
 });
 
 function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved }: DrawerProps) {
   const { profile } = useAdminAuth();
   const [form, setForm] = useState(announcement ? {
-    title:        announcement.title,
-    body:         announcement.body,
-    target_type:  announcement.target_type,
-    target_ids:   announcement.target_ids,
-    target_roles: announcement.target_roles,
+    title:         announcement.title,
+    body:          announcement.body,
+    target_type:   announcement.target_type,
+    target_ids:    announcement.target_ids,
+    target_roles:  announcement.target_roles,
     send_whatsapp: announcement.send_whatsapp,
-    publish_at:   announcement.publish_at.slice(0, 16),
-    is_published: announcement.is_published,
+    publish_at:    announcement.publish_at.slice(0, 16),
+    is_published:  announcement.is_published,
+    delayMin:      5,
+    delayMax:      15,
+    scheduledFor:  '',
   } : emptyForm());
-  const [saving, setSaving] = useState(false);
-  const [error,  setError]  = useState('');
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState('');
+  const [waStatus, setWaStatus] = useState('');
 
   function toggleTargetId(id: string) {
     setForm((p) => ({
@@ -64,10 +384,48 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
     }));
   }
 
+  function toggleRole(r: string) {
+    setForm((p) => ({
+      ...p,
+      target_roles: p.target_roles.includes(r)
+        ? p.target_roles.filter((x) => x !== r)
+        : [...p.target_roles, r],
+    }));
+  }
+
+  async function _buildRecipients(ann: Announcement): Promise<Array<{ number: string; text: string }>> {
+    let query = supabase.from('students').select('guardian_phone, full_name').eq('status', 'active');
+
+    if (ann.target_type === 'class' && ann.target_ids.length) {
+      query = query.in('class_id', ann.target_ids);
+    } else if (ann.target_type === 'segment' && ann.target_ids.length) {
+      const { data: cls } = await supabase
+        .from('school_classes').select('id').in('segment_id', ann.target_ids);
+      const classIds = (cls ?? []).map((c: { id: string }) => c.id);
+      if (classIds.length) query = query.in('class_id', classIds);
+    }
+
+    const { data: students } = await query;
+    if (!students?.length) return [];
+
+    const text = `*${ann.title}*\n\n${ann.body}`;
+    const seen  = new Set<string>();
+    const msgs: Array<{ number: string; text: string }> = [];
+
+    for (const s of students as { guardian_phone: string; full_name: string }[]) {
+      if (!s.guardian_phone) continue;
+      const phone = s.guardian_phone.replace(/\D/g, '');
+      if (seen.has(phone)) continue;
+      seen.add(phone);
+      msgs.push({ number: s.guardian_phone, text });
+    }
+    return msgs;
+  }
+
   async function save(publish = false) {
     if (!form.title.trim()) { setError('Título é obrigatório.'); return; }
     if (!form.body.trim())  { setError('Conteúdo é obrigatório.'); return; }
-    setSaving(true); setError('');
+    setSaving(true); setError(''); setWaStatus('');
 
     const isPublishing = publish || form.is_published;
     const payload = {
@@ -88,45 +446,46 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
       : await supabase.from('announcements').insert(payload).select('*').single();
 
     if (err) { setError(err.message); setSaving(false); return; }
-
     const saved = data as Announcement;
 
-    // If publishing with WhatsApp, send to target recipients
+    // Create mass campaign when publishing with WhatsApp
     if (isPublishing && form.send_whatsapp && !announcement?.is_published) {
-      await _sendWhatsApp(saved);
+      setWaStatus('Buscando destinatários...');
+      const messages = await _buildRecipients(saved);
+
+      if (messages.length > 0) {
+        setWaStatus(`Criando campanha para ${messages.length} destinatário${messages.length !== 1 ? 's' : ''}...`);
+        const folderName = `Comunicado: ${saved.title.slice(0, 60)}`;
+        const scheduledTs = form.scheduledFor
+          ? new Date(form.scheduledFor).getTime()
+          : undefined;
+
+        const result = await createMassCampaign({
+          folder:          folderName,
+          info:            saved.body.slice(0, 100),
+          messages,
+          delayMin:        form.delayMin,
+          delayMax:        form.delayMax,
+          scheduledFor:    scheduledTs,
+          announcementId:  saved.id,
+          createdBy:       profile!.id,
+        });
+
+        if (result.success) {
+          setWaStatus(`✓ Campanha criada: ${messages.length} mensagens ${scheduledTs ? 'agendadas' : 'na fila'}.`);
+        } else {
+          setWaStatus(`⚠ Comunicado salvo, mas erro ao criar campanha: ${result.error}`);
+          setTimeout(() => onSaved(saved), 2000);
+          return;
+        }
+      } else {
+        setWaStatus('Nenhum destinatário encontrado para os filtros selecionados.');
+      }
+      setTimeout(() => onSaved(saved), 1500);
+      return;
     }
 
     onSaved(saved);
-  }
-
-  async function _sendWhatsApp(ann: Announcement) {
-    // Get phones based on target
-    let query = supabase.from('students').select('guardian_phone, full_name').eq('status', 'active');
-
-    if (ann.target_type === 'class' && ann.target_ids.length) {
-      query = query.in('class_id', ann.target_ids);
-    } else if (ann.target_type === 'segment' && ann.target_ids.length) {
-      // Need to join via classes — fetch class ids first
-      const { data: cls } = await supabase
-        .from('school_classes').select('id').in('segment_id', ann.target_ids);
-      const classIds = (cls ?? []).map((c: { id: string }) => c.id);
-      if (classIds.length) query = query.in('class_id', classIds);
-    }
-
-    const { data: students } = await query;
-    if (!students?.length) return;
-
-    const text = `*${ann.title}*\n\n${ann.body}`;
-    for (const s of students as { guardian_phone: string; full_name: string }[]) {
-      if (!s.guardian_phone) continue;
-      await sendWhatsAppText({
-        phone:         s.guardian_phone,
-        text,
-        relatedModule: 'announcement',
-        relatedRecordId: ann.id,
-        recipientName:   s.full_name,
-      });
-    }
   }
 
   const cls = `w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none`;
@@ -135,25 +494,27 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
     <div className="fixed inset-0 bg-black/40 z-40 flex justify-end" onClick={onClose}>
       <div className="w-full max-w-lg bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-[#003876] dark:bg-gray-800">
-          <h2 className="font-semibold text-white">{announcement ? 'Editar Comunicado' : 'Novo Comunicado'}</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20 text-white"><X className="w-4 h-4" /></button>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-[#003876] to-[#002255] text-white">
+          <h2 className="font-semibold text-sm">{announcement ? 'Editar Comunicado' : 'Novo Comunicado'}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>}
 
+          {/* Title */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Título *</label>
             <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
               placeholder="Ex: Reunião de pais — 3º Bimestre" className={cls} />
           </div>
 
+          {/* Body */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Conteúdo *</label>
             <textarea value={form.body} onChange={(e) => setForm((p) => ({ ...p, body: e.target.value }))}
               rows={5} placeholder="Escreva o comunicado aqui..."
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none resize-none" />
+              className={`${cls} resize-none`} />
           </div>
 
           {/* Target */}
@@ -164,12 +525,11 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
                 const Icon = TARGET_ICON[t];
                 return (
                   <button key={t} type="button"
-                    onClick={() => setForm((p) => ({ ...p, target_type: t, target_ids: [] }))}
+                    onClick={() => setForm((p) => ({ ...p, target_type: t, target_ids: [], target_roles: [] }))}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_type === t
                         ? 'border-[#003876] bg-[#003876] text-white dark:border-[#ffd700] dark:bg-[#ffd700] dark:text-gray-900'
-                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'
-                    }`}>
+                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'}`}>
                     <Icon className="w-3.5 h-3.5" /> {ANNOUNCEMENT_TARGET_LABELS[t]}
                   </button>
                 );
@@ -187,8 +547,9 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
                     className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_ids.includes(s.id)
                         ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
-                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
-                    }`}>{s.name}</button>
+                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
+                    {s.name}
+                  </button>
                 ))}
               </div>
             </div>
@@ -204,8 +565,27 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
                     className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_ids.includes(c.id)
                         ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
-                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
-                    }`}>{c.name} {c.year}</button>
+                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Role picker */}
+          {form.target_type === 'role' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">Cargos</label>
+              <div className="flex flex-wrap gap-2">
+                {ROLES_LIST.map((r) => (
+                  <button key={r.value} type="button" onClick={() => toggleRole(r.value)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                      form.target_roles.includes(r.value)
+                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
+                    {r.label}
+                  </button>
                 ))}
               </div>
             </div>
@@ -221,25 +601,73 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
           {/* WhatsApp toggle */}
           <label className="flex items-center gap-3 cursor-pointer select-none p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800">
             <button type="button" onClick={() => setForm((p) => ({ ...p, send_whatsapp: !p.send_whatsapp }))}
-              className={`w-10 h-6 rounded-full transition-colors ${form.send_whatsapp ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
+              className={`w-10 h-6 rounded-full transition-colors flex-shrink-0 ${form.send_whatsapp ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
               <span className={`block w-4 h-4 bg-white rounded-full shadow mx-1 transition-transform ${form.send_whatsapp ? 'translate-x-4' : ''}`} />
             </button>
             <div>
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Enviar por WhatsApp</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Envia o comunicado para os responsáveis ao publicar</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Cria campanha em massa para os responsáveis ao publicar</p>
             </div>
           </label>
+
+          {/* Campaign settings (when WhatsApp is on) */}
+          {form.send_whatsapp && (
+            <div className="space-y-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5" /> Configurações da campanha
+              </p>
+
+              {/* Delay */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Delay mínimo (seg)</label>
+                  <input type="number" min={1} max={300} value={form.delayMin}
+                    onChange={(e) => setForm((p) => ({ ...p, delayMin: Math.max(1, +e.target.value) }))}
+                    className={cls} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Delay máximo (seg)</label>
+                  <input type="number" min={1} max={600} value={form.delayMax}
+                    onChange={(e) => setForm((p) => ({ ...p, delayMax: Math.max(form.delayMin, +e.target.value) }))}
+                    className={cls} />
+                </div>
+              </div>
+
+              {/* Schedule */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Agendar envio <span className="text-gray-400">(opcional — vazio = imediato)</span>
+                </label>
+                <input type="datetime-local" value={form.scheduledFor}
+                  onChange={(e) => setForm((p) => ({ ...p, scheduledFor: e.target.value }))}
+                  className={cls} />
+              </div>
+            </div>
+          )}
+
+          {/* Campaign creation status */}
+          {waStatus && (
+            <p className={`text-xs px-3 py-2 rounded-lg ${
+              waStatus.startsWith('⚠') ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+              : waStatus.startsWith('✓') ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+              : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'}`}>
+              {saving && !waStatus.startsWith('✓') && !waStatus.startsWith('⚠') && (
+                <Loader2 className="w-3 h-3 animate-spin inline mr-1.5" />
+              )}
+              {waStatus}
+            </p>
+          )}
         </div>
 
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex gap-3">
           <button onClick={() => save(false)} disabled={saving}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl disabled:opacity-50 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving && !waStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Salvar rascunho
           </button>
           <button onClick={() => save(true)} disabled={saving || form.is_published}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {saving && waStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {form.is_published ? 'Já publicado' : 'Publicar'}
           </button>
         </div>
@@ -248,7 +676,7 @@ function AnnouncementDrawer({ announcement, segments, classes, onClose, onSaved 
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AnnouncementsPage() {
   const { profile, hasRole } = useAdminAuth();
@@ -259,6 +687,7 @@ export default function AnnouncementsPage() {
   const [editing,    setEditing]    = useState<Announcement | null | undefined>(undefined);
   const [showDrawer, setShowDrawer] = useState(false);
   const [filter,     setFilter]     = useState<'all' | 'published' | 'draft'>('all');
+  const [mainTab,    setMainTab]    = useState<'announcements' | 'campaigns'>('announcements');
 
   const canManage = hasRole('super_admin', 'admin', 'coordinator');
 
@@ -279,6 +708,7 @@ export default function AnnouncementsPage() {
   useEffect(() => { load(); }, [load]);
 
   async function remove(id: string) {
+    if (!confirm('Excluir este comunicado?')) return;
     await supabase.from('announcements').delete().eq('id', id);
     setItems((p) => p.filter((a) => a.id !== id));
   }
@@ -302,136 +732,145 @@ export default function AnnouncementsPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-3">
-            <Megaphone className="w-7 h-7 text-[#003876] dark:text-[#ffd700]" />
-            Comunicados
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Avisos e comunicados para responsáveis, professores e alunos.
-          </p>
-        </div>
-        {canManage && (
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+          <Megaphone className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" /> Comunicados
+        </h1>
+        {canManage && mainTab === 'announcements' && (
           <button onClick={() => { setEditing(null); setShowDrawer(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl transition-colors">
+            className="flex items-center gap-2 px-4 py-2 bg-[#003876] hover:bg-[#002255] text-white text-sm font-semibold rounded-xl transition-colors">
             <Plus className="w-4 h-4" /> Novo Comunicado
           </button>
         )}
       </div>
 
-      {/* Filter tabs */}
+      {/* Main tabs */}
       <div className="flex gap-1 border-b border-gray-100 dark:border-gray-700">
-        {(['all', 'published', 'draft'] as const).map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              filter === f
+        {([
+          { key: 'announcements', label: 'Comunicados', Icon: Megaphone },
+          { key: 'campaigns',     label: 'Campanhas WhatsApp', Icon: MessageSquare },
+        ] as const).map(({ key, label, Icon }) => (
+          <button key={key} onClick={() => setMainTab(key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              mainTab === key
                 ? 'border-[#003876] dark:border-[#ffd700] text-[#003876] dark:text-[#ffd700]'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'
-            }`}>
-            {f === 'all' ? 'Todos' : f === 'published' ? 'Publicados' : 'Rascunhos'}
-            <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded text-xs">
-              {f === 'all' ? items.length : f === 'published' ? items.filter((a) => a.is_published).length : items.filter((a) => !a.is_published).length}
-            </span>
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+            <Icon className="w-3.5 h-3.5" /> {label}
           </button>
         ))}
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" />
-        </div>
-      ) : !filtered.length ? (
-        <div className="text-center py-16 text-gray-400 dark:text-gray-500">
-          <Megaphone className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">{items.length ? 'Nenhum comunicado nesta categoria.' : 'Nenhum comunicado criado.'}</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((a) => {
-            const readCount  = (a.reads ?? []).length;
-            const isMyOwn    = a.created_by === profile?.id;
-            const canEdit    = isMyOwn || canManage;
-            const TargetIcon = TARGET_ICON[a.target_type];
-            return (
-              <div key={a.id}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{a.title}</p>
-                      {a.is_published ? (
-                        <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-medium">
-                          <CheckCircle2 className="w-3 h-3" /> Publicado
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full text-xs font-medium">
-                          Rascunho
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1 px-2 py-0.5 bg-[#003876]/10 dark:bg-[#ffd700]/10 text-[#003876] dark:text-[#ffd700] rounded-full text-xs">
-                        <TargetIcon className="w-3 h-3" />
-                        {ANNOUNCEMENT_TARGET_LABELS[a.target_type]}
-                      </span>
-                      {a.send_whatsapp && (
-                        <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full text-xs">
-                          WhatsApp
-                        </span>
-                      )}
-                    </div>
+      {/* Campaigns tab */}
+      {mainTab === 'campaigns' && <CampaignsTab />}
 
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2">{a.body}</p>
+      {/* Announcements tab */}
+      {mainTab === 'announcements' && (
+        <>
+          {/* Sub-filter tabs */}
+          <div className="flex gap-1">
+            {(['all', 'published', 'draft'] as const).map((f) => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  filter === f
+                    ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                {f === 'all' ? 'Todos' : f === 'published' ? 'Publicados' : 'Rascunhos'}
+                <span className="ml-1 text-xs opacity-70">
+                  ({f === 'all' ? items.length : f === 'published' ? items.filter((a) => a.is_published).length : items.filter((a) => !a.is_published).length})
+                </span>
+              </button>
+            ))}
+          </div>
 
-                    <div className="flex items-center gap-3 mt-2 flex-wrap text-xs text-gray-400 dark:text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {fmtDate(a.publish_at)}
-                      </span>
-                      {readCount > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Eye className="w-3 h-3" /> {readCount} leitura{readCount !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                      {a.creator && (
-                        <span>por {(a.creator as { full_name: string }).full_name}</span>
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" />
+            </div>
+          ) : !filtered.length ? (
+            <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+              <Megaphone className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">{items.length ? 'Nenhum comunicado nesta categoria.' : 'Nenhum comunicado criado.'}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((a) => {
+                const readCount  = (a.reads ?? []).length;
+                const isMyOwn    = a.created_by === profile?.id;
+                const canEdit    = isMyOwn || canManage;
+                const TargetIcon = TARGET_ICON[a.target_type];
+                return (
+                  <div key={a.id}
+                    className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{a.title}</p>
+                          {a.is_published ? (
+                            <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-medium">
+                              <CheckCircle2 className="w-3 h-3" /> Publicado
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded-full text-xs font-medium">Rascunho</span>
+                          )}
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-[#003876]/10 dark:bg-[#ffd700]/10 text-[#003876] dark:text-[#ffd700] rounded-full text-xs">
+                            <TargetIcon className="w-3 h-3" /> {ANNOUNCEMENT_TARGET_LABELS[a.target_type]}
+                          </span>
+                          {a.send_whatsapp && (
+                            <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full text-xs">
+                              WhatsApp
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2">{a.body}</p>
+
+                        <div className="flex items-center gap-3 mt-2 flex-wrap text-xs text-gray-400 dark:text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" /> {fmtDate(a.publish_at)}
+                          </span>
+                          {readCount > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Eye className="w-3 h-3" /> {readCount} leitura{readCount !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {a.creator && (
+                            <span>por {(a.creator as { full_name: string }).full_name}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {canEdit && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {canManage && (
+                            <button onClick={() => togglePublish(a)} title={a.is_published ? 'Despublicar' : 'Publicar'}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                a.is_published
+                                  ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                  : 'text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}>
+                              <Send className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button onClick={() => { setEditing(a); setShowDrawer(true); }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          {canManage && (
+                            <button onClick={() => remove(a.id)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
-
-                  {canEdit && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {canManage && (
-                        <button
-                          onClick={() => togglePublish(a)}
-                          title={a.is_published ? 'Despublicar' : 'Publicar'}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            a.is_published
-                              ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
-                              : 'text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
-                          }`}>
-                          <Send className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button onClick={() => { setEditing(a); setShowDrawer(true); }}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      {canManage && (
-                        <button onClick={() => remove(a.id)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {showDrawer && (
