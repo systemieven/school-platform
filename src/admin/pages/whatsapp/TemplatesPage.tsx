@@ -19,6 +19,7 @@ const CATEGORIES: { value: TemplateCategory; label: string; color: string }[] = 
   { value: 'contato',      label: 'Contato',       color: 'green'  },
   { value: 'geral',        label: 'Geral',         color: 'gray'   },
   { value: 'boas_vindas',  label: 'Boas-vindas',   color: 'yellow' },
+  { value: '2fa',          label: 'Senhas',        color: 'red'    },
 ];
 
 const MESSAGE_TYPES: { value: MessageType; label: string; desc: string }[] = [
@@ -82,6 +83,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   contato:     'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   geral:       'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
   boas_vindas: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-500',
+  '2fa':       'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -336,8 +338,9 @@ function TemplateDrawer({
     onSave();
   };
 
-  const suggestedVars = MODULE_VARIABLES[form.category === 'boas_vindas' ? 'geral' : form.category]
-    || ALL_VARIABLES;
+  const suggestedVars = MODULE_VARIABLES[
+    form.category === 'boas_vindas' || form.category === '2fa' ? 'geral' : form.category
+  ] || ALL_VARIABLES;
 
   return (
     <>

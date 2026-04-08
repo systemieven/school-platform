@@ -191,7 +191,7 @@ export interface Notification {
 }
 
 // ── WhatsApp Template ──
-export type TemplateCategory = 'agendamento' | 'matricula' | 'contato' | 'geral' | 'boas_vindas';
+export type TemplateCategory = 'agendamento' | 'matricula' | 'contato' | 'geral' | 'boas_vindas' | '2fa';
 export type MessageType      = 'text' | 'media' | 'buttons' | 'list';
 
 export interface TemplateContent {
