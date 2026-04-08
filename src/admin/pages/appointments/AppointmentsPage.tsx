@@ -155,30 +155,28 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
               <label className={labelClass}>Nome *</label>
               <input value={form.visitor_name} onChange={(e) => set('visitor_name', e.target.value)} className={fieldClass} placeholder="Nome completo" required />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass}>Telefone *</label>
-                <input
-                  type="tel"
-                  placeholder="(81) 99999-9999"
-                  value={form.visitor_phone}
-                  onChange={(e) => set('visitor_phone', maskPhone(e.target.value))}
-                  className={fieldClass}
-                  required
-                />
-              </div>
-              <div>
-                <label className={labelClass}>E-mail</label>
-                <input
-                  type="email"
-                  placeholder="email@exemplo.com"
-                  value={form.visitor_email}
-                  onChange={(e) => { set('visitor_email', e.target.value); if (emailError) validateEmail(e.target.value); }}
-                  onBlur={(e) => validateEmail(e.target.value)}
-                  className={emailError ? fieldClassError : fieldClass}
-                />
-                {emailError && <p className="text-[11px] text-red-500 mt-1">{emailError}</p>}
-              </div>
+            <div>
+              <label className={labelClass}>Telefone *</label>
+              <input
+                type="tel"
+                placeholder="(81) 99999-9999"
+                value={form.visitor_phone}
+                onChange={(e) => set('visitor_phone', maskPhone(e.target.value))}
+                className={fieldClass}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelClass}>E-mail</label>
+              <input
+                type="email"
+                placeholder="email@exemplo.com"
+                value={form.visitor_email}
+                onChange={(e) => { set('visitor_email', e.target.value); if (emailError) validateEmail(e.target.value); }}
+                onBlur={(e) => validateEmail(e.target.value)}
+                className={emailError ? fieldClassError : fieldClass}
+              />
+              {emailError && <p className="text-[11px] text-red-500 mt-1">{emailError}</p>}
             </div>
           </SettingsCard>
 
