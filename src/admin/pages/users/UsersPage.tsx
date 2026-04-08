@@ -40,10 +40,11 @@ interface TempPasswordModalProps {
   tempPassword: string;
   waStatus: WaStatus;
   sendError?: string;
+  mode?: 'created' | 'reset';
   onClose: () => void;
 }
 
-function TempPasswordModal({ profile, tempPassword, waStatus, sendError, onClose }: TempPasswordModalProps) {
+function TempPasswordModal({ profile, tempPassword, waStatus, sendError, mode = 'created', onClose }: TempPasswordModalProps) {
   const [copied, setCopied] = useState(false);
 
   function copyPassword() {
@@ -61,7 +62,7 @@ function TempPasswordModal({ profile, tempPassword, waStatus, sendError, onClose
           <div className="bg-gradient-to-r from-[#003876] to-[#002255] px-5 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2 text-white">
               <KeyRound className="w-4 h-4" />
-              <span className="font-semibold text-sm">Usuário Criado</span>
+              <span className="font-semibold text-sm">{mode === 'reset' ? 'Senha Redefinida' : 'Usuário Criado'}</span>
             </div>
             <button onClick={onClose} className="text-white/70 hover:text-white hover:bg-white/20 p-1 rounded-lg transition-colors">
               <X className="w-4 h-4" />
@@ -78,7 +79,7 @@ function TempPasswordModal({ profile, tempPassword, waStatus, sendError, onClose
                 </div>
                 <div>
                   <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
-                    Usuário criado com sucesso
+                    {mode === 'reset' ? 'Senha redefinida com sucesso' : 'Usuário criado com sucesso'}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     A senha temporária e as instruções de acesso foram enviadas para{' '}
@@ -89,7 +90,10 @@ function TempPasswordModal({ profile, tempPassword, waStatus, sendError, onClose
             ) : (
               <>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  O usuário <span className="font-semibold text-gray-800 dark:text-gray-200">{profile.full_name}</span> foi criado. Envie a senha temporária abaixo ao usuário — ela deve ser alterada no primeiro acesso.
+                  {mode === 'reset'
+                    ? <>A senha de <span className="font-semibold text-gray-800 dark:text-gray-200">{profile.full_name}</span> foi redefinida. Envie a senha temporária abaixo ao usuário — ela deve ser alterada no próximo acesso.</>
+                    : <>O usuário <span className="font-semibold text-gray-800 dark:text-gray-200">{profile.full_name}</span> foi criado. Envie a senha temporária abaixo ao usuário — ela deve ser alterada no primeiro acesso.</>
+                  }
                 </p>
 
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
@@ -348,8 +352,12 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<{ profile: Profile; tempPassword: string; waStatus: WaStatus; sendError?: string } | null>(null);
 
   const canDelete = callerRole === 'super_admin' && user.id !== currentUserId;
+  const canReset = callerRole === 'super_admin';
 
   const allowedRoles = ROLES.filter((r) => {
     if (r === 'super_admin') return callerRole === 'super_admin';
@@ -391,8 +399,94 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
     onClose();
   }
 
+  async function handleReset() {
+    setResetting(true);
+    setError('');
+    const { data, error: fnError } = await supabase.functions.invoke('reset-user-password', {
+      body: { user_id: user.id },
+    });
+    if (fnError || data?.error) {
+      let msg = data?.error ?? 'Erro ao redefinir senha.';
+      if (fnError) {
+        try {
+          const body = await (fnError as unknown as { context?: { json?: () => Promise<Record<string, string>> } }).context?.json?.();
+          if (body?.error) msg = body.error;
+        } catch { msg = fnError.message; }
+      }
+      setResetting(false);
+      setConfirmReset(false);
+      setError(msg);
+      return;
+    }
+
+    const profile = data.profile as Profile;
+    const tempPassword = data.temp_password as string;
+    const phone = form.phone || profile.phone;
+
+    let waStatus: WaStatus = 'no-phone';
+    let sendError: string | undefined;
+
+    if (phone) {
+      const { exists, error: checkErr } = await checkWhatsAppNumber(phone);
+      if (checkErr || !exists) {
+        waStatus = 'no-wa';
+      } else {
+        try {
+          const systemUrl = window.location.origin + '/admin/login';
+          const { data: tpl } = await supabase
+            .from('whatsapp_templates')
+            .select('content, variables')
+            .eq('name', 'senha_temporaria')
+            .eq('is_active', true)
+            .maybeSingle();
+
+          const text = tpl?.content?.body
+            ? renderTemplate(tpl.content.body as string, {
+                user_name: profile.full_name ?? 'usuário',
+                temp_password: tempPassword,
+                system_url: systemUrl,
+                school_name: 'Colégio Batista em Caruaru',
+              })
+            : `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSua senha de acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi redefinida.\n\n🔑 *Nova senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+
+          const result = await sendWhatsAppText({
+            phone,
+            text,
+            templateId: tpl ? (tpl as unknown as { id: string }).id : undefined,
+            recipientName: profile.full_name ?? undefined,
+            relatedModule: 'usuario',
+            relatedRecordId: profile.id,
+          });
+
+          waStatus = result.success ? 'sent' : 'error';
+          if (!result.success) sendError = result.error ?? 'Erro ao enviar mensagem.';
+        } catch {
+          waStatus = 'error';
+          sendError = 'Erro inesperado ao enviar mensagem.';
+        }
+      }
+    }
+
+    setResetting(false);
+    setConfirmReset(false);
+    setResetResult({ profile, tempPassword, waStatus, sendError });
+  }
+
   function set<K extends keyof typeof form>(k: K, v: typeof form[K]) {
     setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  if (resetResult) {
+    return (
+      <TempPasswordModal
+        profile={resetResult.profile}
+        tempPassword={resetResult.tempPassword}
+        waStatus={resetResult.waStatus}
+        sendError={resetResult.sendError}
+        mode="reset"
+        onClose={() => setResetResult(null)}
+      />
+    );
   }
 
   return (
@@ -454,6 +548,54 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
               onColor="bg-emerald-500"
             />
           </SettingsCard>
+
+          {canReset && (
+            <SettingsCard title="Segurança">
+              {confirmReset ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      Redefinir a senha de <strong>{user.full_name}</strong>? Uma nova senha temporária será gerada e o usuário precisará alterá-la no próximo acesso.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReset(false)}
+                      disabled={resetting}
+                      className="flex-1 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      disabled={resetting}
+                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {resetting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Redefinindo…</> : <><KeyRound className="w-3.5 h-3.5" />Confirmar</>}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Redefinir senha</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Gera uma nova senha temporária para o usuário</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmReset(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    Redefinir
+                  </button>
+                </div>
+              )}
+            </SettingsCard>
+          )}
         </div>
 
         {/* Footer */}
