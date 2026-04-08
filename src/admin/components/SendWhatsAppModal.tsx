@@ -93,9 +93,12 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
     if (!message.trim()) { setError('A mensagem não pode estar vazia.'); return; }
     setSending(true);
     setError('');
+    // Always render variables at send time — covers both free messages with
+    // inserted chips and templates re-edited after selection.
+    const finalText = renderTemplate(message.trim(), variables);
     const result = await sendWhatsAppText({
       phone,
-      text:            message,
+      text:            finalText,
       recipientName,
       templateId:      selected?.id,
       relatedModule:   module,
@@ -252,10 +255,10 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
                 </div>
 
                 {showPreview ? (
-                  /* Bubble preview */
+                  /* Bubble preview — render variables so the preview matches what will be sent */
                   <div className="bg-[#dcf8c6] dark:bg-green-900/20 rounded-2xl p-4 max-w-xs ml-auto shadow-sm">
                     <p className="text-sm text-gray-800 dark:text-green-100 whitespace-pre-wrap leading-relaxed">
-                      {message || '(mensagem vazia)'}
+                      {renderTemplate(message, variables) || '(mensagem vazia)'}
                     </p>
                     <p className="text-[10px] text-right text-gray-400 dark:text-green-400/60 mt-2">
                       {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} ✓
