@@ -363,7 +363,7 @@ export async function sendWhatsAppText(opts: SendTextOptions): Promise<SendResul
   try {
     // 2. Call proxy with track_id = log UUID
     const { data, error } = await callProxy('/send/text', 'POST', {
-      number:       opts.phone,
+      number:       normalizePhone(opts.phone),
       text:         opts.text,
       track_id:     logId,
       track_source: 'colegio-batista',
@@ -444,6 +444,19 @@ export async function updatePresence(
   const { error } = await callProxy('/instance/presence', 'POST', { presence });
   if (error) return { success: false, error };
   return { success: true };
+}
+
+// ── Phone normalization ───────────────────────────────────────────────────────
+
+/** Strips formatting and prepends Brazilian DDI (55) if not already present.
+ *  "81999999999" → "5581999999999"
+ *  "(81) 99999-9999" → "5581999999999"
+ *  "5581999999999" → "5581999999999" (already normalized, unchanged)
+ */
+export function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('55') && digits.length >= 12) return digits;
+  return `55${digits}`;
 }
 
 // ── Template rendering ────────────────────────────────────────────────────────
