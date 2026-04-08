@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
-import { sendWhatsAppText, renderTemplate } from '../../lib/whatsapp-api';
+import { sendWhatsAppText, renderTemplate, checkWhatsAppNumber } from '../../lib/whatsapp-api';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
@@ -23,6 +23,15 @@ const ROLE_COLORS: Record<string, string> = {
 const inputCls = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm transition-all';
 const labelCls = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5';
 
+// ── Phone mask ────────────────────────────────────────────────────────────────
+function maskPhone(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2)  return d.length ? `(${d}` : '';
+  if (d.length <= 7)  return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 // ── Temp Password Modal ───────────────────────────────────────────────────────
 interface TempPasswordModalProps {
   profile: Profile;
@@ -31,20 +40,30 @@ interface TempPasswordModalProps {
 }
 
 function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModalProps) {
-  const [copied, setCopied]       = useState(false);
-  const [sending, setSending]     = useState(!!profile.phone);
-  const [sent, setSent]           = useState(false);
+  const [copied, setCopied] = useState(false);
+  // 'checking' → verifying number | 'has-wa' → sending template | 'sent' → done
+  // 'no-wa' → number has no WhatsApp | 'error' → send error | 'no-phone' → no phone at all
+  const [status, setStatus] = useState<'checking' | 'has-wa' | 'sent' | 'no-wa' | 'error' | 'no-phone'>(
+    profile.phone ? 'checking' : 'no-phone'
+  );
   const [sendError, setSendError] = useState('');
 
-  // Auto-send template on mount if user has a phone
   useEffect(() => {
     if (!profile.phone) return;
 
-    async function autoSend() {
+    async function run() {
+      // Step 1: check if number has WhatsApp
+      const { exists, error: checkErr } = await checkWhatsAppNumber(profile.phone!);
+      if (checkErr || !exists) {
+        setStatus('no-wa');
+        return;
+      }
+
+      // Step 2: number confirmed — send template
+      setStatus('has-wa');
       try {
         const systemUrl = window.location.origin + '/admin/login';
 
-        // Try to load the senha_temporaria template
         const { data: tpl } = await supabase
           .from('whatsapp_templates')
           .select('content, variables')
@@ -61,7 +80,6 @@ function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModal
             system_url:   systemUrl,
           });
         } else {
-          // Fallback if template not seeded yet
           text =
             `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\n` +
             `Seu acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi criado.\n\n` +
@@ -83,18 +101,18 @@ function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModal
         });
 
         if (result.success) {
-          setSent(true);
+          setStatus('sent');
         } else {
           setSendError(result.error ?? 'Erro ao enviar mensagem.');
+          setStatus('error');
         }
       } catch {
         setSendError('Erro inesperado ao enviar mensagem.');
-      } finally {
-        setSending(false);
+        setStatus('error');
       }
     }
 
-    autoSend();
+    run();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -143,21 +161,46 @@ function TempPasswordModal({ profile, tempPassword, onClose }: TempPasswordModal
             </div>
 
             {/* WhatsApp send status */}
-            {profile.phone && (
-              <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${
-                sending
-                  ? 'bg-gray-50 dark:bg-gray-800 text-gray-400'
-                  : sent
-                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-500'
-              }`}>
-                {sending ? (
-                  <><Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" /> Enviando template via WhatsApp…</>
-                ) : sent ? (
-                  <><Check className="w-3.5 h-3.5 flex-shrink-0" /> Template <strong>senha_temporaria</strong> enviado para {profile.phone}</>
-                ) : (
-                  <><MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> {sendError}</>
-                )}
+            {status === 'checking' && (
+              <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+                Verificando WhatsApp…
+              </div>
+            )}
+            {status === 'has-wa' && (
+              <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+                Enviando template via WhatsApp…
+              </div>
+            )}
+            {status === 'sent' && (
+              <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400">
+                <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                Template <strong className="mx-0.5">senha_temporaria</strong> enviado para {profile.phone}
+              </div>
+            )}
+            {status === 'error' && (
+              <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-500">
+                <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                {sendError}
+              </div>
+            )}
+            {status === 'no-wa' && (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                  <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  Número não possui WhatsApp
+                </div>
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  Envie a senha temporária por outro canal (e-mail, SMS ou presencialmente).
+                </p>
+                <button
+                  onClick={copyPassword}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-amber-100 dark:bg-amber-800/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 text-amber-800 dark:text-amber-200 text-xs font-semibold transition-colors"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? 'Copiado!' : 'Copiar senha temporária'}
+                </button>
               </div>
             )}
 
@@ -182,6 +225,7 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
   const [form, setForm] = useState({ full_name: '', email: '', role: 'user' as Role, phone: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [createdResult, setCreatedResult] = useState<{ profile: Profile; tempPassword: string } | null>(null);
 
   const allowedRoles = ROLES.filter((r) => {
@@ -190,12 +234,22 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
     return true;
   });
 
+  function validateEmail(v: string) {
+    if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      setEmailError('E-mail inválido');
+      return false;
+    }
+    setEmailError('');
+    return true;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.full_name || !form.email) {
       setError('Nome e e-mail são obrigatórios.');
       return;
     }
+    if (!validateEmail(form.email)) return;
     setSaving(true);
     setError('');
     const { data, error: fnError } = await supabase.functions.invoke('create-admin-user', { body: form });
@@ -248,31 +302,38 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
             </div>
             <div>
               <label className={labelCls}>E-mail</label>
-              <input type="email" placeholder="maria@escola.com" value={form.email} onChange={(e) => set('email', e.target.value)} className={inputCls} required />
+              <input
+                type="email"
+                placeholder="maria@escola.com"
+                value={form.email}
+                onChange={(e) => { set('email', e.target.value); if (emailError) validateEmail(e.target.value); }}
+                onBlur={(e) => validateEmail(e.target.value)}
+                className={`${inputCls} ${emailError ? 'border-red-400 dark:border-red-500 focus:border-red-400' : ''}`}
+                required
+              />
+              {emailError && <p className="text-[11px] text-red-500 mt-1">{emailError}</p>}
+            </div>
+            <div>
+              <label className={labelCls}>Telefone</label>
+              <input type="tel" placeholder="(81) 99999-9999" value={form.phone} onChange={(e) => set('phone', maskPhone(e.target.value))} className={inputCls} />
             </div>
           </SettingsCard>
 
-          <SettingsCard title="Acesso">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Função</label>
-                <div className="relative">
-                  <select value={form.role} onChange={(e) => set('role', e.target.value as Role)} className={`${inputCls} pr-9 appearance-none`}>
-                    {allowedRoles.map((r) => (
-                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Telefone (WhatsApp)</label>
-                <input type="tel" placeholder="(81) 99999-9999" value={form.phone} onChange={(e) => set('phone', e.target.value)} className={inputCls} />
+          <SettingsCard title="Perfil de Acesso">
+            <div>
+              <label className={labelCls}>Função</label>
+              <div className="relative">
+                <select value={form.role} onChange={(e) => set('role', e.target.value as Role)} className={`${inputCls} pr-9 appearance-none`}>
+                  {allowedRoles.map((r) => (
+                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
             </div>
             <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
               <KeyRound className="w-3 h-3 flex-shrink-0" />
-              Uma senha temporária será gerada automaticamente e enviada ao usuário via WhatsApp.
+              Uma senha temporária será gerada automaticamente no momento da criação.
             </p>
           </SettingsCard>
         </form>

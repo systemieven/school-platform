@@ -203,13 +203,14 @@ function Avatar({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-white/50 text-[11px] font-semibold uppercase tracking-[0.15em]">
         {label}
       </label>
       {children}
+      {error && <p className="text-[11px] text-red-400 -mt-1">{error}</p>}
     </div>
   );
 }
@@ -254,6 +255,7 @@ export default function Testimonials() {
   // Form
   const [name, setName]               = useState('');
   const [email, setEmail]             = useState('');
+  const [emailError, setEmailError]   = useState('');
   const [studentGrade, setStudentGrade] = useState('');
   const [content, setContent]         = useState('');
   const [rating, setRating]           = useState(5);
@@ -338,9 +340,11 @@ export default function Testimonials() {
     });
   };
 
+  const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
   const isValid =
     name.trim().length >= 3 &&
-    email.includes('@') &&
+    isValidEmail(email) &&
     studentGrade !== '' &&
     content.trim().length >= 20 &&
     legalConsent;
@@ -633,11 +637,12 @@ export default function Testimonials() {
                         className={inputCls}
                       />
                     </Field>
-                    <Field label="Seu e-mail *">
+                    <Field label="Seu e-mail *" error={emailError}>
                       <input
                         type="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError(isValidEmail(e.target.value) ? '' : 'E-mail inválido'); }}
+                        onBlur={(e) => { if (e.target.value && !isValidEmail(e.target.value)) setEmailError('E-mail inválido'); else setEmailError(''); }}
                         placeholder="email@exemplo.com"
                         className={inputCls}
                       />

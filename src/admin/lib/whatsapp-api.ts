@@ -239,6 +239,17 @@ export async function callProxy(
   return { data };
 }
 
+// ── Number existence check ────────────────────────────────────────────────────
+
+export async function checkWhatsAppNumber(phone: string): Promise<{ exists: boolean; error?: string }> {
+  const { data, error } = await callProxy('/chat/check', 'POST', { number: normalizePhone(phone) });
+  if (error) return { exists: false, error };
+  const d = data as Record<string, unknown> | null;
+  // UazAPI returns { exists: true/false } or { jid: "..." } when the number is registered
+  const exists = d?.exists === true || (typeof d?.jid === 'string' && d.jid.length > 0);
+  return { exists };
+}
+
 // ── Health check ──────────────────────────────────────────────────────────────
 
 export async function checkWhatsAppStatus(): Promise<{

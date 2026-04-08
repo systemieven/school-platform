@@ -45,6 +45,14 @@ function formatPhone(p: string) {
   return p;
 }
 
+function maskPhone(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2)  return d.length ? `(${d}` : '';
+  if (d.length <= 7)  return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 // ── History entry ────────────────────────────────────────────────────────────
 interface HistoryEntry { id: string; event_type: string; description: string; created_at: string; }
 
@@ -84,6 +92,7 @@ function TimelinePanel({ appointmentId }: { appointmentId: string }) {
 // ── Create Modal ─────────────────────────────────────────────────────────────
 function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose: () => void; onCreated: () => void; reasonLabels: Record<string, string> }) {
   const [saving, setSaving] = useState(false);
+  const [emailError, setEmailError] = useState('');
   const [form, setForm] = useState({
     visitor_name: '',
     visitor_phone: '',
@@ -96,11 +105,22 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
 
   const set = (k: string, v: string) => setForm((prev) => ({ ...prev, [k]: v }));
   const fieldClass = 'w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none';
+  const fieldClassError = `${fieldClass} border-red-400 dark:border-red-500`;
   const labelClass = 'block text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1';
+
+  function validateEmail(v: string) {
+    if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      setEmailError('E-mail inválido');
+      return false;
+    }
+    setEmailError('');
+    return true;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.visitor_name || !form.visitor_phone || !form.appointment_date) return;
+    if (!validateEmail(form.visitor_email)) return;
     setSaving(true);
     const { error } = await supabase.from('visit_appointments').insert({
       ...form,
@@ -134,11 +154,26 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Telefone *</label>
-              <input value={form.visitor_phone} onChange={(e) => set('visitor_phone', e.target.value)} className={fieldClass} required />
+              <input
+                type="tel"
+                placeholder="(81) 99999-9999"
+                value={form.visitor_phone}
+                onChange={(e) => set('visitor_phone', maskPhone(e.target.value))}
+                className={fieldClass}
+                required
+              />
             </div>
             <div>
               <label className={labelClass}>E-mail</label>
-              <input value={form.visitor_email} onChange={(e) => set('visitor_email', e.target.value)} className={fieldClass} type="email" />
+              <input
+                type="email"
+                placeholder="email@exemplo.com"
+                value={form.visitor_email}
+                onChange={(e) => { set('visitor_email', e.target.value); if (emailError) validateEmail(e.target.value); }}
+                onBlur={(e) => validateEmail(e.target.value)}
+                className={emailError ? fieldClassError : fieldClass}
+              />
+              {emailError && <p className="text-[11px] text-red-500 mt-1">{emailError}</p>}
             </div>
           </div>
           <div>
