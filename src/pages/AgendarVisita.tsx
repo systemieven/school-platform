@@ -209,6 +209,13 @@ export default function AgendarVisita() {
   const heroRef   = useScrollReveal();
   const bodyRef   = useScrollReveal();
   const { settings: visitSettings } = useSettings('visit');
+  const { settings: appearanceSettings } = useSettings('appearance');
+  const heroApp = (appearanceSettings.visita as Record<string, string> | undefined) ?? {};
+  const heroBadge    = heroApp.badge     || 'Visita presencial';
+  const heroTitle    = heroApp.title     || 'Agende sua Visita';
+  const heroHL       = heroApp.highlight || 'Visita';
+  const heroSubtitle = heroApp.subtitle  || 'Conheça pessoalmente nossa estrutura, equipe pedagógica e tudo que o Colégio Batista tem a oferecer.';
+  const heroImage    = heroApp.image     || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2070';
 
   // Dynamic config from system_settings (with fallbacks)
   const startHour   = (visitSettings.start_hour?.toString()) || '08:00';
@@ -641,7 +648,7 @@ export default function AgendarVisita() {
       <section className="relative h-[45vh] min-h-[340px] overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2070"
+            src={heroImage}
             alt="Colégio Batista"
             className="w-full h-full object-cover"
           />
@@ -655,20 +662,22 @@ export default function AgendarVisita() {
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
               <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">
-                Visita presencial
+                {heroBadge}
               </span>
             </div>
 
             <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
-              Agende sua{' '}
-              <span className="italic text-[#ffd700]">Visita</span>
+              {(() => {
+                if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
+                const parts = heroTitle.split(heroHL);
+                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+              })()}
             </h1>
 
             <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
 
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
-              Conheça pessoalmente nossa estrutura, equipe pedagógica
-              e tudo que o Colégio Batista tem a oferecer.
+              {heroSubtitle}
             </p>
           </div>
         </div>

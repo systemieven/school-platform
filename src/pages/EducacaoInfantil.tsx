@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Heart, Brain, Users, Plane as Plant, Music, Book, Palette, Puzzle, ArrowRight } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import { useSettings } from '../hooks/useSettings';
 
 const PILLARS = [
   {
@@ -64,6 +65,14 @@ export default function EducacaoInfantil() {
   const atividadesRef = useScrollReveal();
   const ctaRef        = useScrollReveal();
 
+  const { settings: appearanceSettings } = useSettings('appearance');
+  const hero = (appearanceSettings.educacao_infantil as Record<string, string> | undefined) ?? {};
+  const heroBadge    = hero.badge     || 'Educação Infantil · 2 a 5 anos';
+  const heroTitle    = hero.title     || 'Educação que Encanta e Transforma';
+  const heroHL       = hero.highlight || 'Encanta';
+  const heroSubtitle = hero.subtitle  || 'Um ambiente acolhedor e estimulante para o desenvolvimento integral do seu filho. Aqui, cada criança é única e especial.';
+  const heroImage    = hero.image     || 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&q=80&w=2070';
+
   return (
     <div className="min-h-screen">
 
@@ -71,7 +80,7 @@ export default function EducacaoInfantil() {
       <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&q=80&w=2070"
+            src={heroImage}
             alt="Crianças brincando e aprendendo"
             className="w-full h-full object-cover"
           />
@@ -85,21 +94,22 @@ export default function EducacaoInfantil() {
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
               <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">
-                Educação Infantil · 2 a 5 anos
+                {heroBadge}
               </span>
             </div>
 
             <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
-              Educação que{' '}
-              <span className="italic text-[#ffd700]">Encanta</span>
-              <br />e Transforma
+              {(() => {
+                if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
+                const parts = heroTitle.split(heroHL);
+                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+              })()}
             </h1>
 
             <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
 
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed mb-10">
-              Um ambiente acolhedor e estimulante para o desenvolvimento integral
-              do seu filho. Aqui, cada criança é única e especial.
+              {heroSubtitle}
             </p>
 
             <div className="hero-text-3 flex flex-wrap gap-4">

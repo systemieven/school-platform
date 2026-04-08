@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import AppearanceSettingsPanel from './AppearanceSettingsPanel';
 import { supabase } from '../../../lib/supabase';
 import { getProviders, setDefaultProvider } from '../../lib/whatsapp-api';
 import type { WhatsAppProvider } from '../../lib/whatsapp-api';
@@ -373,7 +374,7 @@ export default function SettingsPage() {
               </div>
 
               {/* Save button — only for generic tabs; custom panels have their own saves */}
-              {!['whatsapp', 'visits', 'enrollment', 'contact'].includes(activeTab) && (
+              {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance'].includes(activeTab) && (
                 <button
                   onClick={handleSave}
                   disabled={!tabHasChanges || saving}
@@ -403,7 +404,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
@@ -412,6 +413,8 @@ export default function SettingsPage() {
                 <EnrollmentSettingsPanel />
               ) : activeTab === 'contact' ? (
                 <ContactSettingsPanel />
+              ) : activeTab === 'appearance' ? (
+                <AppearanceSettingsPanel />
               ) : tabSettings.length === 0 ? (
                 <EmptyTabState tab={currentTab} />
               ) : (

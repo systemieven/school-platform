@@ -381,6 +381,14 @@ function CPFParentField({
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function Matricula() {
   const { settings } = useSettings('enrollment');
+  const { settings: appearanceSettings } = useSettings('appearance');
+  const heroMat = (appearanceSettings.matricula as Record<string, string> | undefined) ?? {};
+  const heroBadge    = heroMat.badge     || 'Matrículas 2026 abertas';
+  const heroTitle    = heroMat.title     || 'Matricule seu Filho';
+  const heroHL       = heroMat.highlight || 'Filho';
+  const heroSubtitle = heroMat.subtitle  || 'Garanta a vaga do seu filho em uma das melhores escolas de Caruaru. O processo é simples e feito pelo responsável legal do candidato.';
+  const heroImage    = heroMat.image     || 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&q=80&w=2070';
+
   const segmentsAvailable = (settings.segments_available as string[] | undefined) ?? [];
   const minAge = (settings.min_age as number | undefined) ?? 2;
   const requireParentsData = (settings.require_parents_data as boolean | undefined) ?? true;
@@ -753,7 +761,7 @@ export default function Matricula() {
       <section className="relative h-[55vh] min-h-[400px] overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&q=80&w=2070"
+            src={heroImage}
             alt="Matrícula Colégio Batista"
             className="w-full h-full object-cover"
           />
@@ -767,17 +775,19 @@ export default function Matricula() {
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
               <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">
-                Matrículas 2026 abertas
+                {heroBadge}
               </span>
             </div>
             <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
-              Matricule seu{' '}
-              <span className="italic text-[#ffd700]">Filho</span>
+              {(() => {
+                if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
+                const parts = heroTitle.split(heroHL);
+                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+              })()}
             </h1>
             <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
-              Garanta a vaga do seu filho em uma das melhores escolas de Caruaru.
-              O processo é simples e feito pelo responsável legal do candidato.
+              {heroSubtitle}
             </p>
           </div>
         </div>

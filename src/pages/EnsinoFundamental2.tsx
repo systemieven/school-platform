@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Target, Users, Star, Award, Lightbulb, Clock, Brain, Rocket, ArrowRight } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import { useSettings } from '../hooks/useSettings';
 
 const PILLARS = [
   {
@@ -76,6 +77,14 @@ export default function EnsinoFundamental2() {
   const horariosRef   = useScrollReveal();
   const ctaRef        = useScrollReveal();
 
+  const { settings: appearanceSettings } = useSettings('appearance');
+  const hero = (appearanceSettings.fundamental_2 as Record<string, string> | undefined) ?? {};
+  const heroBadge    = hero.badge     || 'Fundamental II · 6º ao 9º ano';
+  const heroTitle    = hero.title     || 'Construindo o Futuro de cada jovem';
+  const heroHL       = hero.highlight || 'Futuro';
+  const heroSubtitle = hero.subtitle  || 'Preparando jovens para os desafios do futuro com excelência acadêmica e valores sólidos que duram para toda a vida.';
+  const heroImage    = hero.image     || 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&q=80&w=2070';
+
   return (
     <div className="min-h-screen">
 
@@ -83,7 +92,7 @@ export default function EnsinoFundamental2() {
       <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&q=80&w=2070"
+            src={heroImage}
             alt="Estudantes em laboratório"
             className="w-full h-full object-cover"
           />
@@ -97,21 +106,22 @@ export default function EnsinoFundamental2() {
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
               <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">
-                Fundamental II · 6º ao 9º ano
+                {heroBadge}
               </span>
             </div>
 
             <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
-              Construindo o{' '}
-              <span className="italic text-[#ffd700]">Futuro</span>
-              <br />de cada jovem
+              {(() => {
+                if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
+                const parts = heroTitle.split(heroHL);
+                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+              })()}
             </h1>
 
             <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
 
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed mb-10">
-              Preparando jovens para os desafios do futuro com excelência acadêmica
-              e valores sólidos que duram para toda a vida.
+              {heroSubtitle}
             </p>
 
             <div className="hero-text-3 flex flex-wrap gap-4">

@@ -147,6 +147,16 @@ export default function Contato() {
   const formRef   = useScrollReveal();
   const infoRef   = useScrollReveal();
   const { settings: contactSettings } = useSettings('contact');
+  const { settings: appearanceSettings } = useSettings('appearance');
+  const heroCont = (appearanceSettings.contato as Record<string, string> | undefined) ?? {};
+  const heroBadge    = heroCont.badge     || 'Fale conosco';
+  const heroTitle    = heroCont.title     || 'Entre em Contato';
+  const heroHL       = heroCont.highlight || 'Contato';
+  const heroSubtitle = heroCont.subtitle  || 'Tire suas dúvidas, agende uma visita ou solicite informações sobre matrículas.';
+  const heroImage    = heroCont.image     || 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&q=80&w=2070';
+  const heroPhone   = heroCont.phone   || '(81) 3721-4787';
+  const heroAddress = heroCont.address || 'Rua Marcílio Dias, 99 | São Francisco, Caruaru/PE';
+  const heroHours   = heroCont.hours   || 'Segunda a Sexta: 7h às 17h';
 
   // Fields the admin marked as required
   const requiredFields = useMemo(() => {
@@ -272,7 +282,7 @@ export default function Contato() {
       <section className="relative h-[55vh] min-h-[400px] overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&q=80&w=2070"
+            src={heroImage}
             alt="Colégio Batista"
             className="w-full h-full object-cover"
           />
@@ -285,15 +295,18 @@ export default function Contato() {
           <div className="max-w-3xl">
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
               <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
-              <span className="text-white/90 text-sm font-medium tracking-wide">Fale conosco</span>
+              <span className="text-white/90 text-sm font-medium tracking-wide">{heroBadge}</span>
             </div>
             <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
-              Entre em{' '}
-              <span className="italic text-[#ffd700]">Contato</span>
+              {(() => {
+                if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
+                const parts = heroTitle.split(heroHL);
+                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+              })()}
             </h1>
             <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
-              Tire suas dúvidas, agende uma visita ou solicite informações sobre matrículas.
+              {heroSubtitle}
             </p>
           </div>
         </div>
@@ -316,17 +329,17 @@ export default function Contato() {
                 {
                   icon: Phone,
                   title: 'Telefone',
-                  lines: ['(81) 3721-4787'],
+                  lines: [heroPhone],
                 },
                 {
                   icon: MapPin,
                   title: 'Endereço',
-                  lines: ['Rua Marcílio Dias, 99', 'São Francisco, Caruaru/PE'],
+                  lines: heroAddress.split(' | '),
                 },
                 {
                   icon: Clock,
                   title: 'Horário de Atendimento',
-                  lines: ['Segunda a Sexta: 7h às 17h'],
+                  lines: [heroHours],
                 },
               ].map(({ icon: Icon, title, lines }, i) => (
                 <div

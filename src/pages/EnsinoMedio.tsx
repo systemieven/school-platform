@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Target, Users, Star, Award, Clock, Brain, Rocket, Trophy, ArrowRight } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import { useSettings } from '../hooks/useSettings';
 
 const PILLARS = [
   {
@@ -58,6 +59,14 @@ export default function EnsinoMedio() {
   const horariosRef   = useScrollReveal();
   const ctaRef        = useScrollReveal();
 
+  const { settings: appearanceSettings } = useSettings('appearance');
+  const hero = (appearanceSettings.ensino_medio as Record<string, string> | undefined) ?? {};
+  const heroBadge    = hero.badge     || 'Ensino Médio · 1º a 3º ano';
+  const heroTitle    = hero.title     || 'Sua rota para o Sucesso';
+  const heroHL       = hero.highlight || 'Sucesso';
+  const heroSubtitle = hero.subtitle  || 'Excelência acadêmica e preparação completa para o sucesso no ENEM e vestibulares das melhores universidades do país.';
+  const heroImage    = hero.image     || 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=2070';
+
   return (
     <div className="min-h-screen">
 
@@ -65,7 +74,7 @@ export default function EnsinoMedio() {
       <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=2070"
+            src={heroImage}
             alt="Estudantes em laboratório avançado"
             className="w-full h-full object-cover"
           />
@@ -79,21 +88,22 @@ export default function EnsinoMedio() {
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
               <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">
-                Ensino Médio · 1º a 3º ano
+                {heroBadge}
               </span>
             </div>
 
             <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
-              Sua rota para
-              <br />o{' '}
-              <span className="italic text-[#ffd700]">Sucesso</span>
+              {(() => {
+                if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
+                const parts = heroTitle.split(heroHL);
+                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+              })()}
             </h1>
 
             <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
 
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed mb-10">
-              Excelência acadêmica e preparação completa para o sucesso no ENEM e
-              vestibulares das melhores universidades do país.
+              {heroSubtitle}
             </p>
 
             <div className="hero-text-3 flex flex-wrap gap-4">

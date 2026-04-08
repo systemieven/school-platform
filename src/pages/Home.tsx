@@ -12,6 +12,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import { useSettings } from '../hooks/useSettings';
 import Testimonials from '../components/Testimonials';
 
 const SEGMENTS = [
@@ -100,6 +101,22 @@ export default function Home() {
   const infraRef = useScrollReveal();
   const ctaRef = useScrollReveal();
 
+  const { settings: appearanceSettings } = useSettings('appearance');
+  const homeConfig = (appearanceSettings.home as Record<string, unknown> | undefined) ?? {};
+  const heroBadge    = (homeConfig.badge as string)     || 'Matrículas 2026 abertas';
+  const heroTitle    = (homeConfig.title as string)     || 'Educação que Transforma Vidas';
+  const heroHL       = (homeConfig.highlight as string) || 'Transforma';
+  const heroSubtitle = (homeConfig.subtitle as string)  || 'Há mais de 20 anos formando cidadãos com excelência acadêmica e valores cristãos em Caruaru.';
+  const heroVideoUrl = (homeConfig.video_url as string) || 'https://s3.ibotcloud.com.br/colegiobatista/imagens/site/video-inicio.mp4';
+  type SegConfig = { image: string; description: string };
+  const segConfigs   = (homeConfig.segments as SegConfig[] | undefined) ?? [];
+
+  const displaySegments = SEGMENTS.map((seg, i) => ({
+    ...seg,
+    img:  segConfigs[i]?.image       || seg.img,
+    desc: segConfigs[i]?.description || seg.desc,
+  }));
+
   return (
     <>
       {/* ── Hero ── */}
@@ -114,7 +131,7 @@ export default function Home() {
             className="hero-video w-full h-full object-cover"
           >
             <source
-              src="https://s3.ibotcloud.com.br/colegiobatista/imagens/site/video-inicio.mp4"
+              src={heroVideoUrl}
               type="video/mp4"
             />
           </video>
@@ -131,23 +148,23 @@ export default function Home() {
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
               <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">
-                Matrículas 2026 abertas
+                {heroBadge}
               </span>
             </div>
 
             <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
-              Educação que{' '}
-              <span className="italic text-[#ffd700]">Transforma</span>
-              <br />
-              Vidas
+              {(() => {
+                if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
+                const parts = heroTitle.split(heroHL);
+                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+              })()}
             </h1>
 
             {/* Gold accent line */}
             <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
 
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed mb-10">
-              Há mais de 20 anos formando cidadãos com excelência acadêmica
-              e valores cristãos em Caruaru.
+              {heroSubtitle}
             </p>
 
             <div className="hero-text-3 flex flex-wrap gap-4">
@@ -199,7 +216,7 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {SEGMENTS.map((seg, i) => (
+            {displaySegments.map((seg, i) => (
               <Link
                 key={seg.to}
                 to={seg.to}
