@@ -17,11 +17,6 @@ interface RsvpMap {
   [eventId: string]: 'confirmed' | 'declined' | 'maybe' | null;
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', {
-    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
-  });
-}
 
 function fmtTime(t: string | null) {
   return t ? t.slice(0, 5) : null;

@@ -8,7 +8,7 @@ import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
   Loader2, Plus, Pencil, Trash2, CalendarDays, X, Save,
   Users, Globe, BookOpen, MapPin, Clock, Send, Eye, EyeOff,
-  CheckCircle2, ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
@@ -33,11 +33,6 @@ const ROLES_LIST = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtDate(iso: string) {
-  return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  });
-}
 
 function fmtTime(t: string | null) {
   return t ? t.slice(0, 5) : null;

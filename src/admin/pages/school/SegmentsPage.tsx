@@ -4,7 +4,7 @@ import type { SchoolSegment, SchoolClass, Shift } from '../../types/admin.types'
 import { SHIFT_LABELS } from '../../types/admin.types';
 import {
   GraduationCap, Plus, Loader2, Pencil, Trash2, ChevronDown, ChevronRight,
-  Users, Save, X, ToggleLeft, ToggleRight, BookOpen,
+  Users, X, BookOpen,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';

@@ -835,11 +835,6 @@ function CategoriesDrawer({ onClose, onChanged }: { onClose: () => void; onChang
     setError('');
   }
 
-  function toggleVar(form: { variables: string[] }, v: string): string[] {
-    return form.variables.includes(v)
-      ? form.variables.filter((x) => x !== v)
-      : [...form.variables, v];
-  }
 
   async function handleSave(slug: string) {
     const f = editForms[slug];
