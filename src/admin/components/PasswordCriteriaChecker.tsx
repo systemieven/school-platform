@@ -28,31 +28,31 @@ export function PasswordCriteriaChecker({ password, policy }: Props) {
     {
       key: 'length',
       label: `Mínimo de ${policy.min_length} caracteres`,
-      test: (pw) => pw.length >= policy.min_length,
+      test: (pw: string) => pw.length >= policy.min_length,
       active: true,
     },
     {
       key: 'uppercase',
       label: 'Letra maiúscula (A–Z)',
-      test: (pw) => /[A-Z]/.test(pw),
+      test: (pw: string) => /[A-Z]/.test(pw),
       active: policy.require_uppercase,
     },
     {
       key: 'lowercase',
       label: 'Letra minúscula (a–z)',
-      test: (pw) => /[a-z]/.test(pw),
+      test: (pw: string) => /[a-z]/.test(pw),
       active: policy.require_lowercase,
     },
     {
       key: 'number',
       label: 'Número (0–9)',
-      test: (pw) => /[0-9]/.test(pw),
+      test: (pw: string) => /[0-9]/.test(pw),
       active: policy.require_numbers,
     },
     {
       key: 'special',
       label: 'Caractere especial (!@#$…)',
-      test: (pw) => /[^A-Za-z0-9]/.test(pw),
+      test: (pw: string) => /[^A-Za-z0-9]/.test(pw),
       active: policy.require_special,
     },
   ].filter((c) => c.active);

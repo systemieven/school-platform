@@ -902,7 +902,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
     <div>
       <label className={labelClass}>{label}</label>
       <input
-        value={(form as Record<string, string>)[key]}
+        value={(form as unknown as Record<string, string>)[key]}
         onChange={(e) => setCPF(key, e.target.value)}
         placeholder="000.000.000-00"
         className={fieldClass(errors[key])}
@@ -916,7 +916,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
     <div>
       <label className={labelClass}>{label}{required && ' *'}</label>
       <input
-        value={(form as Record<string, string>)[key]}
+        value={(form as unknown as Record<string, string>)[key]}
         onChange={(e) => setPhone(key, e.target.value)}
         placeholder="(00) 00000-0000"
         className={fieldClass(errors[key])}
@@ -931,7 +931,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
       <label className={labelClass}>{label}</label>
       <input
         type="email"
-        value={(form as Record<string, string>)[key]}
+        value={(form as unknown as Record<string, string>)[key]}
         onChange={(e) => setEmail(key, e.target.value)}
         placeholder="email@exemplo.com"
         className={fieldClass(errors[key])}
