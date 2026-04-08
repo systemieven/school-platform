@@ -4,7 +4,7 @@ import { useAdminAuth } from '../../hooks/useAdminAuth';
 import type { VisitAppointment, AppointmentStatus } from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
-  CalendarCheck, Search, X, ChevronRight, Loader2,
+  CalendarCheck, Search, X, ChevronRight, ChevronDown, Loader2,
   User, Phone, Clock, MapPin, Check, Ban, CheckCircle2,
   AlertCircle, RefreshCw, MessageCircle, Plus,
   History, Filter, Square, CheckSquare,
