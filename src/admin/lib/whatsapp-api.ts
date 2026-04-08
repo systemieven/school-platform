@@ -511,6 +511,9 @@ export const MODULE_VARIABLES: Record<string, string[]> = {
   geral: [
     'school_name', 'school_phone', 'school_address', 'current_date',
   ],
+  auth: [
+    'user_name', 'temp_password', 'system_url',
+  ],
 };
 
 export const ALL_VARIABLES = [...new Set(Object.values(MODULE_VARIABLES).flat())];

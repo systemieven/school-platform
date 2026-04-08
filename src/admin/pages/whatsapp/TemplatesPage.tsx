@@ -1,26 +1,53 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
-import { MODULE_VARIABLES, ALL_VARIABLES } from '../../lib/whatsapp-api';
+import { ALL_VARIABLES } from '../../lib/whatsapp-api';
 import type { WhatsAppTemplate, TemplateCategory, MessageType } from '../../types/admin.types';
 import {
   MessageCircle, Plus, Pencil, Trash2,
   X, Save, Loader2, ChevronDown, Eye, EyeOff,
   Zap, Clock, Tag, AlertCircle, FileText,
+  Settings2, Check, ChevronRight,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Category types & color system ─────────────────────────────────────────────
 
-const CATEGORIES: { value: TemplateCategory; label: string; color: string }[] = [
-  { value: 'agendamento',  label: 'Agendamento',   color: 'blue'   },
-  { value: 'matricula',    label: 'Pré-Matrícula', color: 'purple' },
-  { value: 'contato',      label: 'Contato',       color: 'green'  },
-  { value: 'geral',        label: 'Geral',         color: 'gray'   },
-  { value: 'boas_vindas',  label: 'Boas-vindas',   color: 'yellow' },
-  { value: '2fa',          label: 'Senhas',        color: 'red'    },
+interface CategoryRow {
+  id: string;
+  slug: string;
+  label: string;
+  color: string;
+  variables: string[];
+  sort_order: number;
+}
+
+// All possible color options for categories
+const COLOR_OPTIONS: { value: string; dot: string; badge: string }[] = [
+  { value: 'blue',   dot: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  { value: 'purple', dot: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  { value: 'green',  dot: 'bg-green-500',  badge: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  { value: 'gray',   dot: 'bg-gray-400',   badge: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
+  { value: 'yellow', dot: 'bg-yellow-400', badge: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-500' },
+  { value: 'red',    dot: 'bg-red-500',    badge: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  { value: 'orange', dot: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  { value: 'teal',   dot: 'bg-teal-500',   badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' },
+  { value: 'indigo', dot: 'bg-indigo-500', badge: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' },
+  { value: 'pink',   dot: 'bg-pink-500',   badge: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' },
 ];
+
+function getCategoryBadge(color: string): string {
+  return COLOR_OPTIONS.find((c) => c.value === color)?.badge
+    ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
 
 const MESSAGE_TYPES: { value: MessageType; label: string; desc: string }[] = [
   { value: 'text',    label: 'Texto',    desc: 'Mensagem de texto simples com suporte a formatação' },
@@ -77,14 +104,6 @@ const TRIGGER_STATUS_BY_MODULE: Record<string, { value: string; label: string }[
   '': [{ value: '', label: 'Qualquer status' }],
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  agendamento: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  matricula:   'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  contato:     'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  geral:       'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-  boas_vindas: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-500',
-  '2fa':       'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -137,15 +156,17 @@ function EmptyState({ onNew }: { onNew: () => void }) {
 // ── Template Card ─────────────────────────────────────────────────────────────
 
 function TemplateCard({
-  template, onEdit, onDelete, onToggle,
+  template, categories, onEdit, onDelete, onToggle,
 }: {
-  template: WhatsAppTemplate;
-  onEdit:   (t: WhatsAppTemplate) => void;
-  onDelete: (t: WhatsAppTemplate) => void;
-  onToggle: (t: WhatsAppTemplate) => void;
+  template:   WhatsAppTemplate;
+  categories: CategoryRow[];
+  onEdit:     (t: WhatsAppTemplate) => void;
+  onDelete:   (t: WhatsAppTemplate) => void;
+  onToggle:   (t: WhatsAppTemplate) => void;
 }) {
-  const catColor = CATEGORY_COLORS[template.category] || CATEGORY_COLORS.geral;
-  const catLabel = CATEGORIES.find((c) => c.value === template.category)?.label || template.category;
+  const cat = categories.find((c) => c.slug === template.category);
+  const catColor = getCategoryBadge(cat?.color ?? 'gray');
+  const catLabel = cat?.label ?? template.category;
   const typeLabel = MESSAGE_TYPES.find((t) => t.value === template.message_type)?.label || template.message_type;
   const body = template.content.body || '(sem corpo)';
   const hasAutoTrigger = Boolean(template.trigger_event);
@@ -249,12 +270,14 @@ const EMPTY_TEMPLATE: Omit<WhatsAppTemplate, 'id' | 'created_at' | 'updated_at' 
 
 function TemplateDrawer({
   template,
+  categories,
   onClose,
   onSave,
 }: {
-  template: WhatsAppTemplate | null;
-  onClose: () => void;
-  onSave:  () => void;
+  template:   WhatsAppTemplate | null;
+  categories: CategoryRow[];
+  onClose:    () => void;
+  onSave:     () => void;
 }) {
   const { profile } = useAdminAuth();
   const isEdit = Boolean(template?.id);
@@ -338,9 +361,8 @@ function TemplateDrawer({
     onSave();
   };
 
-  const suggestedVars = MODULE_VARIABLES[
-    form.category === 'boas_vindas' || form.category === '2fa' ? 'geral' : form.category
-  ] || ALL_VARIABLES;
+  const selectedCat = categories.find((c) => c.slug === form.category);
+  const suggestedVars = selectedCat?.variables?.length ? selectedCat.variables : ALL_VARIABLES;
 
   return (
     <>
@@ -506,8 +528,8 @@ function TemplateDrawer({
                           onChange={(e) => setForm((p) => ({ ...p, category: e.target.value as TemplateCategory }))}
                           className="w-full appearance-none px-4 py-2.5 pr-9 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
                         >
-                          {CATEGORIES.map((c) => (
-                            <option key={c.value} value={c.value}>{c.label}</option>
+                          {categories.map((c) => (
+                            <option key={c.slug} value={c.slug}>{c.label}</option>
                           ))}
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -775,27 +797,333 @@ function DeleteConfirm({ template, onClose, onConfirm }: {
   );
 }
 
+// ── Categories Drawer ─────────────────────────────────────────────────────────
+
+function CategoriesDrawer({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+  const [cats, setCats] = useState<CategoryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null); // slug or 'new'
+  const [editForms, setEditForms] = useState<Record<string, { label: string; color: string; variables: string[] }>>({});
+  const [newForm, setNewForm] = useState({ label: '', color: 'gray', variables: [] as string[] });
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  const loadCats = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('whatsapp_template_categories')
+      .select('*')
+      .order('sort_order')
+      .order('label');
+    setCats((data as CategoryRow[]) || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadCats(); }, [loadCats]);
+
+  function toggleExpand(slug: string) {
+    if (expanded === slug) { setExpanded(null); return; }
+    const cat = cats.find((c) => c.slug === slug);
+    if (cat) {
+      setEditForms((prev) => ({
+        ...prev,
+        [slug]: { label: cat.label, color: cat.color, variables: [...cat.variables] },
+      }));
+    }
+    setExpanded(slug);
+    setError('');
+  }
+
+  function toggleVar(form: { variables: string[] }, v: string): string[] {
+    return form.variables.includes(v)
+      ? form.variables.filter((x) => x !== v)
+      : [...form.variables, v];
+  }
+
+  async function handleSave(slug: string) {
+    const f = editForms[slug];
+    if (!f?.label.trim()) { setError('Nome é obrigatório.'); return; }
+    setSaving(slug);
+    setError('');
+    const { error: err } = await supabase
+      .from('whatsapp_template_categories')
+      .update({ label: f.label.trim(), color: f.color, variables: f.variables, updated_at: new Date().toISOString() })
+      .eq('slug', slug);
+    setSaving(null);
+    if (err) { setError(err.message); return; }
+    await loadCats();
+    onChanged();
+    setExpanded(null);
+  }
+
+  async function handleCreate() {
+    if (!newForm.label.trim()) { setError('Nome é obrigatório.'); return; }
+    const slug = slugify(newForm.label);
+    if (!slug) { setError('Nome gera slug inválido.'); return; }
+    setSaving('new');
+    setError('');
+    const { error: err } = await supabase
+      .from('whatsapp_template_categories')
+      .insert({ slug, label: newForm.label.trim(), color: newForm.color, variables: newForm.variables, sort_order: cats.length + 1 });
+    setSaving(null);
+    if (err) { setError(err.message); return; }
+    setNewForm({ label: '', color: 'gray', variables: [] });
+    setExpanded(null);
+    await loadCats();
+    onChanged();
+  }
+
+  async function handleDelete(slug: string) {
+    setSaving(slug + '_del');
+    const { error: err } = await supabase
+      .from('whatsapp_template_categories')
+      .delete()
+      .eq('slug', slug);
+    setSaving(null);
+    if (err) { setError(err.message); return; }
+    await loadCats();
+    onChanged();
+    setExpanded(null);
+  }
+
+  function VarPicker({ selectedVars, onChange }: { selectedVars: string[]; onChange: (v: string[]) => void }) {
+    return (
+      <div>
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+          Variáveis sugeridas
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {ALL_VARIABLES.map((v) => {
+            const active = selectedVars.includes(v);
+            return (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onChange(active ? selectedVars.filter((x) => x !== v) : [...selectedVars, v])}
+                className={`text-[11px] px-2.5 py-1 rounded-lg font-mono transition-colors ${
+                  active
+                    ? 'bg-[#003876] text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {active && <Check className="inline w-2.5 h-2.5 mr-1" />}
+                {`{{${v}}}`}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+    return (
+      <div>
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Cor</p>
+        <div className="flex flex-wrap gap-2">
+          {COLOR_OPTIONS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => onChange(c.value)}
+              title={c.value}
+              className={`w-6 h-6 rounded-full ${c.dot} transition-all ${
+                value === c.value ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-offset-gray-800 scale-110' : 'opacity-60 hover:opacity-100'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const inputCls = 'w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all';
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-40" onClick={onClose} />
+      <aside className="fixed right-0 top-0 h-full w-full max-w-sm bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Settings2 className="w-4 h-4" />
+            <h2 className="font-semibold text-sm">Categorias de Templates</h2>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-white/20 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs rounded-xl px-4 py-3">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+            </div>
+          ) : (
+            <>
+              {/* Existing categories */}
+              {cats.map((cat) => {
+                const isOpen = expanded === cat.slug;
+                const f = editForms[cat.slug] ?? { label: cat.label, color: cat.color, variables: cat.variables };
+                const badgeCls = getCategoryBadge(cat.color);
+                return (
+                  <div key={cat.slug} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    {/* Row header */}
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(cat.slug)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
+                    >
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${badgeCls}`}>
+                        {cat.label}
+                      </span>
+                      <span className="text-xs text-gray-400 font-mono flex-1">{cat.slug}</span>
+                      <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                    </button>
+
+                    {/* Expanded edit form */}
+                    {isOpen && (
+                      <div className="px-4 pb-4 space-y-4 border-t border-gray-100 dark:border-gray-700 pt-4 bg-gray-50/50 dark:bg-gray-800/50">
+                        <div>
+                          <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Nome</label>
+                          <input
+                            value={f.label}
+                            onChange={(e) => setEditForms((p) => ({ ...p, [cat.slug]: { ...f, label: e.target.value } }))}
+                            className={inputCls}
+                          />
+                          <p className="text-[10px] text-gray-400 mt-1 font-mono">slug: {cat.slug}</p>
+                        </div>
+                        <ColorPicker value={f.color} onChange={(c) => setEditForms((p) => ({ ...p, [cat.slug]: { ...f, color: c } }))} />
+                        <VarPicker selectedVars={f.variables} onChange={(vars) => setEditForms((p) => ({ ...p, [cat.slug]: { ...f, variables: vars } }))} />
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(cat.slug)}
+                            disabled={saving !== null}
+                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-40"
+                            title="Excluir categoria"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setExpanded(null); setError(''); }}
+                            disabled={saving !== null}
+                            className="flex-1 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSave(cat.slug)}
+                            disabled={saving !== null}
+                            className="flex-1 py-2 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-xs font-medium transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
+                          >
+                            {saving === cat.slug ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            Salvar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* New category */}
+              <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => { setExpanded(expanded === 'new' ? null : 'new'); setError(''); }}
+                  className="w-full flex items-center gap-2 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <Plus className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Nova categoria</span>
+                  <ChevronRight className={`w-4 h-4 text-gray-400 ml-auto transition-transform ${expanded === 'new' ? 'rotate-90' : ''}`} />
+                </button>
+                {expanded === 'new' && (
+                  <div className="px-4 pb-4 space-y-4 border-t border-gray-100 dark:border-gray-700 pt-4 bg-gray-50/50 dark:bg-gray-800/50">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Nome</label>
+                      <input
+                        value={newForm.label}
+                        onChange={(e) => setNewForm((p) => ({ ...p, label: e.target.value }))}
+                        placeholder="Ex: Financeiro"
+                        className={inputCls}
+                      />
+                      {newForm.label && (
+                        <p className="text-[10px] text-gray-400 mt-1 font-mono">slug: {slugify(newForm.label)}</p>
+                      )}
+                    </div>
+                    <ColorPicker value={newForm.color} onChange={(c) => setNewForm((p) => ({ ...p, color: c }))} />
+                    <VarPicker selectedVars={newForm.variables} onChange={(vars) => setNewForm((p) => ({ ...p, variables: vars }))} />
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setExpanded(null); setNewForm({ label: '', color: 'gray', variables: [] }); setError(''); }}
+                        disabled={saving !== null}
+                        className="flex-1 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCreate}
+                        disabled={saving !== null}
+                        className="flex-1 py-2 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-xs font-medium transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
+                      >
+                        {saving === 'new' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                        Criar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function TemplatesPage({ embedded }: { embedded?: boolean } = {}) {
-  const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [filterCat, setFilterCat] = useState<string>('all');
+  const [templates, setTemplates]   = useState<WhatsAppTemplate[]>([]);
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [filterCat, setFilterCat]   = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [drawerOpen, setDrawerOpen]     = useState(false);
+  const [catDrawerOpen, setCatDrawerOpen] = useState(false);
   const [editing, setEditing]           = useState<WhatsAppTemplate | null>(null);
   const [deleting, setDeleting]         = useState<WhatsAppTemplate | null>(null);
 
+  const loadCategories = useCallback(async () => {
+    const { data } = await supabase
+      .from('whatsapp_template_categories')
+      .select('*')
+      .order('sort_order')
+      .order('label');
+    setCategories((data as CategoryRow[]) || []);
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('whatsapp_templates')
-      .select('*')
-      .order('category')
-      .order('name');
-    setTemplates((data as WhatsAppTemplate[]) || []);
+    const [{ data: tpls }] = await Promise.all([
+      supabase.from('whatsapp_templates').select('*').order('category').order('name'),
+      loadCategories(),
+    ]);
+    setTemplates((tpls as WhatsAppTemplate[]) || []);
     setLoading(false);
-  }, []);
+  }, [loadCategories]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -839,13 +1167,22 @@ export default function TemplatesPage({ embedded }: { embedded?: boolean } = {})
               {templates.length} template{templates.length !== 1 ? 's' : ''} cadastrado{templates.length !== 1 ? 's' : ''} · {totalActive} ativo{totalActive !== 1 ? 's' : ''}
             </p>
           </div>
-          <button
-            onClick={handleNew}
-            className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#002855] hover:shadow-lg transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Template
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCatDrawerOpen(true)}
+              className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            >
+              <Settings2 className="w-4 h-4" />
+              Categorias
+            </button>
+            <button
+              onClick={handleNew}
+              className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#002855] hover:shadow-lg transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Template
+            </button>
+          </div>
         </div>
       )}
       {embedded && (
@@ -853,13 +1190,21 @@ export default function TemplatesPage({ embedded }: { embedded?: boolean } = {})
           <p className="text-xs text-gray-400">
             {templates.length} template{templates.length !== 1 ? 's' : ''} · {totalActive} ativo{totalActive !== 1 ? 's' : ''}
           </p>
-          <button
-            onClick={handleNew}
-            className="inline-flex items-center gap-2 bg-[#003876] text-white px-4 py-2 rounded-xl font-medium text-sm hover:bg-[#002855] transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Template
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCatDrawerOpen(true)}
+              className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 px-3 py-2 rounded-xl font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            >
+              <Settings2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleNew}
+              className="inline-flex items-center gap-2 bg-[#003876] text-white px-4 py-2 rounded-xl font-medium text-sm hover:bg-[#002855] transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Template
+            </button>
+          </div>
         </div>
       )}
 
@@ -868,7 +1213,7 @@ export default function TemplatesPage({ embedded }: { embedded?: boolean } = {})
         <div className="flex flex-wrap gap-2 mb-6">
           {/* Category filter */}
           <div className="flex items-center gap-1 flex-wrap">
-            {[{ value: 'all', label: 'Todos' }, ...CATEGORIES].map((c) => (
+            {[{ value: 'all', label: 'Todos', slug: 'all' }, ...categories.map((c) => ({ value: c.slug, label: c.label, slug: c.slug }))].map((c) => (
               <button
                 key={c.value}
                 onClick={() => setFilterCat(c.value)}
@@ -920,6 +1265,7 @@ export default function TemplatesPage({ embedded }: { embedded?: boolean } = {})
             <TemplateCard
               key={t.id}
               template={t}
+              categories={categories}
               onEdit={handleEdit}
               onDelete={setDeleting}
               onToggle={handleToggle}
@@ -928,12 +1274,21 @@ export default function TemplatesPage({ embedded }: { embedded?: boolean } = {})
         </div>
       )}
 
-      {/* Drawer */}
+      {/* Template Drawer */}
       {drawerOpen && (
         <TemplateDrawer
           template={editing}
+          categories={categories}
           onClose={handleClose}
           onSave={handleSaved}
+        />
+      )}
+
+      {/* Categories Drawer */}
+      {catDrawerOpen && (
+        <CategoriesDrawer
+          onClose={() => setCatDrawerOpen(false)}
+          onChanged={loadCategories}
         />
       )}
 
