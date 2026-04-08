@@ -685,13 +685,15 @@ function SettingField({ item, meta, value, isChanged, onChange }: SettingFieldPr
           <button
             type="button"
             onClick={() => onChange(isOn ? 'false' : 'true')}
-            className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+            className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${
               isOn ? 'bg-[#003876] dark:bg-[#ffd700]' : 'bg-gray-300 dark:bg-gray-600'
             }`}
           >
-            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-              isOn ? 'translate-x-5' : ''
-            }`} />
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${
+              isOn ? 'translate-x-6' : 'translate-x-0'
+            }`}>
+              {isOn && <Check className="w-3 h-3 text-[#003876] dark:text-[#003876]" strokeWidth={3} />}
+            </span>
           </button>
         </div>
       </div>
@@ -1950,22 +1952,22 @@ function EnrollmentSettingsPanel() {
           <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
           Documentos Obrigatórios
         </p>
-        {/* Sugestões rápidas como chips com ícone */}
-        <div className="flex flex-wrap gap-2">
+        {/* Sugestões rápidas em grid 2 colunas */}
+        <div className="grid grid-cols-2 gap-1.5">
           {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
             const added = data.required_docs_list.includes(s);
             return (
               <button
                 key={s}
                 onClick={() => added ? removeDoc(s) : addDoc(s)}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all text-left ${
                   added
                     ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
                 }`}
               >
-                <DocIcon className="w-4 h-4 flex-shrink-0" />
-                {s}
+                <DocIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{s}</span>
               </button>
             );
           })}
