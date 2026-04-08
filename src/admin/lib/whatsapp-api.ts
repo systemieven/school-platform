@@ -242,11 +242,11 @@ export async function callProxy(
 // ── Number existence check ────────────────────────────────────────────────────
 
 export async function checkWhatsAppNumber(phone: string): Promise<{ exists: boolean; error?: string }> {
-  const { data, error } = await callProxy('/chat/check', 'POST', { number: normalizePhone(phone) });
+  const { data, error } = await callProxy('/chat/check', 'POST', { numbers: [normalizePhone(phone)] });
   if (error) return { exists: false, error };
-  const d = data as Record<string, unknown> | null;
-  // UazAPI returns { exists: true/false } or { jid: "..." } when the number is registered
-  const exists = d?.exists === true || (typeof d?.jid === 'string' && d.jid.length > 0);
+  // UazAPI returns an array: [{ query, isInWhatsapp, jid, verifiedName }]
+  const arr = data as Array<{ isInWhatsapp?: boolean; jid?: string }> | null;
+  const exists = Array.isArray(arr) && arr.length > 0 && (arr[0].isInWhatsapp === true || !!arr[0].jid);
   return { exists };
 }
 
