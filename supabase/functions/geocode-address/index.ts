@@ -12,7 +12,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, authorization, apikey",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -50,31 +50,40 @@ Deno.serve(async (req: Request) => {
 
   const authHeader = req.headers.get("Authorization") || "";
   if (!authHeader.startsWith("Bearer ")) {
-    return json({ error: "unauthorized" }, 401);
+    return json({ error: "unauthorized", reason: "missing_bearer" }, 401);
   }
+  const token = authHeader.slice("Bearer ".length).trim();
 
-  // Verificar que o usuario e admin
-  const supabaseAuth = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const { data: userData, error: userErr } = await supabaseAuth.auth.getUser();
-  if (userErr || !userData.user) {
-    return json({ error: "unauthorized" }, 401);
-  }
-
+  // Cliente service-role faz tanto a verificacao do JWT quanto o lookup do profile
   const supabaseService = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
   );
-  const { data: profile } = await supabaseService
+
+  const { data: userData, error: userErr } = await supabaseService.auth.getUser(token);
+  if (userErr || !userData.user) {
+    return json(
+      { error: "unauthorized", reason: "invalid_token", details: userErr?.message ?? null },
+      401,
+    );
+  }
+
+  const { data: profile, error: profileErr } = await supabaseService
     .from("profiles")
-    .select("role")
+    .select("role, is_active")
     .eq("id", userData.user.id)
     .single();
+  if (profileErr) {
+    return json(
+      { error: "forbidden", reason: "profile_lookup_failed", details: profileErr.message },
+      403,
+    );
+  }
   if (!profile || !["super_admin", "admin"].includes(profile.role as string)) {
-    return json({ error: "forbidden" }, 403);
+    return json(
+      { error: "forbidden", reason: "role_not_admin", role: profile?.role ?? null },
+      403,
+    );
   }
 
   const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");

@@ -34,6 +34,7 @@ type Step = 'phone' | 'validating' | 'eligible' | 'walkin' | 'locating' | 'issue
 interface Sector { key: string; label: string }
 
 interface PublicConfig {
+  school_name: string | null;
   client_screen_fields: {
     show_last_called?: boolean;
     show_sector?: boolean;
@@ -84,6 +85,21 @@ function maskPhone(value: string): string {
 
 function digitsOnly(s: string): string {
   return s.replace(/\D/g, '');
+}
+
+/**
+ * Deriva uma sigla de ate 2 letras a partir do nome da instituicao, pulando
+ * preposicoes comuns. Ex: "Colégio Batista em Caruaru" → "CB".
+ * Usada apenas como fallback visual no badge dourado do header.
+ */
+function deriveInitials(name: string): string {
+  const stopwords = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'na', 'no']);
+  const letters = name
+    .split(/\s+/)
+    .filter((w) => w && !stopwords.has(w.toLowerCase()))
+    .map((w) => w[0]?.toUpperCase() || '')
+    .filter(Boolean);
+  return (letters[0] || '') + (letters[1] || '');
 }
 
 export default function AtendimentoPublico() {
@@ -276,6 +292,12 @@ export default function AtendimentoPublico() {
   const elapsedWait = useTimer(ticket?.issued_at || null);
 
   // ── Derived ────────────────────────────────────────────────────────────────
+  const schoolName = config?.school_name?.trim() || 'Instituição';
+  const schoolInitials = useMemo(() => {
+    const fromName = deriveInitials(schoolName);
+    return fromName || '??';
+  }, [schoolName]);
+
   const estimatedLabel = useMemo(() => {
     if (!ticket || !config?.estimated_service_time) return null;
     const minutes = config.estimated_service_time[ticket.sector_key];
@@ -288,10 +310,10 @@ export default function AtendimentoPublico() {
       {/* Brand header */}
       <div className="w-full max-w-md flex items-center gap-3 mb-8">
         <div className="w-11 h-11 bg-[#ffd700] rounded-xl flex items-center justify-center">
-          <span className="text-[#003876] font-bold text-sm">CB</span>
+          <span className="text-[#003876] font-bold text-sm">{schoolInitials}</span>
         </div>
         <div>
-          <p className="font-display font-bold text-lg leading-tight">Colégio Batista</p>
+          <p className="font-display font-bold text-lg leading-tight">{schoolName}</p>
           <p className="text-xs text-white/60">Atendimento presencial</p>
         </div>
       </div>
@@ -382,33 +404,56 @@ export default function AtendimentoPublico() {
               </div>
               <h1 className="font-display text-xl font-bold text-[#003876]">Sem agendamento prévio</h1>
               <p className="text-sm text-gray-500 mt-1">
-                Informe seus dados para atendimento imediato.
+                Não encontramos um agendamento para este telefone.
+                Confirme seus dados abaixo para atendimento imediato.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Seu nome</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Nome completo</label>
               <input
                 type="text"
                 value={walkinName}
                 onChange={(e) => setWalkinName(e.target.value)}
-                placeholder="Nome completo"
+                placeholder="Como gostaria de ser chamado"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-base outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Setor desejado</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Celular</label>
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={phone}
+                onChange={(e) => setPhone(maskPhone(e.target.value))}
+                placeholder="(00) 00000-0000"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-base outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Pré-preenchido com o telefone informado. Edite se houver erro.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                Motivo da visita / setor
+              </label>
               <select
                 value={walkinSector}
                 onChange={(e) => setWalkinSector(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-base outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
               >
-                <option value="">Selecione…</option>
+                <option value="">Selecione um motivo…</option>
                 {config?.sectors.map((s) => (
                   <option key={s.key} value={s.key}>{s.label}</option>
                 ))}
               </select>
+              {config?.sectors.length === 0 && (
+                <p className="text-[11px] text-amber-600 mt-1">
+                  Nenhum motivo de visita cadastrado. Contate a recepção.
+                </p>
+              )}
             </div>
 
             {error && (
@@ -420,8 +465,17 @@ export default function AtendimentoPublico() {
 
             <button
               onClick={() => {
-                if (!walkinName.trim() || !walkinSector) {
-                  setError('Preencha nome e setor.');
+                const digits = digitsOnly(phone);
+                if (!walkinName.trim()) {
+                  setError('Informe seu nome completo.');
+                  return;
+                }
+                if (digits.length < 10) {
+                  setError('Informe um celular válido.');
+                  return;
+                }
+                if (!walkinSector) {
+                  setError('Selecione o motivo da visita.');
                   return;
                 }
                 setError(null);
@@ -434,6 +488,12 @@ export default function AtendimentoPublico() {
             >
               <MapPin className="w-4 h-4" />
               Gerar senha
+            </button>
+            <button
+              onClick={() => { setError(null); setStep('phone'); }}
+              className="w-full py-2 text-xs text-gray-400 hover:text-[#003876] transition-colors"
+            >
+              Voltar
             </button>
           </div>
         )}
@@ -548,7 +608,7 @@ export default function AtendimentoPublico() {
       {/* Footer */}
       <p className="text-[10px] text-white/40 mt-6">
         <Ticket className="inline w-3 h-3 mr-1" />
-        Sistema de Atendimento • Colégio Batista
+        Sistema de Atendimento • {schoolName}
       </p>
     </div>
   );

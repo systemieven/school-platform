@@ -1,1 +1,31 @@
 project_id = "dinbwugbwnkrzljuocbs"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Edge Functions
+# ──────────────────────────────────────────────────────────────────────────────
+# Em projetos que usam o NOVO formato de chave Supabase (sb_publishable_*),
+# o gateway ainda nao valida corretamente os JWTs assinados pelo Auth nativo.
+# Para todas as funcoes abaixo, desabilitamos o `verify_jwt` no gateway e
+# fazemos a validacao DENTRO da funcao via `supabase.auth.getUser(token)` +
+# checagem do role no `profiles`. Resultado: mesma seguranca, sem o falso
+# "Invalid JWT" do gateway.
+#
+# Este arquivo eh respeitado pelo Supabase CLI, pelo MCP `deploy_edge_function`
+# e pelo Lovable Cloud no momento do deploy, entao a flag NAO sera resetada.
+
+[functions.geocode-address]
+verify_jwt = false
+
+[functions.google-static-map]
+verify_jwt = false
+
+# Funcoes consumidas pela pagina publica /atendimento (QR Code), por design
+# nao podem exigir JWT — fazem validacoes proprias (telefone, raio, etc).
+[functions.attendance-checkin]
+verify_jwt = false
+
+[functions.attendance-public-config]
+verify_jwt = false
+
+[functions.attendance-feedback]
+verify_jwt = false

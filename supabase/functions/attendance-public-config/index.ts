@@ -10,7 +10,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, authorization, apikey",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
@@ -44,8 +44,20 @@ Deno.serve(async (req: Request) => {
     map[r.category][r.key] = r.value;
   }
 
+  // Normaliza school_name: pode estar salvo como string direta ou objeto { value }
+  // (padrao do SettingsCard). A pagina publica consome sempre string.
+  const rawSchoolName = map.general?.school_name;
+  let schoolName: string | null = null;
+  if (typeof rawSchoolName === "string") {
+    schoolName = rawSchoolName;
+  } else if (rawSchoolName && typeof rawSchoolName === "object") {
+    const asObj = rawSchoolName as { value?: unknown };
+    if (typeof asObj.value === "string") schoolName = asObj.value;
+  }
+
   // Filtrar apenas chaves publicas seguras
   const result = {
+    school_name: schoolName,
     client_screen_fields: map.attendance?.client_screen_fields ?? null,
     ticket_format: map.attendance?.ticket_format ?? null,
     sound: map.attendance?.sound ?? null,

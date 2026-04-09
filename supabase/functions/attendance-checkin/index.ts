@@ -13,7 +13,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, authorization, apikey",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -97,13 +97,17 @@ function isEligible(
 }
 
 async function loadSettings(supabase: ReturnType<typeof createClient>) {
+  // Carregamos todas as linhas das 3 categorias relevantes e filtramos em JS.
+  // Evitamos o .or() com and() aninhado do PostgREST porque o parser dele eh
+  // frageil e retorna 500 quando o encoding da query nao bate exatamente.
   const { data, error } = await supabase
     .from("system_settings")
     .select("category, key, value")
-    .or(
-      "category.eq.attendance,and(category.eq.general,key.eq.geolocation),and(category.eq.visit,key.eq.reasons)",
-    );
-  if (error) throw error;
+    .in("category", ["attendance", "general", "visit"]);
+  if (error) {
+    console.error("[attendance-checkin] loadSettings error", error);
+    throw error;
+  }
   const map: Record<string, Record<string, unknown>> = {};
   for (const row of data || []) {
     const r = row as { category: string; key: string; value: unknown };
@@ -162,24 +166,40 @@ Deno.serve(async (req: Request) => {
     const today = new Date().toISOString().slice(0, 10);
 
     // ── Buscar agendamento do cliente ───────────────────────────────────────
-    // Trazer agendamentos recentes (ultimos 60 dias + futuros proximos) pelo telefone
-    // e escolher o mais apropriado conforme a regra.
-    const phonePatterns = [phone, `%${phone}%`];
-    const { data: appts, error: apptErr } = await supabase
+    // Trazer agendamentos recentes (ultimos 60 dias + futuros proximos) pelo telefone.
+    // Fazemos duas queries simples e combinamos em JS para evitar .or() do PostgREST,
+    // que eh delicado e retornava 500 por conta de encoding.
+    const sinceDate = new Date(Date.now() - 60 * 86400_000).toISOString().slice(0, 10);
+    const baseSelect =
+      "id, visitor_name, visitor_phone, visitor_email, visit_reason, appointment_date, appointment_time, status";
+
+    const { data: apptExact, error: apptExactErr } = await supabase
       .from("visit_appointments")
-      .select(
-        "id, visitor_name, visitor_phone, visitor_email, visit_reason, appointment_date, appointment_time, status",
-      )
-      .or(
-        phonePatterns
-          .map((p, i) => (i === 0 ? `visitor_phone.eq.${p}` : `visitor_phone.ilike.${p}`))
-          .join(","),
-      )
-      .gte("appointment_date", new Date(Date.now() - 60 * 86400_000).toISOString().slice(0, 10))
+      .select(baseSelect)
+      .eq("visitor_phone", phone)
+      .gte("appointment_date", sinceDate)
       .order("appointment_date", { ascending: true });
 
-    if (apptErr) {
-      return json({ error: "lookup_failed", message: apptErr.message }, 500);
+    if (apptExactErr) {
+      console.error("[attendance-checkin] appointments eq error", apptExactErr);
+      return json({ error: "lookup_failed", message: apptExactErr.message }, 500);
+    }
+
+    let appts = apptExact ?? [];
+    // Fallback: alguns agendamentos podem ter sido salvos com mascara.
+    // Busca por padrao contendo o numero so se a exata nao achou nada.
+    if (appts.length === 0) {
+      const { data: apptFuzzy, error: apptFuzzyErr } = await supabase
+        .from("visit_appointments")
+        .select(baseSelect)
+        .ilike("visitor_phone", `%${phone}%`)
+        .gte("appointment_date", sinceDate)
+        .order("appointment_date", { ascending: true });
+      if (apptFuzzyErr) {
+        console.error("[attendance-checkin] appointments ilike error", apptFuzzyErr);
+        return json({ error: "lookup_failed", message: apptFuzzyErr.message }, 500);
+      }
+      appts = apptFuzzy ?? [];
     }
 
     // Preferencia: mesmo dia → futuro mais proximo → passado mais recente
@@ -374,8 +394,13 @@ Deno.serve(async (req: Request) => {
 
     return json({ eligible: true, ticket, distance_m: distance });
   } catch (err) {
+    console.error("[attendance-checkin] unexpected", err);
     return json(
-      { error: "unexpected", message: (err as Error).message },
+      {
+        error: "unexpected",
+        message: (err as Error).message,
+        stack: (err as Error).stack,
+      },
       500,
     );
   }

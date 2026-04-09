@@ -10,9 +10,9 @@
  * - Mini-mapa embed via OpenStreetMap (sem chave) mostra o ponto + raio.
  * - Inputs manuais de lat/lng/raio como fallback.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { MapPin, Crosshair, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { MapPin, Crosshair, Loader2, AlertCircle, CheckCircle2, Plus, Minus, RotateCcw, ExternalLink } from 'lucide-react';
 
 interface GeolocationValue {
   latitude: number | null;
@@ -72,6 +72,24 @@ export default function GeolocationField({ value, savedValue: _savedValue, addre
   const [geocoding, setGeocoding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null);
+  const [mapLoading, setMapLoading] = useState(false);
+  const mapBlobUrlRef = useRef<string | null>(null);
+  // null = zoom auto (calculado a partir do raio na propria edge function)
+  const [zoomOverride, setZoomOverride] = useState<number | null>(null);
+  const ZOOM_MIN = 12;
+  const ZOOM_MAX = 20;
+
+  // Quando o usuario nao definiu zoom manual, derivamos um padrao do raio
+  // (mesma formula da edge function) so pra alimentar o estado dos botoes.
+  function autoZoom(radiusM: number): number {
+    if (radiusM <= 80) return 18;
+    if (radiusM <= 160) return 17;
+    if (radiusM <= 320) return 16;
+    if (radiusM <= 640) return 15;
+    return 14;
+  }
+  const effectiveZoom = zoomOverride ?? autoZoom(current.radius_m);
 
   function update(patch: Partial<GeolocationValue>) {
     const next = { ...current, ...patch };
@@ -91,12 +109,37 @@ export default function GeolocationField({ value, savedValue: _savedValue, addre
         return;
       }
 
+      // Garante que o gateway receba o JWT do usuário logado (e não a publishable key
+      // como Authorization, que é o default do supabase-js quando o projeto usa o
+      // novo formato sb_publishable_*).
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        setError('Sessão expirada. Faça login novamente.');
+        setGeocoding(false);
+        return;
+      }
+
       const { data, error: invokeErr } = await supabase.functions.invoke('geocode-address', {
         body: { address_parts: parts },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
+      // Quando o status é não-2xx, supabase-js retorna `error` mas o body
+      // ainda pode ter detalhes úteis (reason / details). Tentamos extrair.
       if (invokeErr) {
-        setError(invokeErr.message || 'Falha ao chamar a função de geocodificação.');
+        let detail = invokeErr.message || 'Falha ao chamar a função de geocodificação.';
+        const ctx = (invokeErr as { context?: Response }).context;
+        if (ctx && typeof ctx.text === 'function') {
+          try {
+            const txt = await ctx.text();
+            const parsed = JSON.parse(txt) as { reason?: string; details?: string; message?: string; error?: string };
+            detail = parsed.message || parsed.details || parsed.reason || parsed.error || detail;
+          } catch {
+            /* keep generic message */
+          }
+        }
+        setError(detail);
         setGeocoding(false);
         return;
       }
@@ -117,15 +160,71 @@ export default function GeolocationField({ value, savedValue: _savedValue, addre
     }
   }
 
-  // Build OSM static map URL if we have coordinates
-  const mapUrl = useMemo(() => {
-    if (current.latitude === null || current.longitude === null) return null;
-    const { latitude, longitude, radius_m } = current;
-    // Rough bbox around the point using degrees (~0.009 deg ≈ 1km)
-    const delta = Math.max(0.002, (radius_m / 1000) * 0.012);
-    const bbox = [longitude - delta, latitude - delta, longitude + delta, latitude + delta].join(',');
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude},${longitude}`;
-  }, [current]);
+  // Carrega o PNG do Google Static Maps via edge function (mantem a chave no servidor).
+  // Debounce de 350ms para que ajustes contínuos no slider de raio nao gerem
+  // dezenas de chamadas.
+  useEffect(() => {
+    if (current.latitude === null || current.longitude === null) {
+      if (mapBlobUrlRef.current) {
+        URL.revokeObjectURL(mapBlobUrlRef.current);
+        mapBlobUrlRef.current = null;
+      }
+      setMapImageUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+    const lat = current.latitude;
+    const lng = current.longitude;
+    const radius_m = current.radius_m;
+    const zoom = effectiveZoom;
+
+    const timer = setTimeout(async () => {
+      setMapLoading(true);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken || cancelled) return;
+
+        const { data, error: invokeErr } = await supabase.functions.invoke('google-static-map', {
+          body: { lat, lng, radius_m, zoom },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (cancelled || invokeErr || !data) return;
+
+        // A edge function devolve application/octet-stream (workaround do
+        // supabase-js, que so retorna Blob para esse content-type). Re-wrappamos
+        // como image/png para o <img> renderizar corretamente.
+        const sourceBlob =
+          data instanceof Blob ? data : new Blob([data as ArrayBuffer]);
+        const blob = new Blob([await sourceBlob.arrayBuffer()], { type: 'image/png' });
+        const url = URL.createObjectURL(blob);
+
+        if (mapBlobUrlRef.current) URL.revokeObjectURL(mapBlobUrlRef.current);
+        mapBlobUrlRef.current = url;
+        setMapImageUrl(url);
+      } catch {
+        /* silencia: o mapa eh apenas preview */
+      } finally {
+        if (!cancelled) setMapLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [current.latitude, current.longitude, current.radius_m, effectiveZoom]);
+
+  // Cleanup do blob ao desmontar
+  useEffect(() => {
+    return () => {
+      if (mapBlobUrlRef.current) {
+        URL.revokeObjectURL(mapBlobUrlRef.current);
+        mapBlobUrlRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-3">
@@ -200,22 +299,90 @@ export default function GeolocationField({ value, savedValue: _savedValue, addre
         />
       </div>
 
-      {/* Map preview */}
-      {mapUrl && (
-        <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-          <iframe
-            title="Mapa da instituição"
-            src={mapUrl}
-            className="w-full h-64"
-            loading="lazy"
+      {/* Map preview (Google Static Maps via edge function) */}
+      {mapImageUrl && (
+        <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+          <img
+            src={mapImageUrl}
+            alt="Mapa da instituição (Google Maps)"
+            className="w-full h-64 object-cover"
           />
+          {mapLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <Loader2 className="w-5 h-5 animate-spin text-white" />
+            </div>
+          )}
+
+          {/* Controles de zoom */}
+          <div className="absolute top-2 right-2 flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={() => setZoomOverride(Math.min(ZOOM_MAX, effectiveZoom + 1))}
+              disabled={effectiveZoom >= ZOOM_MAX || mapLoading}
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed border-b border-gray-200 dark:border-gray-700 transition-colors"
+              aria-label="Aproximar"
+              title="Aproximar"
+            >
+              <Plus className="w-4 h-4 text-gray-700 dark:text-gray-200" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoomOverride(Math.max(ZOOM_MIN, effectiveZoom - 1))}
+              disabled={effectiveZoom <= ZOOM_MIN || mapLoading}
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Afastar"
+              title="Afastar"
+            >
+              <Minus className="w-4 h-4 text-gray-700 dark:text-gray-200" />
+            </button>
+            {zoomOverride !== null && (
+              <button
+                type="button"
+                onClick={() => setZoomOverride(null)}
+                disabled={mapLoading}
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 border-t border-gray-200 dark:border-gray-700 transition-colors"
+                aria-label="Voltar ao zoom automático"
+                title="Voltar ao zoom automático"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-gray-700 dark:text-gray-200" />
+              </button>
+            )}
+          </div>
+
+          {/* Indicador de zoom atual */}
+          <div className="absolute top-2 left-2 text-[10px] text-white/95 bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
+            zoom {effectiveZoom}{zoomOverride === null && ' · auto'}
+          </div>
+
+          {/* Link para abrir no Google Maps com zoom interativo completo */}
+          {current.latitude !== null && current.longitude !== null && (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${current.latitude},${current.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-2 left-2 inline-flex items-center gap-1 text-[11px] text-white/95 bg-black/50 hover:bg-black/70 px-2 py-1 rounded backdrop-blur-sm transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" />
+              Abrir no Google Maps
+            </a>
+          )}
+
+          <div className="absolute bottom-1 right-2 text-[10px] text-white/90 bg-black/40 px-1.5 py-0.5 rounded">
+            Google Maps
+          </div>
         </div>
       )}
-      {!mapUrl && (
+      {!mapImageUrl && (
         <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 py-6 text-center">
-          <MapPin className="w-8 h-8 text-gray-300 mx-auto mb-1" />
+          {mapLoading ? (
+            <Loader2 className="w-8 h-8 text-gray-300 mx-auto mb-1 animate-spin" />
+          ) : (
+            <MapPin className="w-8 h-8 text-gray-300 mx-auto mb-1" />
+          )}
           <p className="text-xs text-gray-400">
-            Capture as coordenadas ou informe manualmente para exibir o mapa.
+            {mapLoading
+              ? 'Carregando mapa...'
+              : 'Capture as coordenadas ou informe manualmente para exibir o mapa.'}
           </p>
         </div>
       )}
