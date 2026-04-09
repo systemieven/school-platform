@@ -611,20 +611,18 @@ function AddressField({
         </div>
       </div>
 
-      {/* Bairro */}
-      <div>
-        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bairro</label>
-        <input
-          type="text"
-          value={addr.bairro}
-          onChange={(e) => update('bairro', e.target.value)}
-          placeholder="Ex: São Francisco"
-          className={inputCls('bairro')}
-        />
-      </div>
-
-      {/* Cidade + Estado */}
-      <div className="grid grid-cols-[1fr_auto] gap-3">
+      {/* Bairro + Cidade + Estado */}
+      <div className="grid grid-cols-[1fr_1fr_80px] gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bairro</label>
+          <input
+            type="text"
+            value={addr.bairro}
+            onChange={(e) => update('bairro', e.target.value)}
+            placeholder="Ex: São Francisco"
+            className={inputCls('bairro')}
+          />
+        </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cidade</label>
           <input
@@ -635,13 +633,13 @@ function AddressField({
             className={inputCls('cidade')}
           />
         </div>
-        <div className="w-28">
+        <div>
           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Estado</label>
           <input
             type="text"
             value={addr.estado}
             onChange={(e) => update('estado', e.target.value.toUpperCase().slice(0, 2))}
-            placeholder="Ex: PE"
+            placeholder="PE"
             maxLength={2}
             className={inputCls('estado')}
           />
@@ -671,6 +669,7 @@ const INST_GROUPS: {
   subtitle?: string;
   icon: React.ComponentType<{ className?: string }>;
   keys: string[];
+  inlineKeys?: string[]; // pairs rendered side-by-side
 }[] = [
   {
     title: 'Identificação',
@@ -678,9 +677,15 @@ const INST_GROUPS: {
     keys: ['school_name', 'cnpj'],
   },
   {
-    title: 'Localização e Contato',
+    title: 'Localização',
+    icon: MapPin,
+    keys: ['address', 'whatsapp'],
+  },
+  {
+    title: 'Contato',
     icon: Phone,
-    keys: ['address', 'phone', 'whatsapp', 'email'],
+    keys: ['phone', 'email'],
+    inlineKeys: ['phone', 'email'],
   },
   {
     title: 'Identidade Visual',
@@ -719,7 +724,26 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange }: {
             </div>
             {/* Body */}
             <div className="bg-white dark:bg-gray-800/20 px-5 py-5 space-y-5">
-              {groupItems.map((item) => {
+              {/* Inline group: render all keys side-by-side in one row */}
+              {group.inlineKeys ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {groupItems.map((item) => {
+                    const meta = KEY_META[item.key] || { label: item.key };
+                    const isChanged = editValues[item.id] !== toStr(item.value);
+                    return (
+                      <SettingField
+                        key={item.id}
+                        item={item}
+                        meta={meta}
+                        value={editValues[item.id] || ''}
+                        isChanged={isChanged}
+                        hideDescription
+                        onChange={(val) => onChange(item.id, val)}
+                      />
+                    );
+                  })}
+                </div>
+              ) : groupItems.map((item) => {
                 // Address gets a dedicated structured field
                 if (item.key === 'address') {
                   const savedStr = toStr(item.value);
@@ -752,6 +776,7 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange }: {
                     meta={meta}
                     value={editValues[item.id] || ''}
                     isChanged={isChanged}
+                    hideDescription
                     onChange={(val) => onChange(item.id, val)}
                   />
                 );
@@ -963,9 +988,10 @@ interface SettingFieldProps {
   value: string;
   isChanged: boolean;
   onChange: (val: string) => void;
+  hideDescription?: boolean;
 }
 
-function SettingField({ item, meta, value, isChanged, onChange }: SettingFieldProps) {
+function SettingField({ item, meta, value, isChanged, onChange, hideDescription }: SettingFieldProps) {
   const [showSecret, setShowSecret] = useState(false);
 
   // Connection status special rendering
@@ -1009,7 +1035,7 @@ function SettingField({ item, meta, value, isChanged, onChange }: SettingFieldPr
     </div>
   );
 
-  const fieldDesc = item.description ? (
+  const fieldDesc = (!hideDescription && item.description) ? (
     <p className="text-xs text-gray-400 mb-2">{item.description}</p>
   ) : null;
 
