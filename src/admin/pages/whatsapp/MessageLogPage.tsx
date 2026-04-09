@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { callProxy } from '../../lib/whatsapp-api';
 import type { WhatsAppMessageLog, MessageLogStatus } from '../../types/admin.types';
+import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Send, CheckCheck, Clock, XCircle, Eye, RotateCcw,
   Loader2, Phone, Calendar, ChevronDown, X, RefreshCw,
-  MessageSquare, TrendingUp, Sun, CalendarRange, CalendarDays, SlidersHorizontal,
+  MessageSquare, MessageCircle, TrendingUp, Sun, CalendarRange, CalendarDays, SlidersHorizontal,
 } from 'lucide-react';
 
 // ── Sensitive variable masking ────────────────────────────────────────────────
@@ -129,116 +130,103 @@ function DetailDrawer({ log, onClose, onRetry }: {
   const cfg = STATUS_CONFIG[log.status];
   const StatusIcon = cfg.icon;
 
+  const badge = (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.color}`}>
+      <StatusIcon className="w-3 h-3" />
+      {cfg.label}
+    </span>
+  );
+
+  const footer = log.status === 'failed' ? (
+    <button
+      onClick={() => onRetry(log)}
+      className="w-full inline-flex items-center justify-center gap-2 bg-[#003876] text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors"
+    >
+      <RotateCcw className="w-4 h-4" />
+      Tentar novamente
+    </button>
+  ) : undefined;
+
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm" onClick={onClose} />
-      <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="font-display font-bold text-lg text-gray-900 dark:text-white">
-            Detalhe da Mensagem
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Status */}
-          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${cfg.color}`}>
-            <StatusIcon className="w-4 h-4" />
-            {cfg.label}
-          </div>
-
-          {/* Recipient */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 space-y-3">
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Destinatário</h3>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#003876]/10 dark:bg-[#003876]/20 rounded-xl flex items-center justify-center">
-                <Phone className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-800 dark:text-white text-sm">
-                  {log.recipient_name || 'Não identificado'}
-                </p>
-                <p className="text-xs text-gray-500">{formatPhone(log.recipient_phone)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Message content */}
+    <Drawer
+      open
+      onClose={onClose}
+      title={log.recipient_name || 'Não identificado'}
+      icon={MessageCircle}
+      badge={badge}
+      footer={footer}
+    >
+      {/* Destinatário */}
+      <DrawerCard title="Destinatário" icon={Phone}>
+        <div className="flex items-center gap-3 py-1 border-b border-gray-100 dark:border-gray-800 pb-3">
+          <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <div>
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Conteúdo</h3>
-            <div className="bg-[#dcf8c6] dark:bg-green-900/20 rounded-2xl p-4 max-w-sm">
-              <p className="text-sm text-gray-800 dark:text-green-100 whitespace-pre-wrap leading-relaxed">
-                {maskBody(log.rendered_content.body || '', log.variables_used) || '(sem conteúdo)'}
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide">Telefone</p>
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatPhone(log.recipient_phone)}</p>
+          </div>
+        </div>
+        {log.related_module && (
+          <div className="flex items-center gap-3 pt-1">
+            <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide">Módulo</p>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                {MODULE_LABELS[log.related_module] || log.related_module}
               </p>
             </div>
           </div>
+        )}
+      </DrawerCard>
 
-          {/* Template */}
-          {log.template && (
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Template</h3>
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{log.template.name}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Module */}
-          {log.related_module && (
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Módulo</h3>
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                {MODULE_LABELS[log.related_module] || log.related_module}
-              </span>
-            </div>
-          )}
-
-          {/* Timeline */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Timeline</h3>
-            <div className="space-y-2">
-              {[
-                { label: 'Criado',    date: log.created_at },
-                { label: 'Enviado',   date: log.sent_at },
-                { label: 'Entregue',  date: log.delivered_at },
-                { label: 'Lido',      date: log.read_at },
-              ].map(({ label, date }) => (
-                <div key={label} className="flex items-center gap-3 text-sm">
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${date ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-600'}`} />
-                  <span className={`font-medium ${date ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'}`}>
-                    {label}
-                  </span>
-                  <span className="text-gray-400 text-xs ml-auto">{formatDate(date)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Error */}
-          {log.error_message && (
-            <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-xl p-4">
-              <h3 className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1">Erro</h3>
-              <p className="text-xs text-red-500 dark:text-red-400 font-mono">{log.error_message}</p>
-            </div>
-          )}
-        </div>
-
-        {log.status === 'failed' && (
-          <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-4">
-            <button
-              onClick={() => onRetry(log)}
-              className="w-full inline-flex items-center justify-center gap-2 bg-[#003876] text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Tentar novamente
-            </button>
+      {/* Mensagem */}
+      <DrawerCard title="Mensagem" icon={MessageCircle}>
+        {log.template && (
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <MessageSquare className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <span>Template: <strong className="text-gray-700 dark:text-gray-300">{log.template.name}</strong></span>
           </div>
         )}
-      </aside>
-    </>
+        {/* Bolha WhatsApp — caso especial com fundo verde */}
+        <div className="bg-[#dcf8c6] dark:bg-green-900/20 rounded-xl p-3">
+          <p className="text-sm text-gray-800 dark:text-green-100 whitespace-pre-wrap leading-relaxed">
+            {maskBody(log.rendered_content.body || '', log.variables_used) || '(sem conteúdo)'}
+          </p>
+          <p className="text-[10px] text-right text-gray-400 dark:text-green-400/60 mt-2">
+            {formatDate(log.sent_at || log.created_at)}
+          </p>
+        </div>
+      </DrawerCard>
+
+      {/* Timeline */}
+      <DrawerCard title="Timeline" icon={Calendar} bodyClassName="space-y-0 divide-y divide-gray-100 dark:divide-gray-800">
+        {([
+          { label: 'Criado',   date: log.created_at,   active: true },
+          { label: 'Enviado',  date: log.sent_at,      active: log.sent_at != null },
+          { label: 'Entregue', date: log.delivered_at, active: log.delivered_at != null },
+          { label: 'Lido',     date: log.read_at,      active: log.read_at != null },
+        ] as const).map(({ label, date, active }) => (
+          <div key={label} className="flex items-center gap-3 py-2.5">
+            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${active ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
+            <span className={`text-sm flex-1 ${active ? 'font-medium text-gray-800 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
+              {label}
+            </span>
+            <span className="text-[11px] text-gray-400">{formatDate(date)}</span>
+          </div>
+        ))}
+      </DrawerCard>
+
+      {/* Erro */}
+      {log.error_message && (
+        <div className="rounded-2xl overflow-hidden border border-red-200 dark:border-red-800/50">
+          <div className="bg-red-100 dark:bg-red-900/30 px-4 py-2.5 flex items-center gap-2">
+            <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-red-400">Erro</span>
+          </div>
+          <div className="bg-white dark:bg-gray-900 px-4 py-3">
+            <p className="text-xs text-red-500 dark:text-red-400 font-mono break-all">{log.error_message}</p>
+          </div>
+        </div>
+      )}
+    </Drawer>
   );
 }
 
