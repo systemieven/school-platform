@@ -80,7 +80,7 @@ export interface ConfirmationTracking {
 }
 
 // ── Visit Appointment ──
-export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show';
+export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show' | 'comparecimento';
 
 export interface VisitAppointment {
   id: string;
@@ -95,7 +95,7 @@ export interface VisitAppointment {
   status: AppointmentStatus;
   notes: string | null;
   internal_notes: string | null;
-  origin: 'website' | 'internal';
+  origin: 'website' | 'internal' | 'in_person';
   contact_request_id: string | null;
   enrollment_id: string | null;
   confirmed_by: string | null;
@@ -607,3 +607,98 @@ export interface EventRsvp {
   status:       RsvpStatus;
   responded_at: string;
 }
+
+// ── Attendance Module (F2.4) ──
+export type AttendanceTicketStatus =
+  | 'waiting'
+  | 'called'
+  | 'in_service'
+  | 'finished'
+  | 'abandoned'
+  | 'no_show';
+
+export interface AttendanceTicket {
+  id: string;
+  ticket_number: string;
+  sector_key: string;
+  sector_label: string;
+  appointment_id: string;
+  visitor_name: string;
+  visitor_phone: string;
+  visitor_email: string | null;
+  status: AttendanceTicketStatus;
+  issued_at: string;
+  called_at: string | null;
+  service_started_at: string | null;
+  finished_at: string | null;
+  called_by: string | null;
+  served_by: string | null;
+  wait_seconds: number | null;
+  service_seconds: number | null;
+  checkin_lat: number | null;
+  checkin_lng: number | null;
+  checkin_distance_m: number | null;
+  feedback_id: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface AttendanceHistoryEntry {
+  id: string;
+  ticket_id: string;
+  event_type: string;
+  description: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface AttendanceFeedback {
+  id: string;
+  ticket_id: string;
+  rating: number | null;
+  answers: Record<string, unknown>;
+  comments: string | null;
+  submitted_at: string;
+}
+
+export interface AttendanceEligibilityRules {
+  mode: 'same_day' | 'future' | 'past_limited' | 'any';
+  past_days_limit: number;
+}
+
+export interface AttendanceTicketFormat {
+  prefix_mode: 'none' | 'sector' | 'custom';
+  custom_prefix: string;
+  digits: number;
+  per_sector_counter: boolean;
+}
+
+export interface AttendanceSoundConfig {
+  enabled: boolean;
+  preset: 'bell' | 'chime' | 'ding' | 'buzzer';
+}
+
+export interface AttendanceClientScreenFields {
+  show_last_called: boolean;
+  show_sector: boolean;
+  show_wait_estimate: boolean;
+  show_instructions: boolean;
+  instructions_text: string;
+}
+
+export interface AttendanceFeedbackConfig {
+  enabled: boolean;
+  scale: 'stars' | 'numeric';
+  max: number;
+  allow_comments: boolean;
+  questions: Array<{ id: string; label: string; type: 'rating' | 'text' }>;
+}
+
+export interface InstitutionGeolocation {
+  latitude: number | null;
+  longitude: number | null;
+  radius_m: number;
+}
+

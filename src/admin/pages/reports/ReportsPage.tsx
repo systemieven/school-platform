@@ -5,10 +5,11 @@ import {
   BarChart2, GraduationCap, MessageSquare, CalendarCheck, Kanban,
   Download, FileText, FileSpreadsheet, Loader2, SlidersHorizontal,
   ChevronUp, ChevronDown, Search, X, Columns, CheckSquare, Square,
+  Ticket,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Module = 'enrollments' | 'contacts' | 'appointments' | 'leads';
+type Module = 'enrollments' | 'contacts' | 'appointments' | 'leads' | 'attendance';
 type DateFilter = 'all' | '7d' | '30d' | '90d' | 'custom';
 type SortDir = 'asc' | 'desc';
 
@@ -96,6 +97,19 @@ const APPOINTMENT_COLS: ColDef[] = [
   { key: 'origin',           label: 'Origem',        visible: false, render: (v) => ORIGIN_LABELS[v as string] ?? String(v) },
 ];
 
+const ATTENDANCE_COLS: ColDef[] = [
+  { key: 'issued_at',         label: 'Emitida em',   visible: true,  sortable: true, render: (v) => fmtDate(v as string) },
+  { key: 'ticket_number',     label: 'Senha',        visible: true,  sortable: true },
+  { key: 'visitor_name',      label: 'Visitante',    visible: true,  sortable: true },
+  { key: 'visitor_phone',     label: 'Telefone',     visible: true },
+  { key: 'sector_label',      label: 'Setor',        visible: true,  sortable: true },
+  { key: 'status',            label: 'Status',       visible: true,  sortable: true, render: (v) => ATTENDANCE_STATUS_LABELS[v as string] ?? String(v) },
+  { key: 'wait_seconds',      label: 'Espera',       visible: true,  render: (v) => formatDurationSec(v as number | null) },
+  { key: 'service_seconds',   label: 'Atendimento',  visible: true,  render: (v) => formatDurationSec(v as number | null) },
+  { key: 'called_at',         label: 'Chamado em',   visible: false, sortable: true, render: (v) => v ? fmtDate(v as string) : '—' },
+  { key: 'finished_at',       label: 'Finalizado',   visible: false, sortable: true, render: (v) => v ? fmtDate(v as string) : '—' },
+];
+
 const LEAD_COLS: ColDef[] = [
   { key: 'created_at',        label: 'Data',          visible: true,  sortable: true, render: (v) => fmtDate(v as string) },
   { key: 'name',              label: 'Nome',           visible: true,  sortable: true },
@@ -121,7 +135,11 @@ const CONTACT_STATUS_LABELS: Record<string, string> = {
 };
 const APPT_STATUS_LABELS: Record<string, string> = {
   pending: 'Pendente', confirmed: 'Confirmado', completed: 'Realizado',
-  cancelled: 'Cancelado', no_show: 'Não veio',
+  cancelled: 'Cancelado', no_show: 'Não veio', comparecimento: 'Compareceu',
+};
+const ATTENDANCE_STATUS_LABELS: Record<string, string> = {
+  waiting: 'Aguardando', called: 'Chamado', in_service: 'Em atendimento',
+  finished: 'Finalizado', abandoned: 'Abandonado', no_show: 'Não veio',
 };
 const ORIGIN_LABELS: Record<string, string> = {
   website: 'Site', internal: 'Interno', in_person: 'Presencial',
@@ -146,12 +164,24 @@ const STATUS_OPTS: Record<Module, { key: string; label: string }[]> = {
   contacts:    Object.entries(CONTACT_STATUS_LABELS).map(([k, v])    => ({ key: k, label: v })),
   appointments:Object.entries(APPT_STATUS_LABELS).map(([k, v])       => ({ key: k, label: v })),
   leads:       Object.entries(LEAD_STAGE_LABELS).map(([k, v])        => ({ key: k, label: v })),
+  attendance:  Object.entries(ATTENDANCE_STATUS_LABELS).map(([k, v]) => ({ key: k, label: v })),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtDate(d: string) {
   if (!d) return '';
   try { return new Date(d).toLocaleDateString('pt-BR'); } catch { return d; }
+}
+
+function formatDurationSec(secs: number | null): string {
+  if (secs === null || secs === undefined) return '—';
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  if (m < 60) return `${m}m ${s.toString().padStart(2, '0')}s`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return `${h}h ${rem.toString().padStart(2, '0')}m`;
 }
 
 function getDateRange(filter: DateFilter, start: string, end: string) {
@@ -169,6 +199,7 @@ const MODULE_CONFIG: Record<Module, { table: string; dateField: string; stageFie
   contacts:     { table: 'contact_requests',  dateField: 'created_at' },
   appointments: { table: 'visit_appointments',dateField: 'appointment_date' },
   leads:        { table: 'leads',             dateField: 'created_at', stageField: 'stage' },
+  attendance:   { table: 'attendance_tickets',dateField: 'issued_at' },
 };
 
 const MODULE_COLS: Record<Module, ColDef[]> = {
@@ -176,6 +207,7 @@ const MODULE_COLS: Record<Module, ColDef[]> = {
   contacts:     CONTACT_COLS,
   appointments: APPOINTMENT_COLS,
   leads:        LEAD_COLS,
+  attendance:   ATTENDANCE_COLS,
 };
 
 // ── Module tab header ─────────────────────────────────────────────────────────
@@ -183,6 +215,7 @@ const MODULES: { key: Module; label: string; icon: React.ComponentType<{ classNa
   { key: 'enrollments',  label: 'Pré-Matrículas', icon: GraduationCap },
   { key: 'contacts',     label: 'Contatos',        icon: MessageSquare },
   { key: 'appointments', label: 'Agendamentos',    icon: CalendarCheck },
+  { key: 'attendance',   label: 'Atendimentos',    icon: Ticket },
   { key: 'leads',        label: 'Leads',           icon: Kanban },
 ];
 
@@ -212,7 +245,7 @@ export default function ReportsPage() {
     setModule(m);
     setCols(MODULE_COLS[m].map((c) => ({ ...c })));
     setRows([]);
-    setSortKey(m === 'appointments' ? 'appointment_date' : 'created_at');
+    setSortKey(m === 'appointments' ? 'appointment_date' : m === 'attendance' ? 'issued_at' : 'created_at');
     setSortDir('desc');
     setFilters({ date: '30d', customStart: '', customEnd: '', status: '', search: '' });
   }

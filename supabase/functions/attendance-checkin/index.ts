@@ -1,0 +1,382 @@
+/**
+ * attendance-checkin
+ *
+ * Endpoint publico que o QR Code da recepcao consome. Duas fases:
+ *   1. dry=true  → valida elegibilidade sem emitir senha nem exigir localizacao.
+ *   2. dry=false → exige lat/lng, valida raio e emite senha (attendance_tickets).
+ *
+ * Chamado sem JWT pela pagina publica /atendimento.
+ * Usa SERVICE_ROLE_KEY internamente para contornar a RLS restritiva.
+ */
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "content-type, authorization, apikey",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...CORS, "Content-Type": "application/json" },
+  });
+}
+
+function normalizePhone(raw: string): string {
+  return (raw || "").replace(/\D/g, "");
+}
+
+/** Haversine distance in meters */
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(a)));
+}
+
+interface EligibilityRules {
+  mode: "same_day" | "future" | "past_limited" | "any";
+  past_days_limit: number;
+}
+
+interface TicketFormat {
+  prefix_mode: "none" | "sector" | "custom";
+  custom_prefix: string;
+  digits: number;
+  per_sector_counter: boolean;
+}
+
+interface Geolocation {
+  latitude: number | null;
+  longitude: number | null;
+  radius_m: number;
+}
+
+interface VisitAppointmentRow {
+  id: string;
+  visitor_name: string;
+  visitor_phone: string;
+  visitor_email: string | null;
+  visit_reason: string;
+  appointment_date: string;
+  appointment_time: string;
+  status: string;
+}
+
+function isEligible(
+  appointment: VisitAppointmentRow,
+  rules: EligibilityRules,
+  today: string,
+): { ok: boolean; reason?: string } {
+  const apptDate = appointment.appointment_date;
+  if (rules.mode === "same_day") {
+    if (apptDate !== today) return { ok: false, reason: "not_same_day" };
+    return { ok: true };
+  }
+  if (rules.mode === "future") {
+    if (apptDate < today) return { ok: false, reason: "past_date" };
+    return { ok: true };
+  }
+  if (rules.mode === "past_limited") {
+    const diffDays =
+      (new Date(today).getTime() - new Date(apptDate).getTime()) /
+      (1000 * 60 * 60 * 24);
+    if (diffDays > rules.past_days_limit) {
+      return { ok: false, reason: "past_limit_exceeded" };
+    }
+    return { ok: true };
+  }
+  // mode === 'any'
+  return { ok: true };
+}
+
+async function loadSettings(supabase: ReturnType<typeof createClient>) {
+  const { data, error } = await supabase
+    .from("system_settings")
+    .select("category, key, value")
+    .or(
+      "category.eq.attendance,and(category.eq.general,key.eq.geolocation),and(category.eq.visit,key.eq.reasons)",
+    );
+  if (error) throw error;
+  const map: Record<string, Record<string, unknown>> = {};
+  for (const row of data || []) {
+    const r = row as { category: string; key: string; value: unknown };
+    if (!map[r.category]) map[r.category] = {};
+    map[r.category][r.key] = r.value;
+  }
+  return map;
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  try {
+    const body = await req.json().catch(() => ({}));
+    const phone = normalizePhone(body.phone || "");
+    const dry = !!body.dry;
+    const lat = typeof body.lat === "number" ? body.lat : null;
+    const lng = typeof body.lng === "number" ? body.lng : null;
+    const walkinName: string | null = body.walkin_name || null;
+    const walkinSector: string | null = body.walkin_sector || null;
+
+    if (!phone || phone.length < 10) {
+      return json({ error: "invalid_phone", message: "Informe um celular valido." }, 400);
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+
+    const settings = await loadSettings(supabase);
+    const rules = (settings.attendance?.eligibility_rules ?? {
+      mode: "same_day",
+      past_days_limit: 7,
+    }) as EligibilityRules;
+    const allowWalkins = !!(
+      (settings.attendance?.allow_walkins as { enabled?: boolean })?.enabled
+    );
+    const format = (settings.attendance?.ticket_format ?? {
+      prefix_mode: "custom",
+      custom_prefix: "A",
+      digits: 3,
+      per_sector_counter: false,
+    }) as TicketFormat;
+    const geo = (settings.general?.geolocation ?? {
+      latitude: null,
+      longitude: null,
+      radius_m: 150,
+    }) as Geolocation;
+    const reasons = (settings.visit?.reasons ?? []) as Array<{
+      key: string;
+      label: string;
+    }>;
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    // ── Buscar agendamento do cliente ───────────────────────────────────────
+    // Trazer agendamentos recentes (ultimos 60 dias + futuros proximos) pelo telefone
+    // e escolher o mais apropriado conforme a regra.
+    const phonePatterns = [phone, `%${phone}%`];
+    const { data: appts, error: apptErr } = await supabase
+      .from("visit_appointments")
+      .select(
+        "id, visitor_name, visitor_phone, visitor_email, visit_reason, appointment_date, appointment_time, status",
+      )
+      .or(
+        phonePatterns
+          .map((p, i) => (i === 0 ? `visitor_phone.eq.${p}` : `visitor_phone.ilike.${p}`))
+          .join(","),
+      )
+      .gte("appointment_date", new Date(Date.now() - 60 * 86400_000).toISOString().slice(0, 10))
+      .order("appointment_date", { ascending: true });
+
+    if (apptErr) {
+      return json({ error: "lookup_failed", message: apptErr.message }, 500);
+    }
+
+    // Preferencia: mesmo dia → futuro mais proximo → passado mais recente
+    let matched: VisitAppointmentRow | null = null;
+    if (appts && appts.length > 0) {
+      const list = appts as VisitAppointmentRow[];
+      matched = list.find((a) => a.appointment_date === today) ?? null;
+      if (!matched) matched = list.find((a) => a.appointment_date > today) ?? null;
+      if (!matched) {
+        const past = list.filter((a) => a.appointment_date < today);
+        matched = past[past.length - 1] ?? null;
+      }
+    }
+
+    // ── Caso sem agendamento ────────────────────────────────────────────────
+    if (!matched) {
+      if (!allowWalkins) {
+        return json({
+          eligible: false,
+          error_code: "no_appointment",
+          message:
+            "Nenhum agendamento encontrado para este numero. Agende uma visita antes de comparecer a recepcao.",
+        });
+      }
+
+      // Fluxo walk-in requer nome + setor
+      if (!walkinName || !walkinSector) {
+        return json({
+          eligible: false,
+          walkin_required: true,
+          sectors: reasons.map((r) => ({ key: r.key, label: r.label })),
+          message: "Informe seu nome e o setor desejado para gerar a senha.",
+        });
+      }
+    } else {
+      const elig = isEligible(matched, rules, today);
+      if (!elig.ok) {
+        const reasonMap: Record<string, string> = {
+          not_same_day: "Seu agendamento nao e para hoje.",
+          past_date: "Seu agendamento ja passou.",
+          past_limit_exceeded: `Seu agendamento excedeu o limite de ${rules.past_days_limit} dias retroativos.`,
+        };
+        return json({
+          eligible: false,
+          error_code: elig.reason,
+          appointment: matched,
+          message: reasonMap[elig.reason || ""] || "Agendamento inelegivel.",
+        });
+      }
+    }
+
+    // ── Modo dry (fase de validacao antes do passo de localizacao) ──────────
+    if (dry) {
+      return json({
+        eligible: true,
+        appointment: matched,
+        walkin_required: !matched,
+      });
+    }
+
+    // ── Validacao de geolocalizacao ─────────────────────────────────────────
+    if (lat === null || lng === null) {
+      return json(
+        { error: "location_required", message: "Permita a localizacao para continuar." },
+        400,
+      );
+    }
+    if (geo.latitude === null || geo.longitude === null) {
+      return json(
+        {
+          error: "institution_coordinates_missing",
+          message:
+            "Coordenadas da instituicao nao configuradas. Contate o administrador.",
+        },
+        500,
+      );
+    }
+    const distance = haversine(lat, lng, geo.latitude, geo.longitude);
+    if (distance > geo.radius_m) {
+      return json({
+        eligible: false,
+        error_code: "out_of_range",
+        distance_m: distance,
+        allowed_radius_m: geo.radius_m,
+        message: `Voce precisa estar presente na instituicao para gerar a senha. Distancia atual: ${distance}m.`,
+      });
+    }
+
+    // ── Garantir que exista um visit_appointments (criar walk-in se preciso) ─
+    let appointmentId: string;
+    let sectorKey: string;
+    let sectorLabel: string;
+    let visitorName: string;
+    let visitorEmail: string | null;
+
+    if (matched) {
+      appointmentId = matched.id;
+      sectorKey = matched.visit_reason;
+      sectorLabel =
+        reasons.find((r) => r.key === matched.visit_reason)?.label ||
+        matched.visit_reason;
+      visitorName = matched.visitor_name;
+      visitorEmail = matched.visitor_email;
+
+      // Atualizar status para 'comparecimento' se ainda nao estiver
+      if (matched.status !== "comparecimento") {
+        await supabase
+          .from("visit_appointments")
+          .update({ status: "comparecimento" })
+          .eq("id", matched.id);
+      }
+    } else {
+      // Walk-in: criar agendamento sintetico
+      const now = new Date();
+      const hhmm = now.toTimeString().slice(0, 5);
+      const sector = reasons.find((r) => r.key === walkinSector);
+      if (!sector) {
+        return json(
+          { error: "invalid_sector", message: "Setor informado nao existe." },
+          400,
+        );
+      }
+      const { data: inserted, error: insErr } = await supabase
+        .from("visit_appointments")
+        .insert({
+          visitor_name: walkinName,
+          visitor_phone: phone,
+          visit_reason: sector.key,
+          appointment_date: today,
+          appointment_time: hhmm,
+          status: "comparecimento",
+          origin: "in_person",
+          companions: [],
+        })
+        .select(
+          "id, visitor_name, visitor_phone, visitor_email, visit_reason, appointment_date, appointment_time, status",
+        )
+        .single();
+      if (insErr || !inserted) {
+        return json(
+          {
+            error: "walkin_create_failed",
+            message: insErr?.message || "Falha ao registrar walk-in.",
+          },
+          500,
+        );
+      }
+      appointmentId = (inserted as VisitAppointmentRow).id;
+      sectorKey = sector.key;
+      sectorLabel = sector.label;
+      visitorName = walkinName!;
+      visitorEmail = null;
+    }
+
+    // ── Emitir numero da senha ──────────────────────────────────────────────
+    const { data: numberRow, error: numErr } = await supabase.rpc(
+      "next_attendance_ticket_number",
+      { p_sector_key: sectorKey, p_format: format },
+    );
+    if (numErr) {
+      return json(
+        { error: "number_generation_failed", message: numErr.message },
+        500,
+      );
+    }
+    const ticketNumber = numberRow as unknown as string;
+
+    const { data: ticket, error: ticketErr } = await supabase
+      .from("attendance_tickets")
+      .insert({
+        ticket_number: ticketNumber,
+        sector_key: sectorKey,
+        sector_label: sectorLabel,
+        appointment_id: appointmentId,
+        visitor_name: visitorName,
+        visitor_phone: phone,
+        visitor_email: visitorEmail,
+        status: "waiting",
+        checkin_lat: lat,
+        checkin_lng: lng,
+        checkin_distance_m: distance,
+      })
+      .select("*")
+      .single();
+
+    if (ticketErr || !ticket) {
+      return json(
+        { error: "ticket_create_failed", message: ticketErr?.message },
+        500,
+      );
+    }
+
+    return json({ eligible: true, ticket, distance_m: distance });
+  } catch (err) {
+    return json(
+      { error: "unexpected", message: (err as Error).message },
+      500,
+    );
+  }
+});

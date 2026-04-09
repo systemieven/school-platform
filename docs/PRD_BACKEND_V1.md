@@ -135,7 +135,8 @@ FASE 1 — Fundacao (Semanas 1-3)
 FASE 2 — Modulos Urgentes (Semanas 4-8)
   ├── F2.1  Gestao de Agendamentos
   ├── F2.2  Gestao de Pre-Matriculas
-  └── F2.3  Gestao de Contatos
+  ├── F2.3  Gestao de Contatos
+  └── F2.4  Modulo de Atendimentos Presenciais
 
 FASE 3 — Comunicacao e WhatsApp (Semanas 9-11)
   ├── F3.1  Templates de WhatsApp
@@ -459,6 +460,151 @@ ALTER TABLE visit_appointments ADD COLUMN
 | SLA de resposta | Tempo maximo para primeiro contato (gera alerta) |
 
 **Impacto no Frontend**: O formulario de contato le `contact_reasons` para renderizar botoes de motivo. Se um motivo tem `requires_message: true`, o campo de observacoes fica obrigatorio. Se `is_lead_trigger: true`, a secao "Sobre sua familia" aparece.
+
+---
+
+### F2.4 Modulo de Atendimentos Presenciais
+
+**Dependencias**: F1.1, F1.2, F2.1 (reaproveita `visit_appointments` e motivos)
+**Prioridade**: Urgente
+
+#### Contexto
+
+O modulo F2.1 cobre a marcacao de visitas, mas hoje o fluxo termina no momento da confirmacao. Nao existe nada que materialize a chegada fisica do visitante: sem recepcao, senha, fila, painel para chamada nem registro de tempo de espera/atendimento. O modulo de Atendimentos Presenciais preenche essa lacuna — do QR Code na recepcao ate o feedback pos-atendimento — integrando-se ao F2.1 ao inves de duplica-lo.
+
+#### Fluxo Central
+
+```
+QR Code  →  Identificacao por celular  →  Validacao de elegibilidade
+       →  Confirmacao de presenca por geolocalizacao  →  Geracao de senha
+       →  Fila em tempo real  →  Chamada pelo atendente  →  Finalizacao
+       →  Feedback  →  Dados para relatorio
+```
+
+Cada etapa gera um registro rastreavel, e todas as variacoes de comportamento sao governadas pelas configuracoes da instituicao.
+
+#### Escopo
+
+##### Jornada do Cliente (Publica)
+- Nova rota publica `/atendimento` acessada via QR Code na recepcao.
+- Entrada de celular → busca agendamento do dia (ou de acordo com regras de elegibilidade).
+- Validacao de presenca via `navigator.geolocation` comparando com coordenadas da instituicao (Haversine) e raio configuravel.
+- Emissao da senha + tela dinamica com: numero da senha, ultima senha chamada, setor, estimativa de espera, orientacoes.
+- Notificacao visual + sonora quando a propria senha for chamada.
+- Formulario de feedback pos-atendimento (opcional, configuravel).
+
+##### Painel do Atendente (Admin)
+- Nova entrada no menu: **Atendimentos** (`/admin/atendimentos`).
+- **View Fila**: cards em tempo real com numero, nome, setor, horario e tempo de espera. Acoes: **Chamar proximo** → **Iniciar atendimento** → **Finalizar**.
+- **View Calendario**: reaproveita o calendario mensal do F2.1 mostrando agendamentos do dia com badge da senha emitida.
+- **Drawer de detalhes**: timeline unificada (appointment_history + attendance_history), dados do cliente, historico de atendimentos anteriores, metricas (wait/service seconds).
+
+##### Integracao com F2.1
+- Toda senha emitida esta **obrigatoriamente vinculada** a um `visit_appointments` (FK NOT NULL).
+- Walk-ins (quando habilitados) geram automaticamente um agendamento com `origin='in_person'` antes de emitir a senha — nao bifurca a arquitetura.
+- Novo status `comparecimento` adicionado ao enum de `visit_appointments.status`.
+- O trigger existente `trg_appointment_status_log` continua logando transicoes em `appointment_history`, garantindo a timeline unificada.
+
+##### Configuracoes — `Config > Atendimentos` (nova aba)
+| Config | Descricao |
+|--------|-----------|
+| Regras de elegibilidade | Modo (`same_day`, `future`, `past_limited`, `any`) + `past_days_limit` |
+| Walk-ins | Toggle para permitir fluxo sem agendamento previo |
+| Formato da senha | Prefixo (nenhum/setor/customizado), digitos, contador por setor |
+| Tempo estimado por setor | Minutos por `sector_key` (reaproveita motivos do F2.1) |
+| Som de notificacao | Toggle + preset (bell/chime/ding/buzzer) + botao de previa |
+| Tela do cliente | Toggles individuais (ultima chamada, setor, estimativa, instrucoes) + textarea |
+| Feedback pos-atendimento | Toggle, escala (stars/numeric), perguntas customizadas, campo de comentarios |
+
+##### Configuracoes — `Config > Institucional > Localizacao` (novo card)
+| Config | Descricao |
+|--------|-----------|
+| Latitude/Longitude | Coordenadas geodesicas da instituicao |
+| Botao "Capturar coordenadas do endereco" | Chama edge function `geocode-address` (Google Maps Geocoding API) |
+| Raio permitido (m) | Slider 30–500m |
+| Mini-mapa preview | Embed somente leitura com marcador e circulo do raio |
+
+##### Relatorios
+Nova secao em `/admin/relatorios` (integra com F4.3):
+- Total de atendimentos por periodo, setor e atendente
+- Tempo medio de espera e de atendimento
+- Avaliacao media por setor e atendente
+- Taxa de comparecimento vs. agendamentos
+- Exportacao CSV/Excel
+
+#### Tabelas Criadas
+
+```sql
+CREATE TABLE attendance_tickets (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_number       TEXT NOT NULL,
+  sector_key          TEXT NOT NULL,
+  sector_label        TEXT NOT NULL,
+  appointment_id      UUID NOT NULL REFERENCES visit_appointments(id),
+  visitor_name        TEXT NOT NULL,
+  visitor_phone       TEXT NOT NULL,
+  visitor_email       TEXT,
+  status              TEXT NOT NULL DEFAULT 'waiting'
+                      CHECK (status IN ('waiting','called','in_service','finished','abandoned','no_show')),
+  issued_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  called_at           TIMESTAMPTZ,
+  service_started_at  TIMESTAMPTZ,
+  finished_at         TIMESTAMPTZ,
+  called_by           UUID REFERENCES profiles(id),
+  served_by           UUID REFERENCES profiles(id),
+  wait_seconds        INT,
+  service_seconds     INT,
+  checkin_lat         NUMERIC(9,6),
+  checkin_lng         NUMERIC(9,6),
+  checkin_distance_m  INT,
+  feedback_id         UUID,
+  notes               TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE attendance_history (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id    UUID NOT NULL REFERENCES attendance_tickets(id) ON DELETE CASCADE,
+  event_type   TEXT NOT NULL,
+  description  TEXT NOT NULL,
+  old_value    TEXT,
+  new_value    TEXT,
+  created_by   UUID REFERENCES profiles(id),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE attendance_feedback (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id    UUID NOT NULL UNIQUE REFERENCES attendance_tickets(id) ON DELETE CASCADE,
+  rating       INT,
+  answers      JSONB NOT NULL DEFAULT '{}',
+  comments     TEXT,
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+Alteracoes em tabelas existentes:
+- `visit_appointments.status` ganha novo valor `'comparecimento'` no CHECK constraint.
+- `visit_appointments.origin` ganha novo valor `'in_person'` no CHECK constraint (usado por walk-ins).
+- `system_settings` ganha nova categoria `attendance` (chaves: `eligibility_rules`, `allow_walkins`, `ticket_format`, `estimated_service_time`, `sound`, `client_screen_fields`, `feedback`).
+- `system_settings` ganha nova chave `geolocation` na categoria `general`.
+
+#### Edge Functions
+
+- **`attendance-checkin`** — valida elegibilidade, calcula distancia Haversine, cria walk-in se habilitado, emite senha.
+- **`attendance-public-config`** — devolve configuracoes minimas para a pagina publica sem alargar o RLS.
+- **`attendance-feedback`** — registra feedback do cliente apos finalizacao.
+- **`geocode-address`** — encapsula Google Maps Geocoding API, chave guardada em `GOOGLE_MAPS_API_KEY` (secret do Supabase). **Nunca** expoe a chave ao client.
+
+#### Deixado para Fase Futura (sem refactor)
+
+As colunas e estruturas abaixo ja existem no schema inicial, permitindo habilitar esses recursos depois sem alterar tabelas:
+
+- **Controle granular por setor/atendente** — colunas `sector_key` + `served_by` em `attendance_tickets` estao prontas. Sera ligado em **F6.1 (Permissoes Granulares)** via `role_permissions` com escopo por `sector_key`.
+- **Notificacoes WhatsApp ao cliente na fila** (ex: "Voce e o proximo") — reutilizara a camada `whatsapp-api.ts` + templates do F3.1 em uma segunda iteracao. Nenhuma alteracao de schema.
+- **Dashboards analiticos avancados e BI externo** — a trilha completa de eventos fica em `attendance_history` com timestamps; base suficiente para qualquer OLAP posterior.
+- **Notificacao por push web** — o canal realtime ja cobre a aba aberta; push nativo fica para depois.
+- **Multi-instituicao** — o modulo foi desenhado assumindo uma unica instituicao (uma unica chave `geolocation`). Expandir para multi-campus exigira adicionar coluna `institution_id` a `attendance_tickets` + `system_settings`, mas o fluxo central nao muda.
 
 ---
 

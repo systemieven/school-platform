@@ -37,6 +37,13 @@ export const ADMIN_NAV: NavGroup[] = [
         path: '/admin/contatos',
         roles: ['super_admin', 'admin', 'coordinator'],
       },
+      {
+        key: 'attendance',
+        label: 'Atendimentos',
+        icon: 'Ticket',
+        path: '/admin/atendimentos',
+        roles: ['super_admin', 'admin', 'coordinator'],
+      },
     ],
   },
   {

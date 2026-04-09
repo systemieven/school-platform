@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import AppearanceSettingsPanel from './AppearanceSettingsPanel';
+import AttendanceSettingsPanel from './AttendanceSettingsPanel';
+import GeolocationField from '../../components/GeolocationField';
 import { CARD_CLS, HEAD_CLS, BODY_CLS, TITLE_CLS } from '../../components/SettingsCard';
 import { supabase } from '../../../lib/supabase';
 import { getProviders, setDefaultProvider, registerWebhook, WEBHOOK_FUNCTION_BASE } from '../../lib/whatsapp-api';
@@ -20,7 +22,7 @@ import {
   Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
   Users, User, FileText, Trash2,
   Hash, CalendarX2, Clock, ChevronDown, ChevronUp,
-  Shield, CheckCircle2, TriangleAlert, Share2,
+  Shield, CheckCircle2, TriangleAlert, Share2, Ticket,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
 
@@ -58,6 +60,14 @@ const TABS: TabDef[] = [
     icon: CalendarCheck,
     categories: ['visit'],
     description: 'Configure motivos, horários e regras para agendamento de visitas.',
+  },
+  {
+    key: 'attendance',
+    label: 'Atendimentos',
+    shortLabel: 'Atendimentos',
+    icon: Ticket,
+    categories: ['attendance'],
+    description: 'Regras de elegibilidade, formato de senha, sons, tela do cliente e feedback.',
   },
   {
     key: 'enrollment',
@@ -248,7 +258,7 @@ export default function SettingsPage() {
   }
 
   // Tabs with their own custom panel never depend on the generic settings array
-  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional'];
+  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional', 'attendance'];
 
   // Tabs that have settings in the DB OR have a custom panel
   const availableTabs = TABS.filter(
@@ -393,7 +403,7 @@ export default function SettingsPage() {
               </div>
 
               {/* Save button — only for generic tabs; custom panels have their own saves */}
-              {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional'].includes(activeTab) && (
+              {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional', 'attendance'].includes(activeTab) && (
                 <button
                   onClick={handleSave}
                   disabled={!tabHasChanges || saving}
@@ -423,11 +433,13 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'institutional', 'security'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'institutional', 'security', 'attendance'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
                 <AppointmentsSettingsPanel />
+              ) : activeTab === 'attendance' ? (
+                <AttendanceSettingsPanel />
               ) : activeTab === 'enrollment' ? (
                 <EnrollmentSettingsPanel />
               ) : activeTab === 'contact' ? (
@@ -1029,7 +1041,7 @@ const INST_GROUPS: {
   {
     title: 'Localização',
     icon: MapPin,
-    keys: ['address', 'whatsapp'],
+    keys: ['address', 'whatsapp', 'geolocation'],
   },
   {
     title: 'Contato',
@@ -1142,6 +1154,35 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
                       <BusinessHoursField
                         value={editValues[item.id] || ''}
                         savedValue={savedStr}
+                        onChange={(v) => onChange(item.id, v)}
+                      />
+                    </div>
+                  );
+                }
+
+                // Geolocation gets a dedicated field with map + geocode button
+                if (item.key === 'geolocation') {
+                  const savedStr = toStr(item.value);
+                  const isChanged = editValues[item.id] !== savedStr;
+                  const addressSetting = byKey['address'];
+                  const addressJson = addressSetting ? (editValues[addressSetting.id] ?? toStr(addressSetting.value)) : '';
+                  return (
+                    <div key={item.id}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Geolocalização da instituição</label>
+                        {isChanged && (
+                          <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                            Alterado
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 mb-3">
+                        Coordenadas e raio usados pelo módulo de atendimentos para validar o check-in presencial.
+                      </p>
+                      <GeolocationField
+                        value={editValues[item.id] || ''}
+                        savedValue={savedStr}
+                        addressJson={addressJson}
                         onChange={(v) => onChange(item.id, v)}
                       />
                     </div>

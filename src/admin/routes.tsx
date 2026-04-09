@@ -18,6 +18,7 @@ import TeacherAreaPage from './pages/teacher/TeacherAreaPage';
 import LibraryPage from './pages/library/LibraryPage';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
 import EventsPage from './pages/events/EventsPage';
+import AttendancePage from './pages/attendance/AttendancePage';
 
 export default function AdminRoutes() {
   return (
@@ -46,6 +47,7 @@ export default function AdminRoutes() {
           <Route path="agendamentos" element={<AppointmentsPage />} />
           <Route path="matriculas"   element={<EnrollmentsPage />} />
           <Route path="contatos"     element={<ContactsPage />} />
+          <Route path="atendimentos" element={<AttendancePage />} />
 
           {/* Leads */}
           <Route path="leads/kanban" element={<KanbanPage />} />

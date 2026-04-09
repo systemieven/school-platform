@@ -16,11 +16,12 @@ import { SettingsCard } from '../../components/SettingsCard';
 
 // ── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; dot: string }> = {
-  pending:   { label: 'Pendente',   color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',  dot: 'bg-amber-400' },
-  confirmed: { label: 'Confirmado', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-500' },
-  completed: { label: 'Realizado',  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',   dot: 'bg-blue-500' },
-  cancelled: { label: 'Cancelado',  color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',      dot: 'bg-red-400' },
-  no_show:   { label: 'Não Veio',   color: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',     dot: 'bg-gray-400' },
+  pending:        { label: 'Pendente',     color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',  dot: 'bg-amber-400' },
+  confirmed:      { label: 'Confirmado',   color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-500' },
+  comparecimento: { label: 'Compareceu',   color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400', dot: 'bg-indigo-500' },
+  completed:      { label: 'Realizado',    color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',   dot: 'bg-blue-500' },
+  cancelled:      { label: 'Cancelado',    color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',      dot: 'bg-red-400' },
+  no_show:        { label: 'Não Veio',     color: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',     dot: 'bg-gray-400' },
 };
 
 // Fallback — overridden by visit_settings from DB
