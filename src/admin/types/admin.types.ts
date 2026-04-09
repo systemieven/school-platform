@@ -194,16 +194,47 @@ export interface Notification {
 export type TemplateCategory = string;
 export type MessageType      = 'text' | 'media' | 'buttons' | 'list';
 
+// ── Button types matching UazAPI v2 /send/menu format ──
+export type TemplateButtonType = 'reply' | 'url' | 'copy' | 'call';
+
+export interface TemplateButton {
+  id:    string;
+  text:  string;
+  type:  TemplateButtonType;
+  /** URL for 'url' type, phone for 'call', text to copy for 'copy', payload id for 'reply' */
+  value: string;
+}
+
+// ── Pix key types matching UazAPI v2 /send/pix-button ──
+export type PixKeyType = 'CPF' | 'CNPJ' | 'PHONE' | 'EMAIL' | 'EVP';
+
 export interface TemplateContent {
   body?:          string;
+  footer_text?:   string;
+
+  // ── Media fields ──
   media_url?:     string;
   media_type?:    'image' | 'video' | 'document' | 'audio';
-  buttons?:       Array<{ id: string; text: string }>;
-  list_title?:    string;
+  media_source?:  'url' | 'upload';
+  doc_name?:      string;
+
+  // ── Shared image for buttons/list (imageButton in /send/menu) ──
+  image_url?:     string;
+
+  // ── Button fields (type: "button" in /send/menu) ──
+  buttons?:       TemplateButton[];
+
+  // ── List fields (type: "list" in /send/menu) ──
+  list_button_text?: string;
   list_sections?: Array<{
     title: string;
     rows: Array<{ id: string; title: string; description?: string }>;
   }>;
+
+  // ── Pix button fields (/send/pix-button) ──
+  pix_type?:      PixKeyType;
+  pix_key?:       string;
+  pix_name?:      string;
 }
 
 export interface WhatsAppTemplate {

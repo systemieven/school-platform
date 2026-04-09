@@ -26,6 +26,57 @@ function render(body: string, vars: Record<string, string>): string {
   return body.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
 }
 
+// ── Button/List choice builders (mirrors whatsapp-api.ts logic) ──────────────
+
+interface TemplateButton {
+  id: string;
+  text: string;
+  type: "reply" | "url" | "copy" | "call";
+  value: string;
+}
+
+function buttonsToChoices(
+  buttons: TemplateButton[],
+  vars: Record<string, string>,
+): string[] {
+  return buttons.map((b) => {
+    const text = render(b.text, vars);
+    const value = render(b.value, vars);
+    switch (b.type) {
+      case "url":
+        return `${text}|${value.startsWith("http") ? value : `https://${value}`}`;
+      case "copy":
+        return `${text}|copy:${value}`;
+      case "call":
+        return `${text}|call:${value.startsWith("+") ? value : `+${value}`}`;
+      case "reply":
+      default:
+        return `${text}|${value || render(b.id, vars)}`;
+    }
+  });
+}
+
+interface ListSection {
+  title: string;
+  rows: Array<{ id: string; title: string; description?: string }>;
+}
+
+function listSectionsToChoices(
+  sections: ListSection[],
+  vars: Record<string, string>,
+): string[] {
+  const choices: string[] = [];
+  for (const section of sections) {
+    choices.push(`[${render(section.title, vars)}]`);
+    for (const row of section.rows) {
+      const parts = [render(row.title, vars), render(row.id, vars)];
+      if (row.description) parts.push(render(row.description, vars));
+      choices.push(parts.join("|"));
+    }
+  }
+  return choices;
+}
+
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   // Accept as-is only if already carries DDI 55 with valid length
@@ -248,10 +299,11 @@ Deno.serve(async (req: Request) => {
     const phone = normalizePhone(recipientPhone);
 
     for (const tmpl of matchingTemplates) {
-      const content = tmpl.content as { body?: string } | null;
-      const body = content?.body || "";
+      const content = (tmpl.content || {}) as Record<string, unknown>;
+      const body = (content.body as string) || "";
       if (!body) continue;
 
+      const msgType = (tmpl.message_type as string) || "text";
       const rendered = render(body, vars);
       const delayMs = (tmpl.trigger_delay_minutes || 0) * 60 * 1000;
 
@@ -262,7 +314,7 @@ Deno.serve(async (req: Request) => {
           template_id: tmpl.id,
           recipient_phone: recipientPhone,
           recipient_name: recipientName,
-          rendered_content: { body: rendered, type: "text" },
+          rendered_content: { body: rendered, type: msgType },
           status: "queued",
           related_module: mod,
           related_record_id: record_id,
@@ -274,7 +326,9 @@ Deno.serve(async (req: Request) => {
       const logId = log?.id || "";
 
       try {
-        const sendPayload: Record<string, unknown> = {
+        // Build payload based on message_type
+        let endpoint = "/send/text";
+        let sendPayload: Record<string, unknown> = {
           number: phone,
           text: rendered,
           track_id: logId,
@@ -282,34 +336,72 @@ Deno.serve(async (req: Request) => {
         };
         if (delayMs > 0) sendPayload.delay = delayMs;
 
-        const apiRes = await fetch(`${instanceUrl}/send/text`, {
+        if (msgType === "media" && content.media_url) {
+          endpoint = "/send/media";
+          sendPayload = {
+            ...sendPayload,
+            type: (content.media_type as string) || "image",
+            file: content.media_url as string,
+            ...(content.doc_name ? { docName: content.doc_name } : {}),
+          };
+        } else if (msgType === "buttons" && Array.isArray(content.buttons) && content.buttons.length > 0) {
+          endpoint = "/send/menu";
+          sendPayload = {
+            ...sendPayload,
+            type: "button",
+            choices: buttonsToChoices(content.buttons as TemplateButton[], vars),
+            ...(content.footer_text ? { footerText: content.footer_text } : {}),
+            ...(content.image_url ? { imageButton: content.image_url } : {}),
+          };
+        } else if (msgType === "list" && Array.isArray(content.list_sections) && content.list_sections.length > 0) {
+          endpoint = "/send/menu";
+          sendPayload = {
+            ...sendPayload,
+            type: "list",
+            choices: listSectionsToChoices(content.list_sections as ListSection[], vars),
+            listButton: (content.list_button_text as string) || "Ver opções",
+            ...(content.footer_text ? { footerText: content.footer_text } : {}),
+            ...(content.image_url ? { imageButton: content.image_url } : {}),
+          };
+        }
+        // else: default text payload already set
+
+        const apiRes = await fetch(`${instanceUrl}${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json", token: apiToken },
           body: JSON.stringify(sendPayload),
         });
 
         if (apiRes.ok) {
+          const apiData = await apiRes.json().catch(() => ({}));
+          const waKeyId = apiData?.messageid ||
+            (typeof apiData?.id === "string" ? apiData.id.split(":").pop() : undefined);
+
           await service
             .from("whatsapp_message_log")
-            .update({ status: "sent", sent_at: new Date().toISOString() })
+            .update({
+              status: "sent",
+              sent_at: new Date().toISOString(),
+              ...(waKeyId ? { wa_message_id: waKeyId } : {}),
+            })
             .eq("id", logId);
-          results.push({ template: tmpl.name, status: "sent", logId });
-          console.log(`[auto-notify] Sent "${tmpl.name}" to ${phone}`);
+          results.push({ template: tmpl.name, type: msgType, status: "sent", logId });
+          console.log(`[auto-notify] Sent "${tmpl.name}" (${msgType}) to ${phone} via ${endpoint}`);
         } else {
           const errBody = await apiRes.text().catch(() => "Unknown error");
           await service
             .from("whatsapp_message_log")
             .update({ status: "failed", error_message: errBody })
             .eq("id", logId);
-          results.push({ template: tmpl.name, status: "failed", error: errBody });
-          console.error(`[auto-notify] Failed "${tmpl.name}": ${errBody}`);
+          results.push({ template: tmpl.name, type: msgType, status: "failed", error: errBody });
+          console.error(`[auto-notify] Failed "${tmpl.name}" (${msgType}): ${errBody}`);
         }
       } catch (sendErr) {
         await service
           .from("whatsapp_message_log")
           .update({ status: "failed", error_message: String(sendErr) })
           .eq("id", logId);
-        results.push({ template: tmpl.name, status: "failed", error: String(sendErr) });
+        results.push({ template: tmpl.name, type: msgType, status: "failed", error: String(sendErr) });
         console.error(`[auto-notify] Error "${tmpl.name}":`, sendErr);
       }
     }

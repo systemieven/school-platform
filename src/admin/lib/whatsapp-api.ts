@@ -4,6 +4,7 @@
  * API token is never exposed on the client.
  */
 import { supabase } from '../../lib/supabase';
+import type { TemplateContent, TemplateButton } from '../types/admin.types';
 
 export const SUPABASE_URL = 'https://dinbwugbwnkrzljuocbs.supabase.co';
 export const WEBHOOK_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1/uazapi-webhook`;
@@ -424,6 +425,317 @@ export async function sendWhatsAppText(opts: SendTextOptions): Promise<SendResul
       .update({ status: 'failed', error_message: message })
       .eq('id', logId);
     return { success: false, error: message };
+  }
+}
+
+// ── Send media message ───────────────────────────────────────────────────────
+
+export interface SendMediaOptions {
+  phone: string;
+  text?: string;
+  file: string;            // URL or base64
+  mediaType: 'image' | 'video' | 'document' | 'audio';
+  docName?: string;
+  templateId?: string;
+  relatedModule?: string;
+  relatedRecordId?: string;
+  recipientName?: string;
+  variablesUsed?: Record<string, string>;
+  delay?: number;
+}
+
+export async function sendWhatsAppMedia(opts: SendMediaOptions): Promise<SendResult> {
+  const { data: logEntry, error: logErr } = await supabase
+    .from('whatsapp_message_log')
+    .insert({
+      template_id:       opts.templateId ?? null,
+      recipient_phone:   opts.phone,
+      recipient_name:    opts.recipientName ?? null,
+      rendered_content:  { body: opts.text ?? '', type: opts.mediaType, file: opts.file },
+      variables_used:    opts.variablesUsed ?? {},
+      status:            'queued',
+      related_module:    opts.relatedModule ?? null,
+      related_record_id: opts.relatedRecordId ?? null,
+    })
+    .select('id')
+    .single();
+
+  if (logErr || !logEntry) return { success: false, error: logErr?.message || 'Falha ao criar log' };
+  const logId = (logEntry as { id: string }).id;
+
+  try {
+    const { data, error } = await callProxy('/send/media', 'POST', {
+      number:       normalizePhone(opts.phone),
+      type:         opts.mediaType,
+      file:         opts.file,
+      ...(opts.text ? { text: opts.text } : {}),
+      ...(opts.docName ? { docName: opts.docName } : {}),
+      track_id:     logId,
+      track_source: 'colegio-batista',
+      ...(opts.delay ? { delay: opts.delay } : {}),
+    });
+    if (error) throw new Error(error);
+
+    const d = data as Record<string, unknown> | null;
+    const waKeyId = (d?.messageid as string | undefined) ||
+      (typeof d?.id === 'string' ? (d.id as string).split(':').pop() : undefined);
+
+    await supabase.from('whatsapp_message_log').update({
+      status: 'sent', sent_at: new Date().toISOString(),
+      ...(waKeyId ? { wa_message_id: waKeyId } : {}),
+    }).eq('id', logId);
+    return { success: true, data };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro desconhecido';
+    await supabase.from('whatsapp_message_log').update({ status: 'failed', error_message: message }).eq('id', logId);
+    return { success: false, error: message };
+  }
+}
+
+// ── Send button/list (menu) message ──────────────────────────────────────────
+
+export interface SendMenuOptions {
+  phone: string;
+  text: string;
+  menuType: 'button' | 'list';
+  choices: string[];
+  footerText?: string;
+  listButton?: string;
+  imageButton?: string;
+  templateId?: string;
+  relatedModule?: string;
+  relatedRecordId?: string;
+  recipientName?: string;
+  variablesUsed?: Record<string, string>;
+  delay?: number;
+}
+
+/** Convert TemplateButton[] to UazAPI choices format.
+ *  Renders {{variables}} in text and value fields.
+ *  reply:  "text|id"
+ *  url:    "text|https://..."
+ *  copy:   "text|copy:value"
+ *  call:   "text|call:+number"
+ */
+export function buttonsToChoices(buttons: TemplateButton[], vars?: Record<string, string>): string[] {
+  const r = (s: string) => vars ? renderTemplate(s, vars) : s;
+  return buttons.map((b) => {
+    const text = r(b.text);
+    const value = r(b.value);
+    switch (b.type) {
+      case 'url':  return `${text}|${value.startsWith('http') ? value : `https://${value}`}`;
+      case 'copy': return `${text}|copy:${value}`;
+      case 'call': return `${text}|call:${value.startsWith('+') ? value : `+${value}`}`;
+      case 'reply':
+      default:     return `${text}|${value || r(b.id)}`;
+    }
+  });
+}
+
+/** Convert list_sections to UazAPI choices format.
+ *  Renders {{variables}} in titles and descriptions.
+ *  "[Section Title]", "row title|id|description", ...
+ */
+export function listSectionsToChoices(sections: NonNullable<TemplateContent['list_sections']>, vars?: Record<string, string>): string[] {
+  const r = (s: string) => vars ? renderTemplate(s, vars) : s;
+  const choices: string[] = [];
+  for (const section of sections) {
+    choices.push(`[${r(section.title)}]`);
+    for (const row of section.rows) {
+      const parts = [r(row.title), r(row.id)];
+      if (row.description) parts.push(r(row.description));
+      choices.push(parts.join('|'));
+    }
+  }
+  return choices;
+}
+
+export async function sendWhatsAppMenu(opts: SendMenuOptions): Promise<SendResult> {
+  const { data: logEntry, error: logErr } = await supabase
+    .from('whatsapp_message_log')
+    .insert({
+      template_id:       opts.templateId ?? null,
+      recipient_phone:   opts.phone,
+      recipient_name:    opts.recipientName ?? null,
+      rendered_content:  { body: opts.text, type: opts.menuType, choices: opts.choices },
+      variables_used:    opts.variablesUsed ?? {},
+      status:            'queued',
+      related_module:    opts.relatedModule ?? null,
+      related_record_id: opts.relatedRecordId ?? null,
+    })
+    .select('id')
+    .single();
+
+  if (logErr || !logEntry) return { success: false, error: logErr?.message || 'Falha ao criar log' };
+  const logId = (logEntry as { id: string }).id;
+
+  try {
+    const { data, error } = await callProxy('/send/menu', 'POST', {
+      number:       normalizePhone(opts.phone),
+      type:         opts.menuType,
+      text:         opts.text,
+      choices:      opts.choices,
+      ...(opts.footerText ? { footerText: opts.footerText } : {}),
+      ...(opts.listButton ? { listButton: opts.listButton } : {}),
+      ...(opts.imageButton ? { imageButton: opts.imageButton } : {}),
+      track_id:     logId,
+      track_source: 'colegio-batista',
+      ...(opts.delay ? { delay: opts.delay } : {}),
+    });
+    if (error) throw new Error(error);
+
+    const d = data as Record<string, unknown> | null;
+    const waKeyId = (d?.messageid as string | undefined) ||
+      (typeof d?.id === 'string' ? (d.id as string).split(':').pop() : undefined);
+
+    await supabase.from('whatsapp_message_log').update({
+      status: 'sent', sent_at: new Date().toISOString(),
+      ...(waKeyId ? { wa_message_id: waKeyId } : {}),
+    }).eq('id', logId);
+    return { success: true, data };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro desconhecido';
+    await supabase.from('whatsapp_message_log').update({ status: 'failed', error_message: message }).eq('id', logId);
+    return { success: false, error: message };
+  }
+}
+
+// ── Send Pix button ──────────────────────────────────────────────────────────
+
+export interface SendPixOptions {
+  phone: string;
+  pixType: string;
+  pixKey: string;
+  pixName?: string;
+  templateId?: string;
+  relatedModule?: string;
+  relatedRecordId?: string;
+  recipientName?: string;
+  variablesUsed?: Record<string, string>;
+  delay?: number;
+}
+
+export async function sendWhatsAppPix(opts: SendPixOptions): Promise<SendResult> {
+  const { data: logEntry, error: logErr } = await supabase
+    .from('whatsapp_message_log')
+    .insert({
+      template_id:       opts.templateId ?? null,
+      recipient_phone:   opts.phone,
+      recipient_name:    opts.recipientName ?? null,
+      rendered_content:  { type: 'pix', pixType: opts.pixType, pixKey: opts.pixKey, pixName: opts.pixName },
+      variables_used:    opts.variablesUsed ?? {},
+      status:            'queued',
+      related_module:    opts.relatedModule ?? null,
+      related_record_id: opts.relatedRecordId ?? null,
+    })
+    .select('id')
+    .single();
+
+  if (logErr || !logEntry) return { success: false, error: logErr?.message || 'Falha ao criar log' };
+  const logId = (logEntry as { id: string }).id;
+
+  try {
+    const { data, error } = await callProxy('/send/pix-button', 'POST', {
+      number:   normalizePhone(opts.phone),
+      pixType:  opts.pixType,
+      pixKey:   opts.pixKey,
+      ...(opts.pixName ? { pixName: opts.pixName } : {}),
+      track_id:     logId,
+      track_source: 'colegio-batista',
+      ...(opts.delay ? { delay: opts.delay } : {}),
+    });
+    if (error) throw new Error(error);
+
+    const d = data as Record<string, unknown> | null;
+    const waKeyId = (d?.messageid as string | undefined) ||
+      (typeof d?.id === 'string' ? (d.id as string).split(':').pop() : undefined);
+
+    await supabase.from('whatsapp_message_log').update({
+      status: 'sent', sent_at: new Date().toISOString(),
+      ...(waKeyId ? { wa_message_id: waKeyId } : {}),
+    }).eq('id', logId);
+    return { success: true, data };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro desconhecido';
+    await supabase.from('whatsapp_message_log').update({ status: 'failed', error_message: message }).eq('id', logId);
+    return { success: false, error: message };
+  }
+}
+
+// ── Smart template send — dispatches based on message_type ───────────────────
+
+export interface SendTemplateOptions {
+  phone: string;
+  /** The full template row (must include message_type and content). */
+  template: {
+    id?: string;
+    message_type: string;
+    content: TemplateContent;
+  };
+  /** Variables to render in body, buttons, and list items. */
+  variables: Record<string, string>;
+  recipientName?: string;
+  relatedModule?: string;
+  relatedRecordId?: string;
+  delay?: number;
+}
+
+/**
+ * Universal send function. Renders variables and dispatches to the correct
+ * endpoint based on `template.message_type`.
+ *
+ * Use this instead of calling sendWhatsAppText directly whenever a template
+ * is involved — it guarantees buttons, media, list, and pix payloads are
+ * sent correctly.
+ */
+export async function sendWhatsAppTemplate(opts: SendTemplateOptions): Promise<SendResult> {
+  const { template, variables } = opts;
+  const body = template.content.body || '';
+  const finalText = renderTemplate(body, variables);
+  const baseOpts = {
+    phone:           opts.phone,
+    recipientName:   opts.recipientName,
+    templateId:      opts.template.id,
+    relatedModule:   opts.relatedModule,
+    relatedRecordId: opts.relatedRecordId,
+    variablesUsed:   variables,
+    delay:           opts.delay,
+  };
+
+  switch (template.message_type) {
+    case 'media':
+      return sendWhatsAppMedia({
+        ...baseOpts,
+        text:      finalText,
+        file:      template.content.media_url || '',
+        mediaType: template.content.media_type || 'image',
+        docName:   template.content.doc_name,
+      });
+
+    case 'buttons':
+      return sendWhatsAppMenu({
+        ...baseOpts,
+        text:        finalText,
+        menuType:    'button',
+        choices:     buttonsToChoices(template.content.buttons || [], variables),
+        footerText:  template.content.footer_text,
+        imageButton: template.content.image_url || undefined,
+      });
+
+    case 'list':
+      return sendWhatsAppMenu({
+        ...baseOpts,
+        text:        finalText,
+        menuType:    'list',
+        choices:     listSectionsToChoices(template.content.list_sections || [], variables),
+        listButton:  template.content.list_button_text || 'Ver opções',
+        footerText:  template.content.footer_text,
+        imageButton: template.content.image_url || undefined,
+      });
+
+    case 'text':
+    default:
+      return sendWhatsAppText({ ...baseOpts, text: finalText });
   }
 }
 

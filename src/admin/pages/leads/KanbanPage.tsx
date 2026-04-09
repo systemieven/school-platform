@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
-import { sendWhatsAppText, renderTemplate } from '../../lib/whatsapp-api';
+import { sendWhatsAppTemplate } from '../../lib/whatsapp-api';
 import {
   Kanban, Plus, MessageCircle, Phone, Clock, ChevronDown,
   Loader2, X, Save, AlertCircle, Star, User,
@@ -851,13 +851,12 @@ export default function KanbanPage() {
             school_name:    'Colégio Batista em Caruaru',
             current_date:   new Date().toLocaleDateString('pt-BR'),
           };
-          const rendered = renderTemplate(tmpl.content?.body || '', vars);
-          await sendWhatsAppText({
+          await sendWhatsAppTemplate({
             phone:           lead.phone,
-            text:            rendered,
-            templateId:      tmpl.id,
+            template:        tmpl as { id: string; message_type: string; content: Record<string, unknown> },
+            variables:       vars,
             recipientName:   lead.name,
-            relatedModule:   'contato',   // closest available module for logging
+            relatedModule:   'contato',
             relatedRecordId: leadId,
           });
         }

@@ -2,15 +2,23 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { ALL_VARIABLES } from '../../lib/whatsapp-api';
-import type { WhatsAppTemplate, TemplateCategory, MessageType } from '../../types/admin.types';
+import type {
+  WhatsAppTemplate, TemplateCategory, MessageType,
+  TemplateButton, TemplateButtonType, TemplateContent,
+} from '../../types/admin.types';
 import {
   MessageCircle, Plus, Pencil, Trash2,
   X, Save, Loader2, ChevronDown, Eye, EyeOff,
   Zap, Clock, Tag, AlertCircle, FileText,
-  Settings2, Check, ChevronRight,
+  Settings2, Check, ChevronRight, Link, Upload,
+  Copy, Phone, ExternalLink, Reply, Image, Video,
+  File, Music, GripVertical,
 } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
+
+const WA_MEDIA_BUCKET = 'whatsapp-media';
 
 // ── Category types & color system ─────────────────────────────────────────────
 
@@ -51,9 +59,23 @@ function slugify(s: string): string {
 
 const MESSAGE_TYPES: { value: MessageType; label: string; desc: string }[] = [
   { value: 'text',    label: 'Texto',    desc: 'Mensagem de texto simples com suporte a formatação' },
-  { value: 'media',   label: 'Mídia',    desc: 'Imagem, vídeo, áudio ou documento' },
-  { value: 'buttons', label: 'Botões',   desc: 'Mensagem com até 3 botões de resposta rápida' },
-  { value: 'list',    label: 'Lista',    desc: 'Menu interativo com seções e opções' },
+  { value: 'media',   label: 'Mídia',    desc: 'Imagem, vídeo, áudio ou documento com legenda' },
+  { value: 'buttons', label: 'Botões',   desc: 'Mensagem com botões interativos (resposta, link, copiar, ligar)' },
+  { value: 'list',    label: 'Lista',    desc: 'Menu interativo com seções e opções selecionáveis' },
+];
+
+const BUTTON_TYPES: { value: TemplateButtonType; label: string; icon: typeof Reply; placeholder: string }[] = [
+  { value: 'reply', label: 'Resposta',  icon: Reply,        placeholder: 'ID do payload (ex: confirmar)' },
+  { value: 'url',   label: 'Link',      icon: ExternalLink, placeholder: 'https://exemplo.com' },
+  { value: 'copy',  label: 'Copiar',    icon: Copy,         placeholder: 'Texto a copiar (ex: CUPOM20)' },
+  { value: 'call',  label: 'Ligar',     icon: Phone,        placeholder: '+5511999999999' },
+];
+
+const MEDIA_TYPE_OPTIONS = [
+  { value: 'image'    as const, label: 'Imagem',    icon: Image },
+  { value: 'video'    as const, label: 'Vídeo',     icon: Video },
+  { value: 'document' as const, label: 'Documento',  icon: File },
+  { value: 'audio'    as const, label: 'Áudio',     icon: Music },
 ];
 
 const TRIGGER_EVENTS = [
@@ -254,6 +276,149 @@ function TemplateCard({
   );
 }
 
+// ── Media Attachment (reusable for buttons/list/media templates) ─────────────
+
+function MediaAttachment({ value, onChange, label = 'Imagem (opcional)', acceptVideo }: {
+  value: string;
+  onChange: (url: string) => void;
+  label?: string;
+  acceptVideo?: boolean;
+}) {
+  const [mode, setMode]           = useState<'url' | 'upload'>(value && !value.startsWith('http') ? 'upload' : 'url');
+  const [uploading, setUploading] = useState(false);
+  const [error, setError]         = useState('');
+  const [dragOver, setDragOver]   = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const allowedTypes = acceptVideo
+    ? ['image/jpeg', 'image/png', 'image/webp', 'video/mp4']
+    : ['image/jpeg', 'image/png', 'image/webp'];
+  const acceptStr = allowedTypes.join(',');
+
+  async function handleFile(file: globalThis.File) {
+    if (!allowedTypes.includes(file.type)) {
+      setError('Formato não suportado. Use JPG, PNG ou WebP.');
+      return;
+    }
+    setUploading(true);
+    setError('');
+    try {
+      let uploadFile: globalThis.File | Blob = file;
+      if (file.type.startsWith('image/')) {
+        uploadFile = await imageCompression(file, { maxSizeMB: 2, maxWidthOrHeight: 2400, useWebWorker: true });
+      }
+      const ext  = file.name.split('.').pop() ?? 'jpg';
+      const path = `templates/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(WA_MEDIA_BUCKET)
+        .upload(path, uploadFile, { contentType: file.type, upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from(WA_MEDIA_BUCKET).getPublicUrl(path);
+      onChange(data.publicUrl);
+    } catch {
+      setError('Erro ao enviar arquivo. Tente novamente.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all';
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 gap-0.5">
+          {(['url', 'upload'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => { setMode(m); setError(''); }}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                mode === m
+                  ? 'bg-[#003876] text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              {m === 'url' ? <><Link className="w-3 h-3" /> Link</> : <><Upload className="w-3 h-3" /> Upload</>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {mode === 'url' ? (
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="https://exemplo.com/imagem.jpg"
+          className={inputCls}
+        />
+      ) : (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+          className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer ${
+            dragOver
+              ? 'border-[#003876] bg-blue-50/50 dark:bg-blue-900/10'
+              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+          }`}
+          onClick={() => fileRef.current?.click()}
+        >
+          <input
+            ref={fileRef}
+            type="file"
+            accept={acceptStr}
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+          />
+          {uploading ? (
+            <div className="flex items-center justify-center gap-2 py-2">
+              <Loader2 className="w-5 h-5 text-[#003876] animate-spin" />
+              <span className="text-xs text-gray-500">Enviando...</span>
+            </div>
+          ) : (
+            <>
+              <Upload className="w-6 h-6 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
+              <p className="text-xs text-gray-400">Arraste ou clique para enviar</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">JPG, PNG, WebP{acceptVideo ? ', MP4' : ''} · máx. 20 MB</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Preview thumbnail */}
+      {value && value.startsWith('http') && (
+        <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-2">
+          <img
+            src={value}
+            alt=""
+            className="w-12 h-12 rounded-lg object-cover bg-gray-200 dark:bg-gray-700"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{value}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="text-red-400 hover:text-red-600 p-1 rounded transition-colors flex-shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <p className="text-xs text-red-500 flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Template Drawer ───────────────────────────────────────────────────────────
 
 const EMPTY_TEMPLATE: Omit<WhatsAppTemplate, 'id' | 'created_at' | 'updated_at' | 'created_by'> = {
@@ -342,6 +507,35 @@ function TemplateDrawer({
     if (!form.name.trim()) { setError('Informe o nome do template.'); return; }
     if (!body.trim())      { setError('O corpo da mensagem não pode estar vazio.'); return; }
 
+    // Type-specific validation
+    if (form.message_type === 'media') {
+      if (!form.content.media_type) { setError('Selecione o tipo de mídia.'); return; }
+      if (!form.content.media_url?.trim()) { setError('Informe a URL ou base64 do arquivo.'); return; }
+    }
+    if (form.message_type === 'buttons') {
+      const btns = form.content.buttons || [];
+      if (btns.length === 0) { setError('Adicione pelo menos um botão.'); return; }
+      for (let i = 0; i < btns.length; i++) {
+        if (!btns[i].text.trim()) { setError(`Botão ${i + 1}: informe o texto.`); return; }
+        if (btns[i].type !== 'reply' && !btns[i].value.trim()) {
+          setError(`Botão ${i + 1}: informe o valor (${BUTTON_TYPES.find((t) => t.value === btns[i].type)?.label}).`);
+          return;
+        }
+      }
+    }
+    if (form.message_type === 'list') {
+      if (!form.content.list_button_text?.trim()) { setError('Informe o texto do botão da lista.'); return; }
+      const secs = form.content.list_sections || [];
+      if (secs.length === 0) { setError('Adicione pelo menos uma seção.'); return; }
+      for (let s = 0; s < secs.length; s++) {
+        if (!secs[s].title.trim()) { setError(`Seção ${s + 1}: informe o título.`); return; }
+        if (secs[s].rows.length === 0) { setError(`Seção ${s + 1}: adicione pelo menos um item.`); return; }
+        for (let r = 0; r < secs[s].rows.length; r++) {
+          if (!secs[s].rows[r].title.trim()) { setError(`Seção ${s + 1}, item ${r + 1}: informe o título.`); return; }
+        }
+      }
+    }
+
     setSaving(true);
     setError('');
 
@@ -363,6 +557,7 @@ function TemplateDrawer({
 
   const selectedCat = categories.find((c) => c.slug === form.category);
   const suggestedVars = selectedCat?.variables?.length ? selectedCat.variables : ALL_VARIABLES;
+  const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all';
 
   return (
     <>
@@ -460,24 +655,70 @@ function TemplateDrawer({
 
                     {/* Message bubble */}
                     <div className="flex justify-end">
-                      <div className="relative max-w-[85%] bg-[#005c4b] rounded-2xl rounded-tr-sm px-3 pt-2 pb-1 shadow-md">
-                        {/* Triangle */}
-                        <div className="absolute -right-[6px] top-0 w-0 h-0" style={{ borderLeft: '7px solid #005c4b', borderBottom: '7px solid transparent' }} />
-                        <p className="text-[12px] text-[#e9edef] whitespace-pre-wrap leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: renderPreview(body, detectedVars)
-                            .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
-                            .replace(/_(.*?)_/g, '<em>$1</em>')
-                            .replace(/~(.*?)~/g, '<s>$1</s>')
-                          }}
-                        />
-                        <div className="flex items-center justify-end gap-1 mt-0.5">
-                          <span className="text-[9px] text-[#8696a0]">
-                            {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <svg className="w-3 h-3 text-[#53bdeb]" viewBox="0 0 16 11" fill="currentColor">
-                            <path d="M11.071.653a.56.56 0 0 0-.812 0L4.743 6.44 2.157 3.62a.56.56 0 0 0-.812 0l-.812.857a.616.616 0 0 0 0 .849l3.804 4.016a.56.56 0 0 0 .812 0l1.624-1.715L11.883 2.36l-.812-.857z"/><path d="M15.667.653a.56.56 0 0 0-.812 0L9.339 6.44l-.9-.948-.812.857.9.948a.56.56 0 0 0 .812 0l6.14-6.787-.812-.857z"/>
-                          </svg>
+                      <div className="relative max-w-[85%]">
+                        <div className="bg-[#005c4b] rounded-2xl rounded-tr-sm px-3 pt-2 pb-1 shadow-md">
+                          {/* Triangle */}
+                          <div className="absolute -right-[6px] top-0 w-0 h-0" style={{ borderLeft: '7px solid #005c4b', borderBottom: '7px solid transparent' }} />
+
+                          {/* Media indicator */}
+                          {form.message_type === 'media' && (
+                            <div className="bg-[#00493f] rounded-lg px-2 py-3 mb-1.5 flex items-center justify-center gap-2">
+                              {form.content.media_type === 'image' && <Image className="w-5 h-5 text-emerald-300" />}
+                              {form.content.media_type === 'video' && <Video className="w-5 h-5 text-emerald-300" />}
+                              {form.content.media_type === 'document' && <File className="w-5 h-5 text-emerald-300" />}
+                              {form.content.media_type === 'audio' && <Music className="w-5 h-5 text-emerald-300" />}
+                              <span className="text-[10px] text-emerald-300/70">{form.content.media_type || 'mídia'}</span>
+                            </div>
+                          )}
+
+                          <p className="text-[12px] text-[#e9edef] whitespace-pre-wrap leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: renderPreview(body, detectedVars)
+                              .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+                              .replace(/_(.*?)_/g, '<em>$1</em>')
+                              .replace(/~(.*?)~/g, '<s>$1</s>')
+                            }}
+                          />
+
+                          {/* Footer text */}
+                          {form.content.footer_text && (
+                            <p className="text-[10px] text-[#8696a0] mt-1">{form.content.footer_text}</p>
+                          )}
+
+                          <div className="flex items-center justify-end gap-1 mt-0.5">
+                            <span className="text-[9px] text-[#8696a0]">
+                              {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <svg className="w-3 h-3 text-[#53bdeb]" viewBox="0 0 16 11" fill="currentColor">
+                              <path d="M11.071.653a.56.56 0 0 0-.812 0L4.743 6.44 2.157 3.62a.56.56 0 0 0-.812 0l-.812.857a.616.616 0 0 0 0 .849l3.804 4.016a.56.56 0 0 0 .812 0l1.624-1.715L11.883 2.36l-.812-.857z"/><path d="M15.667.653a.56.56 0 0 0-.812 0L9.339 6.44l-.9-.948-.812.857.9.948a.56.56 0 0 0 .812 0l6.14-6.787-.812-.857z"/>
+                            </svg>
+                          </div>
                         </div>
+
+                        {/* Buttons preview */}
+                        {form.message_type === 'buttons' && (form.content.buttons || []).length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {(form.content.buttons || []).map((btn, i) => {
+                              const btMeta = BUTTON_TYPES.find((t) => t.value === btn.type);
+                              const BIcon = btMeta?.icon || Reply;
+                              return (
+                                <div key={i} className="bg-[#1f2c34] rounded-xl py-2 px-3 flex items-center justify-center gap-1.5 text-[11px] text-[#53bdeb] font-medium">
+                                  <BIcon className="w-3 h-3" />
+                                  {btn.text || `Botão ${i + 1}`}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* List button preview */}
+                        {form.message_type === 'list' && (
+                          <div className="mt-1">
+                            <div className="bg-[#1f2c34] rounded-xl py-2 px-3 flex items-center justify-center gap-1.5 text-[11px] text-[#53bdeb] font-medium">
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                              {form.content.list_button_text || 'Ver opções'}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -565,54 +806,25 @@ function TemplateDrawer({
                 <div className="space-y-4">
                   {/* Corpo */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      Corpo da Mensagem *
-                    </label>
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Corpo da Mensagem *
+                      </label>
+                      <span className="text-[11px] text-gray-400">
+                        *negrito* · _itálico_ · ~tachado~ · ```código```
+                      </span>
+                    </div>
                     <textarea
                       ref={textareaRef}
                       value={body}
                       onChange={(e) => handleBodyChange(e.target.value)}
                       placeholder="Olá {{visitor_name}}! Sua visita ao Colégio Batista está confirmada para {{appointment_date}} às {{appointment_time}}."
-                      rows={6}
+                      rows={5}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all resize-y font-mono leading-relaxed"
                     />
-                    <p className="text-[11px] text-gray-400 mt-1">
-                      *negrito*, _itálico_, ~tachado~, ```código```
-                    </p>
                   </div>
 
-                  {/* URL de mídia (se tipo = media) */}
-                  {form.message_type === 'media' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                        URL da Mídia
-                      </label>
-                      <input
-                        value={form.content.media_url || ''}
-                        onChange={(e) => setForm((p) => ({ ...p, content: { ...p.content, media_url: e.target.value } }))}
-                        placeholder="https://..."
-                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
-                      />
-                      <div className="flex gap-2 mt-2">
-                        {(['image','video','document','audio'] as const).map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => setForm((p) => ({ ...p, content: { ...p.content, media_type: t } }))}
-                            className={`text-xs px-3 py-1 rounded-lg transition-colors ${
-                              form.content.media_type === t
-                                ? 'bg-[#003876] text-white'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
-                          >
-                            {t}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Variable picker */}
+                  {/* Variable picker — always right below the textarea */}
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       <Tag className="w-3.5 h-3.5" />
@@ -636,6 +848,336 @@ function TemplateDrawer({
                       ))}
                     </div>
                   </div>
+
+                  {/* Footer text (buttons & list) */}
+                  {(form.message_type === 'buttons' || form.message_type === 'list') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Texto do Rodapé
+                      </label>
+                      <input
+                        value={form.content.footer_text || ''}
+                        onChange={(e) => setForm((p) => ({ ...p, content: { ...p.content, footer_text: e.target.value } }))}
+                        placeholder="Ex: Escolha uma das opções abaixo"
+                        className={inputCls}
+                      />
+                    </div>
+                  )}
+
+                  {/* ── MEDIA SECTION ── */}
+                  {form.message_type === 'media' && (
+                    <div className="space-y-3">
+                      {/* Media type */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Tipo de Mídia *
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {MEDIA_TYPE_OPTIONS.map((opt) => {
+                            const Icon = opt.icon;
+                            const active = form.content.media_type === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setForm((p) => ({ ...p, content: { ...p.content, media_type: opt.value } }))}
+                                className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
+                                  active
+                                    ? 'bg-[#003876] text-white border-[#003876]'
+                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-[#003876]/40'
+                                }`}
+                              >
+                                <Icon className="w-4 h-4" />
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Arquivo */}
+                      <MediaAttachment
+                        label="Arquivo *"
+                        value={form.content.media_url || ''}
+                        onChange={(url) => setForm((p) => ({ ...p, content: { ...p.content, media_url: url } }))}
+                        acceptVideo={form.content.media_type === 'video'}
+                      />
+
+                      {/* Doc name (document only) */}
+                      {form.content.media_type === 'document' && (
+                        <div>
+                          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Nome do arquivo</label>
+                          <input
+                            value={form.content.doc_name || ''}
+                            onChange={(e) => setForm((p) => ({ ...p, content: { ...p.content, doc_name: e.target.value } }))}
+                            placeholder="Ex: Contrato.pdf"
+                            className={inputCls}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── IMAGE ATTACHMENT (buttons & list) ── */}
+                  {(form.message_type === 'buttons' || form.message_type === 'list') && (
+                    <MediaAttachment
+                      value={form.content.image_url || ''}
+                      onChange={(url) => setForm((p) => ({ ...p, content: { ...p.content, image_url: url } }))}
+                    />
+                  )}
+
+                  {/* ── BUTTONS SECTION ── */}
+                  {form.message_type === 'buttons' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Botões *
+                        </label>
+                        {(form.content.buttons?.length ?? 0) < 4 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const btns = [...(form.content.buttons || [])];
+                              btns.push({ id: `btn_${btns.length + 1}`, text: '', type: 'reply', value: '' });
+                              setForm((p) => ({ ...p, content: { ...p.content, buttons: btns } }));
+                            }}
+                            className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Adicionar botão
+                          </button>
+                        )}
+                      </div>
+
+                      {(form.content.buttons || []).length === 0 && (
+                        <div className="text-center py-4 border border-dashed border-gray-200 dark:border-gray-600 rounded-xl">
+                          <p className="text-xs text-gray-400">Nenhum botão adicionado</p>
+                          <button
+                            type="button"
+                            onClick={() => setForm((p) => ({ ...p, content: { ...p.content, buttons: [{ id: 'btn_1', text: '', type: 'reply', value: '' }] } }))}
+                            className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline mt-2"
+                          >
+                            + Adicionar primeiro botão
+                          </button>
+                        </div>
+                      )}
+
+                      {(form.content.buttons || []).map((btn, idx) => {
+                        const updateBtn = (patch: Partial<TemplateButton>) => {
+                          const btns = [...(form.content.buttons || [])];
+                          btns[idx] = { ...btns[idx], ...patch };
+                          setForm((p) => ({ ...p, content: { ...p.content, buttons: btns } }));
+                        };
+                        const removeBtn = () => {
+                          const btns = (form.content.buttons || []).filter((_, i) => i !== idx);
+                          setForm((p) => ({ ...p, content: { ...p.content, buttons: btns } }));
+                        };
+                        const btnTypeMeta = BUTTON_TYPES.find((t) => t.value === btn.type) || BUTTON_TYPES[0];
+                        const BtnIcon = btnTypeMeta.icon;
+
+                        return (
+                          <div key={idx} className="border border-gray-200 dark:border-gray-600 rounded-xl p-3 space-y-2 bg-gray-50/50 dark:bg-gray-800/50">
+                            <div className="flex items-center gap-2">
+                              <GripVertical className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                              <span className="text-[10px] font-bold text-gray-400 uppercase">Botão {idx + 1}</span>
+                              <div className="flex-1" />
+                              <button type="button" onClick={removeBtn} className="text-red-400 hover:text-red-600 p-1 rounded transition-colors">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Button type selector */}
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {BUTTON_TYPES.map((bt) => {
+                                const Icon = bt.icon;
+                                const active = btn.type === bt.value;
+                                return (
+                                  <button
+                                    key={bt.value}
+                                    type="button"
+                                    onClick={() => updateBtn({ type: bt.value, value: '' })}
+                                    className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
+                                      active
+                                        ? 'bg-[#003876] text-white'
+                                        : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-[#003876]/40'
+                                    }`}
+                                  >
+                                    <Icon className="w-3 h-3" />
+                                    {bt.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Button text */}
+                            <input
+                              value={btn.text}
+                              onChange={(e) => updateBtn({ text: e.target.value })}
+                              placeholder="Texto exibido no botão"
+                              className={inputCls}
+                            />
+
+                            {/* Button value (dynamic per type) */}
+                            <div className="flex items-center gap-2">
+                              <BtnIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                              <input
+                                value={btn.value}
+                                onChange={(e) => updateBtn({ value: e.target.value })}
+                                placeholder={btnTypeMeta.placeholder}
+                                className={`flex-1 ${inputCls}`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {(form.content.buttons?.length ?? 0) > 0 && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+                          Combinar botões de resposta com outros tipos (link, copiar, ligar) pode não exibir corretamente no WhatsApp Web.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── LIST SECTION ── */}
+                  {form.message_type === 'list' && (
+                    <div className="space-y-3">
+                      {/* List button text */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                          Texto do Botão da Lista *
+                        </label>
+                        <input
+                          value={form.content.list_button_text || ''}
+                          onChange={(e) => setForm((p) => ({ ...p, content: { ...p.content, list_button_text: e.target.value } }))}
+                          placeholder="Ex: Ver opções"
+                          className={inputCls}
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">Texto do botão que abre o menu de lista</p>
+                      </div>
+
+                      {/* Sections editor */}
+                      <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Seções *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const secs = [...(form.content.list_sections || [])];
+                            secs.push({ title: '', rows: [{ id: `item_${Date.now()}`, title: '', description: '' }] });
+                            setForm((p) => ({ ...p, content: { ...p.content, list_sections: secs } }));
+                          }}
+                          className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Adicionar seção
+                        </button>
+                      </div>
+
+                      {(form.content.list_sections || []).length === 0 && (
+                        <div className="text-center py-4 border border-dashed border-gray-200 dark:border-gray-600 rounded-xl">
+                          <p className="text-xs text-gray-400">Nenhuma seção adicionada</p>
+                          <button
+                            type="button"
+                            onClick={() => setForm((p) => ({
+                              ...p,
+                              content: {
+                                ...p.content,
+                                list_sections: [{ title: '', rows: [{ id: 'item_1', title: '', description: '' }] }],
+                              },
+                            }))}
+                            className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline mt-2"
+                          >
+                            + Adicionar primeira seção
+                          </button>
+                        </div>
+                      )}
+
+                      {(form.content.list_sections || []).map((section, sIdx) => {
+                        const updateSection = (patch: Partial<typeof section>) => {
+                          const secs = [...(form.content.list_sections || [])];
+                          secs[sIdx] = { ...secs[sIdx], ...patch };
+                          setForm((p) => ({ ...p, content: { ...p.content, list_sections: secs } }));
+                        };
+                        const removeSection = () => {
+                          const secs = (form.content.list_sections || []).filter((_, i) => i !== sIdx);
+                          setForm((p) => ({ ...p, content: { ...p.content, list_sections: secs } }));
+                        };
+                        const addRow = () => {
+                          const rows = [...section.rows, { id: `item_${Date.now()}`, title: '', description: '' }];
+                          updateSection({ rows });
+                        };
+                        const updateRow = (rIdx: number, patch: Partial<typeof section.rows[0]>) => {
+                          const rows = [...section.rows];
+                          rows[rIdx] = { ...rows[rIdx], ...patch };
+                          updateSection({ rows });
+                        };
+                        const removeRow = (rIdx: number) => {
+                          const rows = section.rows.filter((_, i) => i !== rIdx);
+                          updateSection({ rows });
+                        };
+
+                        return (
+                          <div key={sIdx} className="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden">
+                            {/* Section header */}
+                            <div className="bg-gray-50 dark:bg-gray-800/80 px-3 py-2.5 flex items-center gap-2">
+                              <GripVertical className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                              <input
+                                value={section.title}
+                                onChange={(e) => updateSection({ title: e.target.value })}
+                                placeholder="Título da seção"
+                                className="flex-1 bg-transparent text-sm font-semibold text-gray-700 dark:text-gray-200 outline-none placeholder:text-gray-400 placeholder:font-normal"
+                              />
+                              <button type="button" onClick={removeSection} className="text-red-400 hover:text-red-600 p-1 rounded transition-colors">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Rows */}
+                            <div className="p-3 space-y-2">
+                              {section.rows.map((row, rIdx) => (
+                                <div key={rIdx} className="flex items-start gap-2 bg-white dark:bg-gray-800/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700">
+                                  <div className="flex-1 space-y-1.5">
+                                    <input
+                                      value={row.title}
+                                      onChange={(e) => updateRow(rIdx, { title: e.target.value })}
+                                      placeholder="Título do item"
+                                      className="w-full bg-transparent text-xs text-gray-700 dark:text-gray-200 outline-none placeholder:text-gray-400"
+                                    />
+                                    <input
+                                      value={row.id}
+                                      onChange={(e) => updateRow(rIdx, { id: e.target.value })}
+                                      placeholder="ID (identificador único)"
+                                      className="w-full bg-transparent text-[10px] text-gray-500 dark:text-gray-400 outline-none font-mono placeholder:text-gray-300"
+                                    />
+                                    <input
+                                      value={row.description || ''}
+                                      onChange={(e) => updateRow(rIdx, { description: e.target.value })}
+                                      placeholder="Descrição (opcional)"
+                                      className="w-full bg-transparent text-[10px] text-gray-400 outline-none placeholder:text-gray-300"
+                                    />
+                                  </div>
+                                  <button type="button" onClick={() => removeRow(rIdx)} className="text-red-400 hover:text-red-600 p-0.5 rounded transition-colors mt-1">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={addRow}
+                                className="w-full text-xs text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] py-1.5 border border-dashed border-gray-200 dark:border-gray-600 rounded-lg hover:border-[#003876]/40 transition-colors flex items-center justify-center gap-1"
+                              >
+                                <Plus className="w-3 h-3" />
+                                Adicionar item
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                 </div>
               </SettingsCard>
 

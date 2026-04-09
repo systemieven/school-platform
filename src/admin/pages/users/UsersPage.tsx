@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
-import { sendWhatsAppText, renderTemplate, checkWhatsAppNumber } from '../../lib/whatsapp-api';
+import { sendWhatsAppText, sendWhatsAppTemplate, renderTemplate, checkWhatsAppNumber } from '../../lib/whatsapp-api';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
@@ -203,7 +203,7 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
           const systemUrl = window.location.origin + '/admin/login';
           const { data: tpl } = await supabase
             .from('whatsapp_templates')
-            .select('content, variables')
+            .select('id, message_type, content, variables')
             .eq('name', 'senha_temporaria')
             .eq('is_active', true)
             .maybeSingle();
@@ -215,19 +215,28 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
             school_name:  'Colégio Batista em Caruaru',
           };
 
-          const text = tpl?.content?.body
-            ? renderTemplate(tpl.content.body as string, templateVars)
-            : `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSeu acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi criado.\n\n🔑 *Senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
-
-          const result = await sendWhatsAppText({
-            phone: profile.phone,
-            text,
-            templateId:    tpl ? (tpl as unknown as { id: string }).id : undefined,
-            recipientName: profile.full_name ?? undefined,
-            relatedModule: 'usuario',
-            relatedRecordId: profile.id,
-            variablesUsed: templateVars,
-          });
+          let result;
+          if (tpl) {
+            result = await sendWhatsAppTemplate({
+              phone: profile.phone,
+              template: tpl as { id: string; message_type: string; content: Record<string, unknown> },
+              variables: templateVars,
+              recipientName: profile.full_name ?? undefined,
+              relatedModule: 'usuario',
+              relatedRecordId: profile.id,
+            });
+          } else {
+            // Fallback: template not found — send plain text
+            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSeu acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi criado.\n\n🔑 *Senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+            result = await sendWhatsAppText({
+              phone: profile.phone,
+              text,
+              recipientName: profile.full_name ?? undefined,
+              relatedModule: 'usuario',
+              relatedRecordId: profile.id,
+              variablesUsed: templateVars,
+            });
+          }
 
           if (result.success) {
             waStatus = 'sent';
@@ -441,7 +450,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
           const systemUrl = window.location.origin + '/admin/login';
           const { data: tpl } = await supabase
             .from('whatsapp_templates')
-            .select('content, variables')
+            .select('id, message_type, content, variables')
             .eq('name', 'redefinicao_senha')
             .eq('is_active', true)
             .maybeSingle();
@@ -453,19 +462,27 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
             school_name:  'Colégio Batista em Caruaru',
           };
 
-          const text = tpl?.content?.body
-            ? renderTemplate(tpl.content.body as string, templateVars)
-            : `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSua senha de acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi redefinida por um administrador.\n\n🔑 *Nova senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no próximo acesso\n\n_Se você não solicitou esta alteração, entre em contato com o administrador imediatamente._\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
-
-          const result = await sendWhatsAppText({
-            phone,
-            text,
-            templateId:    tpl ? (tpl as unknown as { id: string }).id : undefined,
-            recipientName: profile.full_name ?? undefined,
-            relatedModule: 'usuario',
-            relatedRecordId: profile.id,
-            variablesUsed: templateVars,
-          });
+          let result;
+          if (tpl) {
+            result = await sendWhatsAppTemplate({
+              phone,
+              template: tpl as { id: string; message_type: string; content: Record<string, unknown> },
+              variables: templateVars,
+              recipientName: profile.full_name ?? undefined,
+              relatedModule: 'usuario',
+              relatedRecordId: profile.id,
+            });
+          } else {
+            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSua senha de acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi redefinida por um administrador.\n\n🔑 *Nova senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no próximo acesso\n\n_Se você não solicitou esta alteração, entre em contato com o administrador imediatamente._\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+            result = await sendWhatsAppText({
+              phone,
+              text,
+              recipientName: profile.full_name ?? undefined,
+              relatedModule: 'usuario',
+              relatedRecordId: profile.id,
+              variablesUsed: templateVars,
+            });
+          }
 
           waStatus = result.success ? 'sent' : 'error';
           if (!result.success) sendError = result.error ?? 'Erro ao enviar mensagem.';

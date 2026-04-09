@@ -5,7 +5,9 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { sendWhatsAppText, renderTemplate } from '../lib/whatsapp-api';
+import {
+  sendWhatsAppText, sendWhatsAppTemplate, renderTemplate,
+} from '../lib/whatsapp-api';
 import type { WhatsAppTemplate } from '../types/admin.types';
 import {
   MessageCircle, X, Send, Loader2, Eye, EyeOff,
@@ -93,18 +95,38 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
     if (!message.trim()) { setError('A mensagem não pode estar vazia.'); return; }
     setSending(true);
     setError('');
-    // Always render variables at send time — covers both free messages with
-    // inserted chips and templates re-edited after selection.
-    const finalText = renderTemplate(message.trim(), variables);
-    const result = await sendWhatsAppText({
-      phone,
-      text:            finalText,
-      recipientName,
-      templateId:      selected?.id,
-      relatedModule:   module,
-      relatedRecordId: recordId,
-      variablesUsed:   variables,
-    });
+
+    let result;
+
+    if (selected && selected.message_type !== 'text') {
+      // Template with structured content — use smart dispatcher
+      // Override body with potentially user-edited message
+      const template = {
+        ...selected,
+        content: { ...selected.content, body: message.trim() },
+      };
+      result = await sendWhatsAppTemplate({
+        phone,
+        template,
+        variables,
+        recipientName,
+        relatedModule:   module,
+        relatedRecordId: recordId,
+      });
+    } else {
+      // Plain text (free message or text template)
+      const finalText = renderTemplate(message.trim(), variables);
+      result = await sendWhatsAppText({
+        phone,
+        text:            finalText,
+        recipientName,
+        templateId:      selected?.id,
+        relatedModule:   module,
+        relatedRecordId: recordId,
+        variablesUsed:   variables,
+      });
+    }
+
     setSending(false);
     if (result.success) {
       setStep('sent');
