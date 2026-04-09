@@ -453,18 +453,61 @@ Deno.serve(async (req: Request) => {
           results.push({ template: tmpl.name, type: msgType, status: "sent", logId });
           console.log(`[auto-notify] Sent "${tmpl.name}" (${msgType}) to ${phone} via ${endpoint}`);
 
-          // ── Confirmation tracking: register if buttons template for agendamento ──
+          // ── Confirmation tracking: register only if this template has at
+          //    least one reply button whose value matches a positive/negative
+          //    confirm ID. Templates with only url/copy/call buttons can't
+          //    produce a response event, and templates with action buttons
+          //    ("Reagendar", "Ver mais") shouldn't count as pending confirmation.
           if (mod === "agendamento" && msgType === "buttons" && waKeyId) {
             try {
-              const { data: confirmSetting } = await service
+              // Load auto_confirm settings (enabled + id lists)
+              const { data: autoConfirmRows } = await service
                 .from("system_settings")
-                .select("value")
+                .select("key, value")
                 .eq("category", "visit")
-                .eq("key", "auto_confirm_enabled")
-                .maybeSingle();
-              const autoConfirmEnabled = confirmSetting?.value === "true" || confirmSetting?.value === true;
+                .in("key", [
+                  "auto_confirm_enabled",
+                  "auto_confirm_positive_ids",
+                  "auto_confirm_negative_ids",
+                ]);
 
-              if (autoConfirmEnabled) {
+              const acMap: Record<string, unknown> = {};
+              (autoConfirmRows || []).forEach((r: { key: string; value: unknown }) => {
+                acMap[r.key] = r.value;
+              });
+
+              const autoConfirmEnabled =
+                acMap.auto_confirm_enabled === true ||
+                acMap.auto_confirm_enabled === "true";
+
+              // Accept both native jsonb arrays and legacy JSON strings
+              const parseIdList = (raw: unknown, fallback: string[]): string[] => {
+                if (Array.isArray(raw)) return raw.map((x) => String(x));
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed.map((x) => String(x)) : fallback;
+                  } catch {
+                    return fallback;
+                  }
+                }
+                return fallback;
+              };
+              const positiveIds = parseIdList(acMap.auto_confirm_positive_ids, ["sim", "confirmar", "yes"])
+                .map((s) => s.toLowerCase().trim());
+              const negativeIds = parseIdList(acMap.auto_confirm_negative_ids, ["nao", "cancelar", "no"])
+                .map((s) => s.toLowerCase().trim());
+
+              const tmplButtons = Array.isArray(content.buttons)
+                ? (content.buttons as TemplateButton[])
+                : [];
+              const hasConfirmationButton = tmplButtons.some((b) => {
+                if (!b || b.type !== "reply") return false;
+                const v = String(b.value || b.id || "").toLowerCase().trim();
+                return v !== "" && (positiveIds.includes(v) || negativeIds.includes(v));
+              });
+
+              if (autoConfirmEnabled && hasConfirmationButton) {
                 await service.from("confirmation_tracking").insert({
                   wa_message_id:  waKeyId,
                   appointment_id: record_id,
@@ -474,7 +517,9 @@ Deno.serve(async (req: Request) => {
                 await service.from("visit_appointments")
                   .update({ confirmation_status: "awaiting" })
                   .eq("id", record_id);
-                console.log(`[auto-notify] Created confirmation tracking for appointment=${record_id} wa_msg=${waKeyId}`);
+                console.log(`[auto-notify] Created confirmation tracking for appointment=${record_id} wa_msg=${waKeyId} template=${tmpl.name}`);
+              } else if (autoConfirmEnabled) {
+                console.log(`[auto-notify] Skip tracking for template=${tmpl.name}: no reply button matches confirm IDs`);
               }
             } catch (ctErr) {
               console.error("[auto-notify] Failed to create confirmation tracking:", ctErr);
