@@ -315,10 +315,25 @@ Deno.serve(async (req: Request) => {
                   .from("system_settings").select("value")
                   .eq("category", "visit").eq("key", "auto_confirm_negative_ids").maybeSingle();
 
-                let positiveIds: string[] = ["sim", "confirmar", "yes"];
-                let negativeIds: string[] = ["nao", "cancelar", "no"];
-                try { positiveIds = JSON.parse(typeof posRow?.value === "string" ? posRow.value : "[]"); } catch {}
-                try { negativeIds = JSON.parse(typeof negRow?.value === "string" ? negRow.value : "[]"); } catch {}
+                // system_settings.value pode vir como:
+                //  - array nativo jsonb (supabase-js hidrata como JS Array) ← caso atual
+                //  - string JSON (legado — quando salvo via .update({value: JSON.stringify(...)}))
+                //  - null/undefined (ausente)
+                const parseIdList = (raw: unknown, fallback: string[]): string[] => {
+                  if (Array.isArray(raw)) return raw.map((x) => String(x));
+                  if (typeof raw === "string") {
+                    try {
+                      const parsed = JSON.parse(raw);
+                      return Array.isArray(parsed) ? parsed.map((x) => String(x)) : fallback;
+                    } catch {
+                      return fallback;
+                    }
+                  }
+                  return fallback;
+                };
+
+                const positiveIds = parseIdList(posRow?.value, ["sim", "confirmar", "yes"]);
+                const negativeIds = parseIdList(negRow?.value, ["nao", "cancelar", "no"]);
 
                 const normalizedId = selectedId.toLowerCase().trim();
                 const isPositive = positiveIds.some((id) => normalizedId === id.toLowerCase().trim());
