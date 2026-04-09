@@ -396,15 +396,14 @@ export async function sendWhatsAppText(opts: SendTextOptions): Promise<SendResul
 
     if (error) throw new Error(error);
 
-    // Extract WhatsApp message key.id from the API response.
-    // UazAPI v2 returns: { key: { id: "3EB0...", fromMe: true, ... }, ... }
-    // This id is used by the webhook to match messages_update status events,
-    // because those events carry key.id but do NOT echo our custom track_id.
+    // Extract WhatsApp message ID from the API response.
+    // UazAPI v2 returns a flat object: { messageid: "3EB0...", id: "owner:3EB0...", ... }
+    // The webhook messages_update event carries key.id = messageid (without owner prefix).
     const d = data as Record<string, unknown> | null;
     const waKeyId =
-      (d?.key as Record<string, unknown>)?.id as string | undefined ||
-      (d?.message as Record<string, unknown> | undefined &&
-        ((d.message as Record<string, unknown>).key as Record<string, unknown>)?.id) as string | undefined ||
+      (d?.messageid as string | undefined) ||
+      // Fallback: strip owner prefix from "owner:messageid" format
+      (typeof d?.id === 'string' ? (d.id as string).split(':').pop() : undefined) ||
       undefined;
 
     // 3. Update log: queued → sent (+wa_message_id if available)
