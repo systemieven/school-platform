@@ -21,6 +21,23 @@ function json(data: unknown, status = 200) {
   });
 }
 
+/**
+ * Alguns settings foram gravados pelo admin UI como JSON.stringify em cima
+ * de um JSONB — ou seja, a coluna guarda uma string contendo JSON valido
+ * (ex: visit.reasons, general.geolocation). Quando for string tentamos
+ * desserializar; caso contrario devolvemos o valor como veio.
+ */
+function normalizeSettingValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "GET") return json({ error: "method_not_allowed" }, 405);
@@ -41,7 +58,7 @@ Deno.serve(async (req: Request) => {
   for (const row of settings || []) {
     const r = row as { category: string; key: string; value: unknown };
     if (!map[r.category]) map[r.category] = {};
-    map[r.category][r.key] = r.value;
+    map[r.category][r.key] = normalizeSettingValue(r.value);
   }
 
   // Normaliza school_name: pode estar salvo como string direta ou objeto { value }
@@ -65,7 +82,7 @@ Deno.serve(async (req: Request) => {
     allow_walkins: map.attendance?.allow_walkins ?? { enabled: false },
     feedback: map.attendance?.feedback ?? null,
     geolocation: map.general?.geolocation ?? null,
-    sectors: map.visit?.reasons ?? [],
+    sectors: Array.isArray(map.visit?.reasons) ? map.visit?.reasons : [],
   };
 
   return json(result);

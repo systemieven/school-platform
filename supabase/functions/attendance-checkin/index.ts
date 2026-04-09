@@ -96,6 +96,23 @@ function isEligible(
   return { ok: true };
 }
 
+/**
+ * Alguns settings foram gravados pelo admin UI como JSON.stringify em cima
+ * de um JSONB — ou seja, a coluna guarda uma string contendo JSON valido
+ * (ex: visit.reasons, general.geolocation). Quando for string tentamos
+ * desserializar; caso contrario devolvemos o valor como veio.
+ */
+function normalizeSettingValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
 async function loadSettings(supabase: ReturnType<typeof createClient>) {
   // Carregamos todas as linhas das 3 categorias relevantes e filtramos em JS.
   // Evitamos o .or() com and() aninhado do PostgREST porque o parser dele eh
@@ -112,7 +129,7 @@ async function loadSettings(supabase: ReturnType<typeof createClient>) {
   for (const row of data || []) {
     const r = row as { category: string; key: string; value: unknown };
     if (!map[r.category]) map[r.category] = {};
-    map[r.category][r.key] = r.value;
+    map[r.category][r.key] = normalizeSettingValue(r.value);
   }
   return map;
 }
@@ -158,7 +175,8 @@ Deno.serve(async (req: Request) => {
       longitude: null,
       radius_m: 150,
     }) as Geolocation;
-    const reasons = (settings.visit?.reasons ?? []) as Array<{
+    const rawReasons = settings.visit?.reasons;
+    const reasons = (Array.isArray(rawReasons) ? rawReasons : []) as Array<{
       key: string;
       label: string;
     }>;
