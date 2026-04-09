@@ -6,3 +6,6 @@ dist
 .env
 .env.*
 !.env.example
+
+# Claude Code — arquivos locais de sessão/ambiente
+.claude/
