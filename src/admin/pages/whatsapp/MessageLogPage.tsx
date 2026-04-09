@@ -246,6 +246,13 @@ function DetailDrawer({ log, onClose, onRetry }: {
 
 const PAGE_SIZE = 30;
 
+interface StatsData {
+  sentCount:      number;
+  deliveredCount: number;
+  readCount:      number;
+  failedCount:    number;
+}
+
 export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}) {
   const [logs, setLogs]         = useState<WhatsAppMessageLog[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -257,9 +264,16 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
   const [customEnd,    setCustomEnd]    = useState('');
   const [retrying, setRetrying] = useState<string | null>(null);
   const [total, setTotal]       = useState(0);
+  // Stats are computed from a separate query that ignores filterStatus,
+  // so the cards always reflect the full picture for the date/module selection.
+  const [stats, setStats] = useState<StatsData>({ sentCount: 0, deliveredCount: 0, readCount: 0, failedCount: 0 });
 
   const load = useCallback(async () => {
     setLoading(true);
+
+    const { from, to } = getDateRange(filterDate, customStart, customEnd);
+
+    // ── Table query (all filters including status) ──────────────────────────
     let query = supabase
       .from('whatsapp_message_log')
       .select('*, template:template_id(name, category), sent_by_profile:sent_by(full_name)', { count: 'exact' })
@@ -268,14 +282,32 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
 
     if (filterStatus !== 'all') query = query.eq('status', filterStatus);
     if (filterModule !== 'all') query = query.eq('related_module', filterModule);
-
-    const { from, to } = getDateRange(filterDate, customStart, customEnd);
     if (from) query = query.gte('created_at', from);
     if (to)   query = query.lte('created_at', to);
 
-    const { data, count } = await query;
+    // ── Stats query (date + module only — ignores status filter) ────────────
+    let statsQuery = supabase
+      .from('whatsapp_message_log')
+      .select('status, sent_at, delivered_at, read_at');
+
+    if (filterModule !== 'all') statsQuery = statsQuery.eq('related_module', filterModule);
+    if (from) statsQuery = statsQuery.gte('created_at', from);
+    if (to)   statsQuery = statsQuery.lte('created_at', to);
+
+    const [{ data, count }, { data: statsRaw }] = await Promise.all([query, statsQuery]);
+
     setLogs((data as WhatsAppMessageLog[]) || []);
     setTotal(count || 0);
+
+    type StatRow = { status: string; sent_at: string | null; delivered_at: string | null; read_at: string | null };
+    const sr = (statsRaw || []) as StatRow[];
+    setStats({
+      sentCount:      sr.filter((l) => l.sent_at      != null).length,
+      deliveredCount: sr.filter((l) => l.delivered_at != null).length,
+      readCount:      sr.filter((l) => l.read_at      != null).length,
+      failedCount:    sr.filter((l) => l.status === 'failed').length,
+    });
+
     setLoading(false);
   }, [filterStatus, filterModule, filterDate, customStart, customEnd]);
 
@@ -301,13 +333,7 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
     setRetrying(null);
   };
 
-  // Stats — use milestone timestamps (not status) so a "read" message
-  // still counts as "delivered" and "sent". Status is mutually exclusive;
-  // timestamps are cumulative milestones.
-  const sentCount      = logs.filter((l) => l.sent_at      != null).length;
-  const deliveredCount = logs.filter((l) => l.delivered_at != null).length;
-  const readCount      = logs.filter((l) => l.read_at      != null).length;
-  const failedCount    = logs.filter((l) => l.status === 'failed').length;
+  const { sentCount, deliveredCount, readCount, failedCount } = stats;
 
   return (
     <div>
