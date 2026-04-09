@@ -208,14 +208,47 @@ export default function AgendarVisita() {
   const location  = useLocation();
   const heroRef   = useScrollReveal();
   const bodyRef   = useScrollReveal();
-  const { settings: visitSettings } = useSettings('visit');
+  const { settings: visitSettings }     = useSettings('visit');
   const { settings: appearanceSettings } = useSettings('appearance');
+  const { settings: generalSettings }   = useSettings('general');
   const heroApp = (appearanceSettings.visita as Record<string, string> | undefined) ?? {};
   const heroBadge    = heroApp.badge     || 'Visita presencial';
   const heroTitle    = heroApp.title     || 'Agende sua Visita';
   const heroHL       = heroApp.highlight || 'Visita';
   const heroSubtitle = heroApp.subtitle  || 'Conheça pessoalmente nossa estrutura, equipe pedagógica e tudo que o Colégio Batista tem a oferecer.';
   const heroImage    = heroApp.image     || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2070';
+
+  // General settings — card info
+  const schoolName = (generalSettings.school_name as string) || 'Colégio Batista';
+
+  const cardAddress = (() => {
+    const raw = generalSettings.address;
+    if (!raw) return 'Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE';
+    if (typeof raw === 'object' && raw !== null) {
+      const a = raw as Record<string, string>;
+      return [a.rua, a.numero && `, ${a.numero}`, a.bairro && ` - ${a.bairro}`, a.cidade && `, ${a.cidade}`, a.estado && `/${a.estado}`].filter(Boolean).join('');
+    }
+    return String(raw);
+  })();
+
+  const cardHours = (() => {
+    const raw = generalSettings.business_hours;
+    if (!raw) return '';
+    const bh = (typeof raw === 'object' ? raw : (() => { try { return JSON.parse(raw as string); } catch { return null; } })()) as Record<string, { open?: boolean; start?: string; end?: string }> | null;
+    if (!bh) return '';
+    const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const open = Array.from({ length: 7 }, (_, i) => ({ idx: i, name: DAYS[i], ...bh[String(i)] })).filter((d) => d.open);
+    if (!open.length) return '';
+    const fmt = (t: string) => { const [h, m] = t.split(':').map(Number); return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`; };
+    const groups: { names: string[]; lastIdx: number; start: string; end: string }[] = [];
+    for (const d of open) {
+      const last = groups[groups.length - 1];
+      const s = d.start || '07:00', e = d.end || '17:00';
+      if (last && last.start === s && last.end === e && last.lastIdx + 1 === d.idx) { last.names.push(d.name); last.lastIdx = d.idx; }
+      else groups.push({ names: [d.name], lastIdx: d.idx, start: s, end: e });
+    }
+    return groups.map((g) => `${g.names.length === 1 ? g.names[0] : `${g.names[0]} - ${g.names[g.names.length - 1]}`}: ${fmt(g.start)} às ${fmt(g.end)}`).join(', ');
+  })();
 
   // Dynamic config from system_settings (with fallbacks)
   const startHour   = (visitSettings.start_hour?.toString()) || '08:00';
@@ -699,7 +732,7 @@ export default function AgendarVisita() {
                       <CalendarDays className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="font-display font-bold text-[#003876] text-sm">Colégio Batista</p>
+                      <p className="font-display font-bold text-[#003876] text-sm">{schoolName}</p>
                       <p className="text-gray-400 text-xs">Visita Presencial</p>
                     </div>
                   </div>
@@ -718,6 +751,22 @@ export default function AgendarVisita() {
                       <MapPin className="w-3 h-3 text-[#003876]" />
                       Presencial
                     </span>
+                  </div>
+
+                  {/* Address + business hours */}
+                  <div className="pt-1 space-y-2 text-xs text-gray-500">
+                    {cardAddress && (
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
+                        <span className="leading-snug">{cardAddress}</span>
+                      </div>
+                    )}
+                    {cardHours && (
+                      <div className="flex items-start gap-2">
+                        <Clock className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
+                        <span className="leading-snug">{cardHours}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Progressive summary */}
