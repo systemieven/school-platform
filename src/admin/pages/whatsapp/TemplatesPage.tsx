@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useSettings } from '../../../hooks/useSettings';
 import { ALL_VARIABLES } from '../../lib/whatsapp-api';
 import type {
   WhatsAppTemplate, TemplateCategory, MessageType,
@@ -91,6 +92,12 @@ const TRIGGER_MODULES = [
   { value: 'appointment',  label: 'Agendamento' },
   { value: 'contact',      label: 'Contato' },
 ];
+
+const CATEGORY_TO_MODULE: Record<string, string> = {
+  agendamento: 'appointment',
+  matricula:   'enrollment',
+  contato:     'contact',
+};
 
 const TRIGGER_STATUS_BY_MODULE: Record<string, { value: string; label: string }[]> = {
   enrollment: [
@@ -451,8 +458,27 @@ function TemplateDrawer({
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
 
+  // Load visit reasons from settings for trigger_conditions matching
+  const { settings: visitSettings } = useSettings('visit');
+  const visitReasonOptions = useMemo(() => {
+    const raw = visitSettings.reasons;
+    if (!Array.isArray(raw)) return [] as { key: string; label: string }[];
+    return (raw as Array<Record<string, unknown>>)
+      .map((r) => ({ key: String(r.key || ''), label: String(r.label || r.key || '') }))
+      .filter((r) => r.key);
+  }, [visitSettings.reasons]);
+
   useEffect(() => {
     if (template) {
+      // Auto-infer module from category if missing (keeps UI dropdowns consistent)
+      const rawCond = template.trigger_conditions as Record<string, unknown> | null;
+      const inferredModule = CATEGORY_TO_MODULE[template.category];
+      const normalizedCond = rawCond && Object.keys(rawCond).length > 0
+        ? (rawCond.module || !inferredModule
+            ? rawCond
+            : { ...rawCond, module: inferredModule })
+        : rawCond;
+
       setForm({
         name:                  template.name,
         category:              template.category,
@@ -460,7 +486,7 @@ function TemplateDrawer({
         content:               { ...template.content },
         variables:             [...template.variables],
         trigger_event:         template.trigger_event,
-        trigger_conditions:    template.trigger_conditions,
+        trigger_conditions:    normalizedCond,
         trigger_delay_minutes: template.trigger_delay_minutes,
         is_active:             template.is_active,
       });
@@ -767,7 +793,28 @@ function TemplateDrawer({
                       <div className="relative">
                         <select
                           value={form.category}
-                          onChange={(e) => setForm((p) => ({ ...p, category: e.target.value as TemplateCategory }))}
+                          onChange={(e) => {
+                            const newCategory = e.target.value as TemplateCategory;
+                            const newModule = CATEGORY_TO_MODULE[newCategory];
+                            setForm((p) => {
+                              const cond = (p.trigger_conditions || {}) as Record<string, unknown>;
+                              // When switching category, refresh module and clear status values that no longer apply
+                              const nextCond: Record<string, unknown> = { ...cond };
+                              if (newModule) {
+                                nextCond.module = newModule;
+                              } else {
+                                delete nextCond.module;
+                              }
+                              delete nextCond.status;
+                              delete nextCond.old_status;
+                              if (newModule !== 'appointment') delete nextCond.visit_reason;
+                              return {
+                                ...p,
+                                category: newCategory,
+                                trigger_conditions: Object.keys(nextCond).length ? nextCond : null,
+                              };
+                            });
+                          }}
                           className="w-full appearance-none px-4 py-2.5 pr-9 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 transition-all"
                         >
                           {categories.map((c) => (
@@ -1236,6 +1283,8 @@ function TemplateDrawer({
                                 if (!next.module) delete next.module;
                                 const nextAny = next as Record<string, unknown>;
                                 delete nextAny.status; delete nextAny.old_status;
+                                // visit_reason only applies to appointment module
+                                if (next.module !== 'appointment') delete nextAny.visit_reason;
                                 setForm((p) => ({ ...p, trigger_conditions: Object.keys(next).length ? next : null }));
                               }}
                               className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
@@ -1272,6 +1321,29 @@ function TemplateDrawer({
                           </div>
                         </div>
                       </div>
+
+                      {/* Visit reason — only for appointment module */}
+                      {mod === 'appointment' && (
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1">
+                            Motivo da visita
+                            <span className="text-gray-400 font-normal ml-1">(opcional — deixa em branco para qualquer motivo)</span>
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={(cond.visit_reason as string) || ''}
+                              onChange={(e) => setCondField('visit_reason', e.target.value)}
+                              className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
+                            >
+                              <option value="">Qualquer motivo</option>
+                              {visitReasonOptions.map((r) => (
+                                <option key={r.key} value={r.key}>{r.label}</option>
+                              ))}
+                            </select>
+                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}

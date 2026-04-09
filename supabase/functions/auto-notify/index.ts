@@ -194,6 +194,7 @@ Deno.serve(async (req: Request) => {
     // Load record data and build variables
     let recipientPhone = "";
     let recipientName = "";
+    let recordVisitReason = "";
     const vars: Record<string, string> = {
       school_name: general.school_name || "Colégio Batista em Caruaru",
       school_phone: general.phone || "",
@@ -211,12 +212,34 @@ Deno.serve(async (req: Request) => {
 
       recipientPhone = rec.visitor_phone;
       recipientName = rec.visitor_name;
+      recordVisitReason = rec.visit_reason || "";
       const companions = Array.isArray(rec.companions) ? rec.companions : [];
+
+      // Resolve visit_reason slug → friendly label via system_settings.visit.reasons
+      let visitReasonLabel = rec.visit_reason || "Não informado";
+      if (rec.visit_reason) {
+        const { data: reasonsRow } = await service
+          .from("system_settings")
+          .select("value")
+          .eq("category", "visit")
+          .eq("key", "reasons")
+          .maybeSingle();
+        const rawReasons = reasonsRow?.value;
+        const reasonsList = Array.isArray(rawReasons)
+          ? rawReasons
+          : (typeof rawReasons === "string"
+              ? (() => { try { return JSON.parse(rawReasons); } catch { return []; } })()
+              : []);
+        const match = (reasonsList as Array<Record<string, unknown>>)
+          .find((r) => r && r.key === rec.visit_reason);
+        if (match?.label) visitReasonLabel = String(match.label);
+      }
+
       vars.visitor_name = rec.visitor_name || "Visitante";
       vars.visitor_phone = rec.visitor_phone || "";
       vars.appointment_date = fmtDate(rec.appointment_date) || "a confirmar";
       vars.appointment_time = fmtTime(rec.appointment_time) || "a confirmar";
-      vars.visit_reason = rec.visit_reason || "Não informado";
+      vars.visit_reason = visitReasonLabel;
       vars.companions_count = String(companions.length);
 
     } else if (mod === "matricula") {
@@ -278,18 +301,46 @@ Deno.serve(async (req: Request) => {
     }
 
     // Filter by trigger_conditions
+    // Module mapping: UI uses English names, trigger uses Portuguese
+    const moduleAliases: Record<string, string[]> = {
+      agendamento: ["agendamento", "appointment"],
+      matricula: ["matricula", "enrollment"],
+      contato: ["contato", "contact"],
+    };
+    const validModuleNames = moduleAliases[mod] || [mod];
+
     const matchingTemplates = templates.filter((t: Record<string, unknown>) => {
       const cond = t.trigger_conditions as Record<string, unknown> | null;
       if (!cond || Object.keys(cond).length === 0) return true;
-      if (cond.module && cond.module !== mod) return false;
+      if (cond.module && !validModuleNames.includes(cond.module as string)) return false;
       if (cond.status && cond.status !== new_status) return false;
       if (cond.old_status && cond.old_status !== old_status) return false;
+      if (cond.visit_reason && mod === "agendamento" && cond.visit_reason !== recordVisitReason) return false;
       return true;
     });
 
     if (matchingTemplates.length === 0) {
       console.log(`[auto-notify] Templates found but conditions don't match`);
       return json({ skipped: true, reason: "conditions_not_met" });
+    }
+
+    // Precedence: if any template matches the record's visit_reason specifically,
+    // drop generic templates (without visit_reason) from this batch.
+    // This avoids sending both a specific and a generic message for the same event.
+    if (mod === "agendamento" && recordVisitReason) {
+      const hasSpecific = matchingTemplates.some((t: Record<string, unknown>) => {
+        const cond = t.trigger_conditions as Record<string, unknown> | null;
+        return cond && cond.visit_reason === recordVisitReason;
+      });
+      if (hasSpecific) {
+        const filtered = matchingTemplates.filter((t: Record<string, unknown>) => {
+          const cond = t.trigger_conditions as Record<string, unknown> | null;
+          return cond && cond.visit_reason === recordVisitReason;
+        });
+        matchingTemplates.length = 0;
+        matchingTemplates.push(...filtered);
+        console.log(`[auto-notify] Using ${matchingTemplates.length} visit_reason-specific template(s), generics skipped`);
+      }
     }
 
     // Send messages
