@@ -4,7 +4,7 @@ import { useAdminAuth } from '../hooks/useAdminAuth';
 import { useNotifications } from '../hooks/useNotifications';
 import { useWhatsAppStatus } from '../contexts/WhatsAppStatusContext';
 import { ROLE_LABELS } from '../types/admin.types';
-import { Bell, KeyRound, PanelLeftClose, PanelLeftOpen, MessageCircle, UserCog } from 'lucide-react';
+import { Bell, ChevronDown, KeyRound, PanelLeftClose, PanelLeftOpen, MessageCircle, UserCog } from 'lucide-react';
 import NotificationsPanel from './NotificationsPanel';
 import EditProfileDrawer from './EditProfileDrawer';
 import ChangePasswordDrawer from './ChangePasswordDrawer';
@@ -121,22 +121,29 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
               className="flex items-center gap-2 rounded-xl px-1 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               title="Opções de perfil"
             >
-              {/* Avatar circle */}
-              <div className="w-8 h-8 rounded-full overflow-hidden bg-[#003876]/10 dark:bg-white/10 flex items-center justify-center flex-shrink-0">
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-xs font-bold text-[#003876] dark:text-[#ffd700]">
-                    {profile.full_name?.charAt(0)?.toUpperCase() || 'U'}
-                  </span>
-                )}
+              {/* Avatar with accent ring */}
+              <div className="relative flex-shrink-0">
+                <div className={`w-8 h-8 rounded-full p-[2px] transition-colors ${menuOpen ? 'bg-[#003876] dark:bg-[#ffd700]' : 'bg-[#003876]/30 dark:bg-[#ffd700]/40'}`}>
+                  <div className="w-full h-full rounded-full overflow-hidden bg-[#003876]/10 dark:bg-white/10 flex items-center justify-center">
+                    {profile.avatar_url ? (
+                      <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-bold text-[#003876] dark:text-[#ffd700]">
+                        {profile.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 leading-tight">
-                  {profile.full_name || 'Usuário'}
-                </p>
-                <p className="text-[10px] text-gray-400">{ROLE_LABELS[profile.role]}</p>
+              <div className="hidden md:flex md:items-center md:gap-1">
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 leading-tight">
+                    {profile.full_name || 'Usuário'}
+                  </p>
+                  <p className="text-[10px] text-gray-400">{ROLE_LABELS[profile.role]}</p>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`} />
               </div>
             </button>
 
