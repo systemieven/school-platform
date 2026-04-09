@@ -104,7 +104,7 @@ const TABS: TabDef[] = [
 // ── Field metadata ───────────────────────────────────────────────────────────
 const KEY_META: Record<string, { label: string; placeholder?: string; secret?: boolean; multiline?: boolean; type?: 'text' | 'boolean' | 'number' | 'time' | 'color' }> = {
   // general
-  school_name:    { label: 'Nome da Escola', placeholder: 'Ex: Colégio Batista em Caruaru' },
+  school_name:    { label: 'Nome da Instituição', placeholder: 'Ex: Colégio Batista em Caruaru' },
   cnpj:           { label: 'CNPJ', placeholder: '00.000.000/0000-00' },
   // address is rendered by AddressField — kept here as fallback only
   address:        { label: 'Endereço', placeholder: 'Rua, número, bairro, cidade/UF' },
