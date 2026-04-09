@@ -820,9 +820,10 @@ function SocialNetworksField({ value, savedValue, onChange }: {
   savedValue: string;
   onChange: (v: string) => void;
 }) {
-  const [entries, setEntries] = useState<SocialEntry[]>(() => parseSocialNetworks(value));
-  const [adding, setAdding]   = useState(false);
-  const [draft, setDraft]     = useState<{ network: NetworkKey; handle: string; message: string }>({
+  const [entries,   setEntries]   = useState<SocialEntry[]>(() => parseSocialNetworks(value));
+  const [adding,    setAdding]    = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [draft, setDraft] = useState<{ network: NetworkKey; handle: string; message: string }>({
     network: 'instagram', handle: '', message: '',
   });
 
@@ -836,27 +837,136 @@ function SocialNetworksField({ value, savedValue, onChange }: {
     onChange(JSON.stringify(next));
   }
 
-  function addEntry() {
+  function cancelForm() {
+    setAdding(false);
+    setEditingId(null);
+    setDraft({ network: 'instagram', handle: '', message: '' });
+  }
+
+  function openEdit(entry: SocialEntry) {
+    setAdding(false);
+    setDraft({ network: entry.network as NetworkKey, handle: entry.handle, message: entry.message || '' });
+    setEditingId(entry.id);
+  }
+
+  function submitAdd() {
     const h = draft.handle.trim().replace(/^@/, '');
     if (!h) return;
-    const entry: SocialEntry = {
+    commit([...entries, {
       id: Date.now(),
       network: draft.network,
       handle: h,
       ...(draft.network === 'whatsapp' && draft.message.trim() ? { message: draft.message.trim() } : {}),
-    };
-    commit([...entries, entry]);
-    setAdding(false);
-    setDraft({ network: 'instagram', handle: '', message: '' });
+    }]);
+    cancelForm();
   }
+
+  function submitEdit() {
+    const h = draft.handle.trim().replace(/^@/, '');
+    if (!h || editingId === null) return;
+    commit(entries.map((e) => e.id !== editingId ? e : {
+      ...e,
+      network: draft.network,
+      handle: h,
+      message: draft.network === 'whatsapp' && draft.message.trim() ? draft.message.trim() : undefined,
+    }));
+    cancelForm();
+  }
+
+  // Shared form markup (used for both add and edit)
+  const networkForm = (isEdit: boolean) => (
+    <div className="p-4 rounded-xl border border-[#003876]/20 bg-[#003876]/5 dark:bg-[#003876]/10 space-y-3">
+      {/* Network selector */}
+      <div className="grid grid-cols-4 gap-2">
+        {ALL_NETWORKS.map((key) => {
+          const cfg = NETWORK_CONFIGS[key];
+          const selected = draft.network === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setDraft((d) => ({ ...d, network: key }))}
+              className={`flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl border text-[11px] font-medium transition-all ${
+                selected
+                  ? 'border-[#003876] bg-[#003876] text-white shadow-md'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <span
+                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-white text-[10px] font-bold"
+                style={{ backgroundColor: selected ? 'rgba(255,255,255,0.25)' : cfg.color }}
+              >
+                {cfg.initials}
+              </span>
+              {cfg.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Handle input */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+          {NETWORK_CONFIGS[draft.network].handleLabel}
+        </label>
+        <input
+          type="text"
+          value={draft.handle}
+          onChange={(e) => setDraft((d) => ({ ...d, handle: e.target.value }))}
+          placeholder={NETWORK_CONFIGS[draft.network].placeholder}
+          className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+        />
+      </div>
+
+      {/* WhatsApp message */}
+      {draft.network === 'whatsapp' && (
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+            Mensagem inicial (opcional)
+          </label>
+          <input
+            type="text"
+            value={draft.message}
+            onChange={(e) => setDraft((d) => ({ ...d, message: e.target.value }))}
+            placeholder="Olá, vim do site e gostaria de saber mais informações"
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+          />
+        </div>
+      )}
+
+      <div className="flex gap-2 justify-end">
+        <button
+          type="button"
+          onClick={cancelForm}
+          className="px-3 py-2 rounded-xl text-xs font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={isEdit ? submitEdit : submitAdd}
+          disabled={!draft.handle.trim()}
+          className="px-4 py-2 rounded-xl text-xs font-medium bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-40 transition-colors"
+        >
+          {isEdit ? 'Salvar alterações' : 'Adicionar'}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-3">
-      {/* Entry list */}
+      {/* Entry list — card or inline edit form */}
       {entries.map((entry) => {
+        if (editingId === entry.id) return <div key={entry.id}>{networkForm(true)}</div>;
+
         const cfg = NETWORK_CONFIGS[entry.network as NetworkKey];
         return (
-          <div key={entry.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700">
+          <div
+            key={entry.id}
+            onClick={() => openEdit(entry)}
+            className="group flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 cursor-pointer hover:border-[#003876]/30 dark:hover:border-[#ffd700]/30 hover:bg-gray-100/80 dark:hover:bg-gray-900/60 transition-all"
+          >
             <NetworkBadge network={entry.network} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">{cfg?.label || entry.network}</p>
@@ -867,105 +977,32 @@ function SocialNetworksField({ value, savedValue, onChange }: {
                 <p className="text-xs text-gray-400 italic truncate mt-0.5">"{entry.message}"</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => commit(entries.filter((e) => e.id !== entry.id))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); commit(entries.filter((en) => en.id !== entry.id)); }}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         );
       })}
 
-      {/* Add form */}
-      {adding ? (
-        <div className="p-4 rounded-xl border border-[#003876]/20 bg-[#003876]/5 dark:bg-[#003876]/10 space-y-3">
-          {/* Network selector */}
-          <div className="grid grid-cols-4 gap-2">
-            {ALL_NETWORKS.map((key) => {
-              const cfg = NETWORK_CONFIGS[key];
-              const selected = draft.network === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setDraft((d) => ({ ...d, network: key }))}
-                  className={`flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl border text-[11px] font-medium transition-all ${
-                    selected
-                      ? 'border-[#003876] bg-[#003876] text-white shadow-md'
-                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <span
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-white text-[10px] font-bold"
-                    style={{ backgroundColor: selected ? 'rgba(255,255,255,0.25)' : cfg.color }}
-                  >
-                    {cfg.initials}
-                  </span>
-                  {cfg.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Handle input */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              {NETWORK_CONFIGS[draft.network].handleLabel}
-            </label>
-            <input
-              type="text"
-              value={draft.handle}
-              onChange={(e) => setDraft((d) => ({ ...d, handle: e.target.value }))}
-              placeholder={NETWORK_CONFIGS[draft.network].placeholder}
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
-            />
-          </div>
-
-          {/* WhatsApp message */}
-          {draft.network === 'whatsapp' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                Mensagem inicial (opcional)
-              </label>
-              <input
-                type="text"
-                value={draft.message}
-                onChange={(e) => setDraft((d) => ({ ...d, message: e.target.value }))}
-                placeholder="Olá, vim do site e gostaria de saber mais informações"
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
-              />
-            </div>
-          )}
-
-          <div className="flex gap-2 justify-end">
-            <button
-              type="button"
-              onClick={() => { setAdding(false); setDraft({ network: 'instagram', handle: '', message: '' }); }}
-              className="px-3 py-2 rounded-xl text-xs font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={addEntry}
-              disabled={!draft.handle.trim()}
-              className="px-4 py-2 rounded-xl text-xs font-medium bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-40 transition-colors"
-            >
-              Adicionar
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:border-[#003876] dark:hover:border-[#ffd700] transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Adicionar rede social
-        </button>
+      {/* Add form or add button (hidden while editing an existing entry) */}
+      {editingId === null && (
+        adding ? networkForm(false) : (
+          <button
+            type="button"
+            onClick={() => { setDraft({ network: 'instagram', handle: '', message: '' }); setAdding(true); }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:border-[#003876] dark:hover:border-[#ffd700] transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Adicionar rede social
+          </button>
+        )
       )}
     </div>
   );
