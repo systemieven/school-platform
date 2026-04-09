@@ -121,8 +121,8 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
               className="flex items-center gap-2 rounded-xl px-1 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               title="Opções de perfil"
             >
-              {/* Avatar with accent ring + chevron below */}
-              <div className="flex-shrink-0 flex flex-col items-center gap-0.5">
+              {/* Avatar with accent ring */}
+              <div className="flex-shrink-0">
                 <div className="w-[52px] h-[52px] rounded-full p-[3px] bg-[#ffd700]">
                   <div className="w-full h-full rounded-full overflow-hidden bg-[#003876]/10 dark:bg-white/10 flex items-center justify-center">
                     {profile.avatar_url ? (
@@ -134,14 +134,16 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
                     )}
                   </div>
                 </div>
-                <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`} />
               </div>
 
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-200 leading-tight">
                   {profile.full_name || 'Usuário'}
                 </p>
-                <p className="text-[10px] text-gray-400">{ROLE_LABELS[profile.role]}</p>
+                <p className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                  {ROLE_LABELS[profile.role]}
+                  <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`} />
+                </p>
               </div>
             </button>
 
