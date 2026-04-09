@@ -62,6 +62,23 @@ export interface SystemSetting {
   updated_at: string;
 }
 
+// ── Confirmation Tracking ──
+export type ConfirmationStatus = 'none' | 'awaiting' | 'confirmed' | 'cancelled';
+
+export interface ConfirmationTracking {
+  id: string;
+  wa_message_id: string;
+  appointment_id: string;
+  template_id: string | null;
+  phone: string;
+  sent_at: string;
+  responded_at: string | null;
+  response_button_id: string | null;
+  response_button_text: string | null;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'expired' | 'ignored';
+  created_at: string;
+}
+
 // ── Visit Appointment ──
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show';
 
@@ -88,6 +105,7 @@ export interface VisitAppointment {
   cancel_reason: string | null;
   reminder_sent: boolean;
   confirmation_sent: boolean;
+  confirmation_status: ConfirmationStatus;
   created_at: string;
 }
 

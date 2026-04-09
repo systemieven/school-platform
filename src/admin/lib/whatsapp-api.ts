@@ -47,7 +47,7 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
   {
     id: 'messages_upsert',
     label: 'Novas mensagens recebidas',
-    description: 'Dispara quando uma nova mensagem chega na instância.',
+    description: 'Dispara quando uma nova mensagem chega na instância. Obrigatório para confirmação automática de agendamentos.',
     recommended: false,
   },
   {
@@ -216,6 +216,7 @@ export interface SendResult {
   success: boolean;
   error?: string;
   data?: unknown;
+  wa_message_id?: string;
 }
 
 // ── Core proxy call ───────────────────────────────────────────────────────────
@@ -417,7 +418,7 @@ export async function sendWhatsAppText(opts: SendTextOptions): Promise<SendResul
       })
       .eq('id', logId);
 
-    return { success: true, data };
+    return { success: true, data, wa_message_id: waKeyId };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro desconhecido';
     await supabase
@@ -484,7 +485,7 @@ export async function sendWhatsAppMedia(opts: SendMediaOptions): Promise<SendRes
       status: 'sent', sent_at: new Date().toISOString(),
       ...(waKeyId ? { wa_message_id: waKeyId } : {}),
     }).eq('id', logId);
-    return { success: true, data };
+    return { success: true, data, wa_message_id: waKeyId };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro desconhecido';
     await supabase.from('whatsapp_message_log').update({ status: 'failed', error_message: message }).eq('id', logId);
@@ -592,7 +593,7 @@ export async function sendWhatsAppMenu(opts: SendMenuOptions): Promise<SendResul
       status: 'sent', sent_at: new Date().toISOString(),
       ...(waKeyId ? { wa_message_id: waKeyId } : {}),
     }).eq('id', logId);
-    return { success: true, data };
+    return { success: true, data, wa_message_id: waKeyId };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro desconhecido';
     await supabase.from('whatsapp_message_log').update({ status: 'failed', error_message: message }).eq('id', logId);

@@ -265,6 +265,10 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [tab, setTab] = useState<'info' | 'timeline'>('info');
+  const [confirmTrack, setConfirmTrack] = useState<{
+    id: string; status: string; sent_at: string; responded_at: string | null;
+    response_button_id: string | null; response_button_text: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (apt) {
@@ -273,6 +277,15 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
       setCancelReason('');
       setShowCancelForm(false);
       setTab('info');
+      // Load confirmation tracking
+      supabase
+        .from('confirmation_tracking')
+        .select('id, status, sent_at, responded_at, response_button_id, response_button_text')
+        .eq('appointment_id', apt.id)
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => setConfirmTrack(data as typeof confirmTrack));
     }
   }, [apt]);
 
@@ -346,10 +359,30 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
             </div>
             <div className="min-w-0">
               <h2 className="font-display font-bold text-base text-white truncate">{apt.visitor_name}</h2>
-              <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${s.color}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-                {s.label}
-              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${s.color}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+                  {s.label}
+                </span>
+                {apt.confirmation_status === 'awaiting' && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                    <Clock className="w-2.5 h-2.5" />
+                    Aguardando
+                  </span>
+                )}
+                {apt.confirmation_status === 'confirmed' && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="w-2.5 h-2.5" />
+                    Via WhatsApp
+                  </span>
+                )}
+                {apt.confirmation_status === 'cancelled' && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                    <Ban className="w-2.5 h-2.5" />
+                    Via WhatsApp
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors text-white/70 flex-shrink-0">
@@ -429,6 +462,49 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
               {apt.status === 'cancelled' && apt.cancel_reason && (
                 <SettingsCard title="Motivo do Cancelamento" icon={Ban}>
                   <p className="text-sm text-gray-700 dark:text-gray-300">{apt.cancel_reason}</p>
+                </SettingsCard>
+              )}
+
+              {/* Confirmation tracking info */}
+              {confirmTrack && (
+                <SettingsCard title="Confirmação via WhatsApp" icon={MessageCircle}>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Status:</span>
+                      {confirmTrack.status === 'pending' && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                          <Clock className="w-3 h-3" /> Aguardando resposta
+                        </span>
+                      )}
+                      {confirmTrack.status === 'confirmed' && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 className="w-3 h-3" /> Confirmado
+                        </span>
+                      )}
+                      {confirmTrack.status === 'cancelled' && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                          <Ban className="w-3 h-3" /> Cancelado
+                        </span>
+                      )}
+                      {confirmTrack.status === 'expired' && (
+                        <span className="text-xs font-medium text-gray-400">Expirado</span>
+                      )}
+                      {confirmTrack.status === 'ignored' && (
+                        <span className="text-xs font-medium text-gray-400">Resposta não reconhecida</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      Enviado em {new Date(confirmTrack.sent_at).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    {confirmTrack.responded_at && (
+                      <div className="text-xs text-gray-400">
+                        Respondido em {new Date(confirmTrack.responded_at).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {confirmTrack.response_button_text && (
+                          <> — botão &ldquo;{confirmTrack.response_button_text}&rdquo;</>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </SettingsCard>
               )}
 
@@ -1028,10 +1104,18 @@ export default function AppointmentsPage() {
                         {REASON_LABELS[apt.visit_reason] || apt.visit_reason}
                       </td>
                       <td className="py-3 px-4" onClick={() => setSelected(apt)}>
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${sc.color}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                          {sc.label}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${sc.color}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
+                            {sc.label}
+                          </span>
+                          {apt.confirmation_status === 'awaiting' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 w-fit">
+                              <Clock className="w-2.5 h-2.5" />
+                              Aguardando
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4" onClick={() => setSelected(apt)}>
                         <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600" />

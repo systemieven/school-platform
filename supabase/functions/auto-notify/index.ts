@@ -387,6 +387,34 @@ Deno.serve(async (req: Request) => {
             .eq("id", logId);
           results.push({ template: tmpl.name, type: msgType, status: "sent", logId });
           console.log(`[auto-notify] Sent "${tmpl.name}" (${msgType}) to ${phone} via ${endpoint}`);
+
+          // ── Confirmation tracking: register if buttons template for agendamento ──
+          if (mod === "agendamento" && msgType === "buttons" && waKeyId) {
+            try {
+              const { data: confirmSetting } = await service
+                .from("system_settings")
+                .select("value")
+                .eq("category", "visit")
+                .eq("key", "auto_confirm_enabled")
+                .maybeSingle();
+              const autoConfirmEnabled = confirmSetting?.value === "true" || confirmSetting?.value === true;
+
+              if (autoConfirmEnabled) {
+                await service.from("confirmation_tracking").insert({
+                  wa_message_id:  waKeyId,
+                  appointment_id: record_id,
+                  template_id:    tmpl.id,
+                  phone:          recipientPhone,
+                });
+                await service.from("visit_appointments")
+                  .update({ confirmation_status: "awaiting" })
+                  .eq("id", record_id);
+                console.log(`[auto-notify] Created confirmation tracking for appointment=${record_id} wa_msg=${waKeyId}`);
+              }
+            } catch (ctErr) {
+              console.error("[auto-notify] Failed to create confirmation tracking:", ctErr);
+            }
+          }
         } else {
           const errBody = await apiRes.text().catch(() => "Unknown error");
           await service

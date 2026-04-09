@@ -222,6 +222,195 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // ── messages / messages_upsert (incoming messages — button/list responses) ─
+    // UazAPI GO sends EventType: "messages" with body.message containing the msg.
+    // Real payload shape:
+    //   body.message.fromMe: boolean
+    //   body.message.content.selectedID: "sim" | "nao" | ...
+    //   body.message.content.selectedDisplayText: "Sim, vou comparecer"
+    //   body.message.content.contextInfo.stanzaID: "3EB0..." (quoted msg we sent)
+    //   body.message.chatid: "558182241777@s.whatsapp.net"
+    //   body.message.messageType: "TemplateButtonReplyMessage"
+    //   body.message.buttonOrListid: "sim"
+    if (eventType === "messages" || eventType === "messages_upsert") {
+      try {
+        const msg = body.message as Record<string, unknown> | undefined;
+        if (!msg) {
+          console.log("[webhook] messages: no body.message — skipping");
+        } else if (msg.fromMe === true) {
+          console.log("[webhook] messages: fromMe=true — skipping");
+        } else {
+          // Extract button/list response ID
+          const content = msg.content as Record<string, unknown> | undefined;
+          // Primary: content.selectedID (UazAPI GO button response)
+          // Fallback: message.buttonOrListid
+          const selectedId = ((content?.selectedID as string) || (msg.buttonOrListid as string) || "").trim();
+          const selectedText = ((content?.selectedDisplayText as string) || (msg.vote as string) || "").trim();
+
+          if (!selectedId) {
+            console.log(`[webhook] messages: not a button/list response (type=${msg.messageType}) — skipping`);
+          } else {
+            // Extract sender phone from chatid or sender JID
+            const senderJid = (msg.chatid as string) || (msg.sender as string) || "";
+            const senderPhone = senderJid.replace(/@.*$/, "").replace(/\D/g, "");
+
+            if (!senderPhone) {
+              console.log("[webhook] messages: no sender phone — skipping");
+            } else {
+              console.log(`[webhook] messages: button response from=${senderPhone} id="${selectedId}" text="${selectedText}"`);
+
+              // Extract quoted stanza ID (the message we sent — most reliable match)
+              const contextInfo = content?.contextInfo as Record<string, unknown> | undefined;
+              // UazAPI GO uses stanzaID (capital D), also check stanzaId for compat
+              const quotedStanzaId = (contextInfo?.stanzaID as string) || (contextInfo?.stanzaId as string)
+                || (msg.quoted as string) || "";
+
+              let tracking: { id: string; appointment_id: string } | null = null;
+
+              // Match 1: by quoted stanza ID (most reliable)
+              if (quotedStanzaId) {
+                const { data } = await service
+                  .from("confirmation_tracking")
+                  .select("id, appointment_id")
+                  .eq("wa_message_id", quotedStanzaId)
+                  .eq("status", "pending")
+                  .maybeSingle();
+                if (data) tracking = data;
+              }
+
+              // Match 2: by phone + most recent pending
+              if (!tracking) {
+                const { data } = await service
+                  .from("confirmation_tracking")
+                  .select("id, appointment_id")
+                  .eq("phone", senderPhone)
+                  .eq("status", "pending")
+                  .order("sent_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+                if (data) tracking = data;
+              }
+
+              // Match 3: phone without country code
+              if (!tracking && senderPhone.startsWith("55")) {
+                const { data } = await service
+                  .from("confirmation_tracking")
+                  .select("id, appointment_id")
+                  .eq("phone", senderPhone.slice(2))
+                  .eq("status", "pending")
+                  .order("sent_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+                if (data) tracking = data;
+              }
+
+              if (!tracking) {
+                console.log(`[webhook] messages: no pending confirmation for phone=${senderPhone} stanza=${quotedStanzaId}`);
+              } else {
+                // Load positive/negative button IDs from settings
+                const { data: posRow } = await service
+                  .from("system_settings").select("value")
+                  .eq("category", "visit").eq("key", "auto_confirm_positive_ids").maybeSingle();
+                const { data: negRow } = await service
+                  .from("system_settings").select("value")
+                  .eq("category", "visit").eq("key", "auto_confirm_negative_ids").maybeSingle();
+
+                let positiveIds: string[] = ["sim", "confirmar", "yes"];
+                let negativeIds: string[] = ["nao", "cancelar", "no"];
+                try { positiveIds = JSON.parse(typeof posRow?.value === "string" ? posRow.value : "[]"); } catch {}
+                try { negativeIds = JSON.parse(typeof negRow?.value === "string" ? negRow.value : "[]"); } catch {}
+
+                const normalizedId = selectedId.toLowerCase().trim();
+                const isPositive = positiveIds.some((id) => normalizedId === id.toLowerCase().trim());
+                const isNegative = negativeIds.some((id) => normalizedId === id.toLowerCase().trim());
+
+                if (!isPositive && !isNegative) {
+                  console.log(`[webhook] messages: button id="${selectedId}" not in positive/negative lists — ignoring`);
+                  await service.from("confirmation_tracking").update({
+                    status: "ignored",
+                    responded_at: new Date().toISOString(),
+                    response_button_id: selectedId,
+                    response_button_text: selectedText,
+                  }).eq("id", tracking.id);
+                } else {
+                  const newStatus = isPositive ? "confirmed" : "cancelled";
+
+                  // Update confirmation_tracking
+                  await service.from("confirmation_tracking").update({
+                    status: newStatus,
+                    responded_at: new Date().toISOString(),
+                    response_button_id: selectedId,
+                    response_button_text: selectedText,
+                  }).eq("id", tracking.id);
+
+                  // Update visit_appointments
+                  await service.from("visit_appointments").update({
+                    status: newStatus,
+                    confirmation_status: newStatus,
+                    ...(isPositive
+                      ? { confirmed_at: new Date().toISOString() }
+                      : { cancelled_at: new Date().toISOString(), cancel_reason: "Cancelado via WhatsApp" }),
+                  }).eq("id", tracking.appointment_id);
+
+                  console.log(`[webhook] messages: appointment ${tracking.appointment_id} → ${newStatus}`);
+
+                  // Notify admins
+                  const { data: appointment } = await service
+                    .from("visit_appointments")
+                    .select("visitor_name")
+                    .eq("id", tracking.appointment_id)
+                    .maybeSingle();
+
+                  const visitorName = (appointment as { visitor_name?: string })?.visitor_name || "Visitante";
+                  const senderName = (msg.senderName as string) || visitorName;
+
+                  const { data: admins } = await service
+                    .from("profiles")
+                    .select("id")
+                    .in("role", ["super_admin", "admin", "coordinator"])
+                    .eq("is_active", true);
+
+                  if (admins && admins.length > 0) {
+                    const notifications = admins.map((a: { id: string }) => ({
+                      recipient_id: a.id,
+                      type: "status_change",
+                      title: isPositive
+                        ? `Agendamento confirmado: ${senderName}`
+                        : `Agendamento cancelado: ${senderName}`,
+                      body: isPositive
+                        ? `${senderName} confirmou o agendamento via WhatsApp (botão "${selectedText || selectedId}").`
+                        : `${senderName} cancelou o agendamento via WhatsApp (botão "${selectedText || selectedId}").`,
+                      link: "/admin/agendamentos",
+                      related_module: "agendamento",
+                      related_record_id: tracking!.appointment_id,
+                    }));
+                    await service.from("notifications").insert(notifications);
+                    console.log(`[webhook] messages: notified ${admins.length} admin(s)`);
+                  }
+
+                  // Log incoming message
+                  await service.from("whatsapp_message_log").insert({
+                    recipient_phone: senderPhone,
+                    recipient_name: senderName,
+                    rendered_content: {
+                      body: selectedText || selectedId,
+                      type: "button_response",
+                      direction: "incoming",
+                    },
+                    status: "delivered",
+                    related_module: "agendamento",
+                    related_record_id: tracking.appointment_id,
+                  }).then(() => {}).catch(() => {});
+                }
+              }
+            }
+          }
+        }
+      } catch (upsertErr) {
+        console.error("[webhook] messages error:", upsertErr);
+      }
+    }
+
     // ── connection (ibotcloud) / connection_update (Baileys legacy) ───────────
     // ibotcloud payload:
     //   { EventType: "connection", instance: { status: "disconnected"|"connected", lastDisconnectReason: "..." }, type: "LoggedOut"|... }
