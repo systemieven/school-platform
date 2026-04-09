@@ -20,7 +20,7 @@ import {
   Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
   Users, User, FileText, Trash2,
   Hash, CalendarX2, Clock, ChevronDown, ChevronUp,
-  Shield, CheckCircle2, TriangleAlert,
+  Shield, CheckCircle2, TriangleAlert, Share2,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
 
@@ -393,7 +393,7 @@ export default function SettingsPage() {
               </div>
 
               {/* Save button — only for generic tabs; custom panels have their own saves */}
-              {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security'].includes(activeTab) && (
+              {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional'].includes(activeTab) && (
                 <button
                   onClick={handleSave}
                   disabled={!tabHasChanges || saving}
@@ -442,6 +442,10 @@ export default function SettingsPage() {
                   editValues={editValues}
                   toStr={toStr}
                   onChange={(id, val) => setEditValues((prev) => ({ ...prev, [id]: val }))}
+                  onSave={handleSave}
+                  saving={saving}
+                  saved={saved}
+                  hasChanges={tabHasChanges}
                 />
               ) : tabSettings.length === 0 ? (
                 <EmptyTabState tab={currentTab} />
@@ -773,6 +777,200 @@ function BusinessHoursField({ value, savedValue, onChange }: {
   );
 }
 
+// ── Social Networks Field ─────────────────────────────────────────────────────
+type NetworkKey = 'instagram' | 'facebook' | 'whatsapp' | 'twitter' | 'linkedin' | 'youtube' | 'tiktok';
+
+interface SocialEntry { id: number; network: string; handle: string; message?: string }
+
+const NETWORK_CONFIGS: Record<NetworkKey, { label: string; color: string; initials: string; placeholder: string; handleLabel: string }> = {
+  instagram: { label: 'Instagram', color: '#E1306C', initials: 'IG', placeholder: 'colegiobatista',   handleLabel: 'Perfil (sem @)' },
+  facebook:  { label: 'Facebook',  color: '#1877F2', initials: 'FB', placeholder: 'colegiobatista',   handleLabel: 'Página ou perfil' },
+  whatsapp:  { label: 'WhatsApp',  color: '#25D366', initials: 'WA', placeholder: '5581991398203',    handleLabel: 'Número (com DDI, sem +)' },
+  twitter:   { label: 'Twitter/X', color: '#000000', initials: 'X',  placeholder: 'colegiobatista',   handleLabel: 'Perfil (sem @)' },
+  linkedin:  { label: 'LinkedIn',  color: '#0A66C2', initials: 'LI', placeholder: 'colegio-batista',  handleLabel: 'Empresa (slug)' },
+  youtube:   { label: 'YouTube',   color: '#FF0000', initials: 'YT', placeholder: 'colegiobatista',   handleLabel: 'Canal (sem @)' },
+  tiktok:    { label: 'TikTok',    color: '#010101', initials: 'TK', placeholder: 'colegiobatista',   handleLabel: 'Perfil (sem @)' },
+};
+
+const ALL_NETWORKS = Object.keys(NETWORK_CONFIGS) as NetworkKey[];
+
+function parseSocialNetworks(v: string): SocialEntry[] {
+  try {
+    const arr = JSON.parse(v);
+    if (Array.isArray(arr)) return arr as SocialEntry[];
+  } catch { /* not JSON */ }
+  return [];
+}
+
+function NetworkBadge({ network }: { network: string }) {
+  const cfg = NETWORK_CONFIGS[network as NetworkKey];
+  if (!cfg) return <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gray-400 text-white text-[10px] font-bold">?</span>;
+  return (
+    <span
+      className="inline-flex items-center justify-center w-6 h-6 rounded-md text-white text-[10px] font-bold flex-shrink-0"
+      style={{ backgroundColor: cfg.color }}
+    >
+      {cfg.initials}
+    </span>
+  );
+}
+
+function SocialNetworksField({ value, savedValue, onChange }: {
+  value: string;
+  savedValue: string;
+  onChange: (v: string) => void;
+}) {
+  const [entries, setEntries] = useState<SocialEntry[]>(() => parseSocialNetworks(value));
+  const [adding, setAdding]   = useState(false);
+  const [draft, setDraft]     = useState<{ network: NetworkKey; handle: string; message: string }>({
+    network: 'instagram', handle: '', message: '',
+  });
+
+  useEffect(() => {
+    setEntries(parseSocialNetworks(value));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedValue]);
+
+  function commit(next: SocialEntry[]) {
+    setEntries(next);
+    onChange(JSON.stringify(next));
+  }
+
+  function addEntry() {
+    const h = draft.handle.trim().replace(/^@/, '');
+    if (!h) return;
+    const entry: SocialEntry = {
+      id: Date.now(),
+      network: draft.network,
+      handle: h,
+      ...(draft.network === 'whatsapp' && draft.message.trim() ? { message: draft.message.trim() } : {}),
+    };
+    commit([...entries, entry]);
+    setAdding(false);
+    setDraft({ network: 'instagram', handle: '', message: '' });
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Entry list */}
+      {entries.map((entry) => {
+        const cfg = NETWORK_CONFIGS[entry.network as NetworkKey];
+        return (
+          <div key={entry.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700">
+            <NetworkBadge network={entry.network} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">{cfg?.label || entry.network}</p>
+              <p className="text-xs text-gray-400 truncate">
+                {entry.network === 'whatsapp' ? entry.handle : `@${entry.handle}`}
+              </p>
+              {entry.message && (
+                <p className="text-xs text-gray-400 italic truncate mt-0.5">"{entry.message}"</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => commit(entries.filter((e) => e.id !== entry.id))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
+      })}
+
+      {/* Add form */}
+      {adding ? (
+        <div className="p-4 rounded-xl border border-[#003876]/20 bg-[#003876]/5 dark:bg-[#003876]/10 space-y-3">
+          {/* Network selector */}
+          <div className="grid grid-cols-4 gap-2">
+            {ALL_NETWORKS.map((key) => {
+              const cfg = NETWORK_CONFIGS[key];
+              const selected = draft.network === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setDraft((d) => ({ ...d, network: key }))}
+                  className={`flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl border text-[11px] font-medium transition-all ${
+                    selected
+                      ? 'border-[#003876] bg-[#003876] text-white shadow-md'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <span
+                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-white text-[10px] font-bold"
+                    style={{ backgroundColor: selected ? 'rgba(255,255,255,0.25)' : cfg.color }}
+                  >
+                    {cfg.initials}
+                  </span>
+                  {cfg.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Handle input */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              {NETWORK_CONFIGS[draft.network].handleLabel}
+            </label>
+            <input
+              type="text"
+              value={draft.handle}
+              onChange={(e) => setDraft((d) => ({ ...d, handle: e.target.value }))}
+              placeholder={NETWORK_CONFIGS[draft.network].placeholder}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+            />
+          </div>
+
+          {/* WhatsApp message */}
+          {draft.network === 'whatsapp' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                Mensagem inicial (opcional)
+              </label>
+              <input
+                type="text"
+                value={draft.message}
+                onChange={(e) => setDraft((d) => ({ ...d, message: e.target.value }))}
+                placeholder="Olá, vim do site e gostaria de saber mais informações"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+              />
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => { setAdding(false); setDraft({ network: 'instagram', handle: '', message: '' }); }}
+              className="px-3 py-2 rounded-xl text-xs font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={addEntry}
+              disabled={!draft.handle.trim()}
+              className="px-4 py-2 rounded-xl text-xs font-medium bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-40 transition-colors"
+            >
+              Adicionar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:border-[#003876] dark:hover:border-[#ffd700] transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Adicionar rede social
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Institutional Settings Panel ─────────────────────────────────────────────
 const INST_GROUPS: {
   title: string;
@@ -803,6 +1001,11 @@ const INST_GROUPS: {
     inlineKeys: ['phone', 'email'],
   },
   {
+    title: 'Redes Sociais',
+    icon: Share2,
+    keys: ['social_networks'],
+  },
+  {
     title: 'Identidade Visual',
     subtitle: 'URL pública do logotipo exibido no site e nos documentos gerados.',
     icon: Palette,
@@ -810,11 +1013,15 @@ const INST_GROUPS: {
   },
 ];
 
-function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange }: {
+function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onSave, saving, saved, hasChanges }: {
   settings: SystemSetting[];
   editValues: Record<string, string>;
   toStr: (v: unknown) => string;
   onChange: (id: string, val: string) => void;
+  onSave: () => void;
+  saving: boolean;
+  saved: boolean;
+  hasChanges: boolean;
 }) {
   const byKey = Object.fromEntries(settings.map((s) => [s.key, s]));
 
@@ -904,6 +1111,28 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange }: {
                   );
                 }
 
+                // Social networks gets a dynamic list field
+                if (item.key === 'social_networks') {
+                  const savedStr = toStr(item.value);
+                  const isChanged = editValues[item.id] !== savedStr;
+                  return (
+                    <div key={item.id}>
+                      {isChanged && (
+                        <div className="flex justify-end mb-2">
+                          <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                            Alterado
+                          </span>
+                        </div>
+                      )}
+                      <SocialNetworksField
+                        value={editValues[item.id] || ''}
+                        savedValue={savedStr}
+                        onChange={(v) => onChange(item.id, v)}
+                      />
+                    </div>
+                  );
+                }
+
                 const meta = KEY_META[item.key] || { label: item.key };
                 const isChanged = editValues[item.id] !== toStr(item.value);
                 return (
@@ -940,6 +1169,24 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange }: {
             />
           );
         })}
+
+      {/* Floating save */}
+      <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
+        hasChanges || saving || saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
+      }`}>
+        <button
+          onClick={onSave}
+          disabled={!hasChanges || saving}
+          className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
+            saved
+              ? 'bg-emerald-500 text-white shadow-emerald-500/25'
+              : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50'
+          }`}
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
+        </button>
+      </div>
     </div>
   );
 }
