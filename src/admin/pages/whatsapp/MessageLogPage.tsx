@@ -223,9 +223,7 @@ function DetailDrawer({ log, onClose, onRetry }: {
       <DrawerCard title="Contato" icon={User}>
         {/* Nome */}
         <div className="flex items-center gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
-          <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-            <User className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
-          </div>
+          <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <div>
             <p className="text-[10px] text-gray-400 uppercase tracking-wide">Contato</p>
             <p className="text-sm font-semibold text-gray-800 dark:text-white mt-0.5">
