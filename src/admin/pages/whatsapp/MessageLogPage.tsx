@@ -6,7 +6,7 @@ import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Send, CheckCheck, Clock, XCircle, Eye, RotateCcw,
   Loader2, Phone, Calendar, ChevronDown, X, RefreshCw,
-  MessageSquare, MessageCircle, TrendingUp, Sun, CalendarRange, CalendarDays, SlidersHorizontal,
+  MessageSquare, MessageCircle, TrendingUp, Sun, CalendarRange, CalendarDays, SlidersHorizontal, User,
 } from 'lucide-react';
 
 // ── Sensitive variable masking ────────────────────────────────────────────────
@@ -122,6 +122,69 @@ const DATE_FILTERS: { key: DateFilter; label: string; icon: React.ComponentType<
 
 // ── Detail Drawer ─────────────────────────────────────────────────────────────
 
+// ── MessageTimeline ───────────────────────────────────────────────────────────
+
+const TIMELINE_STEPS: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  dateKey: 'created_at' | 'sent_at' | 'delivered_at' | 'read_at';
+}[] = [
+  { label: 'Criado',   icon: Clock,      dateKey: 'created_at'   },
+  { label: 'Enviado',  icon: Send,       dateKey: 'sent_at'      },
+  { label: 'Entregue', icon: CheckCheck, dateKey: 'delivered_at' },
+  { label: 'Lido',     icon: Eye,        dateKey: 'read_at'      },
+];
+
+function MessageTimeline({ log }: { log: WhatsAppMessageLog }) {
+  return (
+    <div className="py-1">
+      {TIMELINE_STEPS.map(({ label, icon: StepIcon, dateKey }, idx, arr) => {
+        const date    = log[dateKey] as string | null;
+        const active  = dateKey === 'created_at' || date != null;
+        const isLast  = idx === arr.length - 1;
+        const nextKey = arr[idx + 1]?.dateKey;
+        const lineOn  = !isLast && (nextKey === 'created_at' || (log[nextKey!] as string | null) != null);
+
+        return (
+          <div key={label} className="flex gap-4">
+            {/* Dot + vertical line */}
+            <div className="flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                active
+                  ? 'border-green-400 bg-green-50 dark:bg-green-900/20'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+              }`}>
+                <StepIcon className={`w-3.5 h-3.5 ${active ? 'text-green-500 dark:text-green-400' : 'text-gray-300 dark:text-gray-600'}`} />
+              </div>
+              {!isLast && (
+                <div className={`w-0.5 flex-1 my-1 rounded-full min-h-[20px] transition-colors ${
+                  lineOn ? 'bg-green-300 dark:bg-green-700/50' : 'bg-gray-100 dark:bg-gray-800'
+                }`} />
+              )}
+            </div>
+
+            {/* Label + date */}
+            <div className={`flex-1 ${isLast ? 'pb-0' : 'pb-3'} pt-1`}>
+              <p className={`text-sm font-semibold leading-none ${
+                active ? 'text-gray-800 dark:text-white' : 'text-gray-300 dark:text-gray-600'
+              }`}>
+                {label}
+              </p>
+              <p className={`text-[11px] mt-1.5 ${
+                active && date ? 'text-gray-400' : 'text-gray-200 dark:text-gray-700'
+              }`}>
+                {date ? formatDate(date) : '—'}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── DetailDrawer ──────────────────────────────────────────────────────────────
+
 function DetailDrawer({ log, onClose, onRetry }: {
   log: WhatsAppMessageLog;
   onClose: () => void;
@@ -129,13 +192,6 @@ function DetailDrawer({ log, onClose, onRetry }: {
 }) {
   const cfg = STATUS_CONFIG[log.status];
   const StatusIcon = cfg.icon;
-
-  const badge = (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.color}`}>
-      <StatusIcon className="w-3 h-3" />
-      {cfg.label}
-    </span>
-  );
 
   const footer = log.status === 'failed' ? (
     <button
@@ -151,22 +207,43 @@ function DetailDrawer({ log, onClose, onRetry }: {
     <Drawer
       open
       onClose={onClose}
-      title={log.recipient_name || 'Não identificado'}
+      title="Detalhes da mensagem"
       icon={MessageCircle}
-      badge={badge}
       footer={footer}
     >
+      {/* Status da mensagem */}
+      <DrawerCard title="Status da mensagem" icon={StatusIcon}>
+        <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${cfg.color}`}>
+          <StatusIcon className="w-5 h-5 flex-shrink-0" />
+          <p className="text-sm font-bold">{cfg.label}</p>
+        </div>
+      </DrawerCard>
+
       {/* Destinatário */}
-      <DrawerCard title="Destinatário" icon={Phone}>
-        <div className="flex items-center gap-3 py-1 border-b border-gray-100 dark:border-gray-800 pb-3">
+      <DrawerCard title="Destinatário" icon={User}>
+        {/* Nome */}
+        <div className="flex items-center gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+            <User className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-800 dark:text-white">
+              {log.recipient_name || 'Não identificado'}
+            </p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Destinatário</p>
+          </div>
+        </div>
+        {/* Telefone */}
+        <div className={`flex items-center gap-3 ${log.related_module ? 'pb-3 border-b border-gray-100 dark:border-gray-800' : ''}`}>
           <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <div>
             <p className="text-[10px] text-gray-400 uppercase tracking-wide">Telefone</p>
             <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatPhone(log.recipient_phone)}</p>
           </div>
         </div>
+        {/* Módulo */}
         {log.related_module && (
-          <div className="flex items-center gap-3 pt-1">
+          <div className="flex items-center gap-3">
             <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0" />
             <div>
               <p className="text-[10px] text-gray-400 uppercase tracking-wide">Módulo</p>
@@ -186,7 +263,7 @@ function DetailDrawer({ log, onClose, onRetry }: {
             <span>Template: <strong className="text-gray-700 dark:text-gray-300">{log.template.name}</strong></span>
           </div>
         )}
-        {/* Bolha WhatsApp — caso especial com fundo verde */}
+        {/* Bolha WhatsApp */}
         <div className="bg-[#dcf8c6] dark:bg-green-900/20 rounded-xl p-3">
           <p className="text-sm text-gray-800 dark:text-green-100 whitespace-pre-wrap leading-relaxed">
             {maskBody(log.rendered_content.body || '', log.variables_used) || '(sem conteúdo)'}
@@ -197,22 +274,9 @@ function DetailDrawer({ log, onClose, onRetry }: {
         </div>
       </DrawerCard>
 
-      {/* Timeline */}
-      <DrawerCard title="Timeline" icon={Calendar} bodyClassName="space-y-0 divide-y divide-gray-100 dark:divide-gray-800">
-        {([
-          { label: 'Criado',   date: log.created_at,   active: true },
-          { label: 'Enviado',  date: log.sent_at,      active: log.sent_at != null },
-          { label: 'Entregue', date: log.delivered_at, active: log.delivered_at != null },
-          { label: 'Lido',     date: log.read_at,      active: log.read_at != null },
-        ] as const).map(({ label, date, active }) => (
-          <div key={label} className="flex items-center gap-3 py-2.5">
-            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${active ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
-            <span className={`text-sm flex-1 ${active ? 'font-medium text-gray-800 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
-              {label}
-            </span>
-            <span className="text-[11px] text-gray-400">{formatDate(date)}</span>
-          </div>
-        ))}
+      {/* Timeline visual */}
+      <DrawerCard title="Timeline" icon={Calendar} bodyClassName="bg-white dark:bg-gray-900 px-4 py-4">
+        <MessageTimeline log={log} />
       </DrawerCard>
 
       {/* Erro */}
