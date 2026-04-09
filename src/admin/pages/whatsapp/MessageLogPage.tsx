@@ -280,7 +280,15 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
       .order('created_at', { ascending: false })
       .limit(PAGE_SIZE);
 
-    if (filterStatus !== 'all') query = query.eq('status', filterStatus);
+    // For delivered/read use timestamp columns so that e.g. a "read" message
+    // still appears when filtering by "Entregues" (it was delivered too).
+    if (filterStatus === 'delivered') {
+      query = query.not('delivered_at', 'is', null);
+    } else if (filterStatus === 'read') {
+      query = query.not('read_at', 'is', null);
+    } else if (filterStatus !== 'all') {
+      query = query.eq('status', filterStatus);
+    }
     if (filterModule !== 'all') query = query.eq('related_module', filterModule);
     if (from) query = query.gte('created_at', from);
     if (to)   query = query.lte('created_at', to);
