@@ -103,6 +103,7 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
       templateId:      selected?.id,
       relatedModule:   module,
       relatedRecordId: recordId,
+      variablesUsed:   variables,
     });
     setSending(false);
     if (result.success) {

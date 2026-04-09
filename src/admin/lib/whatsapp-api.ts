@@ -205,6 +205,9 @@ export interface SendTextOptions {
   relatedModule?: string;
   relatedRecordId?: string;
   recipientName?: string;
+  /** Raw variable map used to render the message.
+   *  Stored in the log so the UI can mask sensitive values at display time. */
+  variablesUsed?: Record<string, string>;
   delay?: number;
 }
 
@@ -367,6 +370,7 @@ export async function sendWhatsAppText(opts: SendTextOptions): Promise<SendResul
       recipient_phone:  opts.phone,
       recipient_name:   opts.recipientName ?? null,
       rendered_content: { body: opts.text, type: 'text' },
+      variables_used:   opts.variablesUsed ?? {},
       status:           'queued',
       related_module:   opts.relatedModule  ?? null,
       related_record_id: opts.relatedRecordId ?? null,

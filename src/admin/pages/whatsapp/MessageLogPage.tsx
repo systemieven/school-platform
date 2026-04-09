@@ -8,6 +8,32 @@ import {
   MessageSquare, TrendingUp, Sun, CalendarRange, CalendarDays, SlidersHorizontal,
 } from 'lucide-react';
 
+// ── Sensitive variable masking ────────────────────────────────────────────────
+
+/** Variable names whose values must never be rendered in plain text. */
+const SENSITIVE_VARIABLES = ['temp_password', 'password', 'token', 'secret'];
+
+/**
+ * Returns a display-safe version of `body` where the values of any
+ * sensitive variables (found in `variablesUsed`) are replaced with ••••••••.
+ * The original stored content is never modified.
+ */
+function maskBody(
+  body: string,
+  variablesUsed: Record<string, string> | null | undefined,
+): string {
+  if (!variablesUsed) return body;
+  let masked = body;
+  for (const varName of SENSITIVE_VARIABLES) {
+    const value = variablesUsed[varName];
+    if (value && value.length > 0) {
+      // split/join avoids regex escaping issues with special chars in passwords
+      masked = masked.split(value).join('••••••••');
+    }
+  }
+  return masked;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function timeAgo(dateStr: string): string {
@@ -144,7 +170,7 @@ function DetailDrawer({ log, onClose, onRetry }: {
             <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Conteúdo</h3>
             <div className="bg-[#dcf8c6] dark:bg-green-900/20 rounded-2xl p-4 max-w-sm">
               <p className="text-sm text-gray-800 dark:text-green-100 whitespace-pre-wrap leading-relaxed">
-                {log.rendered_content.body || '(sem conteúdo)'}
+                {maskBody(log.rendered_content.body || '', log.variables_used) || '(sem conteúdo)'}
               </p>
             </div>
           </div>
@@ -499,7 +525,7 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
                       </td>
                       <td className="px-5 py-4 hidden sm:table-cell">
                         <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs truncate font-mono">
-                          {log.rendered_content.body || '—'}
+                          {maskBody(log.rendered_content.body || '', log.variables_used) || '—'}
                         </p>
                         {log.template && (
                           <p className="text-[10px] text-gray-400 mt-0.5">

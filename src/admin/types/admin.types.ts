@@ -231,6 +231,7 @@ export interface WhatsAppMessageLog {
   recipient_phone:  string;
   recipient_name:   string | null;
   rendered_content: { body?: string; type?: string };
+  variables_used:   Record<string, string> | null;
   status:           MessageLogStatus;
   error_message:    string | null;
   sent_at:          string | null;
