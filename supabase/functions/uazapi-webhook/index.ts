@@ -222,46 +222,85 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ── connection_update ──────────────────────────────────────────────────────
-    if (eventType === "connection_update") {
-      const data = (typeof body.event === "object" ? body.event : body.data) as Record<string, unknown> || {};
+    // ── connection (ibotcloud) / connection_update (Baileys legacy) ───────────
+    // ibotcloud payload:
+    //   { EventType: "connection", instance: { status: "disconnected"|"connected", lastDisconnectReason: "..." }, type: "LoggedOut"|... }
+    if (eventType === "connection" || eventType === "connection_update") {
+      // ibotcloud fields
+      const instance   = body.instance as Record<string, unknown> | undefined;
+      const instStatus = ((instance?.status as string) || "").toLowerCase();
+      const bodyType   = ((body.type   as string) || "").toLowerCase();
+
+      // Baileys legacy fields
+      const legacyData = (typeof body.event === "object" ? body.event : body.data) as Record<string, unknown> | undefined || {};
+
       const connected =
-        data.connected === true ||
-        data.state     === "open" ||
-        data.status    === "connected" ||
+        instStatus === "connected" ||
+        instStatus === "open"      ||
+        legacyData.connected === true ||
+        legacyData.state     === "open" ||
+        legacyData.status    === "connected" ||
         (body.state as string) === "open" ||
         (body.state as string) === "connected";
+
       const disconnected =
-        data.connected === false ||
-        data.state     === "close" ||
-        data.state     === "conflict" ||
-        data.status    === "disconnected" ||
+        instStatus === "disconnected" ||
+        bodyType   === "loggedout"    ||
+        bodyType   === "logged_out"   ||
+        legacyData.connected === false  ||
+        legacyData.state     === "close" ||
+        legacyData.state     === "conflict" ||
+        legacyData.status    === "disconnected" ||
         (body.state as string) === "close" ||
         (body.state as string) === "disconnected";
 
+      console.log(`[webhook] connection: instStatus=${instStatus} bodyType=${bodyType} disconnected=${disconnected} connected=${connected}`);
+
       if (disconnected) {
-        console.log("[webhook] connection_update: DISCONNECTED — notifying admins");
+        // ── Check notify_wa_connection toggle ──────────────────────────────
+        const { data: notifRow } = await service
+          .from("system_settings")
+          .select("value")
+          .eq("category", "notifications")
+          .eq("key", "notify_wa_connection")
+          .single();
 
-        const { data: admins } = await service
-          .from("profiles")
-          .select("id")
-          .in("role", ["super_admin", "admin"])
-          .eq("is_active", true);
+        const shouldNotify =
+          notifRow?.value === true   ||
+          notifRow?.value === 1      ||
+          notifRow?.value === "true" ||
+          notifRow?.value === "1";
 
-        if (admins && admins.length > 0) {
-          const notifications = admins.map((p: { id: string }) => ({
-            recipient_id: p.id,
-            type: "wa_disconnected",
-            title: "WhatsApp desconectado",
-            body: "A instância WhatsApp foi desconectada. Acesse Configurações para reconectar.",
-            link: "/admin/configuracoes",
-            related_module: "whatsapp",
-          }));
-          await service.from("notifications").insert(notifications);
-          console.log(`[webhook] notified ${admins.length} admin(s) of disconnection`);
+        if (!shouldNotify) {
+          console.log("[webhook] connection: DISCONNECTED but notify_wa_connection is off — skipping");
+        } else {
+          console.log("[webhook] connection: DISCONNECTED — notifying admins");
+
+          const disconnectReason = (instance?.lastDisconnectReason as string | undefined) || "";
+
+          const { data: admins } = await service
+            .from("profiles")
+            .select("id")
+            .in("role", ["super_admin", "admin"])
+            .eq("is_active", true);
+
+          if (admins && admins.length > 0) {
+            const notifications = admins.map((p: { id: string }) => ({
+              recipient_id:   p.id,
+              type:           "wa_disconnected",
+              title:          "WhatsApp desconectado",
+              body:           disconnectReason
+                ? `A instância foi desconectada: ${disconnectReason}`
+                : "A instância WhatsApp foi desconectada. Acesse Configurações para reconectar.",
+              link:           "/admin/configuracoes",
+              related_module: "whatsapp",
+            }));
+            await service.from("notifications").insert(notifications);
+            console.log(`[webhook] connection: notified ${admins.length} admin(s)`);
+          }
         }
       } else if (connected) {
-        console.log("[webhook] connection_update: CONNECTED");
+        console.log("[webhook] connection: CONNECTED");
       }
     }
 

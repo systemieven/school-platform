@@ -89,7 +89,7 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
     warning: 'Alto volume se houver muitos grupos.',
   },
   {
-    id: 'connection_update',
+    id: 'connection',
     label: 'Atualização de conexão',
     description: 'Notifica mudanças no estado da conexão da instância (conectado/desconectado). Usado para alertas internos de queda de conexão.',
     recommended: true,

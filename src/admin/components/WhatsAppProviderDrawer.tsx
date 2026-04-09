@@ -101,7 +101,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
   const [regResult,        setRegResult]        = useState<{ success: boolean; error?: string } | null>(null);
   const [webhookUrlInDb,   setWebhookUrlInDb]   = useState('');
   const [copied,           setCopied]           = useState(false);
-  const [selectedEvents,   setSelectedEvents]   = useState<string[]>(['messages_update', 'connection_update']);
+  const [selectedEvents,   setSelectedEvents]   = useState<string[]>(['messages_update', 'connection']);
 
   // ── Load webhook settings (always from system_settings)
   useEffect(() => {
