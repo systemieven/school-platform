@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useRealtimeRows } from '../../hooks/useRealtimeRows';
 import type { VisitAppointment, AppointmentStatus } from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
@@ -847,6 +848,15 @@ export default function AppointmentsPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Realtime: keep list in sync with INSERT/UPDATE/DELETE events
+  useRealtimeRows<VisitAppointment>({
+    table: 'visit_appointments',
+    setRows: setAppointments,
+    onSelectedPatch: (row) => {
+      setSelected((prev) => (prev?.id === row.id ? { ...prev, ...row } : prev));
+    },
+  });
 
   function handleUpdate(id: string, patch: Partial<VisitAppointment>) {
     setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));

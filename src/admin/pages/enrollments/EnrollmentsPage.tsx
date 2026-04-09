@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useRealtimeRows } from '../../hooks/useRealtimeRows';
 import type { Enrollment, EnrollmentStatus } from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
@@ -1171,6 +1172,15 @@ export default function EnrollmentsPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Realtime: keep list in sync with INSERT/UPDATE/DELETE events
+  useRealtimeRows<Enrollment>({
+    table: 'enrollments',
+    setRows: setEnrollments,
+    onSelectedPatch: (row) => {
+      setSelected((prev) => (prev?.id === row.id ? { ...prev, ...row } : prev));
+    },
+  });
 
   function handleUpdate(id: string, patch: Partial<Enrollment>) {
     setEnrollments((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));

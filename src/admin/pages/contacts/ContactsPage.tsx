@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useRealtimeRows } from '../../hooks/useRealtimeRows';
 import type { ContactRequest, ContactStatus } from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
@@ -487,6 +488,15 @@ export default function ContactsPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Realtime: keep list in sync with INSERT/UPDATE/DELETE events
+  useRealtimeRows<ContactRequest>({
+    table: 'contact_requests',
+    setRows: setContacts,
+    onSelectedPatch: (row) => {
+      setSelected((prev) => (prev?.id === row.id ? { ...prev, ...row } : prev));
+    },
+  });
 
   function handleUpdate(id: string, patch: Partial<ContactRequest>) {
     setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
