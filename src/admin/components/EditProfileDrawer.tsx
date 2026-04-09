@@ -28,7 +28,7 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
 
   // ── Avatar state ──────────────────────────────────────────────────────────
   const [cropSrc,      setCropSrc]      = useState<string | null>(null);
-  const [pendingB64,   setPendingB64]   = useState<string | null>(null);   // cropped base64 (not yet saved)
+  const [pendingDataUrl, setPendingDataUrl] = useState<string | null>(null); // full data URL from ImageCropModal
   const [removeAvatar, setRemoveAvatar] = useState(false);                  // flag to clear avatar on save
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,7 +42,7 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
     if (open) {
       setFullName(profile?.full_name ?? '');
       setPhone(profile?.phone ?? '');
-      setPendingB64(null);
+      setPendingDataUrl(null);
       setRemoveAvatar(false);
       setError(null);
       setSaved(false);
@@ -61,20 +61,22 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
     e.target.value = '';
   }
 
-  function handleCropSave(base64: string) {
-    setPendingB64(base64);
+  // ImageCropModal.onSave delivers a full data URL: "data:image/jpeg;base64,..."
+  function handleCropSave(dataUrl: string) {
+    setPendingDataUrl(dataUrl);
     setRemoveAvatar(false);
     setCropSrc(null);
   }
 
   function handleRemoveAvatar() {
-    setPendingB64(null);
+    setPendingDataUrl(null);
     setRemoveAvatar(true);
   }
 
   // ── Determine preview URL ─────────────────────────────────────────────────
-  const previewUrl: string | null = pendingB64
-    ? `data:image/jpeg;base64,${pendingB64}`
+  // pendingDataUrl is already a full data URL — use it directly
+  const previewUrl: string | null = pendingDataUrl
+    ? pendingDataUrl
     : removeAvatar
     ? null
     : (profile?.avatar_url ?? null);
@@ -91,12 +93,10 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
       let newAvatarUrl = profile.avatar_url;
 
       // 1. Upload / remove avatar
-      if (pendingB64) {
-        // Convert base64 → Blob
-        const byteStr = atob(pendingB64);
-        const arr = new Uint8Array(byteStr.length);
-        for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
-        const blob = new Blob([arr], { type: 'image/jpeg' });
+      if (pendingDataUrl) {
+        // pendingDataUrl is "data:image/jpeg;base64,<raw>" — convert to Blob via fetch
+        const res  = await fetch(pendingDataUrl);
+        const blob = await res.blob();
 
         const path = `${profile.id}/avatar.jpg`;
         const { error: uploadErr } = await supabase.storage
@@ -146,7 +146,7 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
   const isDirty =
     fullName.trim() !== (profile?.full_name ?? '').trim() ||
     phone.trim()    !== (profile?.phone    ?? '').trim()  ||
-    !!pendingB64 ||
+    !!pendingDataUrl ||
     removeAvatar;
 
   return (
