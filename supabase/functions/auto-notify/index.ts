@@ -513,6 +513,7 @@ Deno.serve(async (req: Request) => {
                   appointment_id: record_id,
                   template_id:    tmpl.id,
                   phone:          recipientPhone,
+                  delay_minutes:  tmpl.trigger_delay_minutes || 0,
                 });
                 await service.from("visit_appointments")
                   .update({ confirmation_status: "awaiting" })
