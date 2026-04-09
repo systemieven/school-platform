@@ -102,6 +102,8 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
   const [webhookUrlInDb,   setWebhookUrlInDb]   = useState('');
   const [copied,           setCopied]           = useState(false);
   const [selectedEvents,   setSelectedEvents]   = useState<string[]>(['messages_update', 'connection']);
+  // true após chamar /instance/connect com phone — distingue "aguardando código" do formulário de input
+  const [waitingCode,      setWaitingCode]      = useState(false);
 
   // ── Load webhook settings (always from system_settings)
   useEffect(() => {
@@ -149,6 +151,14 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
     }, 1000);
     return () => clearInterval(t);
   }, [connFlow, qrExpiry]);
+
+  // Sync pairCode from instanceData while polling — the code may not arrive in the
+  // /instance/connect response; it becomes available on the first /instance/status poll.
+  useEffect(() => {
+    if (connFlow === 'paircode' && !pairCode && instanceData?.pairingCode) {
+      setPairCode(instanceData.pairingCode);
+    }
+  }, [instanceData?.pairingCode, connFlow, pairCode]);
 
   // Close drawer on Escape
   useEffect(() => {
@@ -207,8 +217,11 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
     const res = await connectInstance(phoneInput.replace(/\D/g, ''));
     if (!res.success) {
       setConnError(res.error || 'Não foi possível gerar o código de pareamento.');
-      setConnFlow('error'); setConnecting(false); return;
+      setConnFlow('error'); setConnecting(false); setWaitingCode(false); return;
     }
+    // Transition to "waiting for code" regardless of whether paircode arrived immediately.
+    // If it's empty, the polling useEffect above will pick it up from /instance/status.
+    setWaitingCode(true);
     setPairCode(res.paircode || '');
     setConnFlow('paircode'); setConnecting(false);
     pollRef.current = setInterval(() => refreshWa(), 3000);
@@ -224,7 +237,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
 
   const handleCancelConnect = () => {
     stopPolling(); setConnFlow('idle'); setConnecting(false);
-    setQrImage(''); setPairCode(''); setConnError('');
+    setQrImage(''); setPairCode(''); setConnError(''); setWaitingCode(false);
   };
 
   const handleGenerateSecret = async () => {
@@ -524,8 +537,8 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                   </div>
                 )}
 
-                {/* PAIRING CODE — phone input */}
-                {connFlow === 'paircode' && !pairCode && (
+                {/* PAIRING CODE — formulário de input (antes de clicar em gerar) */}
+                {connFlow === 'paircode' && !waitingCode && (
                   <div className="space-y-3">
                     <p className="text-xs text-gray-500 dark:text-gray-400">Digite o número com DDI. Um código de 8 dígitos será exibido para inserir no app.</p>
                     {connError && <div className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 px-3 py-2 rounded-xl">{connError}</div>}
@@ -550,7 +563,18 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                   </div>
                 )}
 
-                {/* PAIRING CODE — code display */}
+                {/* PAIRING CODE — aguardando código chegar via polling */}
+                {connFlow === 'paircode' && waitingCode && !pairCode && (
+                  <div className="space-y-3">
+                    <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 flex flex-col items-center gap-3">
+                      <Loader2 className="w-6 h-6 text-[#003876] dark:text-[#ffd700] animate-spin" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Gerando código de pareamento…</p>
+                    </div>
+                    <button onClick={handleCancelConnect} className="text-xs text-gray-400 hover:text-gray-600 hover:underline">Cancelar</button>
+                  </div>
+                )}
+
+                {/* PAIRING CODE — código disponível */}
                 {connFlow === 'paircode' && pairCode && (
                   <div className="space-y-3">
                     <p className="text-xs text-gray-500 dark:text-gray-400">
