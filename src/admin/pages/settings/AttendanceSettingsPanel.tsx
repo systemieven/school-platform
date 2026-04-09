@@ -42,6 +42,10 @@ import {
   MessageCircle,
   ListChecks,
   Type,
+  // Ticket format icons (prefix mode)
+  Minus,
+  Edit3,
+  Folder,
 } from 'lucide-react';
 import type {
   AttendanceEligibilityRules,
@@ -446,57 +450,130 @@ export default function AttendanceSettingsPanel() {
           <span className="font-display text-2xl font-bold text-[#003876] dark:text-white">{ticketPreview()}</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Prefixo</label>
-            <select
-              value={data.ticket_format.prefix_mode}
-              onChange={(e) =>
-                setData((prev) => ({
-                  ...prev,
-                  ticket_format: { ...prev.ticket_format, prefix_mode: e.target.value as AttendanceTicketFormat['prefix_mode'] },
-                }))
-              }
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-            >
-              <option value="none">Nenhum</option>
-              <option value="custom">Personalizado</option>
-              <option value="sector">Por setor (inicial)</option>
-            </select>
+        {/* Prefixo — botões com ícones, igual aos demais cards */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Prefixo</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {([
+              { key: 'none',   label: 'Nenhum',        desc: 'Apenas os dígitos (ex: 001).',       icon: Minus      },
+              { key: 'custom', label: 'Personalizado', desc: 'Letra(s) fixa(s) antes do número.',  icon: Edit3      },
+              { key: 'sector', label: 'Por setor',     desc: 'Inicial do setor como prefixo.',     icon: Folder     },
+            ] as const).map(({ key, label, desc, icon: Icon }) => {
+              const active = data.ticket_format.prefix_mode === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() =>
+                    setData((prev) => ({
+                      ...prev,
+                      ticket_format: { ...prev.ticket_format, prefix_mode: key as AttendanceTicketFormat['prefix_mode'] },
+                    }))
+                  }
+                  className={`
+                    flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+                    ${active
+                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    }
+                  `}
+                >
+                  <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{label}</p>
+                    <p className={`text-[11px] mt-0.5 leading-tight ${active ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>{desc}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
+        </div>
+
+        {/* Input do prefixo customizado — só aparece quando "Personalizado" está ativo */}
+        {data.ticket_format.prefix_mode === 'custom' && (
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Dígitos</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Prefixo personalizado</label>
             <input
-              type="number"
-              min={1}
-              max={6}
-              value={data.ticket_format.digits}
+              type="text"
+              maxLength={3}
+              value={data.ticket_format.custom_prefix}
               onChange={(e) =>
                 setData((prev) => ({
                   ...prev,
-                  ticket_format: { ...prev.ticket_format, digits: Math.max(1, Math.min(6, parseInt(e.target.value) || 1)) },
+                  ticket_format: { ...prev.ticket_format, custom_prefix: e.target.value.toUpperCase() },
                 }))
               }
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+              placeholder="Ex: A"
+              className="w-32 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
             />
           </div>
-          {data.ticket_format.prefix_mode === 'custom' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Prefixo personalizado</label>
-              <input
-                type="text"
-                maxLength={3}
-                value={data.ticket_format.custom_prefix}
-                onChange={(e) =>
-                  setData((prev) => ({
-                    ...prev,
-                    ticket_format: { ...prev.ticket_format, custom_prefix: e.target.value.toUpperCase() },
-                  }))
-                }
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-              />
-            </div>
-          )}
+        )}
+
+        {/* Dígitos — slider estilo business hours (thumb branco com anel azul) */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Dígitos</label>
+            <span className="font-display text-xl font-bold text-[#003876] dark:text-white tabular-nums">
+              {data.ticket_format.digits}
+            </span>
+          </div>
+          {(() => {
+            const MIN = 1;
+            const MAX = 6;
+            const value = Math.max(MIN, Math.min(MAX, data.ticket_format.digits));
+            const pct = ((value - MIN) / (MAX - MIN)) * 100;
+            return (
+              <div className="space-y-2">
+                <div className="relative h-6 flex items-center">
+                  <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
+                  <div
+                    className="absolute h-2 rounded-full bg-gradient-to-r from-[#003876] to-blue-500 pointer-events-none"
+                    style={{ width: `${pct}%` }}
+                  />
+                  <input
+                    type="range"
+                    min={MIN}
+                    max={MAX}
+                    step={1}
+                    value={value}
+                    onChange={(e) =>
+                      setData((prev) => ({
+                        ...prev,
+                        ticket_format: {
+                          ...prev.ticket_format,
+                          digits: Math.max(MIN, Math.min(MAX, parseInt(e.target.value) || MIN)),
+                        },
+                      }))
+                    }
+                    className="absolute inset-x-0 w-full h-full appearance-none bg-transparent cursor-pointer
+                      [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+                      [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
+                      [&::-webkit-slider-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)]
+                      [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:active:cursor-grabbing
+                      [&::-webkit-slider-thumb]:active:scale-110 [&::-webkit-slider-thumb]:transition-transform
+                      [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full
+                      [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0
+                      [&::-moz-range-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)]"
+                  />
+                </div>
+                {/* Escala fixa de 1 a 6 */}
+                <div className="flex justify-between text-[10px] text-gray-400 px-0.5">
+                  {Array.from({ length: MAX - MIN + 1 }).map((_, i) => {
+                    const tick = MIN + i;
+                    const current = tick === value;
+                    return (
+                      <span
+                        key={tick}
+                        className={`tabular-nums ${current ? 'text-[#003876] dark:text-[#ffd700] font-semibold' : ''}`}
+                      >
+                        {tick}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         <label className="flex items-center gap-2.5 pt-2">
@@ -517,15 +594,32 @@ export default function AttendanceSettingsPanel() {
 
       {/* 3. Som de Notificação */}
       <SettingsCard title="Som de Notificação" icon={Volume2} description="Som tocado no painel do cliente quando a senha for chamada. Clique num preset para ouvir.">
-        <label className="flex items-center gap-2.5">
-          <input
-            type="checkbox"
-            checked={data.sound.enabled}
-            onChange={(e) => setData((prev) => ({ ...prev, sound: { ...prev.sound, enabled: e.target.checked } }))}
-            className="w-4 h-4 rounded border-gray-300 text-[#003876] focus:ring-[#003876]/30"
-          />
-          <span className="text-sm text-gray-700 dark:text-gray-300">Habilitar som de notificação</span>
-        </label>
+        <button
+          type="button"
+          onClick={() =>
+            setData((prev) => ({
+              ...prev,
+              sound: { ...prev.sound, enabled: !prev.sound.enabled },
+            }))
+          }
+          className={`
+            w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+            ${data.sound.enabled
+              ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+            }
+          `}
+        >
+          <Volume2 className={`w-4 h-4 shrink-0 mt-0.5 ${data.sound.enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-semibold ${data.sound.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+              Habilitar som de notificação
+            </p>
+            <p className={`text-[11px] mt-0.5 leading-tight ${data.sound.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+              Toca o preset escolhido quando a senha do cliente for chamada.
+            </p>
+          </div>
+        </button>
 
         {data.sound.enabled && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
