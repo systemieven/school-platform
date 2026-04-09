@@ -102,6 +102,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
   const [webhookUrlInDb,   setWebhookUrlInDb]   = useState('');
   const [copied,           setCopied]           = useState(false);
   const [selectedEvents,   setSelectedEvents]   = useState<string[]>(['messages_update', 'connection']);
+  const [showAutoConfirmWarn, setShowAutoConfirmWarn] = useState(false);
   // true após chamar /instance/connect com phone — distingue "aguardando código" do formulário de input
   const [waitingCode,      setWaitingCode]      = useState(false);
 
@@ -120,7 +121,11 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
         if (r.key === 'webhook_secret') { setWebhookSecret(v); setSecretId(r.id); }
         if (r.key === 'webhook_url')    setWebhookUrlInDb(v);
         if (r.key === 'webhook_events') {
-          try { setSelectedEvents(JSON.parse(v)); } catch { /* keep default */ }
+          try {
+            const parsed = JSON.parse(v);
+            setSelectedEvents(parsed);
+            savedEventsRef.current = parsed;
+          } catch { /* keep default */ }
         }
       });
     })();
@@ -260,12 +265,59 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
     setCopied(true); setTimeout(() => setCopied(false), 1500);
   };
 
-  const handleRegister = async () => {
+  // Track previously saved events to detect removal of 'messages'
+  const savedEventsRef = useRef<string[]>([]);
+
+  const doRegister = async (events: string[]) => {
     setRegistering(true); setRegResult(null);
-    const res = await registerWebhook(webhookUrl, selectedEvents);
+    const res = await registerWebhook(webhookUrl, events);
     setRegResult(res);
-    if (res.success) setWebhookUrlInDb(webhookUrl);
+    if (res.success) {
+      setWebhookUrlInDb(webhookUrl);
+      savedEventsRef.current = events;
+    }
     setRegistering(false);
+    return res;
+  };
+
+  const handleRegister = async () => {
+    // Check if 'messages' was removed from events
+    const hadMessages = savedEventsRef.current.includes('messages');
+    const hasMessages = selectedEvents.includes('messages');
+    if (hadMessages && !hasMessages) {
+      // Check if auto-confirm is enabled
+      const { data } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('category', 'visit')
+        .eq('key', 'auto_confirm_enabled')
+        .maybeSingle();
+      const enabled = data?.value === true || data?.value === 'true';
+      if (enabled) {
+        setShowAutoConfirmWarn(true);
+        return;
+      }
+    }
+    await doRegister(selectedEvents);
+  };
+
+  const handleConfirmDisableAutoConfirm = async () => {
+    setShowAutoConfirmWarn(false);
+    // Register webhook without 'messages'
+    const res = await doRegister(selectedEvents);
+    if (res.success) {
+      // Disable auto-confirm setting
+      await supabase.from('system_settings').upsert(
+        { category: 'visit', key: 'auto_confirm_enabled', value: false, updated_at: new Date().toISOString() },
+        { onConflict: 'category,key' }
+      );
+    }
+  };
+
+  const handleCancelDisableAutoConfirm = () => {
+    setShowAutoConfirmWarn(false);
+    // Restore 'messages' checkbox
+    setSelectedEvents(prev => prev.includes('messages') ? prev : [...prev, 'messages']);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -702,6 +754,11 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                                 recomendado
                               </span>
                             )}
+                            {ev.badge && (
+                              <span className="text-[9px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
+                                {ev.badge}
+                              </span>
+                            )}
                           </div>
                           <p className="text-[11px] text-gray-400 mt-0.5">{ev.description}</p>
                           {ev.warning && (
@@ -729,6 +786,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                       : `Erro ao registrar: ${regResult.error}`}
                   </div>
                 )}
+                {/* Auto-confirm warning rendered as overlay modal below */}
                 </div>
               </div>
             </>
@@ -743,6 +801,39 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
           )}
 
         </div>{/* end scrollable body */}
+
+        {/* Auto-confirm warning modal overlay */}
+        {showAutoConfirmWarn && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 p-6">
+            <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="bg-amber-50 dark:bg-amber-900/30 px-5 py-4 flex items-start gap-3">
+                <div className="mt-0.5 flex-shrink-0 w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-800/50 flex items-center justify-center">
+                  <TriangleAlert className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Confirmação automática ativa</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Esta ação afetará funcionalidades do sistema</p>
+                </div>
+              </div>
+              <div className="px-5 py-4">
+                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                  A <strong>confirmação automática de agendamentos</strong> está habilitada e depende do evento <strong>"Novas mensagens recebidas"</strong>.
+                  Ao continuar, o webhook será registrado sem esse evento e a confirmação automática será <strong>desativada</strong>.
+                </p>
+              </div>
+              <div className="flex gap-3 px-5 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <button onClick={handleCancelDisableAutoConfirm}
+                  className="flex-1 px-4 py-2 rounded-xl text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                  Cancelar
+                </button>
+                <button onClick={handleConfirmDisableAutoConfirm}
+                  className="flex-1 px-4 py-2 rounded-xl text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors">
+                  Sim, desativar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

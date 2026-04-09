@@ -35,6 +35,7 @@ export interface WebhookEventDef {
   description: string;
   recommended: boolean;
   warning?: string;
+  badge?: string;
 }
 
 export const WEBHOOK_EVENTS: WebhookEventDef[] = [
@@ -45,10 +46,11 @@ export const WEBHOOK_EVENTS: WebhookEventDef[] = [
     recommended: true,
   },
   {
-    id: 'messages_upsert',
+    id: 'messages',
     label: 'Novas mensagens recebidas',
     description: 'Dispara quando uma nova mensagem chega na instância. Obrigatório para confirmação automática de agendamentos.',
     recommended: false,
+    badge: 'confirmações automáticas',
   },
   {
     id: 'messages_reaction',

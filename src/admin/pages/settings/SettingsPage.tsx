@@ -20,7 +20,7 @@ import {
   Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
   Users, User, FileText, Trash2,
   Hash, CalendarX2, Clock, ChevronDown, ChevronUp,
-  Shield, CheckCircle2,
+  Shield, CheckCircle2, TriangleAlert,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
 
@@ -1107,19 +1107,23 @@ function AutoConfirmSection() {
         .in('key', ['auto_confirm_enabled', 'auto_confirm_positive_ids', 'auto_confirm_negative_ids', 'auto_confirm_expiry_hours']);
       if (data) {
         for (const row of data as { key: string; value: unknown }[]) {
-          const v = typeof row.value === 'string' ? row.value : JSON.stringify(row.value);
+          const v = row.value;
           switch (row.key) {
             case 'auto_confirm_enabled':
-              setEnabled(v === 'true' || v === '1');
+              setEnabled(v === true || v === 'true' || v === '1');
               break;
-            case 'auto_confirm_positive_ids':
-              try { setPositiveIds(JSON.parse(v).join(', ')); } catch { setPositiveIds(v); }
+            case 'auto_confirm_positive_ids': {
+              const arr = Array.isArray(v) ? v : (() => { try { return JSON.parse(String(v)); } catch { return []; } })();
+              if (Array.isArray(arr) && arr.length) setPositiveIds(arr.join(', '));
               break;
-            case 'auto_confirm_negative_ids':
-              try { setNegativeIds(JSON.parse(v).join(', ')); } catch { setNegativeIds(v); }
+            }
+            case 'auto_confirm_negative_ids': {
+              const arr = Array.isArray(v) ? v : (() => { try { return JSON.parse(String(v)); } catch { return []; } })();
+              if (Array.isArray(arr) && arr.length) setNegativeIds(arr.join(', '));
               break;
+            }
             case 'auto_confirm_expiry_hours':
-              setExpiryHours(v);
+              setExpiryHours(String(typeof v === 'number' ? v : parseInt(String(v)) || 24));
               break;
           }
         }
@@ -1128,17 +1132,18 @@ function AutoConfirmSection() {
     })();
   }, []);
 
-  async function saveSetting(key: string, value: string) {
+  async function saveSetting(key: string, value: unknown) {
     setSaving(true);
     await supabase
       .from('system_settings')
-      .update({ value })
-      .eq('category', 'visit')
-      .eq('key', key);
+      .upsert(
+        { category: 'visit', key, value, updated_at: new Date().toISOString() },
+        { onConflict: 'category,key' },
+      );
     setSaving(false);
   }
 
-  /** Check if messages_upsert event is registered in the webhook */
+  /** Check if messages event is registered in the webhook */
   async function checkWebhookEvents(): Promise<boolean> {
     const { data } = await supabase
       .from('system_settings')
@@ -1149,11 +1154,11 @@ function AutoConfirmSection() {
     if (!data) return false;
     try {
       const events: string[] = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-      return Array.isArray(events) && events.includes('messages_upsert');
+      return Array.isArray(events) && events.includes('messages');
     } catch { return false; }
   }
 
-  /** Register webhook adding messages_upsert to current events */
+  /** Register webhook adding messages to current events */
   async function registerWithUpsert() {
     setWebhookAlert('registering');
     setWebhookRegError('');
@@ -1175,9 +1180,9 @@ function AutoConfirmSection() {
         }
       }
 
-      // Add messages_upsert if not present
-      if (!currentEvents.includes('messages_upsert')) {
-        currentEvents.push('messages_upsert');
+      // Add messages if not present
+      if (!currentEvents.includes('messages')) {
+        currentEvents.push('messages');
       }
 
       // Build webhook URL
@@ -1208,7 +1213,7 @@ function AutoConfirmSection() {
         setWebhookAlert('missing');
         // Save as enabled regardless — user can register later
         setEnabled(true);
-        saveSetting('auto_confirm_enabled', 'true');
+        saveSetting('auto_confirm_enabled', true);
         return;
       }
       setWebhookAlert(null);
@@ -1217,12 +1222,12 @@ function AutoConfirmSection() {
     }
     const next = !enabled;
     setEnabled(next);
-    saveSetting('auto_confirm_enabled', String(next));
+    saveSetting('auto_confirm_enabled', next);
   }
 
   function handleSaveIds(key: string, raw: string) {
     const arr = raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-    saveSetting(key, JSON.stringify(arr));
+    saveSetting(key, arr);
   }
 
   if (loading) {
@@ -1268,33 +1273,40 @@ function AutoConfirmSection() {
       )}
 
       {webhookAlert === 'missing' && (
-        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-xl px-4 py-3 space-y-2">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Evento de mensagens recebidas não registrado</p>
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                A confirmação automática depende do evento <strong>messages_upsert</strong> (Novas mensagens recebidas) estar habilitado no webhook da API WhatsApp.
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-6">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-amber-50 dark:bg-amber-900/30 px-5 py-4 flex items-start gap-3">
+              <div className="mt-0.5 flex-shrink-0 w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-800/50 flex items-center justify-center">
+                <TriangleAlert className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Evento não registrado</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Configuração de webhook necessária</p>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                A confirmação automática depende do evento <strong>"Novas mensagens recebidas"</strong> (messages) estar habilitado no webhook da API WhatsApp.
                 Atualmente este evento não está registrado.
               </p>
               {webhookRegError && (
-                <p className="text-xs text-red-600 dark:text-red-400 mt-1">{webhookRegError}</p>
+                <p className="text-xs text-red-600 dark:text-red-400 mt-2">{webhookRegError}</p>
               )}
             </div>
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              onClick={registerWithUpsert}
-              className="text-xs px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors"
-            >
-              Registrar evento agora
-            </button>
-            <button
-              onClick={() => setWebhookAlert(null)}
-              className="text-xs px-3 py-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              Ignorar
-            </button>
+            <div className="flex gap-3 px-5 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <button
+                onClick={() => setWebhookAlert(null)}
+                className="flex-1 px-4 py-2 rounded-xl text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                Ignorar
+              </button>
+              <button
+                onClick={registerWithUpsert}
+                className="flex-1 px-4 py-2 rounded-xl text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+              >
+                Registrar evento agora
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1302,14 +1314,14 @@ function AutoConfirmSection() {
       {webhookAlert === 'registering' && (
         <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/10 rounded-xl px-4 py-3">
           <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
-          Registrando evento messages_upsert no webhook…
+          Registrando evento messages no webhook…
         </div>
       )}
 
       {webhookAlert === 'registered' && (
         <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-xl px-4 py-3">
           <Check className="w-4 h-4 flex-shrink-0" />
-          Webhook atualizado com sucesso! O evento messages_upsert está ativo.
+          Webhook atualizado com sucesso! O evento messages está ativo.
         </div>
       )}
 
@@ -1351,7 +1363,7 @@ function AutoConfirmSection() {
               max={168}
               value={expiryHours}
               onChange={(e) => setExpiryHours(e.target.value)}
-              onBlur={() => saveSetting('auto_confirm_expiry_hours', expiryHours)}
+              onBlur={() => saveSetting('auto_confirm_expiry_hours', parseInt(expiryHours) || 24)}
               className="w-24 text-xs px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 outline-none focus:border-amber-400"
             />
             <p className="text-[10px] text-gray-400 mt-1">Após este período sem resposta, a confirmação pendente expira automaticamente.</p>
