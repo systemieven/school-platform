@@ -4,26 +4,35 @@ import { useSettings } from '../../hooks/useSettings';
 
 const FB_HREF = 'https://www.facebook.com/colegiobatistacaruarupe/?locale=pt_BR';
 
+function formatAddress(raw: unknown): { line1: string; line2: string } {
+  if (!raw) return { line1: '', line2: '' };
+  if (typeof raw === 'object' && raw !== null) {
+    const a = raw as Record<string, string>;
+    const line1 = [a.rua, a.numero && `, ${a.numero}`].filter(Boolean).join('');
+    const line2 = [a.bairro, a.cidade && `${a.cidade}${a.estado ? `/${a.estado}` : ''}`].filter(Boolean).join(', ');
+    return { line1, line2 };
+  }
+  // Legacy plain string — split at " - "
+  const s = String(raw);
+  const idx = s.indexOf(' - ');
+  if (idx === -1) return { line1: s, line2: '' };
+  return { line1: s.slice(0, idx), line2: s.slice(idx + 3) };
+}
+
 export default function Footer() {
   const { settings } = useSettings('general');
 
   const schoolName = (settings.school_name as string) || 'Colégio Batista em Caruaru';
-  const cnpj       = (settings.cnpj       as string) || '01.873.279/0002-61';
-  const phone      = (settings.phone      as string) || '(81) 3721-4787';
-  const address    = (settings.address    as string) || 'Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE';
+  const cnpj       = (settings.cnpj        as string) || '01.873.279/0002-61';
+  const phone      = (settings.phone       as string) || '(81) 3721-4787';
+
+  const { line1: addrLine1, line2: addrLine2 } = formatAddress(settings.address)
+    || formatAddress('Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE');
 
   // whatsapp can be stored as a full number (5581999...) or with formatting
   const rawWa  = (settings.whatsapp as string) || '5581991398203';
   const waNum  = rawWa.replace(/\D/g, '');
   const waHref = `https://wa.me/${waNum}?text=Olá, vim do site e queria mais informações`;
-
-  // Split address into two lines at the first " - " or ","
-  const [addrLine1, addrLine2] = (() => {
-    const sep = address.includes(' - ') ? ' - ' : ', ';
-    const idx = address.indexOf(sep);
-    if (idx === -1) return [address, ''];
-    return [address.slice(0, idx), address.slice(idx + sep.length)];
-  })();
 
   return (
     <footer className="bg-[#003876] text-white py-16">

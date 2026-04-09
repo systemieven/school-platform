@@ -14,7 +14,7 @@ import {
   CalendarCheck, GraduationCap, MessageSquare, Bell, Palette,
   Eye, EyeOff, AlertCircle, Wifi, WifiOff,
   PanelLeftClose, PanelLeftOpen, Plus, Star, Pencil, Plug,
-  LayoutTemplate, Send, X,
+  LayoutTemplate, Send, X, MapPin, Search,
   // panels
   BookOpen, BookMarked, Calendar, ClipboardList, PenLine, Briefcase, Heart,
   Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
@@ -106,6 +106,7 @@ const KEY_META: Record<string, { label: string; placeholder?: string; secret?: b
   // general
   school_name:    { label: 'Nome da Escola', placeholder: 'Ex: Colégio Batista em Caruaru' },
   cnpj:           { label: 'CNPJ', placeholder: '00.000.000/0000-00' },
+  // address is rendered by AddressField — kept here as fallback only
   address:        { label: 'Endereço', placeholder: 'Rua, número, bairro, cidade/UF' },
   phone:          { label: 'Telefone', placeholder: '(00) 0000-0000' },
   whatsapp:       { label: 'WhatsApp', placeholder: '(00) 00000-0000' },
@@ -465,6 +466,205 @@ export default function SettingsPage() {
 }
 
 
+// ── Address field ─────────────────────────────────────────────────────────────
+
+interface AddressData {
+  cep: string;
+  rua: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+}
+
+const EMPTY_ADDR: AddressData = { cep: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' };
+
+function parseAddressValue(v: string): AddressData {
+  try {
+    const obj = JSON.parse(v);
+    if (obj && typeof obj === 'object' && ('rua' in obj || 'cep' in obj)) {
+      return { ...EMPTY_ADDR, ...obj };
+    }
+  } catch { /* not JSON */ }
+  // Legacy plain string — put it all in rua
+  return { ...EMPTY_ADDR, rua: v };
+}
+
+function AddressField({
+  value,
+  savedValue,
+  onChange,
+}: {
+  value: string;
+  savedValue: string;
+  onChange: (v: string) => void;
+}) {
+  const [addr, setAddr] = useState<AddressData>(() => parseAddressValue(value));
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError,   setCepError]   = useState<string | null>(null);
+
+  // Re-sync when parent resets (e.g. after save)
+  useEffect(() => {
+    setAddr(parseAddressValue(value));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedValue]);
+
+  function update(field: keyof AddressData, val: string) {
+    const next = { ...addr, [field]: val };
+    setAddr(next);
+    onChange(JSON.stringify(next));
+  }
+
+  async function lookupCep(raw: string) {
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    setCepLoading(true);
+    setCepError(null);
+    try {
+      const res  = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json() as Record<string, string>;
+      if (data.erro) { setCepError('CEP não encontrado'); return; }
+      const next: AddressData = {
+        ...addr,
+        cep:    raw,
+        rua:    data.logradouro || addr.rua,
+        bairro: data.bairro     || addr.bairro,
+        cidade: data.localidade || addr.cidade,
+        estado: data.uf         || addr.estado,
+      };
+      setAddr(next);
+      onChange(JSON.stringify(next));
+    } catch {
+      setCepError('Erro ao consultar CEP. Tente novamente.');
+    } finally {
+      setCepLoading(false);
+    }
+  }
+
+  const inputCls = (field: keyof AddressData) => {
+    const saved = parseAddressValue(savedValue);
+    const changed = addr[field] !== saved[field];
+    return `w-full px-3 py-2.5 rounded-xl border text-sm outline-none transition-all
+      bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+      placeholder:text-gray-400 dark:placeholder:text-gray-500
+      ${changed
+        ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 dark:bg-amber-900/10 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20'
+        : 'border-gray-200 dark:border-gray-600 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 dark:focus:ring-[#ffd700]/20'
+      }`;
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* CEP */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">CEP</label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={addr.cep}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, '').slice(0, 8);
+              const formatted = v.length > 5 ? `${v.slice(0,5)}-${v.slice(5)}` : v;
+              update('cep', formatted);
+              if (v.length === 8) lookupCep(formatted);
+            }}
+            placeholder="00000-000"
+            maxLength={9}
+            className={inputCls('cep')}
+          />
+          <button
+            type="button"
+            onClick={() => lookupCep(addr.cep)}
+            disabled={cepLoading || addr.cep.replace(/\D/g,'').length !== 8}
+            title="Consultar CEP"
+            className="flex-shrink-0 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:border-[#003876] dark:hover:border-[#ffd700] transition-colors disabled:opacity-40"
+          >
+            {cepLoading
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <Search className="w-4 h-4" />}
+          </button>
+        </div>
+        {cepError && <p className="text-xs text-red-500 mt-1">{cepError}</p>}
+      </div>
+
+      {/* Rua + Número */}
+      <div className="grid grid-cols-[1fr_auto] gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Rua / Logradouro</label>
+          <input
+            type="text"
+            value={addr.rua}
+            onChange={(e) => update('rua', e.target.value)}
+            placeholder="Ex: Rua Marcílio Dias"
+            className={inputCls('rua')}
+          />
+        </div>
+        <div className="w-28">
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Número</label>
+          <input
+            type="text"
+            value={addr.numero}
+            onChange={(e) => update('numero', e.target.value)}
+            placeholder="Ex: 99"
+            className={inputCls('numero')}
+          />
+        </div>
+      </div>
+
+      {/* Bairro */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bairro</label>
+        <input
+          type="text"
+          value={addr.bairro}
+          onChange={(e) => update('bairro', e.target.value)}
+          placeholder="Ex: São Francisco"
+          className={inputCls('bairro')}
+        />
+      </div>
+
+      {/* Cidade + Estado */}
+      <div className="grid grid-cols-[1fr_auto] gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cidade</label>
+          <input
+            type="text"
+            value={addr.cidade}
+            onChange={(e) => update('cidade', e.target.value)}
+            placeholder="Ex: Caruaru"
+            className={inputCls('cidade')}
+          />
+        </div>
+        <div className="w-28">
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Estado</label>
+          <input
+            type="text"
+            value={addr.estado}
+            onChange={(e) => update('estado', e.target.value.toUpperCase().slice(0, 2))}
+            placeholder="Ex: PE"
+            maxLength={2}
+            className={inputCls('estado')}
+          />
+        </div>
+      </div>
+
+      {/* Preview */}
+      {(addr.rua || addr.cidade) && (
+        <p className="text-xs text-gray-400 flex items-center gap-1.5 pt-1">
+          <MapPin className="w-3 h-3 flex-shrink-0" />
+          {[
+            addr.rua,
+            addr.numero && `, ${addr.numero}`,
+            addr.bairro && ` - ${addr.bairro}`,
+            addr.cidade && `, ${addr.cidade}`,
+            addr.estado && `/${addr.estado}`,
+          ].filter(Boolean).join('')}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Institutional Settings Panel ─────────────────────────────────────────────
 const INST_GROUPS: {
   title: string;
@@ -520,6 +720,29 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange }: {
             {/* Body */}
             <div className="bg-white dark:bg-gray-800/20 px-5 py-5 space-y-5">
               {groupItems.map((item) => {
+                // Address gets a dedicated structured field
+                if (item.key === 'address') {
+                  const savedStr = toStr(item.value);
+                  const isChanged = editValues[item.id] !== savedStr;
+                  return (
+                    <div key={item.id}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Endereço</label>
+                        {isChanged && (
+                          <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                            Alterado
+                          </span>
+                        )}
+                      </div>
+                      <AddressField
+                        value={editValues[item.id] || ''}
+                        savedValue={savedStr}
+                        onChange={(v) => onChange(item.id, v)}
+                      />
+                    </div>
+                  );
+                }
+
                 const meta = KEY_META[item.key] || { label: item.key };
                 const isChanged = editValues[item.id] !== toStr(item.value);
                 return (

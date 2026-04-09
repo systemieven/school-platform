@@ -1,11 +1,26 @@
 import { Phone, MapPin, Clock } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
 
+function formatAddress(raw: unknown): string {
+  if (!raw) return '';
+  if (typeof raw === 'object' && raw !== null) {
+    const a = raw as Record<string, string>;
+    return [
+      a.rua,
+      a.numero  && `, ${a.numero}`,
+      a.bairro  && ` - ${a.bairro}`,
+      a.cidade  && `, ${a.cidade}`,
+      a.estado  && `/${a.estado}`,
+    ].filter(Boolean).join('');
+  }
+  return String(raw);
+}
+
 export default function Header() {
   const { settings } = useSettings('general');
 
-  const phone   = (settings.phone   as string) || '(81) 3721-4787';
-  const address = (settings.address as string) || 'Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE';
+  const phone   = (settings.phone as string) || '(81) 3721-4787';
+  const address = formatAddress(settings.address) || 'Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE';
 
   return (
     <header className="bg-[#003876] text-white">
