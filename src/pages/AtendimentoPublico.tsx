@@ -83,9 +83,11 @@ interface PublicConfig {
   allow_walkins: { enabled?: boolean };
   feedback: {
     enabled?: boolean;
+    prompt_text?: string;
     scale?: 'stars' | 'numeric';
     max?: number;
     allow_comments?: boolean;
+    custom_questions_enabled?: boolean;
     questions?: Array<{ id: string; label: string; type: 'rating' | 'text' }>;
   } | null;
   geolocation: { latitude: number | null; longitude: number | null; radius_m: number } | null;
@@ -730,7 +732,9 @@ function FeedbackForm({ ticketId, config }: FeedbackFormProps) {
 
   return (
     <div className="rounded-2xl border border-gray-200 px-4 py-4 space-y-3">
-      <p className="text-sm font-semibold text-gray-700 text-center">Como foi seu atendimento?</p>
+      <p className="text-sm font-semibold text-gray-700 text-center">
+        {config.prompt_text?.trim() || 'Como foi seu atendimento?'}
+      </p>
 
       <div className="flex items-center justify-center gap-1.5">
         {Array.from({ length: max }).map((_, i) => {

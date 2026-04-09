@@ -37,6 +37,11 @@ import {
   LayoutGrid,
   Clock,
   MessageSquare,
+  // Feedback icons
+  ThumbsUp,
+  MessageCircle,
+  ListChecks,
+  Type,
 } from 'lucide-react';
 import type {
   AttendanceEligibilityRules,
@@ -82,7 +87,15 @@ const DEFAULTS: AttendanceState = {
     show_instructions: true,
     instructions_text: 'Aguarde o chamado na tela.',
   },
-  feedback: { enabled: true, scale: 'stars', max: 5, allow_comments: true, questions: [] },
+  feedback: {
+    enabled: true,
+    prompt_text: 'Como foi seu atendimento?',
+    scale: 'stars',
+    max: 5,
+    allow_comments: true,
+    custom_questions_enabled: false,
+    questions: [],
+  },
 };
 
 // NOTE: `estimated_service_time` foi removido — o tempo de atendimento é
@@ -609,18 +622,58 @@ export default function AttendanceSettingsPanel() {
 
       {/* 5. Feedback */}
       <SettingsCard title="Feedback Pós-Atendimento" icon={Star} description="Coleta de avaliação do cliente após a finalização do atendimento.">
-        <label className="flex items-center gap-2.5">
-          <input
-            type="checkbox"
-            checked={data.feedback.enabled}
-            onChange={(e) => setData((prev) => ({ ...prev, feedback: { ...prev.feedback, enabled: e.target.checked } }))}
-            className="w-4 h-4 rounded border-gray-300 text-[#003876] focus:ring-[#003876]/30"
-          />
-          <span className="text-sm text-gray-700 dark:text-gray-300">Habilitar feedback pós-atendimento</span>
-        </label>
+        {/* Master toggle — padrão de botão igual aos outros cards */}
+        <button
+          type="button"
+          onClick={() =>
+            setData((prev) => ({
+              ...prev,
+              feedback: { ...prev.feedback, enabled: !prev.feedback.enabled },
+            }))
+          }
+          className={`
+            w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+            ${data.feedback.enabled
+              ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+            }
+          `}
+        >
+          <ThumbsUp className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-semibold ${data.feedback.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+              Habilitar feedback pós-atendimento
+            </p>
+            <p className={`text-[11px] mt-0.5 leading-tight ${data.feedback.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+              Coleta avaliação do cliente logo após o atendimento ser finalizado.
+            </p>
+          </div>
+        </button>
 
         {data.feedback.enabled && (
           <>
+            {/* Texto do convite — editável */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                Texto exibido ao cliente
+              </label>
+              <input
+                type="text"
+                value={data.feedback.prompt_text}
+                onChange={(e) =>
+                  setData((prev) => ({
+                    ...prev,
+                    feedback: { ...prev.feedback, prompt_text: e.target.value },
+                  }))
+                }
+                placeholder="Como foi seu atendimento?"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+              />
+              <p className="mt-1 text-[11px] text-gray-400">
+                Aparece logo acima da escala de avaliação na tela do cliente.
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Escala</label>
@@ -656,100 +709,177 @@ export default function AttendanceSettingsPanel() {
               </div>
             </div>
 
-            <label className="flex items-center gap-2.5">
-              <input
-                type="checkbox"
-                checked={data.feedback.allow_comments}
-                onChange={(e) => setData((prev) => ({ ...prev, feedback: { ...prev.feedback, allow_comments: e.target.checked } }))}
-                className="w-4 h-4 rounded border-gray-300 text-[#003876] focus:ring-[#003876]/30"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">Permitir campo livre para comentários</span>
-            </label>
-
-            {/* Custom questions */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold tracking-[0.1em] uppercase text-gray-400">Perguntas personalizadas</p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setData((prev) => ({
-                      ...prev,
-                      feedback: {
-                        ...prev.feedback,
-                        questions: [
-                          ...prev.feedback.questions,
-                          { id: `q_${Date.now()}`, label: '', type: 'rating' },
-                        ],
-                      },
-                    }))
+            {/* Toggles adicionais: campo livre (independente) + perguntas personalizadas (independente) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* Campo livre para comentários — campo adicional no formulário do cliente */}
+              <button
+                type="button"
+                onClick={() =>
+                  setData((prev) => ({
+                    ...prev,
+                    feedback: { ...prev.feedback, allow_comments: !prev.feedback.allow_comments },
+                  }))
+                }
+                className={`
+                  flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+                  ${data.feedback.allow_comments
+                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
                   }
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 hover:text-[#003876] hover:border-[#003876] transition-colors"
-                >
-                  <Plus className="w-3 h-3" />
-                  Adicionar
-                </button>
-              </div>
-
-              {data.feedback.questions.length === 0 ? (
-                <p className="text-xs text-gray-400 italic">Nenhuma pergunta personalizada.</p>
-              ) : (
-                <div className="space-y-2">
-                  {data.feedback.questions.map((q, idx) => (
-                    <div key={q.id} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Texto da pergunta"
-                        value={q.label}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setData((prev) => ({
-                            ...prev,
-                            feedback: {
-                              ...prev.feedback,
-                              questions: prev.feedback.questions.map((x, i) => (i === idx ? { ...x, label: value } : x)),
-                            },
-                          }));
-                        }}
-                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-                      />
-                      <select
-                        value={q.type}
-                        onChange={(e) => {
-                          const value = e.target.value as 'rating' | 'text';
-                          setData((prev) => ({
-                            ...prev,
-                            feedback: {
-                              ...prev.feedback,
-                              questions: prev.feedback.questions.map((x, i) => (i === idx ? { ...x, type: value } : x)),
-                            },
-                          }));
-                        }}
-                        className="px-2 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876]"
-                      >
-                        <option value="rating">Nota</option>
-                        <option value="text">Texto</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setData((prev) => ({
-                            ...prev,
-                            feedback: {
-                              ...prev.feedback,
-                              questions: prev.feedback.questions.filter((_, i) => i !== idx),
-                            },
-                          }))
-                        }
-                        className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
+                `}
+              >
+                <MessageCircle className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.allow_comments ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${data.feedback.allow_comments ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                    Campo livre para comentários
+                  </p>
+                  <p className={`text-[11px] mt-0.5 leading-tight ${data.feedback.allow_comments ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                    Exibe um campo de texto adicional no formulário.
+                  </p>
                 </div>
-              )}
+              </button>
+
+              {/* Perguntas personalizadas — quando ligado, lista de perguntas aparece abaixo */}
+              <button
+                type="button"
+                onClick={() =>
+                  setData((prev) => ({
+                    ...prev,
+                    feedback: { ...prev.feedback, custom_questions_enabled: !prev.feedback.custom_questions_enabled },
+                  }))
+                }
+                className={`
+                  flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+                  ${data.feedback.custom_questions_enabled
+                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                  }
+                `}
+              >
+                <ListChecks className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.custom_questions_enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${data.feedback.custom_questions_enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                    Perguntas personalizadas
+                  </p>
+                  <p className={`text-[11px] mt-0.5 leading-tight ${data.feedback.custom_questions_enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                    Inclui perguntas extras além da avaliação principal.
+                  </p>
+                </div>
+              </button>
             </div>
+
+            {/* Lista de perguntas personalizadas — só quando o toggle estiver ligado */}
+            {data.feedback.custom_questions_enabled && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold tracking-[0.1em] uppercase text-gray-400">Perguntas personalizadas</p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setData((prev) => ({
+                        ...prev,
+                        feedback: {
+                          ...prev.feedback,
+                          questions: [
+                            ...prev.feedback.questions,
+                            { id: `q_${Date.now()}`, label: '', type: 'rating' },
+                          ],
+                        },
+                      }))
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 hover:text-[#003876] hover:border-[#003876] transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Adicionar
+                  </button>
+                </div>
+
+                {data.feedback.questions.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">Nenhuma pergunta personalizada.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {data.feedback.questions.map((q, idx) => {
+                      const setType = (value: 'rating' | 'text') =>
+                        setData((prev) => ({
+                          ...prev,
+                          feedback: {
+                            ...prev.feedback,
+                            questions: prev.feedback.questions.map((x, i) => (i === idx ? { ...x, type: value } : x)),
+                          },
+                        }));
+
+                      return (
+                        <div key={q.id} className="flex items-center gap-2">
+                          {/* Input diminuído — menos protagonismo que antes */}
+                          <input
+                            type="text"
+                            placeholder="Texto da pergunta"
+                            value={q.label}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setData((prev) => ({
+                                ...prev,
+                                feedback: {
+                                  ...prev.feedback,
+                                  questions: prev.feedback.questions.map((x, i) => (i === idx ? { ...x, label: value } : x)),
+                                },
+                              }));
+                            }}
+                            className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+                          />
+
+                          {/* Dois botões mutuamente exclusivos: Estrela ou Texto */}
+                          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 overflow-hidden shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setType('rating')}
+                              title="Avaliação em estrelas"
+                              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                                q.type === 'rating'
+                                  ? 'bg-[#003876] text-white'
+                                  : 'text-gray-500 hover:text-[#003876]'
+                              }`}
+                            >
+                              <Star className={`w-3.5 h-3.5 ${q.type === 'rating' ? 'fill-[#ffd700] text-[#ffd700]' : ''}`} />
+                              Estrela
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setType('text')}
+                              title="Resposta em texto livre"
+                              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border-l border-gray-200 dark:border-gray-600 transition-colors ${
+                                q.type === 'text'
+                                  ? 'bg-[#003876] text-white'
+                                  : 'text-gray-500 hover:text-[#003876]'
+                              }`}
+                            >
+                              <Type className="w-3.5 h-3.5" />
+                              Texto
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setData((prev) => ({
+                                ...prev,
+                                feedback: {
+                                  ...prev.feedback,
+                                  questions: prev.feedback.questions.filter((_, i) => i !== idx),
+                                },
+                              }))
+                            }
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </SettingsCard>

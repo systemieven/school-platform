@@ -699,9 +699,13 @@ export interface AttendanceClientScreenFields {
 
 export interface AttendanceFeedbackConfig {
   enabled: boolean;
+  /** Texto exibido ao cliente logo acima da escala de avaliação. */
+  prompt_text: string;
   scale: 'stars' | 'numeric';
   max: number;
   allow_comments: boolean;
+  /** Quando false, a lista de `questions` é ignorada pelo formulário. */
+  custom_questions_enabled: boolean;
   questions: Array<{ id: string; label: string; type: 'rating' | 'text' }>;
 }
 
