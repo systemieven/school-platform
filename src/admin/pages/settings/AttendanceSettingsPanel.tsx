@@ -14,7 +14,6 @@ import { SettingsCard } from '../../components/SettingsCard';
 import {
   Shield,
   Hash,
-  Clock,
   Volume2,
   Play,
   Monitor,
@@ -38,10 +37,6 @@ interface AllowWalkins {
   enabled: boolean;
 }
 
-interface EstimatedServiceTime {
-  [sector_key: string]: number;
-}
-
 interface Sector {
   key: string;
   label: string;
@@ -51,7 +46,6 @@ interface AttendanceState {
   eligibility_rules: AttendanceEligibilityRules;
   allow_walkins: AllowWalkins;
   ticket_format: AttendanceTicketFormat;
-  estimated_service_time: EstimatedServiceTime;
   sound: AttendanceSoundConfig;
   client_screen_fields: AttendanceClientScreenFields;
   feedback: AttendanceFeedbackConfig;
@@ -61,7 +55,6 @@ const DEFAULTS: AttendanceState = {
   eligibility_rules: { mode: 'same_day', past_days_limit: 7 },
   allow_walkins: { enabled: false },
   ticket_format: { prefix_mode: 'none', custom_prefix: 'A', digits: 3, per_sector_counter: false },
-  estimated_service_time: {},
   sound: { enabled: true, preset: 'bell' },
   client_screen_fields: {
     show_last_called: true,
@@ -73,11 +66,15 @@ const DEFAULTS: AttendanceState = {
   feedback: { enabled: true, scale: 'stars', max: 5, allow_comments: true, questions: [] },
 };
 
+// NOTE: `estimated_service_time` foi removido — o tempo de atendimento é
+// configurado por motivo de visita (Agendamentos > Motivos de Visita,
+// campo "Duração da visita") e o edge function `attendance-public-config`
+// calcula dinamicamente a estimativa por setor cruzando essa duração com
+// a média real dos atendimentos finalizados do dia.
 const ATTENDANCE_KEYS: (keyof AttendanceState)[] = [
   'eligibility_rules',
   'allow_walkins',
   'ticket_format',
-  'estimated_service_time',
   'sound',
   'client_screen_fields',
   'feedback',
@@ -381,45 +378,7 @@ export default function AttendanceSettingsPanel() {
         </label>
       </SettingsCard>
 
-      {/* 3. Tempo estimado por setor */}
-      <SettingsCard title="Tempo Estimado por Setor" icon={Clock} description="Tempo de atendimento médio usado para calcular a estimativa exibida ao cliente.">
-        {sectors.length === 0 ? (
-          <p className="text-xs text-gray-400 italic">
-            Cadastre setores em <strong>Agendamentos &gt; Motivos de Visita</strong> para configurar o tempo estimado.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {sectors.map((sector) => (
-              <div key={sector.key} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate">{sector.label}</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={480}
-                    value={data.estimated_service_time[sector.key] ?? ''}
-                    placeholder="0"
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      setData((prev) => ({
-                        ...prev,
-                        estimated_service_time: {
-                          ...prev.estimated_service_time,
-                          [sector.key]: isNaN(val) ? 0 : val,
-                        },
-                      }));
-                    }}
-                    className="w-20 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-right outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-                  />
-                  <span className="text-xs text-gray-400">min</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </SettingsCard>
-
-      {/* 4. Som de Notificação */}
+      {/* 3. Som de Notificação */}
       <SettingsCard title="Som de Notificação" icon={Volume2} description="Som tocado no painel do cliente quando a senha dele for chamada.">
         <label className="flex items-center gap-2.5">
           <input
@@ -466,7 +425,7 @@ export default function AttendanceSettingsPanel() {
         )}
       </SettingsCard>
 
-      {/* 5. Tela do cliente */}
+      {/* 4. Tela do cliente */}
       <SettingsCard title="Tela do Cliente" icon={Monitor} description="Controle o que é exibido na página pública após a senha ser gerada.">
         {[
           { key: 'show_last_called',   label: 'Mostrar última senha chamada' },
@@ -513,7 +472,7 @@ export default function AttendanceSettingsPanel() {
         )}
       </SettingsCard>
 
-      {/* 6. Feedback */}
+      {/* 5. Feedback */}
       <SettingsCard title="Feedback Pós-Atendimento" icon={Star} description="Coleta de avaliação do cliente após a finalização do atendimento.">
         <label className="flex items-center gap-2.5">
           <input
