@@ -27,11 +27,46 @@ import {
   Hourglass,
   Star,
   LayoutGrid,
+  // Icons used by ICON_MAP para os motivos de visita (espelha AgendarVisita)
+  Users,
+  User,
+  FileText,
+  Building2,
+  BookOpen,
+  BookMarked,
+  GraduationCap,
+  MessageCircle,
+  MessageSquare,
+  Calendar,
+  ClipboardList,
+  PenLine,
+  Briefcase,
+  Heart,
+  Home,
+  HelpCircle,
+  Award,
+  UserCheck,
+  Handshake,
+  Baby,
+  Bus,
+  Mail,
 } from 'lucide-react';
 
 type Step = 'phone' | 'validating' | 'eligible' | 'walkin' | 'locating' | 'issued' | 'error';
 
-interface Sector { key: string; label: string }
+interface Sector { key: string; label: string; icon?: string }
+
+/**
+ * Mesmo mapa usado em AgendarVisita — mantem o icone cadastrado em
+ * /admin/configuracoes/visitas sincronizado com o que o cliente ve no
+ * walk-in. Se a chave vier desconhecida ou vazia, cai em FileText.
+ */
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Building2, Users, User, FileText,
+  BookOpen, BookMarked, GraduationCap, MessageCircle, MessageSquare,
+  Calendar, ClipboardList, PenLine, Briefcase, Heart, Star,
+  Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
+};
 
 interface PublicConfig {
   school_name: string | null;
@@ -420,35 +455,47 @@ export default function AtendimentoPublico() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Celular</label>
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={phone}
-                onChange={(e) => setPhone(maskPhone(e.target.value))}
-                placeholder="(00) 00000-0000"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-base outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-              />
-              <p className="text-[11px] text-gray-400 mt-1">
-                Pré-preenchido com o telefone informado. Edite se houver erro.
-              </p>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Celular verificado</p>
+                <p className="text-sm font-semibold text-[#003876] truncate">{maskPhone(phone)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setError(null); setStep('phone'); }}
+                className="text-[11px] font-medium text-[#003876] hover:underline flex-shrink-0"
+              >
+                Alterar
+              </button>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                Motivo da visita / setor
+              <label className="block text-xs font-medium text-gray-600 mb-2">
+                Motivo da visita <span className="text-red-500">*</span>
               </label>
-              <select
-                value={walkinSector}
-                onChange={(e) => setWalkinSector(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-base outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-              >
-                <option value="">Selecione um motivo…</option>
-                {config?.sectors.map((s) => (
-                  <option key={s.key} value={s.key}>{s.label}</option>
-                ))}
-              </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {config?.sectors.map((s) => {
+                  const Icon = (s.icon && ICON_MAP[s.icon]) || FileText;
+                  const active = walkinSector === s.key;
+                  return (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() => { setWalkinSector(s.key); setError(null); }}
+                      className={`
+                        flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left text-sm transition-all duration-200
+                        ${active
+                          ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876]/30 hover:text-[#003876]'
+                        }
+                      `}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                      <span className="leading-tight">{s.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
               {config?.sectors.length === 0 && (
                 <p className="text-[11px] text-amber-600 mt-1">
                   Nenhum motivo de visita cadastrado. Contate a recepção.
@@ -465,13 +512,10 @@ export default function AtendimentoPublico() {
 
             <button
               onClick={() => {
-                const digits = digitsOnly(phone);
+                // Telefone ja foi validado e confirmado no step 'phone'; aqui
+                // so validamos os campos especificos do walkin.
                 if (!walkinName.trim()) {
                   setError('Informe seu nome completo.');
-                  return;
-                }
-                if (digits.length < 10) {
-                  setError('Informe um celular válido.');
                   return;
                 }
                 if (!walkinSector) {

@@ -148,7 +148,7 @@ Deno.serve(async (req: Request) => {
     const walkinSector: string | null = body.walkin_sector || null;
 
     if (!phone || phone.length < 10) {
-      return json({ error: "invalid_phone", message: "Informe um celular valido." }, 400);
+      return json({ error: "invalid_phone", message: "Informe um celular válido." }, 400);
     }
 
     const supabase = createClient(
@@ -239,7 +239,7 @@ Deno.serve(async (req: Request) => {
           eligible: false,
           error_code: "no_appointment",
           message:
-            "Nenhum agendamento encontrado para este numero. Agende uma visita antes de comparecer a recepcao.",
+            "Nenhum agendamento encontrado para este número. Agende uma visita antes de comparecer à recepção.",
         });
       }
 
@@ -256,15 +256,15 @@ Deno.serve(async (req: Request) => {
       const elig = isEligible(matched, rules, today);
       if (!elig.ok) {
         const reasonMap: Record<string, string> = {
-          not_same_day: "Seu agendamento nao e para hoje.",
-          past_date: "Seu agendamento ja passou.",
+          not_same_day: "Seu agendamento não é para hoje.",
+          past_date: "Seu agendamento já passou.",
           past_limit_exceeded: `Seu agendamento excedeu o limite de ${rules.past_days_limit} dias retroativos.`,
         };
         return json({
           eligible: false,
           error_code: elig.reason,
           appointment: matched,
-          message: reasonMap[elig.reason || ""] || "Agendamento inelegivel.",
+          message: reasonMap[elig.reason || ""] || "Agendamento inelegível.",
         });
       }
     }
@@ -281,7 +281,7 @@ Deno.serve(async (req: Request) => {
     // ── Validacao de geolocalizacao ─────────────────────────────────────────
     if (lat === null || lng === null) {
       return json(
-        { error: "location_required", message: "Permita a localizacao para continuar." },
+        { error: "location_required", message: "Permita a localização para continuar." },
         400,
       );
     }
@@ -290,7 +290,7 @@ Deno.serve(async (req: Request) => {
         {
           error: "institution_coordinates_missing",
           message:
-            "Coordenadas da instituicao nao configuradas. Contate o administrador.",
+            "Coordenadas da instituição não configuradas. Contate o administrador.",
         },
         500,
       );
@@ -302,7 +302,7 @@ Deno.serve(async (req: Request) => {
         error_code: "out_of_range",
         distance_m: distance,
         allowed_radius_m: geo.radius_m,
-        message: `Voce precisa estar presente na instituicao para gerar a senha. Distancia atual: ${distance}m.`,
+        message: `Você precisa estar presente na instituição para gerar a senha. Distância atual: ${distance}m.`,
       });
     }
 
@@ -336,7 +336,7 @@ Deno.serve(async (req: Request) => {
       const sector = reasons.find((r) => r.key === walkinSector);
       if (!sector) {
         return json(
-          { error: "invalid_sector", message: "Setor informado nao existe." },
+          { error: "invalid_sector", message: "Setor informado não existe." },
           400,
         );
       }
