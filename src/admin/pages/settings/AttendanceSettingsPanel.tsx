@@ -15,15 +15,28 @@ import {
   Shield,
   Hash,
   Volume2,
-  Play,
   Monitor,
   Star,
   Save,
   Loader2,
   Check,
-  UserCheck,
   Plus,
   Trash2,
+  // Eligibility icons
+  CalendarCheck,
+  CalendarPlus,
+  History,
+  Infinity as InfinityIcon,
+  UserPlus,
+  // Sound icons
+  Bell,
+  BellRing,
+  Music2,
+  Megaphone,
+  // Client screen icons
+  LayoutGrid,
+  Clock,
+  MessageSquare,
 } from 'lucide-react';
 import type {
   AttendanceEligibilityRules,
@@ -52,7 +65,13 @@ interface AttendanceState {
 }
 
 const DEFAULTS: AttendanceState = {
-  eligibility_rules: { mode: 'same_day', past_days_limit: 7 },
+  eligibility_rules: {
+    same_day: true,
+    future: false,
+    past_limited: false,
+    any: false,
+    past_days_limit: 7,
+  },
   allow_walkins: { enabled: false },
   ticket_format: { prefix_mode: 'none', custom_prefix: 'A', digits: 3, per_sector_counter: false },
   sound: { enabled: true, preset: 'bell' },
@@ -80,12 +99,46 @@ const ATTENDANCE_KEYS: (keyof AttendanceState)[] = [
   'feedback',
 ];
 
-const SOUND_PRESETS: Array<{ key: AttendanceSoundConfig['preset']; label: string; file: string }> = [
-  { key: 'bell',   label: 'Sino',     file: '/sounds/attendance-bell.mp3'   },
-  { key: 'chime',  label: 'Chime',    file: '/sounds/attendance-chime.mp3'  },
-  { key: 'ding',   label: 'Ding',     file: '/sounds/attendance-ding.mp3'   },
-  { key: 'buzzer', label: 'Campainha', file: '/sounds/attendance-buzzer.mp3' },
+const SOUND_PRESETS: Array<{
+  key: AttendanceSoundConfig['preset'];
+  label: string;
+  file: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { key: 'bell',   label: 'Sino',      file: '/sounds/attendance-bell.mp3',   icon: Bell      },
+  { key: 'chime',  label: 'Chime',     file: '/sounds/attendance-chime.mp3',  icon: BellRing  },
+  { key: 'ding',   label: 'Ding',      file: '/sounds/attendance-ding.mp3',   icon: Music2    },
+  { key: 'buzzer', label: 'Campainha', file: '/sounds/attendance-buzzer.mp3', icon: Megaphone },
 ];
+
+/**
+ * Converte valores legados de eligibility_rules (que tinham o campo
+ * unico `mode`) para a nova estrutura de flags multi-select. Tambem
+ * garante que valores parcialmente salvos nao explodam o componente.
+ */
+function normalizeEligibilityRules(raw: unknown): AttendanceEligibilityRules {
+  const r = (raw as Record<string, unknown>) || {};
+  const legacyMode = typeof r.mode === 'string' ? (r.mode as string) : null;
+  const past_days_limit = typeof r.past_days_limit === 'number' && r.past_days_limit > 0
+    ? r.past_days_limit
+    : 7;
+  if (legacyMode) {
+    return {
+      same_day:     legacyMode === 'same_day',
+      future:       legacyMode === 'future',
+      past_limited: legacyMode === 'past_limited',
+      any:          legacyMode === 'any',
+      past_days_limit,
+    };
+  }
+  return {
+    same_day:     !!r.same_day,
+    future:       !!r.future,
+    past_limited: !!r.past_limited,
+    any:          !!r.any,
+    past_days_limit,
+  };
+}
 
 export default function AttendanceSettingsPanel() {
   const [data, setData] = useState<AttendanceState>(DEFAULTS);
@@ -125,10 +178,15 @@ export default function AttendanceSettingsPanel() {
         newIds[r.key] = r.id;
         try {
           const parsed = typeof r.value === 'string' ? JSON.parse(r.value) : r.value;
-          (merged as unknown as Record<string, unknown>)[r.key] = {
-            ...((DEFAULTS as unknown as Record<string, unknown>)[r.key] as object),
-            ...(parsed as object),
-          };
+          if (r.key === 'eligibility_rules') {
+            // Normaliza valores legados (campo `mode` → flags multi-select)
+            merged.eligibility_rules = normalizeEligibilityRules(parsed);
+          } else {
+            (merged as unknown as Record<string, unknown>)[r.key] = {
+              ...((DEFAULTS as unknown as Record<string, unknown>)[r.key] as object),
+              ...(parsed as object),
+            };
+          }
         } catch {
           /* keep default */
         }
@@ -198,10 +256,19 @@ export default function AttendanceSettingsPanel() {
     if (!match) return;
     try {
       const audio = new Audio(match.file);
-      audio.play().catch(() => { /* ignore preview errors */ });
+      audio.play().catch(() => { /* ignore preview errors (autoplay block) */ });
     } catch {
       /* ignore */
     }
+  }
+
+  /**
+   * Seleciona um preset e ja toca o audio em seguida — o admin nao
+   * precisa clicar em "Ouvir" separadamente.
+   */
+  function selectSoundPreset(preset: AttendanceSoundConfig['preset']) {
+    setData((prev) => ({ ...prev, sound: { ...prev.sound, preset } }));
+    playSoundPreview(preset);
   }
 
   function ticketPreview(): string {
@@ -227,40 +294,115 @@ export default function AttendanceSettingsPanel() {
   return (
     <div className="p-6 space-y-5">
       {/* 1. Regras de Elegibilidade */}
-      <SettingsCard title="Regras de Elegibilidade" icon={Shield} description="Define quando um visitante pode emitir senha a partir do agendamento.">
-        <div className="space-y-2.5">
-          {[
-            { value: 'same_day',     label: 'Somente no dia da visita',  desc: 'Apenas agendamentos com data de hoje.' },
-            { value: 'future',       label: 'Dia da visita ou futuro',   desc: 'Permite emitir senha em agendamentos do dia ou de datas futuras.' },
-            { value: 'past_limited', label: 'Últimos N dias',            desc: 'Permite também agendamentos anteriores dentro do limite.' },
-            { value: 'any',          label: 'Qualquer data',             desc: 'Sem restrição de datas.' },
-          ].map((opt) => (
-            <label
-              key={opt.value}
-              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                data.eligibility_rules.mode === opt.value
-                  ? 'border-[#003876] bg-[#003876]/5 dark:bg-[#003876]/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-[#003876]/40'
-              }`}
-            >
-              <input
-                type="radio"
-                name="eligibility_mode"
-                value={opt.value}
-                checked={data.eligibility_rules.mode === opt.value}
-                onChange={() => setData((prev) => ({ ...prev, eligibility_rules: { ...prev.eligibility_rules, mode: opt.value as AttendanceEligibilityRules['mode'] } }))}
-                className="mt-1"
-              />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{opt.label}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.desc}</p>
-              </div>
-            </label>
-          ))}
-        </div>
+      <SettingsCard title="Regras de Elegibilidade" icon={Shield} description="Defina quando um visitante pode emitir senha. Marque mais de uma para combinar as regras; “Qualquer data” desabilita as demais.">
+        {(() => {
+          // Quando "any" está ativo, as outras ficam desabilitadas (cinza).
+          const anyActive = data.eligibility_rules.any;
+          type RuleKey = 'same_day' | 'future' | 'past_limited' | 'any';
+          const rules: Array<{
+            key: RuleKey;
+            label: string;
+            desc: string;
+            icon: React.ComponentType<{ className?: string }>;
+          }> = [
+            { key: 'same_day',     label: 'No dia da visita',   desc: 'Agendamentos marcados para hoje.',           icon: CalendarCheck },
+            { key: 'future',       label: 'Datas futuras',      desc: 'Agendamentos de amanhã em diante.',          icon: CalendarPlus  },
+            { key: 'past_limited', label: 'Últimos N dias',     desc: 'Agendamentos anteriores dentro do limite.',  icon: History       },
+            { key: 'any',          label: 'Qualquer data',      desc: 'Sem restrição — libera todas as regras.',    icon: InfinityIcon  },
+          ];
 
-        {data.eligibility_rules.mode === 'past_limited' && (
-          <div>
+          function toggleRule(key: RuleKey) {
+            setData((prev) => ({
+              ...prev,
+              eligibility_rules: {
+                ...prev.eligibility_rules,
+                [key]: !prev.eligibility_rules[key],
+              },
+            }));
+          }
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {rules.map(({ key, label, desc, icon: Icon }) => {
+                const active = data.eligibility_rules[key];
+                const disabled = anyActive && key !== 'any';
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => toggleRule(key)}
+                    className={`
+                      flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+                      ${disabled
+                        ? 'bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 opacity-60 cursor-not-allowed'
+                        : active
+                          ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                      }
+                    `}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${
+                      disabled ? 'text-gray-400' : active ? 'text-[#ffd700]' : 'text-gray-400'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold ${
+                        disabled
+                          ? 'text-gray-400'
+                          : active
+                            ? 'text-white'
+                            : 'text-gray-800 dark:text-gray-100'
+                      }`}>{label}</p>
+                      <p className={`text-[11px] mt-0.5 leading-tight ${
+                        disabled
+                          ? 'text-gray-400'
+                          : active
+                            ? 'text-white/70'
+                            : 'text-gray-500 dark:text-gray-400'
+                      }`}>{desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* Walk-in button (armazena em allow_walkins.enabled, nao na mesma chave) */}
+              <button
+                type="button"
+                onClick={() =>
+                  setData((prev) => ({
+                    ...prev,
+                    allow_walkins: { enabled: !prev.allow_walkins.enabled },
+                  }))
+                }
+                className={`
+                  flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 sm:col-span-2
+                  ${data.allow_walkins.enabled
+                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                  }
+                `}
+              >
+                <UserPlus className={`w-4 h-4 shrink-0 mt-0.5 ${
+                  data.allow_walkins.enabled ? 'text-[#ffd700]' : 'text-gray-400'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${
+                    data.allow_walkins.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'
+                  }`}>Sem agendamento prévio (walk-in)</p>
+                  <p className={`text-[11px] mt-0.5 leading-tight ${
+                    data.allow_walkins.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
+                  }`}>
+                    Permite gerar senha informando nome e setor direto na recepção; um agendamento sintético é criado para manter a timeline.
+                  </p>
+                </div>
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* Input de limite de dias — só quando past_limited está ativo e any não está */}
+        {data.eligibility_rules.past_limited && !data.eligibility_rules.any && (
+          <div className="pt-2">
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
               Limite de dias anteriores
             </label>
@@ -272,34 +414,16 @@ export default function AttendanceSettingsPanel() {
               onChange={(e) =>
                 setData((prev) => ({
                   ...prev,
-                  eligibility_rules: { ...prev.eligibility_rules, past_days_limit: Math.max(1, parseInt(e.target.value) || 1) },
+                  eligibility_rules: {
+                    ...prev.eligibility_rules,
+                    past_days_limit: Math.max(1, parseInt(e.target.value) || 1),
+                  },
                 }))
               }
               className="w-32 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
             />
           </div>
         )}
-
-        <div className="pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={data.allow_walkins.enabled}
-              onChange={(e) => setData((prev) => ({ ...prev, allow_walkins: { enabled: e.target.checked } }))}
-              className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#003876] focus:ring-[#003876]/30"
-            />
-            <div>
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-[#003876]" />
-                Permitir atendimento sem agendamento prévio (walk-in)
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Quando ativo, visitantes sem agendamento podem gerar senha informando nome + setor na recepção.
-                Um agendamento com status "comparecimento" é criado automaticamente para manter a timeline.
-              </p>
-            </div>
-          </label>
-        </div>
       </SettingsCard>
 
       {/* 2. Formato de Senha */}
@@ -379,7 +503,7 @@ export default function AttendanceSettingsPanel() {
       </SettingsCard>
 
       {/* 3. Som de Notificação */}
-      <SettingsCard title="Som de Notificação" icon={Volume2} description="Som tocado no painel do cliente quando a senha dele for chamada.">
+      <SettingsCard title="Som de Notificação" icon={Volume2} description="Som tocado no painel do cliente quando a senha for chamada. Clique num preset para ouvir.">
         <label className="flex items-center gap-2.5">
           <input
             type="checkbox"
@@ -391,66 +515,77 @@ export default function AttendanceSettingsPanel() {
         </label>
 
         {data.sound.enabled && (
-          <div className="space-y-2 pt-1">
-            {SOUND_PRESETS.map((p) => (
-              <div
-                key={p.key}
-                className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors ${
-                  data.sound.preset === p.key
-                    ? 'border-[#003876] bg-[#003876]/5 dark:bg-[#003876]/20'
-                    : 'border-gray-200 dark:border-gray-700'
-                }`}
-              >
-                <label className="flex items-center gap-2.5 flex-1 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="sound_preset"
-                    value={p.key}
-                    checked={data.sound.preset === p.key}
-                    onChange={() => setData((prev) => ({ ...prev, sound: { ...prev.sound, preset: p.key } }))}
-                  />
-                  <span className="text-sm text-gray-800 dark:text-gray-100">{p.label}</span>
-                </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+            {SOUND_PRESETS.map(({ key, label, icon: Icon }) => {
+              const active = data.sound.preset === key;
+              return (
                 <button
+                  key={key}
                   type="button"
-                  onClick={() => playSoundPreview(p.key)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  onClick={() => selectSoundPreset(key)}
+                  className={`
+                    flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
+                    ${active
+                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    }
+                  `}
                 >
-                  <Play className="w-3 h-3" />
-                  Ouvir
+                  <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                  <span className={`text-xs font-semibold ${
+                    active ? 'text-white' : 'text-gray-800 dark:text-gray-100'
+                  }`}>{label}</span>
                 </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </SettingsCard>
 
       {/* 4. Tela do cliente */}
-      <SettingsCard title="Tela do Cliente" icon={Monitor} description="Controle o que é exibido na página pública após a senha ser gerada.">
-        {[
-          { key: 'show_last_called',   label: 'Mostrar última senha chamada' },
-          { key: 'show_sector',        label: 'Mostrar setor do atendimento' },
-          { key: 'show_wait_estimate', label: 'Mostrar estimativa de espera' },
-          { key: 'show_instructions',  label: 'Mostrar instruções ao cliente' },
-        ].map((field) => (
-          <label key={field.key} className="flex items-center gap-2.5">
-            <input
-              type="checkbox"
-              checked={Boolean((data.client_screen_fields as unknown as Record<string, unknown>)[field.key])}
-              onChange={(e) =>
-                setData((prev) => ({
-                  ...prev,
-                  client_screen_fields: {
-                    ...prev.client_screen_fields,
-                    [field.key]: e.target.checked,
-                  } as AttendanceClientScreenFields,
-                }))
-              }
-              className="w-4 h-4 rounded border-gray-300 text-[#003876] focus:ring-[#003876]/30"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">{field.label}</span>
-          </label>
-        ))}
+      <SettingsCard title="Tela do Cliente" icon={Monitor} description="Controle o que é exibido na página pública após a senha ser gerada. Clique para habilitar/desabilitar cada item.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {([
+            { key: 'show_last_called',   label: 'Última senha chamada', desc: 'Exibe a última senha chamada em outro setor.', icon: History         },
+            { key: 'show_sector',        label: 'Setor do atendimento', desc: 'Mostra o setor/motivo da senha do cliente.',    icon: LayoutGrid      },
+            { key: 'show_wait_estimate', label: 'Estimativa de espera', desc: 'Tempo médio até o chamado, por setor.',         icon: Clock           },
+            { key: 'show_instructions',  label: 'Instruções ao cliente', desc: 'Texto livre configurado abaixo.',               icon: MessageSquare   },
+          ] as const).map(({ key, label, desc, icon: Icon }) => {
+            const active = Boolean((data.client_screen_fields as unknown as Record<string, unknown>)[key]);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() =>
+                  setData((prev) => ({
+                    ...prev,
+                    client_screen_fields: {
+                      ...prev.client_screen_fields,
+                      [key]: !active,
+                    } as AttendanceClientScreenFields,
+                  }))
+                }
+                className={`
+                  flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+                  ${active
+                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                  }
+                `}
+              >
+                <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${
+                    active ? 'text-white' : 'text-gray-800 dark:text-gray-100'
+                  }`}>{label}</p>
+                  <p className={`text-[11px] mt-0.5 leading-tight ${
+                    active ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
+                  }`}>{desc}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
 
         {data.client_screen_fields.show_instructions && (
           <div>

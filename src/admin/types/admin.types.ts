@@ -663,8 +663,17 @@ export interface AttendanceFeedback {
   submitted_at: string;
 }
 
+/**
+ * Multi-select: mais de uma regra pode estar ativa ao mesmo tempo
+ * (same_day + future, por exemplo). `any` quando true sobrescreve as
+ * demais — qualquer data é aceita. Valores legados com o campo `mode`
+ * são normalizados via `normalizeEligibilityRules()` no load.
+ */
 export interface AttendanceEligibilityRules {
-  mode: 'same_day' | 'future' | 'past_limited' | 'any';
+  same_day: boolean;
+  future: boolean;
+  past_limited: boolean;
+  any: boolean;
   past_days_limit: number;
 }
 

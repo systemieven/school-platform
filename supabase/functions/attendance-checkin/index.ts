@@ -40,9 +40,45 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
   return Math.round(2 * R * Math.asin(Math.sqrt(a)));
 }
 
+/**
+ * Novo formato multi-select. Cada flag habilita um intervalo de datas
+ * independentemente; o agendamento é elegível se QUALQUER uma das
+ * regras ativas cobri-lo. `any` sobrescreve todas as demais.
+ *
+ * Valores legados com o campo `mode` sao normalizados em
+ * `normalizeEligibilityRules()`.
+ */
 interface EligibilityRules {
-  mode: "same_day" | "future" | "past_limited" | "any";
+  same_day: boolean;
+  future: boolean;
+  past_limited: boolean;
+  any: boolean;
   past_days_limit: number;
+}
+
+function normalizeEligibilityRules(raw: unknown): EligibilityRules {
+  const r = (raw as Record<string, unknown>) || {};
+  const past_days_limit =
+    typeof r.past_days_limit === "number" && r.past_days_limit > 0
+      ? r.past_days_limit
+      : 7;
+  const legacyMode = typeof r.mode === "string" ? (r.mode as string) : null;
+  if (legacyMode) {
+    return {
+      same_day: legacyMode === "same_day",
+      future: legacyMode === "future",
+      past_limited: legacyMode === "past_limited",
+      any: legacyMode === "any",
+      past_days_limit,
+    };
+  }
+  return {
+    same_day: !!r.same_day,
+    future: !!r.future,
+    past_limited: !!r.past_limited,
+    any: !!r.any,
+    past_days_limit,
+  };
 }
 
 interface TicketFormat {
@@ -74,26 +110,27 @@ function isEligible(
   rules: EligibilityRules,
   today: string,
 ): { ok: boolean; reason?: string } {
+  // `any` = libera qualquer data
+  if (rules.any) return { ok: true };
+
   const apptDate = appointment.appointment_date;
-  if (rules.mode === "same_day") {
-    if (apptDate !== today) return { ok: false, reason: "not_same_day" };
-    return { ok: true };
-  }
-  if (rules.mode === "future") {
-    if (apptDate < today) return { ok: false, reason: "past_date" };
-    return { ok: true };
-  }
-  if (rules.mode === "past_limited") {
+
+  // Testa cada regra ativa; basta uma bater.
+  if (rules.same_day && apptDate === today) return { ok: true };
+  if (rules.future && apptDate > today) return { ok: true };
+  if (rules.past_limited && apptDate < today) {
     const diffDays =
       (new Date(today).getTime() - new Date(apptDate).getTime()) /
       (1000 * 60 * 60 * 24);
-    if (diffDays > rules.past_days_limit) {
-      return { ok: false, reason: "past_limit_exceeded" };
-    }
-    return { ok: true };
+    if (diffDays <= rules.past_days_limit) return { ok: true };
   }
-  // mode === 'any'
-  return { ok: true };
+
+  // Nenhuma regra bateu — diagnostica o motivo mais especifico para UX.
+  if (apptDate > today) return { ok: false, reason: "future_not_allowed" };
+  if (apptDate === today) return { ok: false, reason: "same_day_not_allowed" };
+  // apptDate < today
+  if (rules.past_limited) return { ok: false, reason: "past_limit_exceeded" };
+  return { ok: false, reason: "past_not_allowed" };
 }
 
 /**
@@ -157,10 +194,7 @@ Deno.serve(async (req: Request) => {
     );
 
     const settings = await loadSettings(supabase);
-    const rules = (settings.attendance?.eligibility_rules ?? {
-      mode: "same_day",
-      past_days_limit: 7,
-    }) as EligibilityRules;
+    const rules = normalizeEligibilityRules(settings.attendance?.eligibility_rules);
     const allowWalkins = !!(
       (settings.attendance?.allow_walkins as { enabled?: boolean })?.enabled
     );
@@ -256,9 +290,12 @@ Deno.serve(async (req: Request) => {
       const elig = isEligible(matched, rules, today);
       if (!elig.ok) {
         const reasonMap: Record<string, string> = {
-          not_same_day: "Seu agendamento não é para hoje.",
-          past_date: "Seu agendamento já passou.",
-          past_limit_exceeded: `Seu agendamento excedeu o limite de ${rules.past_days_limit} dias retroativos.`,
+          same_day_not_allowed:
+            "Atendimento no mesmo dia do agendamento não está habilitado. Contate a recepção.",
+          future_not_allowed:
+            "Seu agendamento é para uma data futura. Volte no dia marcado.",
+          past_not_allowed: "Seu agendamento já passou.",
+          past_limit_exceeded: `Seu agendamento passou do limite de ${rules.past_days_limit} dias retroativos.`,
         };
         return json({
           eligible: false,
