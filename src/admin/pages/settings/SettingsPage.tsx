@@ -663,6 +663,116 @@ function AddressField({
   );
 }
 
+// ── Business Hours Field ──────────────────────────────────────────────────────
+const WEEKDAYS_BH = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+interface DaySchedule { open: boolean; start: string; end: string }
+type BusinessHoursData = Record<string, DaySchedule>;
+
+const DEFAULT_DAY: DaySchedule = { open: false, start: '07:00', end: '17:00' };
+
+function parseBusinessHours(v: string): BusinessHoursData {
+  try {
+    const obj = JSON.parse(v);
+    if (obj && typeof obj === 'object') {
+      const result: BusinessHoursData = {};
+      for (let i = 0; i < 7; i++) {
+        const d = (obj as Record<string, unknown>)[String(i)];
+        result[String(i)] = (d && typeof d === 'object') ? { ...DEFAULT_DAY, ...(d as Partial<DaySchedule>) } : { ...DEFAULT_DAY };
+      }
+      return result;
+    }
+  } catch { /* not JSON */ }
+  const def: BusinessHoursData = {};
+  for (let i = 0; i < 7; i++) def[String(i)] = { ...DEFAULT_DAY, open: i >= 1 && i <= 5 };
+  return def;
+}
+
+function BusinessHoursField({ value, savedValue, onChange }: {
+  value: string;
+  savedValue: string;
+  onChange: (v: string) => void;
+}) {
+  const [hours, setHours] = useState<BusinessHoursData>(() => parseBusinessHours(value));
+
+  useEffect(() => {
+    setHours(parseBusinessHours(value));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedValue]);
+
+  function updateDay(idx: number, patch: Partial<DaySchedule>) {
+    const next = { ...hours, [String(idx)]: { ...hours[String(idx)], ...patch } };
+    setHours(next);
+    onChange(JSON.stringify(next));
+  }
+
+  const savedHours = parseBusinessHours(savedValue);
+
+  const timeCls = (changed: boolean) =>
+    `px-3 py-2 rounded-xl border text-sm outline-none transition-all w-28
+    bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+    ${changed
+      ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20'
+      : 'border-gray-200 dark:border-gray-600 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 dark:focus:ring-[#ffd700]/20'
+    }`;
+
+  return (
+    <div className="space-y-4">
+      {/* Day toggle pills */}
+      <div>
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Dias abertos</p>
+        <div className="flex flex-wrap gap-2">
+          {WEEKDAYS_BH.map((name, idx) => {
+            const isOpen = hours[String(idx)]?.open;
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => updateDay(idx, { open: !isOpen })}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                  isOpen
+                    ? 'bg-[#003876] text-white shadow-md'
+                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] dark:hover:border-[#ffd700]'
+                }`}
+              >
+                {isOpen && <Check className="w-3 h-3" />}
+                {name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Time inputs for open days */}
+      {Array.from({ length: 7 }, (_, idx) => {
+        const day = hours[String(idx)];
+        if (!day?.open) return null;
+        const savedDay = savedHours[String(idx)];
+        return (
+          <div key={idx} className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 w-8 flex-shrink-0">
+              {WEEKDAYS_BH[idx]}
+            </span>
+            <input
+              type="time"
+              value={day.start}
+              onChange={(e) => updateDay(idx, { start: e.target.value })}
+              className={timeCls(day.start !== savedDay?.start)}
+            />
+            <span className="text-xs text-gray-400">às</span>
+            <input
+              type="time"
+              value={day.end}
+              onChange={(e) => updateDay(idx, { end: e.target.value })}
+              className={timeCls(day.end !== savedDay?.end)}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Institutional Settings Panel ─────────────────────────────────────────────
 const INST_GROUPS: {
   title: string;
@@ -675,6 +785,11 @@ const INST_GROUPS: {
     title: 'Identificação',
     icon: Building2,
     keys: ['school_name', 'cnpj'],
+  },
+  {
+    title: 'Horário de Funcionamento',
+    icon: Clock,
+    keys: ['business_hours'],
   },
   {
     title: 'Localização',
@@ -759,6 +874,28 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange }: {
                         )}
                       </div>
                       <AddressField
+                        value={editValues[item.id] || ''}
+                        savedValue={savedStr}
+                        onChange={(v) => onChange(item.id, v)}
+                      />
+                    </div>
+                  );
+                }
+
+                // Business hours gets a dedicated schedule field
+                if (item.key === 'business_hours') {
+                  const savedStr = toStr(item.value);
+                  const isChanged = editValues[item.id] !== savedStr;
+                  return (
+                    <div key={item.id}>
+                      {isChanged && (
+                        <div className="flex justify-end mb-2">
+                          <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                            Alterado
+                          </span>
+                        </div>
+                      )}
+                      <BusinessHoursField
                         value={editValues[item.id] || ''}
                         savedValue={savedStr}
                         onChange={(v) => onChange(item.id, v)}
