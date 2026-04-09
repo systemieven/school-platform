@@ -59,33 +59,60 @@ Deno.serve(async (req: Request) => {
     if (!body) return new Response("ok", { status: 200, headers: CORS });
 
     const event = body.event || body.type || "";
-    console.log(`[webhook] event=${event}`);
 
-    // messages_update
+    // ── DIAGNOSTIC: log full payload (truncated) ──────────────────────────────
+    console.log(`[webhook] event=${event} payload=${JSON.stringify(body).slice(0, 800)}`);
+
+    // messages_update — UazAPI v2 payload:
+    // { event: "messages_update", data: [{ key: { id, fromMe, remoteJid }, update: { status } }] }
+    // NOTE: custom track_id is NOT echoed in this event; we match on key.id → wa_message_id.
+    // Legacy fallback: trackId/track_id → log.id (kept for compatibility).
     if (event === "messages_update") {
       const updates: unknown[] = Array.isArray(body.data) ? body.data : [body.data];
 
       for (const u of updates) {
-        const upd = u as Record<string, unknown>;
-        const trackId   = (upd?.trackId || upd?.track_id || "") as string;
+        const upd        = u as Record<string, unknown>;
+        const key        = upd?.key as Record<string, unknown> | undefined;
+        const waKeyId    = (key?.id || "") as string;
+        const trackId    = (upd?.trackId || upd?.track_id || "") as string;
         const statusCode = (upd as { update?: { status?: number } })?.update?.status;
 
-        if (!trackId || statusCode === undefined || statusCode === null) continue;
+        console.log(`[webhook] update: waKeyId=${waKeyId} trackId=${trackId} status=${statusCode}`);
 
+        if (statusCode === undefined || statusCode === null) continue;
         const newStatus = WA_STATUS[statusCode];
         if (!newStatus) continue;
 
-        const { data: log } = await service
-          .from("whatsapp_message_log")
-          .select("status")
-          .eq("id", trackId)
-          .single();
+        // ── Strategy 1: match by wa_message_id (primary, Baileys key.id) ──────
+        let logId: string | null = null;
+        let currentStatus: string | null = null;
 
-        if (!log) continue;
+        if (waKeyId) {
+          const { data: row } = await service
+            .from("whatsapp_message_log")
+            .select("id, status")
+            .eq("wa_message_id", waKeyId)
+            .maybeSingle();
+          if (row) { logId = row.id; currentStatus = row.status; }
+        }
 
-        const currentIdx = STATUS_ORDER.indexOf(log.status);
+        // ── Strategy 2: match by log UUID via trackId (legacy fallback) ───────
+        if (!logId && trackId) {
+          const { data: row } = await service
+            .from("whatsapp_message_log")
+            .select("id, status")
+            .eq("id", trackId)
+            .maybeSingle();
+          if (row) { logId = row.id; currentStatus = row.status; }
+        }
+
+        if (!logId || !currentStatus) {
+          console.log(`[webhook] no log found for waKeyId=${waKeyId} trackId=${trackId}`);
+          continue;
+        }
+
+        const currentIdx = STATUS_ORDER.indexOf(currentStatus);
         const newIdx     = STATUS_ORDER.indexOf(newStatus);
-
         if (newStatus !== "failed" && newIdx <= currentIdx) continue;
 
         await service
@@ -96,9 +123,9 @@ Deno.serve(async (req: Request) => {
             ...(newStatus === "delivered" ? { delivered_at: new Date().toISOString() } : {}),
             ...(newStatus === "read"      ? { read_at:      new Date().toISOString() } : {}),
           })
-          .eq("id", trackId);
+          .eq("id", logId);
 
-        console.log(`[webhook] log ${trackId}: ${log.status} → ${newStatus}`);
+        console.log(`[webhook] updated log ${logId}: ${currentStatus} → ${newStatus}`);
       }
     }
 
