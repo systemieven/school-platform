@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
-import { sendWhatsAppText, sendWhatsAppTemplate, renderTemplate, checkWhatsAppNumber } from '../../lib/whatsapp-api';
+import { sendWhatsAppText, sendWhatsAppTemplate, checkWhatsAppNumber } from '../../lib/whatsapp-api';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',

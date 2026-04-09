@@ -4,7 +4,7 @@ import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { ALL_VARIABLES } from '../../lib/whatsapp-api';
 import type {
   WhatsAppTemplate, TemplateCategory, MessageType,
-  TemplateButton, TemplateButtonType, TemplateContent,
+  TemplateButton, TemplateButtonType,
 } from '../../types/admin.types';
 import {
   MessageCircle, Plus, Pencil, Trash2,
