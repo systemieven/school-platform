@@ -706,11 +706,15 @@ export default function AgendarVisita() {
 
                   {/* Info pills */}
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1.5 bg-[var(--surface)] text-gray-600 px-3 py-1.5 rounded-lg">
-                      <Clock className="w-3 h-3 text-[#003876]" />
-                      {selectedReasonConfig.duration_minutes} min
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 bg-[var(--surface)] text-gray-600 px-3 py-1.5 rounded-lg">
+                    {/* Duração: só aparece após o contato escolher o motivo,
+                        já que o tempo varia conforme o tipo de visita. */}
+                    {reason && (
+                      <span className="inline-flex items-center gap-1.5 bg-[#ffd700] text-[#003876] font-semibold px-3 py-1.5 rounded-lg">
+                        <Clock className="w-3 h-3 text-[#003876]" />
+                        {selectedReasonConfig.duration_minutes} min
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1.5 bg-[#ffd700] text-[#003876] font-semibold px-3 py-1.5 rounded-lg">
                       <MapPin className="w-3 h-3 text-[#003876]" />
                       Presencial
                     </span>

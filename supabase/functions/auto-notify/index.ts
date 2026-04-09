@@ -216,7 +216,10 @@ Deno.serve(async (req: Request) => {
       const companions = Array.isArray(rec.companions) ? rec.companions : [];
 
       // Resolve visit_reason slug → friendly label via system_settings.visit.reasons
-      let visitReasonLabel = rec.visit_reason || "Não informado";
+      // Fallback amigável: se a key for órfã (não existe mais em system_settings)
+      // ou se o slug parecer técnico (snake_case), renderiza "sua visita" em vez
+      // de vazar o slug cru no texto enviado ao contato.
+      let visitReasonLabel = "sua visita";
       if (rec.visit_reason) {
         const { data: reasonsRow } = await service
           .from("system_settings")
@@ -232,7 +235,18 @@ Deno.serve(async (req: Request) => {
               : []);
         const match = (reasonsList as Array<Record<string, unknown>>)
           .find((r) => r && r.key === rec.visit_reason);
-        if (match?.label) visitReasonLabel = String(match.label);
+        if (match?.label) {
+          visitReasonLabel = String(match.label);
+        } else {
+          // Key órfã: não encontrada em system_settings.visit.reasons.
+          // Se o valor não parecer um slug técnico (sem underscores, começa maiúscula),
+          // usamos como label direto; caso contrário, mantém o fallback "sua visita".
+          const raw = String(rec.visit_reason).trim();
+          const looksLikeSlug = /[_\-]/.test(raw) || raw === raw.toLowerCase();
+          if (raw && !looksLikeSlug) {
+            visitReasonLabel = raw;
+          }
+        }
       }
 
       vars.visitor_name = rec.visitor_name || "Visitante";
