@@ -301,10 +301,12 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
     setRetrying(null);
   };
 
-  // Stats
-  const sentCount      = logs.filter((l) => l.status === 'sent').length;
-  const deliveredCount = logs.filter((l) => l.status === 'delivered').length;
-  const readCount      = logs.filter((l) => l.status === 'read').length;
+  // Stats — use milestone timestamps (not status) so a "read" message
+  // still counts as "delivered" and "sent". Status is mutually exclusive;
+  // timestamps are cumulative milestones.
+  const sentCount      = logs.filter((l) => l.sent_at      != null).length;
+  const deliveredCount = logs.filter((l) => l.delivered_at != null).length;
+  const readCount      = logs.filter((l) => l.read_at      != null).length;
   const failedCount    = logs.filter((l) => l.status === 'failed').length;
 
   return (

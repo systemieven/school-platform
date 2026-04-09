@@ -1,8 +1,17 @@
 /**
  * uazapi-webhook
- * Receives real-time status updates from the WhatsApp API.
+ * Receives real-time status updates from the WhatsApp API (ibotcloud / UazAPI GO format).
  * No JWT — the API calls this endpoint directly.
  * Validates identity via ?secret= URL param against system_settings.
+ *
+ * ibotcloud payload shape for messages_update:
+ * {
+ *   EventType: "messages_update",
+ *   event: { MessageIDs: ["3EB0..."], Type: "Delivered"|"Read"|"Sent"|..., Chat, Sender, ... },
+ *   state: "Delivered"|"Read"|"Sent"|...,
+ *   owner: "...",
+ *   ...
+ * }
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -12,14 +21,24 @@ const CORS = {
   "Access-Control-Allow-Headers": "content-type, x-webhook-secret",
 };
 
-// WhatsApp / Baileys status code → our status
+// ibotcloud string state → our DB status
+const STATE_MAP: Record<string, string> = {
+  "Delivered": "delivered",
+  "Read":      "read",
+  "Sent":      "sent",
+  "ServerAck": "sent",
+  "Error":     "failed",
+  "Pending":   "queued",
+};
+
+// Legacy Baileys numeric code → our status (kept for fallback compatibility)
 const WA_STATUS: Record<number, string> = {
-  0: "failed",    // ERROR
-  1: "queued",    // PENDING
-  2: "sent",      // SERVER_ACK
-  3: "delivered", // DELIVERY_ACK
-  4: "read",      // READ
-  5: "read",      // PLAYED (audio/video)
+  0: "failed",
+  1: "queued",
+  2: "sent",
+  3: "delivered",
+  4: "read",
+  5: "read",
 };
 
 // Status progression order (index = priority)
@@ -58,89 +77,167 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => null);
     if (!body) return new Response("ok", { status: 200, headers: CORS });
 
-    const event = body.event || body.type || "";
+    // ── Detect event type ──────────────────────────────────────────────────────
+    // ibotcloud: body.EventType = "messages_update", body.event = {...object...}
+    // Baileys standard: body.event = "messages_update" (string)
+    const eventType: string = typeof body.event === "string"
+      ? (body.event as string)
+      : ((body.EventType as string) || (body.type as string) || "");
 
-    // ── DIAGNOSTIC: log full payload (truncated) ──────────────────────────────
-    console.log(`[webhook] event=${event} payload=${JSON.stringify(body).slice(0, 800)}`);
+    console.log(`[webhook] eventType=${eventType} payload=${JSON.stringify(body).slice(0, 600)}`);
 
-    // messages_update — UazAPI v2 payload:
-    // { event: "messages_update", data: [{ key: { id, fromMe, remoteJid }, update: { status } }] }
-    // NOTE: custom track_id is NOT echoed in this event; we match on key.id → wa_message_id.
-    // Legacy fallback: trackId/track_id → log.id (kept for compatibility).
-    if (event === "messages_update") {
-      const updates: unknown[] = Array.isArray(body.data) ? body.data : [body.data];
+    // ── messages_update ────────────────────────────────────────────────────────
+    if (eventType === "messages_update") {
+      const isIbotcloud = typeof body.event === "object" && body.event !== null;
 
-      for (const u of updates) {
-        const upd        = u as Record<string, unknown>;
-        const key        = upd?.key as Record<string, unknown> | undefined;
-        const waKeyId    = (key?.id || "") as string;
-        const trackId    = (upd?.trackId || upd?.track_id || "") as string;
-        const statusCode = (upd as { update?: { status?: number } })?.update?.status;
+      if (isIbotcloud) {
+        // ── ibotcloud / UazAPI GO format ──────────────────────────────────────
+        const evtData   = body.event as Record<string, unknown>;
+        const msgIds    = (Array.isArray(evtData.MessageIDs) ? evtData.MessageIDs : []) as string[];
+        const stateStr  = ((body.state as string) || (evtData.Type as string) || "").trim();
+        const newStatus = STATE_MAP[stateStr];
 
-        console.log(`[webhook] update: waKeyId=${waKeyId} trackId=${trackId} status=${statusCode}`);
+        console.log(`[webhook] ibotcloud: state=${stateStr} ids=${JSON.stringify(msgIds)}`);
 
-        if (statusCode === undefined || statusCode === null) continue;
-        const newStatus = WA_STATUS[statusCode];
-        if (!newStatus) continue;
+        if (!newStatus) {
+          console.log(`[webhook] ibotcloud: unknown state="${stateStr}" — skipping`);
+        } else {
+          for (const waKeyId of msgIds) {
+            if (!waKeyId) continue;
 
-        // ── Strategy 1: match by wa_message_id (primary, Baileys key.id) ──────
-        let logId: string | null = null;
-        let currentStatus: string | null = null;
+            // Match by wa_message_id
+            let logId: string | null = null;
+            let currentStatus: string | null = null;
 
-        if (waKeyId) {
-          const { data: row } = await service
+            const { data: row } = await service
+              .from("whatsapp_message_log")
+              .select("id, status")
+              .eq("wa_message_id", waKeyId)
+              .maybeSingle();
+            if (row) { logId = row.id; currentStatus = row.status; }
+
+            // DEBUG: record for inspection
+            await service.from("_webhook_debug").insert({
+              event:       eventType,
+              wa_key_id:   waKeyId,
+              track_id:    "",
+              status_code: null,
+              raw_update:  evtData,
+            }).then(() => {}).catch(() => {});
+
+            if (!logId || !currentStatus) {
+              console.log(`[webhook] ibotcloud: no log for waKeyId=${waKeyId}`);
+              continue;
+            }
+
+            const currentIdx = STATUS_ORDER.indexOf(currentStatus);
+            const newIdx     = STATUS_ORDER.indexOf(newStatus);
+            if (newStatus !== "failed" && newIdx <= currentIdx) {
+              console.log(`[webhook] ibotcloud: skip ${currentStatus} → ${newStatus} (no upgrade)`);
+              continue;
+            }
+
+            await service
+              .from("whatsapp_message_log")
+              .update({
+                status: newStatus,
+                ...(newStatus === "delivered" ? { delivered_at: new Date().toISOString() } : {}),
+                ...(newStatus === "read"      ? { read_at:      new Date().toISOString() } : {}),
+              })
+              .eq("id", logId);
+
+            console.log(`[webhook] ibotcloud: updated ${logId}: ${currentStatus} → ${newStatus}`);
+          }
+        }
+
+      } else {
+        // ── Legacy Baileys standard format ────────────────────────────────────
+        // { event: "messages_update", data: [{ key: { id }, update: { status: N } }] }
+        const updates: unknown[] = Array.isArray(body.data) ? body.data : [body.data];
+
+        for (const u of updates) {
+          const upd        = u as Record<string, unknown>;
+          const key        = upd?.key as Record<string, unknown> | undefined;
+          const waKeyId    = (key?.id || "") as string;
+          const trackId    = (upd?.trackId || upd?.track_id || "") as string;
+          const statusCode = (upd as { update?: { status?: number } })?.update?.status;
+
+          console.log(`[webhook] baileys update: waKeyId=${waKeyId} trackId=${trackId} status=${statusCode}`);
+
+          if (statusCode === undefined || statusCode === null) continue;
+          const newStatus = WA_STATUS[statusCode];
+          if (!newStatus) continue;
+
+          let logId: string | null = null;
+          let currentStatus: string | null = null;
+
+          if (waKeyId) {
+            const { data: row } = await service
+              .from("whatsapp_message_log")
+              .select("id, status")
+              .eq("wa_message_id", waKeyId)
+              .maybeSingle();
+            if (row) { logId = row.id; currentStatus = row.status; }
+          }
+
+          if (!logId && trackId) {
+            const { data: row } = await service
+              .from("whatsapp_message_log")
+              .select("id, status")
+              .eq("id", trackId)
+              .maybeSingle();
+            if (row) { logId = row.id; currentStatus = row.status; }
+          }
+
+          // DEBUG
+          await service.from("_webhook_debug").insert({
+            event:       eventType,
+            wa_key_id:   waKeyId,
+            track_id:    trackId,
+            status_code: statusCode,
+            raw_update:  upd,
+          }).then(() => {}).catch(() => {});
+
+          if (!logId || !currentStatus) {
+            console.log(`[webhook] baileys: no log for waKeyId=${waKeyId} trackId=${trackId}`);
+            continue;
+          }
+
+          const currentIdx = STATUS_ORDER.indexOf(currentStatus);
+          const newIdx     = STATUS_ORDER.indexOf(newStatus);
+          if (newStatus !== "failed" && newIdx <= currentIdx) continue;
+
+          await service
             .from("whatsapp_message_log")
-            .select("id, status")
-            .eq("wa_message_id", waKeyId)
-            .maybeSingle();
-          if (row) { logId = row.id; currentStatus = row.status; }
+            .update({
+              status: newStatus,
+              ...(newStatus === "sent"      ? { sent_at:      new Date().toISOString() } : {}),
+              ...(newStatus === "delivered" ? { delivered_at: new Date().toISOString() } : {}),
+              ...(newStatus === "read"      ? { read_at:      new Date().toISOString() } : {}),
+            })
+            .eq("id", logId);
+
+          console.log(`[webhook] baileys: updated ${logId}: ${currentStatus} → ${newStatus}`);
         }
-
-        // ── Strategy 2: match by log UUID via trackId (legacy fallback) ───────
-        if (!logId && trackId) {
-          const { data: row } = await service
-            .from("whatsapp_message_log")
-            .select("id, status")
-            .eq("id", trackId)
-            .maybeSingle();
-          if (row) { logId = row.id; currentStatus = row.status; }
-        }
-
-        if (!logId || !currentStatus) {
-          console.log(`[webhook] no log found for waKeyId=${waKeyId} trackId=${trackId}`);
-          continue;
-        }
-
-        const currentIdx = STATUS_ORDER.indexOf(currentStatus);
-        const newIdx     = STATUS_ORDER.indexOf(newStatus);
-        if (newStatus !== "failed" && newIdx <= currentIdx) continue;
-
-        await service
-          .from("whatsapp_message_log")
-          .update({
-            status: newStatus,
-            ...(newStatus === "sent"      ? { sent_at:      new Date().toISOString() } : {}),
-            ...(newStatus === "delivered" ? { delivered_at: new Date().toISOString() } : {}),
-            ...(newStatus === "read"      ? { read_at:      new Date().toISOString() } : {}),
-          })
-          .eq("id", logId);
-
-        console.log(`[webhook] updated log ${logId}: ${currentStatus} → ${newStatus}`);
       }
     }
 
-    // connection_update
-    if (event === "connection_update") {
-      const data = body.data as Record<string, unknown> || {};
+    // ── connection_update ──────────────────────────────────────────────────────
+    if (eventType === "connection_update") {
+      const data = (typeof body.event === "object" ? body.event : body.data) as Record<string, unknown> || {};
       const connected =
         data.connected === true ||
-        data.state === "open" ||
-        data.status === "connected";
+        data.state     === "open" ||
+        data.status    === "connected" ||
+        (body.state as string) === "open" ||
+        (body.state as string) === "connected";
       const disconnected =
         data.connected === false ||
-        data.state === "close" ||
-        data.state === "conflict" ||
-        data.status === "disconnected";
+        data.state     === "close" ||
+        data.state     === "conflict" ||
+        data.status    === "disconnected" ||
+        (body.state as string) === "close" ||
+        (body.state as string) === "disconnected";
 
       if (disconnected) {
         console.log("[webhook] connection_update: DISCONNECTED — notifying admins");
