@@ -1,10 +1,30 @@
 import { Link } from 'react-router-dom';
 import { Phone, MapPin, Instagram } from 'lucide-react';
+import { useSettings } from '../../hooks/useSettings';
 
-const WA_HREF = 'https://wa.me/5581991398203?text=Olá, vim do site e queria mais informações';
 const FB_HREF = 'https://www.facebook.com/colegiobatistacaruarupe/?locale=pt_BR';
 
 export default function Footer() {
+  const { settings } = useSettings('general');
+
+  const schoolName = (settings.school_name as string) || 'Colégio Batista em Caruaru';
+  const cnpj       = (settings.cnpj       as string) || '01.873.279/0002-61';
+  const phone      = (settings.phone      as string) || '(81) 3721-4787';
+  const address    = (settings.address    as string) || 'Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE';
+
+  // whatsapp can be stored as a full number (5581999...) or with formatting
+  const rawWa  = (settings.whatsapp as string) || '5581991398203';
+  const waNum  = rawWa.replace(/\D/g, '');
+  const waHref = `https://wa.me/${waNum}?text=Olá, vim do site e queria mais informações`;
+
+  // Split address into two lines at the first " - " or ","
+  const [addrLine1, addrLine2] = (() => {
+    const sep = address.includes(' - ') ? ' - ' : ', ';
+    const idx = address.indexOf(sep);
+    if (idx === -1) return [address, ''];
+    return [address.slice(0, idx), address.slice(idx + sep.length)];
+  })();
+
   return (
     <footer className="bg-[#003876] text-white py-16">
       <div className="container mx-auto px-4">
@@ -14,11 +34,14 @@ export default function Footer() {
             <ul className="space-y-2">
               <li className="flex items-center">
                 <Phone size={16} className="mr-2" />
-                (81) 3721-4787
+                {phone}
               </li>
               <li className="flex items-start">
                 <MapPin size={16} className="mr-2 mt-1 shrink-0" />
-                <span>Rua Marcílio Dias, 99<br />São Francisco, Caruaru/PE</span>
+                <span>
+                  {addrLine1}
+                  {addrLine2 && <><br />{addrLine2}</>}
+                </span>
               </li>
             </ul>
           </div>
@@ -52,7 +75,7 @@ export default function Footer() {
                 <Instagram size={24} />
               </a>
               <a
-                href={WA_HREF}
+                href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="WhatsApp"
@@ -77,8 +100,8 @@ export default function Footer() {
           </div>
         </div>
         <div className="border-t border-white/10 mt-12 pt-8 text-center text-sm opacity-80">
-          <p>&copy; {new Date().getFullYear()} Colégio Batista em Caruaru. Todos os direitos reservados.</p>
-          <p className="mt-1">CNPJ: 01.873.279/0002-61</p>
+          <p>&copy; {new Date().getFullYear()} {schoolName}. Todos os direitos reservados.</p>
+          <p className="mt-1">CNPJ: {cnpj}</p>
           <div className="mt-3 flex items-center justify-center gap-4">
             <Link to="/politica-privacidade" className="hover:text-[#ffd700] transition-colors">Política de Privacidade</Link>
             <span className="text-white/30">|</span>
