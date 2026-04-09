@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { useNotifications } from '../hooks/useNotifications';
 import { useWhatsAppStatus } from '../contexts/WhatsAppStatusContext';
 import { ROLE_LABELS } from '../types/admin.types';
-import { Bell, PanelLeftClose, PanelLeftOpen, MessageCircle } from 'lucide-react';
+import { Bell, KeyRound, PanelLeftClose, PanelLeftOpen, MessageCircle, UserCog } from 'lucide-react';
 import NotificationsPanel from './NotificationsPanel';
+import EditProfileDrawer from './EditProfileDrawer';
+import ChangePasswordDrawer from './ChangePasswordDrawer';
 
 interface Props {
   sidebarCollapsed: boolean;
@@ -17,7 +19,23 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const { state: waState } = useWhatsAppStatus();
   const navigate = useNavigate();
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelOpen,        setPanelOpen]        = useState(false);
+  const [menuOpen,         setMenuOpen]         = useState(false);
+  const [editProfileOpen,  setEditProfileOpen]  = useState(false);
+  const [changePassOpen,   setChangePassOpen]   = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [menuOpen]);
 
   return (
     <header
@@ -95,23 +113,65 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
           )}
         </div>
 
-        {/* Avatar */}
+        {/* Avatar + dropdown */}
         {profile && (
-          <div className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-100 dark:border-gray-700">
-            <div className="w-8 h-8 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold text-[#003876] dark:text-[#ffd700]">
-                {profile.full_name?.charAt(0)?.toUpperCase() || 'U'}
-              </span>
-            </div>
-            <div className="hidden md:block">
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200 leading-tight">
-                {profile.full_name || 'Usuário'}
-              </p>
-              <p className="text-[10px] text-gray-400">{ROLE_LABELS[profile.role]}</p>
-            </div>
+          <div ref={menuRef} className="relative ml-2 pl-4 border-l border-gray-100 dark:border-gray-700">
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex items-center gap-2 rounded-xl px-1 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title="Opções de perfil"
+            >
+              {/* Avatar circle */}
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-[#003876]/10 dark:bg-white/10 flex items-center justify-center flex-shrink-0">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-xs font-bold text-[#003876] dark:text-[#ffd700]">
+                    {profile.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
+                )}
+              </div>
+
+              <div className="hidden md:block text-left">
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 leading-tight">
+                  {profile.full_name || 'Usuário'}
+                </p>
+                <p className="text-[10px] text-gray-400">{ROLE_LABELS[profile.role]}</p>
+              </div>
+            </button>
+
+            {/* Dropdown menu */}
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-1 z-50">
+                <button
+                  onClick={() => { setMenuOpen(false); setEditProfileOpen(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <UserCog className="w-4 h-4 text-gray-400" />
+                  Editar perfil
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); setChangePassOpen(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <KeyRound className="w-4 h-4 text-gray-400" />
+                  Alterar senha
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Profile drawers — rendered outside the right-section div to avoid stacking context issues */}
+      <EditProfileDrawer
+        open={editProfileOpen}
+        onClose={() => setEditProfileOpen(false)}
+      />
+      <ChangePasswordDrawer
+        open={changePassOpen}
+        onClose={() => setChangePassOpen(false)}
+      />
     </header>
   );
 }
