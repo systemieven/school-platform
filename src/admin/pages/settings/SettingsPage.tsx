@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import AppearanceSettingsPanel from './AppearanceSettingsPanel';
 import AttendanceSettingsPanel from './AttendanceSettingsPanel';
 import GeolocationField from '../../components/GeolocationField';
-import { CARD_CLS, HEAD_CLS, BODY_CLS, TITLE_CLS } from '../../components/SettingsCard';
+import { TITLE_CLS, CollapsibleSection } from '../../components/SettingsCard';
 import { supabase } from '../../../lib/supabase';
 import { getProviders, setDefaultProvider, registerWebhook, WEBHOOK_FUNCTION_BASE } from '../../lib/whatsapp-api';
 import type { WhatsAppProvider } from '../../lib/whatsapp-api';
@@ -732,6 +732,12 @@ function bhIntervalsOverlap(a: BHInterval, b: BHInterval): boolean {
   return a.start < b.end && b.start < a.end;
 }
 
+// Faixa fixa do trilho do slider de horários (rail). Cobre o espectro útil
+// para qualquer instituição (madrugada → noite) sem deixar a UI cheia demais.
+const BH_RAIL_START = '05:00';
+const BH_RAIL_END   = '23:00';
+const BH_STEP_MIN   = 15;
+
 function BusinessHoursField({ value, savedValue, onChange }: {
   value: string;
   savedValue: string;
@@ -753,12 +759,13 @@ function BusinessHoursField({ value, savedValue, onChange }: {
     commit({ ...hours, [String(idx)]: { ...hours[String(idx)], ...patch } });
   }
 
-  function updateInterval(dayIdx: number, intervalIdx: number, patch: Partial<BHInterval>) {
+  // Atualiza ambos os campos (start, end) de uma vez — formato exigido pelo
+  // TimeRangeSlider — rejeitando sobreposição com o outro intervalo do dia.
+  function updateIntervalRange(dayIdx: number, intervalIdx: number, start: string, end: string) {
     const day = hours[String(dayIdx)];
     if (!day) return;
-    const candidate: BHInterval = { ...day.intervals[intervalIdx], ...patch };
-    // Rejeita se invalida a ordem (start >= end) ou sobrepõe o outro intervalo.
-    if (candidate.start >= candidate.end) return;
+    if (start >= end) return;
+    const candidate: BHInterval = { start, end };
     const others = day.intervals.filter((_, i) => i !== intervalIdx);
     if (others.some((o) => bhIntervalsOverlap(candidate, o))) return;
     const nextIntervals = day.intervals.map((it, i) => (i === intervalIdx ? candidate : it));
@@ -768,18 +775,20 @@ function BusinessHoursField({ value, savedValue, onChange }: {
   function addInterval(dayIdx: number) {
     const day = hours[String(dayIdx)];
     if (!day || day.intervals.length >= MAX_BH_INTERVALS) return;
-    // Calcula um intervalo razoável após o existente (ex.: 13:30–17:00 se já
-    // existe 07:00–12:00). Se não der, tenta antes. Se nada couber, usa fallback.
     const existing = day.intervals[0];
     const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
     const toTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
     const existEndMin = toMin(existing.end);
     const existStartMin = toMin(existing.start);
+    const railEndMin = toMin(BH_RAIL_END);
+    const railStartMin = toMin(BH_RAIL_START);
+    // Tenta criar um intervalo confortável depois do existente; se não couber,
+    // tenta antes; em último caso, usa um fallback fixo.
     let candidate: BHInterval;
-    if (existEndMin + 90 <= 23 * 60 + 30) {
-      candidate = { start: toTime(existEndMin + 90), end: toTime(Math.min(existEndMin + 90 + 180, 22 * 60)) };
-    } else if (existStartMin - 90 >= 6 * 60) {
-      candidate = { start: toTime(Math.max(existStartMin - 180, 6 * 60)), end: toTime(existStartMin - 90) };
+    if (existEndMin + 90 <= railEndMin) {
+      candidate = { start: toTime(existEndMin + 90), end: toTime(Math.min(existEndMin + 90 + 180, railEndMin)) };
+    } else if (existStartMin - 90 >= railStartMin) {
+      candidate = { start: toTime(Math.max(existStartMin - 180, railStartMin)), end: toTime(existStartMin - 90) };
     } else {
       candidate = { start: '13:30', end: '17:00' };
     }
@@ -796,18 +805,11 @@ function BusinessHoursField({ value, savedValue, onChange }: {
 
   const savedHours = parseBusinessHours(savedValue);
 
-  const timeCls = (changed: boolean) =>
-    `px-3 py-2 rounded-xl border text-sm outline-none transition-all w-28
-    bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-    ${changed
-      ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20'
-      : 'border-gray-200 dark:border-gray-600 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 dark:focus:ring-[#ffd700]/20'
-    }`;
-
-  function intervalChanged(dayIdx: number, intervalIdx: number, field: keyof BHInterval): boolean {
-    const current = hours[String(dayIdx)]?.intervals?.[intervalIdx]?.[field];
-    const saved = savedHours[String(dayIdx)]?.intervals?.[intervalIdx]?.[field];
-    return current !== saved;
+  function intervalChanged(dayIdx: number, intervalIdx: number): boolean {
+    const cur = hours[String(dayIdx)]?.intervals?.[intervalIdx];
+    const sav = savedHours[String(dayIdx)]?.intervals?.[intervalIdx];
+    if (!cur || !sav) return Boolean(cur) !== Boolean(sav);
+    return cur.start !== sav.start || cur.end !== sav.end;
   }
 
   return (
@@ -837,60 +839,79 @@ function BusinessHoursField({ value, savedValue, onChange }: {
         </div>
       </div>
 
-      {/* Intervalos por dia aberto */}
+      {/* Intervalos por dia aberto — slider com até 2 intervalos */}
       {Array.from({ length: 7 }, (_, idx) => {
         const day = hours[String(idx)];
         if (!day?.open) return null;
         const canAdd = day.intervals.length < MAX_BH_INTERVALS;
         return (
-          <div key={idx} className="flex items-start gap-3">
-            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 w-8 flex-shrink-0 pt-2.5">
-              {WEEKDAYS_BH[idx]}
-            </span>
-            <div className="flex-1 space-y-2">
-              {day.intervals.map((it, iidx) => (
-                <div key={iidx} className="flex items-center gap-2">
-                  <input
-                    type="time"
-                    value={it.start}
-                    onChange={(e) => updateInterval(idx, iidx, { start: e.target.value })}
-                    className={timeCls(intervalChanged(idx, iidx, 'start'))}
-                  />
-                  <span className="text-xs text-gray-400">às</span>
-                  <input
-                    type="time"
-                    value={it.end}
-                    onChange={(e) => updateInterval(idx, iidx, { end: e.target.value })}
-                    className={timeCls(intervalChanged(idx, iidx, 'end'))}
-                  />
-                  {day.intervals.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeInterval(idx, iidx)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                      title="Remover intervalo"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
+          <div key={idx} className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-[#003876] dark:text-[#ffd700]">
+                  {WEEKDAYS_BH[idx]}
+                </span>
+                <span className="text-[10px] text-gray-400">
+                  {day.intervals.length}/{MAX_BH_INTERVALS} intervalo{day.intervals.length > 1 ? 's' : ''}
+                </span>
+              </div>
               {canAdd && (
                 <button
                   type="button"
                   onClick={() => addInterval(idx)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-[11px] font-medium text-gray-500 hover:text-[#003876] hover:border-[#003876] dark:hover:text-[#ffd700] dark:hover:border-[#ffd700] transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#003876] text-white text-[11px] font-semibold hover:bg-[#002855] transition-all"
                 >
                   <Plus className="w-3 h-3" />
-                  Adicionar intervalo
+                  Adicionar
                 </button>
               )}
-              {day.intervals.length === MAX_BH_INTERVALS && (
-                <p className="text-[10px] text-gray-400">
-                  O espaço entre os dois intervalos funciona como pausa (almoço).
-                </p>
-              )}
             </div>
+            <div className="space-y-3">
+              {day.intervals.map((it, iidx) => {
+                const changed = intervalChanged(idx, iidx);
+                return (
+                  <div
+                    key={iidx}
+                    className={`rounded-xl border p-3 transition-all ${
+                      changed
+                        ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 dark:bg-amber-900/10'
+                        : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                        Intervalo {iidx + 1}
+                      </span>
+                      {day.intervals.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeInterval(idx, iidx)}
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          title="Remover intervalo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <TimeRangeSlider
+                      workStart={BH_RAIL_START}
+                      workEnd={BH_RAIL_END}
+                      lunchStart="00:00"
+                      lunchEnd="00:00"
+                      valueStart={it.start}
+                      valueEnd={it.end}
+                      stepMin={BH_STEP_MIN}
+                      onChange={(start, end) => updateIntervalRange(idx, iidx, start, end)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            {day.intervals.length === MAX_BH_INTERVALS && (
+              <p className="text-[10px] text-gray-400 mt-2">
+                O espaço entre os dois intervalos funciona como pausa (almoço).
+              </p>
+            )}
           </div>
         );
       })}
@@ -1190,20 +1211,24 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
         const groupItems = group.keys.map((k) => byKey[k]).filter(Boolean);
         if (groupItems.length === 0) return null;
 
+        const collapseId = `institucional.${group.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
         return (
-          <div key={group.title} className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60">
-            {/* Header */}
-            <div className="bg-gray-50 dark:bg-gray-900/40 px-5 py-4">
-              <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">
-                <GroupIcon className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-                {group.title}
-              </p>
-              {group.subtitle && (
-                <p className="text-xs text-gray-400 mt-1">{group.subtitle}</p>
-              )}
-            </div>
-            {/* Body */}
-            <div className="bg-white dark:bg-gray-800/20 px-5 py-5 space-y-5">
+          <CollapsibleSection
+            key={group.title}
+            collapseId={collapseId}
+            bodyClassName="!space-y-5"
+            head={
+              <>
+                <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">
+                  <GroupIcon className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+                  {group.title}
+                </p>
+                {group.subtitle && (
+                  <p className="text-xs text-gray-400 mt-1">{group.subtitle}</p>
+                )}
+              </>
+            }
+          >
               {/* Inline group: render all keys side-by-side in one row */}
               {group.inlineKeys ? (
                 <div className="grid grid-cols-2 gap-4">
@@ -1334,8 +1359,7 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
                   />
                 );
               })}
-            </div>
-          </div>
+          </CollapsibleSection>
         );
       })}
 
@@ -2758,12 +2782,15 @@ function AppointmentsSettingsPanel() {
       </div>
 
       {/* Motivos de Visita */}
-      <div className={CARD_CLS}>
-        <div className={`${HEAD_CLS} flex items-center justify-between`}>
+      <CollapsibleSection
+        collapseId="visits.reasons"
+        head={
           <p className={TITLE_CLS}>
             <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Motivos de Visita
           </p>
+        }
+        headerExtra={
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400">{data.reasons.length}/10</span>
             {data.reasons.length < 10 && (
@@ -2776,8 +2803,8 @@ function AppointmentsSettingsPanel() {
               </button>
             )}
           </div>
-        </div>
-        <div className={BODY_CLS}>
+        }
+      >
           {data.reasons.length === 0 ? (
             <p className="text-xs text-gray-400 italic">Nenhum motivo cadastrado.</p>
           ) : (
@@ -2810,18 +2837,18 @@ function AppointmentsSettingsPanel() {
               })}
             </div>
           )}
-        </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Dias Fechados */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
+      <CollapsibleSection
+        collapseId="visits.blockedDates"
+        head={
           <p className={TITLE_CLS}>
             <CalendarX2 className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Dias Fechados
           </p>
-        </div>
-        <div className={BODY_CLS}>
+        }
+      >
           <div className="space-y-2">
             {blockedDates.length === 0 && (
               <p className="text-xs text-gray-400 italic">Nenhum dia fechado cadastrado.</p>
@@ -2865,19 +2892,21 @@ function AppointmentsSettingsPanel() {
               Adicionar
             </button>
           </div>
-        </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Feriados */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
-          <p className={TITLE_CLS}>
-            <Calendar className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Feriados
-          </p>
-          <p className="text-xs text-gray-400 mt-1">Datas fixas recorrentes (dia/mês). Feriados variáveis use Dias Fechados.</p>
-        </div>
-        <div className={BODY_CLS}>
+      <CollapsibleSection
+        collapseId="visits.holidays"
+        head={
+          <>
+            <p className={TITLE_CLS}>
+              <Calendar className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+              Feriados
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Datas fixas recorrentes (dia/mês). Feriados variáveis use Dias Fechados.</p>
+          </>
+        }
+      >
           <div className="space-y-2">
             {holidays.length === 0 && (
               <p className="text-xs text-gray-400 italic">Nenhum feriado cadastrado.</p>
@@ -2915,36 +2944,39 @@ function AppointmentsSettingsPanel() {
               Adicionar
             </button>
           </div>
-        </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Lembretes Automáticos */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
-          <p className={TITLE_CLS}>
-            <Bell className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Lembretes Automáticos
-          </p>
-          <p className="text-xs text-gray-400 mt-1">Cadeia de lembretes enviada antes da visita. Requer template com trigger <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">on_reminder</code>.</p>
-        </div>
-        <div className={BODY_CLS}>
-          <ReminderChainSection />
-        </div>
-      </div>
+      <CollapsibleSection
+        collapseId="visits.reminderChain"
+        head={
+          <>
+            <p className={TITLE_CLS}>
+              <Bell className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+              Lembretes Automáticos
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Cadeia de lembretes enviada antes da visita. Requer template com trigger <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">on_reminder</code>.</p>
+          </>
+        }
+      >
+        <ReminderChainSection />
+      </CollapsibleSection>
 
       {/* Confirmação Automática */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
-          <p className={TITLE_CLS}>
-            <CheckCircle2 className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Confirmação Automática
-          </p>
-          <p className="text-xs text-gray-400 mt-1">Rastreia respostas de botões WhatsApp para confirmar/cancelar agendamentos automaticamente.</p>
-        </div>
-        <div className={BODY_CLS}>
-          <AutoConfirmSection />
-        </div>
-      </div>
+      <CollapsibleSection
+        collapseId="visits.autoConfirm"
+        head={
+          <>
+            <p className={TITLE_CLS}>
+              <CheckCircle2 className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+              Confirmação Automática
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Rastreia respostas de botões WhatsApp para confirmar/cancelar agendamentos automaticamente.</p>
+          </>
+        }
+      >
+        <AutoConfirmSection />
+      </CollapsibleSection>
 
       {/* Floating save */}
       <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
@@ -3440,62 +3472,61 @@ function EnrollmentSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* Idade Mínima */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
-          <p className={TITLE_CLS}>Idade Mínima</p>
-        </div>
-        <div className={BODY_CLS}>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setData((p) => ({ ...p, min_age: Math.max(0, p.min_age - 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-[#003876] dark:text-white">{data.min_age}</span>
-              <span className="text-sm text-gray-400">anos</span>
-            </div>
-            <button onClick={() => setData((p) => ({ ...p, min_age: Math.min(18, p.min_age + 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
+      <CollapsibleSection
+        collapseId="enrollment.minAge"
+        head={<p className={TITLE_CLS}>Idade Mínima</p>}
+      >
+        <div className="flex items-center gap-4">
+          <button onClick={() => setData((p) => ({ ...p, min_age: Math.max(0, p.min_age - 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-[#003876] dark:text-white">{data.min_age}</span>
+            <span className="text-sm text-gray-400">anos</span>
           </div>
+          <button onClick={() => setData((p) => ({ ...p, min_age: Math.min(18, p.min_age + 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Segmentos Disponíveis */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
+      <CollapsibleSection
+        collapseId="enrollment.segments"
+        head={
           <p className={TITLE_CLS}>
             <GraduationCap className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Segmentos Disponíveis
           </p>
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {SEGMENT_OPTIONS.map(({ label: seg, Icon: SegIcon }) => {
+            const selected = data.segments_available.includes(seg);
+            return (
+              <button
+                key={seg}
+                onClick={() => toggleSegment(seg)}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                  selected
+                    ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                }`}
+              >
+                <SegIcon className="w-4 h-4 flex-shrink-0" />
+                {seg}
+              </button>
+            );
+          })}
         </div>
-        <div className={BODY_CLS}>
-          <div className="flex flex-wrap gap-2">
-            {SEGMENT_OPTIONS.map(({ label: seg, Icon: SegIcon }) => {
-              const selected = data.segments_available.includes(seg);
-              return (
-                <button
-                  key={seg}
-                  onClick={() => toggleSegment(seg)}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                    selected
-                      ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
-                  }`}
-                >
-                  <SegIcon className="w-4 h-4 flex-shrink-0" />
-                  {seg}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Documentos Obrigatórios */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
+      <CollapsibleSection
+        collapseId="enrollment.requiredDocs"
+        head={
           <p className={TITLE_CLS}>
             <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Documentos Obrigatórios
           </p>
-        </div>
-        <div className={BODY_CLS}>
+        }
+      >
           <div className="flex flex-wrap gap-2">
             {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
               const added = data.required_docs_list.includes(s);
@@ -3529,18 +3560,18 @@ function EnrollmentSettingsPanel() {
             <input type="text" value={newDoc} onChange={(e) => setNewDoc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addDoc(newDoc)} placeholder="Outro documento..." className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
             <button onClick={() => addDoc(newDoc)} disabled={!newDoc.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">Adicionar</button>
           </div>
-        </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Opções booleanas */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
+      <CollapsibleSection
+        collapseId="enrollment.options"
+        head={
           <p className={TITLE_CLS}>
             <UserCheck className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Opções
           </p>
-        </div>
-        <div className={BODY_CLS}>
+        }
+      >
           <div className="space-y-3">
             {(
               [
@@ -3568,8 +3599,7 @@ function EnrollmentSettingsPanel() {
               );
             })}
           </div>
-        </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Floating save */}
       <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
@@ -3802,58 +3832,65 @@ function ContactSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* SLA de Resposta */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
-          <p className={TITLE_CLS}>
-            <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            SLA de Resposta
-          </p>
-          <p className="text-xs text-gray-400 mt-1">Prazo máximo esperado para responder a um contato recebido.</p>
-        </div>
-        <div className={BODY_CLS}>
-          <SLASlider value={data.sla_hours} onChange={(v) => setData((p) => ({ ...p, sla_hours: v }))} />
-        </div>
-      </div>
+      <CollapsibleSection
+        collapseId="contact.sla"
+        head={
+          <>
+            <p className={TITLE_CLS}>
+              <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+              SLA de Resposta
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Prazo máximo esperado para responder a um contato recebido.</p>
+          </>
+        }
+      >
+        <SLASlider value={data.sla_hours} onChange={(v) => setData((p) => ({ ...p, sla_hours: v }))} />
+      </CollapsibleSection>
 
       {/* Campos Obrigatórios */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
-          <p className={TITLE_CLS}>
-            <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Campos Obrigatórios
-          </p>
-          <p className="text-xs text-gray-400 mt-1">Campos que o visitante precisa preencher no formulário.</p>
+      <CollapsibleSection
+        collapseId="contact.requiredFields"
+        head={
+          <>
+            <p className={TITLE_CLS}>
+              <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
+              Campos Obrigatórios
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Campos que o visitante precisa preencher no formulário.</p>
+          </>
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {REQUIRED_FIELD_OPTIONS.map(({ key, label, Icon }) => {
+            const active = data.required_fields.includes(key);
+            return (
+              <button
+                key={key}
+                onClick={() => toggleField(key)}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                  active
+                    ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                {label}
+              </button>
+            );
+          })}
         </div>
-        <div className={BODY_CLS}>
-          <div className="flex flex-wrap gap-2">
-            {REQUIRED_FIELD_OPTIONS.map(({ key, label, Icon }) => {
-              const active = data.required_fields.includes(key);
-              return (
-                <button
-                  key={key}
-                  onClick={() => toggleField(key)}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      </CollapsibleSection>
 
       {/* Motivos de Contato */}
-      <div className={CARD_CLS}>
-        <div className={`${HEAD_CLS} flex items-center justify-between`}>
+      <CollapsibleSection
+        collapseId="contact.reasons"
+        head={
           <p className={TITLE_CLS}>
             <MessageSquare className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
             Motivos de Contato
           </p>
+        }
+        headerExtra={
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400">{data.reasons.length}/12</span>
             {data.reasons.length < 12 && (
@@ -3863,33 +3900,32 @@ function ContactSettingsPanel() {
               </button>
             )}
           </div>
-        </div>
-        <div className={BODY_CLS}>
-          {data.reasons.length === 0 ? (
-            <p className="text-xs text-gray-400 italic">Nenhum motivo cadastrado.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {data.reasons.map((r) => {
-                const iconOpt = REASON_ICON_OPTIONS.find((o) => o.key === (r.icon || 'MessageSquare'));
-                const IconComp = iconOpt?.Icon ?? MessageSquare;
-                return (
-                  <button key={r.key} onClick={() => openDrawer(r.key)} className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-[#003876]/50 hover:shadow-sm transition-all text-left group">
-                    <div className="w-9 h-9 rounded-xl bg-[#003876]/8 dark:bg-[#003876]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#003876]/15 transition-colors">
-                      <IconComp className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{r.label}</p>
-                      {r.lead_integrated && (
-                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#003876]/10 text-[#003876] dark:text-[#ffd700] mt-1 inline-block">Lead</span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+        }
+      >
+        {data.reasons.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">Nenhum motivo cadastrado.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {data.reasons.map((r) => {
+              const iconOpt = REASON_ICON_OPTIONS.find((o) => o.key === (r.icon || 'MessageSquare'));
+              const IconComp = iconOpt?.Icon ?? MessageSquare;
+              return (
+                <button key={r.key} onClick={() => openDrawer(r.key)} className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-[#003876]/50 hover:shadow-sm transition-all text-left group">
+                  <div className="w-9 h-9 rounded-xl bg-[#003876]/8 dark:bg-[#003876]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#003876]/15 transition-colors">
+                    <IconComp className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{r.label}</p>
+                    {r.lead_integrated && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#003876]/10 text-[#003876] dark:text-[#ffd700] mt-1 inline-block">Lead</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </CollapsibleSection>
 
       {/* Floating save */}
       <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${

@@ -271,7 +271,7 @@ function HeroFieldsBlock({
   const set = (key: keyof HeroFields, value: string) => onChange({ ...data, [key]: value });
 
   return (
-    <SettingsCard title="Hero da Página">
+    <SettingsCard collapseId={`appearance.${pageKey}.hero`} title="Hero da Página">
       <div>
         <label className={labelCls}>Badge</label>
         <input type="text" value={data.badge} onChange={(e) => set('badge', e.target.value)} placeholder="Ex: Matrículas 2026 abertas" className={inputCls} />
@@ -400,7 +400,7 @@ export default function AppearanceSettingsPanel() {
       {/* ── Home ── */}
       {activeTab === 'home' && (
         <>
-          <SettingsCard title="Hero da Página">
+          <SettingsCard collapseId="appearance.home.hero" title="Hero da Página">
             <div>
               <label className={labelCls}>Badge</label>
               <input type="text" value={home.badge} onChange={(e) => updateHome({ badge: e.target.value })} placeholder="Ex: Matrículas 2026 abertas" className={inputCls} />
@@ -429,7 +429,7 @@ export default function AppearanceSettingsPanel() {
             </div>
           </SettingsCard>
 
-          <SettingsCard title="Cards dos Segmentos" description="4 cards exibidos na seção de segmentos da Home. Edite a imagem e a descrição de cada um.">
+          <SettingsCard collapseId="appearance.home.segments" title="Cards dos Segmentos" description="4 cards exibidos na seção de segmentos da Home. Edite a imagem e a descrição de cada um.">
             <div className="space-y-5 pt-1">
               {home.segments.map((seg, i) => (
                 <div key={i} className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
@@ -479,7 +479,7 @@ export default function AppearanceSettingsPanel() {
             onChange={(d) => updatePage('contato', { ...contato, ...d })}
           />
 
-          <SettingsCard title="Informações de Contato" description="Exibidas no sidebar da página de contato.">
+          <SettingsCard collapseId="appearance.contato.info" title="Informações de Contato" description="Exibidas no sidebar da página de contato.">
             <div>
               <label className={labelCls}>Telefone</label>
               <input type="text" value={contato.phone} onChange={(e) => updatePage('contato', { ...contato, phone: e.target.value })} placeholder="(81) 3721-4787" className={inputCls} />

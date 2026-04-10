@@ -132,7 +132,7 @@ export default function SecuritySettingsPanel() {
   return (
     <div className="p-6 space-y-5">
       {/* Complexity */}
-      <SettingsCard title="Critérios de Complexidade" icon={Lock}>
+      <SettingsCard collapseId="security.complexity" title="Critérios de Complexidade" icon={Lock}>
         {/* Min length slider */}
         <div>
           <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
@@ -177,7 +177,7 @@ export default function SecuritySettingsPanel() {
       </SettingsCard>
 
       {/* Lifetime */}
-      <SettingsCard title="Tempo de Vida da Senha" icon={Clock} description="0 = sem expiração automática">
+      <SettingsCard collapseId="security.lifetime" title="Tempo de Vida da Senha" icon={Clock} description="0 = sem expiração automática">
         <Slider
           value={policy.password_lifetime_days}
           min={0}
@@ -193,7 +193,7 @@ export default function SecuritySettingsPanel() {
       </SettingsCard>
 
       {/* History */}
-      <SettingsCard title="Reutilização de Senhas" icon={History} description="0 = sem restrição">
+      <SettingsCard collapseId="security.history" title="Reutilização de Senhas" icon={History} description="0 = sem restrição">
         <Slider
           value={policy.password_history_count}
           min={0}

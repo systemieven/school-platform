@@ -320,7 +320,7 @@ export default function AttendanceSettingsPanel() {
   return (
     <div className="p-6 space-y-5">
       {/* 1. Regras de Elegibilidade */}
-      <SettingsCard title="Regras de Elegibilidade" icon={Shield} description="Defina quando um visitante pode emitir senha. Marque mais de uma para combinar as regras; “Qualquer data” desabilita as demais.">
+      <SettingsCard collapseId="attendance.eligibility" title="Regras de Elegibilidade" icon={Shield} description="Defina quando um visitante pode emitir senha. Marque mais de uma para combinar as regras; “Qualquer data” desabilita as demais.">
         {(() => {
           // Quando "any" está ativo, as outras ficam desabilitadas (cinza).
           const anyActive = data.eligibility_rules.any;
@@ -453,7 +453,7 @@ export default function AttendanceSettingsPanel() {
       </SettingsCard>
 
       {/* 2. Formato de Senha */}
-      <SettingsCard title="Formato de Senha" icon={Hash} description="Personalize o formato do número exibido na senha emitida.">
+      <SettingsCard collapseId="attendance.ticketFormat" title="Formato de Senha" icon={Hash} description="Personalize o formato do número exibido na senha emitida.">
         <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
           <span className="text-[10px] font-semibold tracking-[0.1em] uppercase text-gray-400">Prévia</span>
           <span className="font-display text-2xl font-bold text-[#003876] dark:text-white">{ticketPreview()}</span>
@@ -602,7 +602,7 @@ export default function AttendanceSettingsPanel() {
       </SettingsCard>
 
       {/* 3. Som de Notificação */}
-      <SettingsCard title="Som de Notificação" icon={Volume2} description="Som tocado no painel do cliente quando a senha for chamada. Clique num preset para ouvir.">
+      <SettingsCard collapseId="attendance.sound" title="Som de Notificação" icon={Volume2} description="Som tocado no painel do cliente quando a senha for chamada. Clique num preset para ouvir.">
         <button
           type="button"
           onClick={() =>
@@ -659,7 +659,7 @@ export default function AttendanceSettingsPanel() {
       </SettingsCard>
 
       {/* 4. Tela do cliente */}
-      <SettingsCard title="Tela do Cliente" icon={Monitor} description="Controle o que é exibido na página pública após a senha ser gerada. Clique para habilitar/desabilitar cada item.">
+      <SettingsCard collapseId="attendance.clientScreen" title="Tela do Cliente" icon={Monitor} description="Controle o que é exibido na página pública após a senha ser gerada. Clique para habilitar/desabilitar cada item.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {([
             { key: 'show_last_called',   label: 'Última senha chamada', desc: 'Exibe a última senha chamada em outro setor.', icon: History         },
@@ -724,7 +724,7 @@ export default function AttendanceSettingsPanel() {
       </SettingsCard>
 
       {/* 5. Feedback */}
-      <SettingsCard title="Feedback Pós-Atendimento" icon={Star} description="Coleta de avaliação do cliente após a finalização do atendimento.">
+      <SettingsCard collapseId="attendance.feedback" title="Feedback Pós-Atendimento" icon={Star} description="Coleta de avaliação do cliente após a finalização do atendimento.">
         {/* Master toggle — padrão de botão igual aos outros cards */}
         <button
           type="button"
