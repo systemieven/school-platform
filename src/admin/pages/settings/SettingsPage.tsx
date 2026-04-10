@@ -2393,23 +2393,46 @@ function AppointmentsSettingsPanel() {
 
   async function handleSave() {
     setSaving(true);
-    const rows = [
-      { key: 'start_hour',       value: data.start_hour },
-      { key: 'end_hour',         value: data.end_hour },
-      { key: 'lunch_start',      value: data.lunch_start },
-      { key: 'lunch_end',        value: data.lunch_end },
-      { key: 'reasons', value: JSON.stringify(data.reasons) },
+    // IMPORTANT: passar arrays/objetos direto — NUNCA JSON.stringify.
+    // A coluna `value` é JSONB; supabase-js serializa nativamente.
+    // Stringify manual armazena o valor como JSON-string (jsonb_typeof =
+    // "string") e quebra leitores que esperam array/object.
+    const rows: Array<{ key: string; value: unknown }> = [
+      { key: 'start_hour',  value: data.start_hour },
+      { key: 'end_hour',    value: data.end_hour },
+      { key: 'lunch_start', value: data.lunch_start },
+      { key: 'lunch_end',   value: data.lunch_end },
+      { key: 'reasons',     value: data.reasons },
     ];
-    await Promise.all(
-      rows.map((r) =>
-        ids[r.key]
-          ? supabase.from('system_settings').update({ value: r.value }).eq('id', ids[r.key])
-          : supabase.from('system_settings').insert({ category: 'visit', key: r.key, value: r.value })
-              .select('id').single().then(({ data: row }) => {
-                if (row) setIds((prev) => ({ ...prev, [r.key]: row.id }));
-              }),
-      ),
+    const results = await Promise.all(
+      rows.map(async (r) => {
+        if (ids[r.key]) {
+          const { error } = await supabase
+            .from('system_settings')
+            .update({ value: r.value })
+            .eq('id', ids[r.key]);
+          return { key: r.key, error };
+        }
+        const { data: row, error } = await supabase
+          .from('system_settings')
+          .insert({ category: 'visit', key: r.key, value: r.value })
+          .select('id')
+          .single();
+        if (row) setIds((prev) => ({ ...prev, [r.key]: row.id }));
+        return { key: r.key, error };
+      }),
     );
+    const failed = results.filter((r) => r.error);
+    if (failed.length > 0) {
+      console.error('[AppointmentsSettingsPanel] save errors', failed);
+      alert(
+        `Falha ao salvar ${failed.length} configuração(ões): ${failed
+          .map((f) => `${f.key} (${f.error?.message})`)
+          .join(', ')}`,
+      );
+      setSaving(false);
+      return;
+    }
     setOriginal(JSON.stringify(data));
     setSaving(false);
     setSaved(true);
@@ -2431,24 +2454,65 @@ function AppointmentsSettingsPanel() {
 
   function closeDrawer() { setDrawerOpen(false); setDrawerDraft(null); }
 
-  function saveDrawer() {
+  /**
+   * Persiste a lista de motivos diretamente no banco. O drawer NAO depende
+   * mais do botao flutuante "Salvar" — caso contrario o usuario fechava a
+   * pagina sem salvar e perdia as edicoes.
+   *
+   * IMPORTANTE: passa o array CRU para a coluna JSONB (sem JSON.stringify).
+   * O supabase-js serializa nativamente; stringify manual armazena como
+   * jsonb_typeof = "string" e quebra leitores que esperam array.
+   */
+  async function persistReasons(nextReasons: VisitSettings['reasons']): Promise<boolean> {
+    const existingId = ids['reasons'];
+    let error: { message: string } | null = null;
+    if (existingId) {
+      const res = await supabase
+        .from('system_settings')
+        .update({ value: nextReasons })
+        .eq('id', existingId);
+      error = res.error;
+    } else {
+      const res = await supabase
+        .from('system_settings')
+        .insert({ category: 'visit', key: 'reasons', value: nextReasons })
+        .select('id')
+        .single();
+      error = res.error;
+      if (res.data) setIds((prev) => ({ ...prev, reasons: res.data.id }));
+    }
+    if (error) {
+      console.error('[AppointmentsSettingsPanel] persistReasons error', error);
+      alert(`Falha ao salvar motivos de visita: ${error.message}`);
+      return false;
+    }
+    // Atualiza state local + baseline para nao gerar pending change
+    setData((prev) => {
+      const next = { ...prev, reasons: nextReasons };
+      setOriginal(JSON.stringify(next));
+      return next;
+    });
+    return true;
+  }
+
+  async function saveDrawer() {
     if (!drawerDraft || !drawerDraft.label.trim()) return;
+    let nextReasons: VisitSettings['reasons'];
     if (drawerIsNew) {
       const label = drawerDraft.label.trim();
       const key = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || `reason_${Date.now()}`;
       if (data.reasons.some((r) => r.key === key)) return;
-      setData((prev) => ({ ...prev, reasons: [...prev.reasons, { ...drawerDraft, key, label }] }));
+      nextReasons = [...data.reasons, { ...drawerDraft, key, label }];
     } else {
-      setData((prev) => ({
-        ...prev,
-        reasons: prev.reasons.map((r) => r.key === drawerDraft.key ? { ...drawerDraft } : r),
-      }));
+      nextReasons = data.reasons.map((r) => (r.key === drawerDraft.key ? { ...drawerDraft } : r));
     }
-    closeDrawer();
+    const ok = await persistReasons(nextReasons);
+    if (ok) closeDrawer();
   }
 
-  function removeReason(key: string) {
-    setData((prev) => ({ ...prev, reasons: prev.reasons.filter((r) => r.key !== key) }));
+  async function removeReason(key: string) {
+    const nextReasons = data.reasons.filter((r) => r.key !== key);
+    await persistReasons(nextReasons);
   }
 
   if (loading) {
@@ -2975,10 +3039,11 @@ function EnrollmentSettingsPanel() {
 
   async function handleSave() {
     setSaving(true);
-    const rows = [
+    // Arrays vão como arrays — JSONB serializa nativamente.
+    const rows: Array<{ key: string; value: unknown }> = [
       { key: 'min_age',              value: String(data.min_age) },
-      { key: 'segments_available',   value: JSON.stringify(data.segments_available) },
-      { key: 'required_docs_list',   value: JSON.stringify(data.required_docs_list) },
+      { key: 'segments_available',   value: data.segments_available },
+      { key: 'required_docs_list',   value: data.required_docs_list },
       { key: 'require_parents_data', value: String(data.require_parents_data) },
       { key: 'require_documents',    value: String(data.require_documents) },
     ];
@@ -3263,21 +3328,41 @@ function ContactSettingsPanel() {
 
   async function handleSave() {
     setSaving(true);
-    const rows = [
+    // Arrays vão como arrays — JSONB serializa nativamente.
+    const rows: Array<{ key: string; value: unknown }> = [
       { key: 'sla_hours',       value: String(data.sla_hours) },
-      { key: 'required_fields', value: JSON.stringify(data.required_fields) },
-      { key: 'contact_reasons', value: JSON.stringify(data.reasons) },
+      { key: 'required_fields', value: data.required_fields },
+      { key: 'contact_reasons', value: data.reasons },
     ];
-    await Promise.all(
-      rows.map((r) =>
-        ids[r.key]
-          ? supabase.from('system_settings').update({ value: r.value }).eq('id', ids[r.key])
-          : supabase.from('system_settings').insert({ category: 'contact', key: r.key, value: r.value })
-              .select('id').single().then(({ data: row }) => {
-                if (row) setIds((prev) => ({ ...prev, [r.key]: row.id }));
-              }),
-      ),
+    const results = await Promise.all(
+      rows.map(async (r) => {
+        if (ids[r.key]) {
+          const { error } = await supabase
+            .from('system_settings')
+            .update({ value: r.value })
+            .eq('id', ids[r.key]);
+          return { key: r.key, error };
+        }
+        const { data: row, error } = await supabase
+          .from('system_settings')
+          .insert({ category: 'contact', key: r.key, value: r.value })
+          .select('id')
+          .single();
+        if (row) setIds((prev) => ({ ...prev, [r.key]: row.id }));
+        return { key: r.key, error };
+      }),
     );
+    const failed = results.filter((r) => r.error);
+    if (failed.length > 0) {
+      console.error('[ContactsSettingsPanel] save errors', failed);
+      alert(
+        `Falha ao salvar ${failed.length} configuração(ões): ${failed
+          .map((f) => `${f.key} (${f.error?.message})`)
+          .join(', ')}`,
+      );
+      setSaving(false);
+      return;
+    }
     setOriginal(JSON.stringify(data));
     setSaving(false);
     setSaved(true);
@@ -3308,24 +3393,56 @@ function ContactSettingsPanel() {
 
   function closeDrawer() { setDrawerOpen(false); setDrawerDraft(null); }
 
-  function saveDrawer() {
+  /** Mesmo padrão da AppointmentsSettingsPanel — persistir direto. */
+  async function persistReasons(nextReasons: ContactSettings['reasons']): Promise<boolean> {
+    const existingId = ids['contact_reasons'];
+    let error: { message: string } | null = null;
+    if (existingId) {
+      const res = await supabase
+        .from('system_settings')
+        .update({ value: nextReasons })
+        .eq('id', existingId);
+      error = res.error;
+    } else {
+      const res = await supabase
+        .from('system_settings')
+        .insert({ category: 'contact', key: 'contact_reasons', value: nextReasons })
+        .select('id')
+        .single();
+      error = res.error;
+      if (res.data) setIds((prev) => ({ ...prev, contact_reasons: res.data.id }));
+    }
+    if (error) {
+      console.error('[ContactsSettingsPanel] persistReasons error', error);
+      alert(`Falha ao salvar motivos de contato: ${error.message}`);
+      return false;
+    }
+    setData((prev) => {
+      const next = { ...prev, reasons: nextReasons };
+      setOriginal(JSON.stringify(next));
+      return next;
+    });
+    return true;
+  }
+
+  async function saveDrawer() {
     if (!drawerDraft || !drawerDraft.label.trim()) return;
+    let nextReasons: ContactSettings['reasons'];
     if (drawerIsNew) {
       const label = drawerDraft.label.trim();
       const key = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || `reason_${Date.now()}`;
       if (data.reasons.some((r) => r.key === key)) return;
-      setData((prev) => ({ ...prev, reasons: [...prev.reasons, { ...drawerDraft, key, label }] }));
+      nextReasons = [...data.reasons, { ...drawerDraft, key, label }];
     } else {
-      setData((prev) => ({
-        ...prev,
-        reasons: prev.reasons.map((r) => r.key === drawerDraft.key ? { ...drawerDraft } : r),
-      }));
+      nextReasons = data.reasons.map((r) => (r.key === drawerDraft.key ? { ...drawerDraft } : r));
     }
-    closeDrawer();
+    const ok = await persistReasons(nextReasons);
+    if (ok) closeDrawer();
   }
 
-  function removeReason(key: string) {
-    setData((prev) => ({ ...prev, reasons: prev.reasons.filter((r) => r.key !== key) }));
+  async function removeReason(key: string) {
+    const nextReasons = data.reasons.filter((r) => r.key !== key);
+    await persistReasons(nextReasons);
   }
 
   if (loading) {
