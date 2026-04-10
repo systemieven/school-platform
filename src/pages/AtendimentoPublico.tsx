@@ -54,6 +54,38 @@ import {
 
 type Step = 'phone' | 'validating' | 'eligible' | 'walkin' | 'locating' | 'issued' | 'error';
 
+/**
+ * Espelho público do AttendanceQuestion do admin. Declarado aqui para não
+ * acoplar a página pública aos types do admin; o shape precisa ficar
+ * sincronizado manualmente.
+ */
+type PublicQuestionType =
+  | 'rating'
+  | 'text'
+  | 'single_choice'
+  | 'multi_choice'
+  | 'scale'
+  | 'yes_no'
+  | 'emoji';
+
+interface PublicQuestion {
+  id: string;
+  label: string;
+  type: PublicQuestionType;
+  // Rating
+  max?: number;
+  // Single/multi choice
+  options?: string[];
+  // Scale
+  min?: number;
+  step?: number;
+  min_label?: string;
+  max_label?: string;
+}
+
+/** Valor aceito para uma resposta (payload enviado ao attendance-feedback). */
+type AnswerValue = number | string | string[];
+
 interface Sector { key: string; label: string; icon?: string }
 
 /**
@@ -88,7 +120,7 @@ interface PublicConfig {
     max?: number;
     allow_comments?: boolean;
     custom_questions_enabled?: boolean;
-    questions?: Array<{ id: string; label: string; type: 'rating' | 'text' }>;
+    questions?: PublicQuestion[];
   } | null;
   geolocation: { latitude: number | null; longitude: number | null; radius_m: number } | null;
   sectors: Sector[];
@@ -691,18 +723,47 @@ interface FeedbackFormProps {
   config: NonNullable<PublicConfig['feedback']>;
 }
 
+const EMOJI_SCALE = ['😡', '😕', '😐', '🙂', '😍'];
+
 function FeedbackForm({ ticketId, config }: FeedbackFormProps) {
   const [rating, setRating] = useState<number | null>(null);
   const [comments, setComments] = useState('');
+  const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const max = config.max || 5;
+  const questions = (config.custom_questions_enabled && config.questions) || [];
+
+  const setAnswer = (id: string, value: AnswerValue) =>
+    setAnswers((prev) => ({ ...prev, [id]: value }));
 
   async function submit() {
     if (rating === null) {
       setError('Selecione uma avaliação.');
       return;
+    }
+    // Exige resposta em toda pergunta personalizada (texto livre aceita vazio?
+    // Melhor exigir — se o admin adicionou, é porque quer). Multi-choice precisa
+    // de pelo menos 1 item selecionado.
+    for (const q of questions) {
+      const v = answers[q.id];
+      if (q.type === 'text') {
+        if (typeof v !== 'string' || v.trim().length === 0) {
+          setError(`Responda: "${q.label || 'pergunta em branco'}"`);
+          return;
+        }
+      } else if (q.type === 'multi_choice') {
+        if (!Array.isArray(v) || v.length === 0) {
+          setError(`Selecione ao menos uma opção em: "${q.label || 'pergunta em branco'}"`);
+          return;
+        }
+      } else {
+        if (v === undefined || v === null || v === '') {
+          setError(`Responda: "${q.label || 'pergunta em branco'}"`);
+          return;
+        }
+      }
     }
     setSubmitting(true);
     setError(null);
@@ -710,6 +771,7 @@ function FeedbackForm({ ticketId, config }: FeedbackFormProps) {
       body: {
         ticket_id: ticketId,
         rating,
+        answers,
         comments: comments.trim() || null,
       },
     });
@@ -731,11 +793,12 @@ function FeedbackForm({ ticketId, config }: FeedbackFormProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 px-4 py-4 space-y-3">
+    <div className="rounded-2xl border border-gray-200 px-4 py-4 space-y-4">
       <p className="text-sm font-semibold text-gray-700 text-center">
         {config.prompt_text?.trim() || 'Como foi seu atendimento?'}
       </p>
 
+      {/* Avaliação principal — sempre presente, estrelas */}
       <div className="flex items-center justify-center gap-1.5">
         {Array.from({ length: max }).map((_, i) => {
           const value = i + 1;
@@ -752,6 +815,16 @@ function FeedbackForm({ ticketId, config }: FeedbackFormProps) {
           );
         })}
       </div>
+
+      {/* Perguntas personalizadas */}
+      {questions.map((q) => (
+        <QuestionField
+          key={q.id}
+          question={q}
+          value={answers[q.id]}
+          onChange={(v) => setAnswer(q.id, v)}
+        />
+      ))}
 
       {config.allow_comments && (
         <textarea
@@ -777,4 +850,214 @@ function FeedbackForm({ ticketId, config }: FeedbackFormProps) {
       </button>
     </div>
   );
+}
+
+// ── QuestionField ────────────────────────────────────────────────────────────
+// Renderer individual por tipo. Cada tipo tem sua própria UI, mas todos
+// seguem o mesmo contrato: recebem value (undefined quando ainda não
+// respondido) e emitem onChange com o AnswerValue apropriado ao tipo.
+
+interface QuestionFieldProps {
+  question: PublicQuestion;
+  value: AnswerValue | undefined;
+  onChange: (v: AnswerValue) => void;
+}
+
+function QuestionField({ question, value, onChange }: QuestionFieldProps) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold text-gray-700">{question.label || '—'}</p>
+      {renderFieldInput(question, value, onChange)}
+    </div>
+  );
+}
+
+function renderFieldInput(
+  q: PublicQuestion,
+  value: AnswerValue | undefined,
+  onChange: (v: AnswerValue) => void,
+) {
+  if (q.type === 'rating') {
+    const max = q.max ?? 5;
+    const current = typeof value === 'number' ? value : 0;
+    return (
+      <div className="flex items-center justify-center gap-1.5">
+        {Array.from({ length: max }).map((_, i) => {
+          const v = i + 1;
+          const active = v <= current;
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onChange(v)}
+              className="p-1"
+            >
+              <Star className={`w-6 h-6 transition-colors ${active ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (q.type === 'text') {
+    return (
+      <textarea
+        value={typeof value === 'string' ? value : ''}
+        onChange={(e) => onChange(e.target.value)}
+        rows={2}
+        placeholder="Escreva sua resposta…"
+        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+      />
+    );
+  }
+
+  if (q.type === 'single_choice') {
+    const options = q.options ?? [];
+    const current = typeof value === 'string' ? value : null;
+    return (
+      <div className="flex flex-wrap gap-2">
+        {options.map((opt) => {
+          const active = current === opt;
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onChange(opt)}
+              className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                active
+                  ? 'bg-[#003876] text-white border-[#003876] shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876] hover:text-[#003876]'
+              }`}
+            >
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (q.type === 'multi_choice') {
+    const options = q.options ?? [];
+    const current = Array.isArray(value) ? value : [];
+    return (
+      <div className="flex flex-wrap gap-2">
+        {options.map((opt) => {
+          const active = current.includes(opt);
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => {
+                const next = active
+                  ? current.filter((x) => x !== opt)
+                  : [...current, opt];
+                onChange(next);
+              }}
+              className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                active
+                  ? 'bg-[#003876] text-white border-[#003876] shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876] hover:text-[#003876]'
+              }`}
+            >
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (q.type === 'yes_no') {
+    const current = typeof value === 'string' ? value : null;
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        {['Sim', 'Não'].map((opt) => {
+          const active = current === opt;
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onChange(opt)}
+              className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                active
+                  ? 'bg-[#003876] text-white border-[#003876] shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876] hover:text-[#003876]'
+              }`}
+            >
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (q.type === 'scale') {
+    const min = q.min ?? 0;
+    const max = q.max ?? 10;
+    const step = q.step ?? 1;
+    const current = typeof value === 'number' ? value : min;
+    const pct = ((current - min) / Math.max(1, max - min)) * 100;
+    return (
+      <div className="space-y-1.5">
+        <div className="relative h-6 flex items-center">
+          <div className="absolute w-full h-1.5 bg-gray-200 rounded-full" />
+          <div
+            className="absolute h-1.5 bg-[#003876] rounded-full pointer-events-none"
+            style={{ width: `${pct}%` }}
+          />
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={current}
+            onChange={(e) => onChange(parseInt(e.target.value, 10))}
+            className="absolute w-full appearance-none bg-transparent cursor-pointer
+              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+              [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
+              [&::-webkit-slider-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)]
+              [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full
+              [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0
+              [&::-moz-range-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)]"
+          />
+        </div>
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-gray-400">{q.min_label || min}</span>
+          <span className="font-semibold text-[#003876]">{current}</span>
+          <span className="text-gray-400">{q.max_label || max}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (q.type === 'emoji') {
+    const current = typeof value === 'number' ? value : 0;
+    return (
+      <div className="flex items-center justify-between gap-1">
+        {EMOJI_SCALE.map((emoji, i) => {
+          const v = i + 1;
+          const active = current === v;
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onChange(v)}
+              className={`flex-1 py-2 rounded-xl text-2xl transition-all border ${
+                active
+                  ? 'bg-[#003876]/5 border-[#003876] scale-110 shadow-md'
+                  : 'bg-white border-gray-200 grayscale hover:grayscale-0 hover:border-[#003876]/50'
+              }`}
+            >
+              {emoji}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return null;
 }

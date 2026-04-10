@@ -42,6 +42,13 @@ import {
   MessageCircle,
   ListChecks,
   Type,
+  // Question type icons
+  CircleDot,
+  CheckSquare,
+  SlidersHorizontal,
+  ToggleLeft,
+  Smile,
+  X as XIcon,
   // Ticket format icons (prefix mode)
   Minus,
   Edit3,
@@ -53,6 +60,8 @@ import type {
   AttendanceSoundConfig,
   AttendanceClientScreenFields,
   AttendanceFeedbackConfig,
+  AttendanceQuestion,
+  AttendanceQuestionType,
 } from '../../types/admin.types';
 
 interface AllowWalkins {
@@ -876,7 +885,7 @@ export default function AttendanceSettingsPanel() {
                           ...prev.feedback,
                           questions: [
                             ...prev.feedback.questions,
-                            { id: `q_${Date.now()}`, label: '', type: 'rating' },
+                            { id: `q_${Date.now()}`, label: '', type: 'rating', max: 5 } as AttendanceQuestion,
                           ],
                         },
                       }))
@@ -891,82 +900,246 @@ export default function AttendanceSettingsPanel() {
                 {data.feedback.questions.length === 0 ? (
                   <p className="text-xs text-gray-400 italic">Nenhuma pergunta personalizada.</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {data.feedback.questions.map((q, idx) => {
-                      const setType = (value: 'rating' | 'text') =>
+                      const updateQuestion = (updater: (q: AttendanceQuestion) => AttendanceQuestion) =>
                         setData((prev) => ({
                           ...prev,
                           feedback: {
                             ...prev.feedback,
-                            questions: prev.feedback.questions.map((x, i) => (i === idx ? { ...x, type: value } : x)),
+                            questions: prev.feedback.questions.map((x, i) => (i === idx ? updater(x) : x)),
                           },
                         }));
 
-                      return (
-                        <div key={q.id} className="flex items-center gap-2">
-                          {/* Input diminuído — menos protagonismo que antes */}
-                          <input
-                            type="text"
-                            placeholder="Texto da pergunta"
-                            value={q.label}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setData((prev) => ({
-                                ...prev,
-                                feedback: {
-                                  ...prev.feedback,
-                                  questions: prev.feedback.questions.map((x, i) => (i === idx ? { ...x, label: value } : x)),
-                                },
-                              }));
-                            }}
-                            className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-                          />
+                      /**
+                       * Mudança de tipo cria uma nova pergunta preservando id+label.
+                       * Cada tipo tem um shape próprio — forçar via "as" seria frágil,
+                       * então construímos explicitamente e deixamos o defaults de cada
+                       * variante aparecerem.
+                       */
+                      const changeType = (newType: AttendanceQuestionType) =>
+                        updateQuestion((current) => {
+                          const base = { id: current.id, label: current.label };
+                          switch (newType) {
+                            case 'rating':        return { ...base, type: 'rating', max: 5 };
+                            case 'text':          return { ...base, type: 'text' };
+                            case 'single_choice': return { ...base, type: 'single_choice', options: ['Opção 1', 'Opção 2'] };
+                            case 'multi_choice':  return { ...base, type: 'multi_choice',  options: ['Opção 1', 'Opção 2'] };
+                            case 'scale':         return { ...base, type: 'scale', min: 0, max: 10, step: 1, min_label: '', max_label: '' };
+                            case 'yes_no':        return { ...base, type: 'yes_no' };
+                            case 'emoji':         return { ...base, type: 'emoji' };
+                          }
+                        });
 
-                          {/* Dois botões mutuamente exclusivos: Estrela ou Texto */}
-                          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 overflow-hidden shrink-0">
+                      const TYPE_BUTTONS: Array<{ value: AttendanceQuestionType; Icon: React.ComponentType<{ className?: string }>; label: string }> = [
+                        { value: 'rating',        Icon: Star,                label: 'Estrelas'   },
+                        { value: 'emoji',         Icon: Smile,               label: 'Emoji'      },
+                        { value: 'single_choice', Icon: CircleDot,           label: 'Escolha'    },
+                        { value: 'multi_choice',  Icon: CheckSquare,         label: 'Múltipla'   },
+                        { value: 'yes_no',        Icon: ToggleLeft,          label: 'Sim/Não'    },
+                        { value: 'scale',         Icon: SlidersHorizontal,   label: 'Escala'     },
+                        { value: 'text',          Icon: Type,                label: 'Texto'      },
+                      ];
+
+                      return (
+                        <div key={q.id} className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-3 space-y-2.5">
+                          {/* Linha 1: texto da pergunta + remover */}
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="Texto da pergunta"
+                              value={q.label}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                updateQuestion((cur) => ({ ...cur, label: value }));
+                              }}
+                              className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+                            />
                             <button
                               type="button"
-                              onClick={() => setType('rating')}
-                              title="Avaliação em estrelas"
-                              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                                q.type === 'rating'
-                                  ? 'bg-[#003876] text-white'
-                                  : 'text-gray-500 hover:text-[#003876]'
-                              }`}
+                              onClick={() =>
+                                setData((prev) => ({
+                                  ...prev,
+                                  feedback: {
+                                    ...prev.feedback,
+                                    questions: prev.feedback.questions.filter((_, i) => i !== idx),
+                                  },
+                                }))
+                              }
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
+                              title="Remover pergunta"
                             >
-                              <Star className={`w-3.5 h-3.5 ${q.type === 'rating' ? 'fill-[#ffd700] text-[#ffd700]' : ''}`} />
-                              Estrela
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setType('text')}
-                              title="Resposta em texto livre"
-                              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border-l border-gray-200 dark:border-gray-600 transition-colors ${
-                                q.type === 'text'
-                                  ? 'bg-[#003876] text-white'
-                                  : 'text-gray-500 hover:text-[#003876]'
-                              }`}
-                            >
-                              <Type className="w-3.5 h-3.5" />
-                              Texto
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setData((prev) => ({
-                                ...prev,
-                                feedback: {
-                                  ...prev.feedback,
-                                  questions: prev.feedback.questions.filter((_, i) => i !== idx),
-                                },
-                              }))
-                            }
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Linha 2: seletor de tipo (7 botões em grid responsivo) */}
+                          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                            {TYPE_BUTTONS.map(({ value, Icon, label }) => {
+                              const active = q.type === value;
+                              return (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  onClick={() => changeType(value)}
+                                  title={label}
+                                  className={`flex flex-col items-center justify-center gap-1 px-1.5 py-2 rounded-lg border transition-all ${
+                                    active
+                                      ? 'bg-[#003876] text-white border-[#003876] shadow-md'
+                                      : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:text-[#003876] hover:border-[#003876]'
+                                  }`}
+                                >
+                                  <Icon className={`w-3.5 h-3.5 ${active && value === 'rating' ? 'fill-[#ffd700] text-[#ffd700]' : ''}`} />
+                                  <span className="text-[10px] font-medium leading-none">{label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Linha 3: configuração específica do tipo */}
+                          {q.type === 'rating' && (
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span className="shrink-0">Quantidade de estrelas:</span>
+                              <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 overflow-hidden">
+                                {[3, 4, 5, 6, 10].map((n) => (
+                                  <button
+                                    key={n}
+                                    type="button"
+                                    onClick={() => updateQuestion((cur) => ({ ...cur, type: 'rating', max: n }))}
+                                    className={`px-2.5 py-1 text-[11px] font-semibold border-r border-gray-200 dark:border-gray-600 last:border-r-0 transition-colors ${
+                                      (q.max ?? 5) === n
+                                        ? 'bg-[#003876] text-white'
+                                        : 'text-gray-500 hover:text-[#003876]'
+                                    }`}
+                                  >
+                                    {n}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {(q.type === 'single_choice' || q.type === 'multi_choice') && (
+                            <div className="space-y-1.5">
+                              <p className="text-[10px] font-semibold tracking-wider uppercase text-gray-400">Opções</p>
+                              <div className="space-y-1.5">
+                                {q.options.map((opt, optIdx) => (
+                                  <div key={optIdx} className="flex items-center gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={opt}
+                                      onChange={(e) => {
+                                        const v = e.target.value;
+                                        updateQuestion((cur) => {
+                                          if (cur.type !== 'single_choice' && cur.type !== 'multi_choice') return cur;
+                                          return { ...cur, options: cur.options.map((o, i) => (i === optIdx ? v : o)) };
+                                        });
+                                      }}
+                                      placeholder={`Opção ${optIdx + 1}`}
+                                      className="flex-1 min-w-0 px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                    />
+                                    <button
+                                      type="button"
+                                      disabled={q.options.length <= 2}
+                                      onClick={() => updateQuestion((cur) => {
+                                        if (cur.type !== 'single_choice' && cur.type !== 'multi_choice') return cur;
+                                        if (cur.options.length <= 2) return cur;
+                                        return { ...cur, options: cur.options.filter((_, i) => i !== optIdx) };
+                                      })}
+                                      className="p-1 rounded text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                      title="Remover opção"
+                                    >
+                                      <XIcon className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  disabled={q.options.length >= 8}
+                                  onClick={() => updateQuestion((cur) => {
+                                    if (cur.type !== 'single_choice' && cur.type !== 'multi_choice') return cur;
+                                    if (cur.options.length >= 8) return cur;
+                                    return { ...cur, options: [...cur.options, `Opção ${cur.options.length + 1}`] };
+                                  })}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-[#003876] hover:bg-[#003876]/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  Adicionar opção ({q.options.length}/8)
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {q.type === 'scale' && (
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1">Mínimo</label>
+                                <input
+                                  type="number"
+                                  value={q.min}
+                                  onChange={(e) => {
+                                    const v = parseInt(e.target.value || '0', 10);
+                                    updateQuestion((cur) => (cur.type === 'scale' ? { ...cur, min: v } : cur));
+                                  }}
+                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1">Máximo</label>
+                                <input
+                                  type="number"
+                                  value={q.max}
+                                  onChange={(e) => {
+                                    const v = parseInt(e.target.value || '0', 10);
+                                    updateQuestion((cur) => (cur.type === 'scale' ? { ...cur, max: v } : cur));
+                                  }}
+                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1">Rótulo inicial</label>
+                                <input
+                                  type="text"
+                                  value={q.min_label ?? ''}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    updateQuestion((cur) => (cur.type === 'scale' ? { ...cur, min_label: v } : cur));
+                                  }}
+                                  placeholder="Ex: Ruim"
+                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1">Rótulo final</label>
+                                <input
+                                  type="text"
+                                  value={q.max_label ?? ''}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    updateQuestion((cur) => (cur.type === 'scale' ? { ...cur, max_label: v } : cur));
+                                  }}
+                                  placeholder="Ex: Excelente"
+                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {q.type === 'yes_no' && (
+                            <p className="text-[11px] text-gray-400 italic">
+                              O cliente verá dois botões: Sim / Não.
+                            </p>
+                          )}
+                          {q.type === 'emoji' && (
+                            <p className="text-[11px] text-gray-400 italic">
+                              Escala de 5 emojis: 😡 😕 😐 🙂 😍.
+                            </p>
+                          )}
+                          {q.type === 'text' && (
+                            <p className="text-[11px] text-gray-400 italic">
+                              O cliente verá um campo de texto livre.
+                            </p>
+                          )}
                         </div>
                       );
                     })}

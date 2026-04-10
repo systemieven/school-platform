@@ -697,6 +697,87 @@ export interface AttendanceClientScreenFields {
   instructions_text: string;
 }
 
+/**
+ * Tipos de pergunta suportados pelo feedback pós-atendimento.
+ * - `rating`        estrelas 1..N
+ * - `text`          resposta livre em texto
+ * - `single_choice` radio: usuário escolhe 1 opção (renderizado como botões)
+ * - `multi_choice`  checkbox: usuário escolhe N opções (renderizado como botões)
+ * - `scale`         slider numérico (ex: NPS 0-10)
+ * - `yes_no`        atalho: Sim / Não (dois botões)
+ * - `emoji`         escala visual 1..5 com emojis
+ */
+export type AttendanceQuestionType =
+  | 'rating'
+  | 'text'
+  | 'single_choice'
+  | 'multi_choice'
+  | 'scale'
+  | 'yes_no'
+  | 'emoji';
+
+export interface AttendanceQuestionBase {
+  id: string;
+  label: string;
+  type: AttendanceQuestionType;
+}
+
+export interface AttendanceQuestionRating extends AttendanceQuestionBase {
+  type: 'rating';
+  /** Quantidade de estrelas. Default 5. */
+  max?: number;
+}
+
+export interface AttendanceQuestionText extends AttendanceQuestionBase {
+  type: 'text';
+}
+
+export interface AttendanceQuestionSingleChoice extends AttendanceQuestionBase {
+  type: 'single_choice';
+  options: string[];
+}
+
+export interface AttendanceQuestionMultiChoice extends AttendanceQuestionBase {
+  type: 'multi_choice';
+  options: string[];
+}
+
+export interface AttendanceQuestionScale extends AttendanceQuestionBase {
+  type: 'scale';
+  min: number;
+  max: number;
+  step?: number;
+  /** Rótulos opcionais exibidos nas extremidades do slider. */
+  min_label?: string;
+  max_label?: string;
+}
+
+export interface AttendanceQuestionYesNo extends AttendanceQuestionBase {
+  type: 'yes_no';
+}
+
+export interface AttendanceQuestionEmoji extends AttendanceQuestionBase {
+  type: 'emoji';
+}
+
+export type AttendanceQuestion =
+  | AttendanceQuestionRating
+  | AttendanceQuestionText
+  | AttendanceQuestionSingleChoice
+  | AttendanceQuestionMultiChoice
+  | AttendanceQuestionScale
+  | AttendanceQuestionYesNo
+  | AttendanceQuestionEmoji;
+
+/**
+ * Shape das respostas enviadas ao backend (campo `answers` do
+ * attendance_feedback). Chave = question.id, valor depende do tipo:
+ * - rating|scale|emoji       → number
+ * - text|single_choice|yes_no → string
+ * - multi_choice             → string[]
+ */
+export type AttendanceAnswerValue = number | string | string[];
+
 export interface AttendanceFeedbackConfig {
   enabled: boolean;
   /** Texto exibido ao cliente logo acima da escala de avaliação. */
@@ -706,7 +787,7 @@ export interface AttendanceFeedbackConfig {
   allow_comments: boolean;
   /** Quando false, a lista de `questions` é ignorada pelo formulário. */
   custom_questions_enabled: boolean;
-  questions: Array<{ id: string; label: string; type: 'rating' | 'text' }>;
+  questions: AttendanceQuestion[];
 }
 
 export interface InstitutionGeolocation {
