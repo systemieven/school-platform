@@ -256,9 +256,13 @@ export default function AgendarVisita() {
   const lunchStart  = (visitSettings.lunch_start?.toString()) || '12:00';
   const lunchEnd    = (visitSettings.lunch_end?.toString()) || '13:30';
   const slotDuration = Number(visitSettings.slot_duration) || 60;
-  const blockedWeekdays = new Set<number>(
-    Array.isArray(visitSettings.blocked_weekdays) ? visitSettings.blocked_weekdays as number[] : [0, 6],
-  );
+  // Derive blocked weekdays from business_hours (days where open === false)
+  const blockedWeekdays = useMemo(() => {
+    const bh = generalSettings.business_hours;
+    if (!bh || typeof bh !== 'object') return new Set([0, 6]);
+    const bhObj = bh as Record<string, { open?: boolean }>;
+    return new Set(Array.from({ length: 7 }, (_, i) => i).filter((i) => !bhObj[String(i)]?.open));
+  }, [generalSettings.business_hours]);
 
   const VISIT_REASONS = useMemo(() => {
     if (Array.isArray(visitSettings.reasons) && visitSettings.reasons.length > 0) {

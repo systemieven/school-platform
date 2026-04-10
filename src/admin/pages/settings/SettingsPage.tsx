@@ -2237,7 +2237,6 @@ interface VisitSettings {
   lunch_start: string;
   lunch_end: string;
   slot_duration: number;
-  blocked_weekdays: number[];
   reasons: {
     key: string;
     label: string;
@@ -2259,7 +2258,6 @@ const DEFAULT_VISIT: VisitSettings = {
   lunch_start: '12:00',
   lunch_end: '13:30',
   slot_duration: 30,
-  blocked_weekdays: [0, 6],
   reasons: [],
 };
 
@@ -2296,7 +2294,7 @@ function AppointmentsSettingsPanel() {
       .from('system_settings')
       .select('id, key, value')
       .eq('category', 'visit')
-      .in('key', ['start_hour', 'end_hour', 'lunch_start', 'lunch_end', 'slot_duration', 'blocked_weekdays', 'reasons'])
+      .in('key', ['start_hour', 'end_hour', 'lunch_start', 'lunch_end', 'slot_duration', 'reasons'])
       .then(({ data: rows }) => {
         if (!rows) { setLoading(false); return; }
         const merged = { ...DEFAULT_VISIT };
@@ -2309,8 +2307,6 @@ function AppointmentsSettingsPanel() {
             m[r.key] = typeof v === 'string' ? v : String(v);
           } else if (r.key === 'slot_duration') {
             m[r.key] = typeof v === 'number' ? v : parseInt(String(v)) || 0;
-          } else if (r.key === 'blocked_weekdays') {
-            try { m[r.key] = typeof v === 'string' ? JSON.parse(v) : v; } catch { /* keep default */ }
           } else if (r.key === 'reasons') {
             try {
               const raw: { key: string; label: string; duration_minutes?: number; buffer_minutes?: number; max_per_slot?: number }[] =
@@ -2406,9 +2402,8 @@ function AppointmentsSettingsPanel() {
       { key: 'end_hour',         value: data.end_hour },
       { key: 'lunch_start',      value: data.lunch_start },
       { key: 'lunch_end',        value: data.lunch_end },
-      { key: 'slot_duration',    value: String(data.slot_duration) },
-      { key: 'blocked_weekdays', value: JSON.stringify(data.blocked_weekdays) },
-      { key: 'reasons',          value: JSON.stringify(data.reasons) },
+      { key: 'slot_duration', value: String(data.slot_duration) },
+      { key: 'reasons',       value: JSON.stringify(data.reasons) },
     ];
     await Promise.all(
       rows.map((r) =>
@@ -2424,15 +2419,6 @@ function AppointmentsSettingsPanel() {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
-  }
-
-  function toggleWeekday(day: number) {
-    setData((prev) => ({
-      ...prev,
-      blocked_weekdays: prev.blocked_weekdays.includes(day)
-        ? prev.blocked_weekdays.filter((d) => d !== day)
-        : [...prev.blocked_weekdays, day],
-    }));
   }
 
   function openDrawer(key: string | null) {
@@ -2537,35 +2523,6 @@ function AppointmentsSettingsPanel() {
                 {min} min
               </button>
             ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Dias Bloqueados */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
-          <p className={TITLE_CLS}>Dias Bloqueados</p>
-          <p className="text-xs text-gray-400 mt-1">Dias marcados em azul não aceitam agendamentos.</p>
-        </div>
-        <div className={BODY_CLS}>
-          <div className="flex gap-2 flex-wrap">
-            {WEEKDAYS.map((name, idx) => {
-              const isBlocked = data.blocked_weekdays.includes(idx);
-              return (
-                <button
-                  key={idx}
-                  onClick={() => toggleWeekday(idx)}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all ${
-                    isBlocked
-                      ? 'bg-[#003876] text-white shadow-md'
-                      : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#003876]/50'
-                  }`}
-                >
-                  {isBlocked && <X className="w-3 h-3" />}
-                  {name}
-                </button>
-              );
-            })}
           </div>
         </div>
       </div>
