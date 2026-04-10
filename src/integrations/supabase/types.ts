@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      _webhook_debug: {
+        Row: {
+          created_at: string | null
+          event: string | null
+          id: number
+          raw_update: Json | null
+          status_code: number | null
+          track_id: string | null
+          wa_key_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event?: string | null
+          id?: number
+          raw_update?: Json | null
+          status_code?: number | null
+          track_id?: string | null
+          wa_key_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event?: string | null
+          id?: number
+          raw_update?: Json | null
+          status_code?: number | null
+          track_id?: string | null
+          wa_key_id?: string | null
+        }
+        Relationships: []
+      }
       activities: {
         Row: {
           class_id: string
@@ -276,6 +306,196 @@ export type Database = {
           },
         ]
       }
+      attendance_feedback: {
+        Row: {
+          answers: Json
+          comments: string | null
+          id: string
+          rating: number | null
+          submitted_at: string
+          ticket_id: string
+        }
+        Insert: {
+          answers?: Json
+          comments?: string | null
+          id?: string
+          rating?: number | null
+          submitted_at?: string
+          ticket_id: string
+        }
+        Update: {
+          answers?: Json
+          comments?: string | null
+          id?: string
+          rating?: number | null
+          submitted_at?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_feedback_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: true
+            referencedRelation: "attendance_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_history: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          event_type: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description: string
+          event_type: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          event_type?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_history_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_history_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_tickets: {
+        Row: {
+          appointment_id: string
+          called_at: string | null
+          called_by: string | null
+          checkin_distance_m: number | null
+          checkin_lat: number | null
+          checkin_lng: number | null
+          created_at: string
+          feedback_id: string | null
+          finished_at: string | null
+          id: string
+          issued_at: string
+          notes: string | null
+          sector_key: string
+          sector_label: string
+          served_by: string | null
+          service_seconds: number | null
+          service_started_at: string | null
+          status: string
+          ticket_number: string
+          visitor_email: string | null
+          visitor_name: string
+          visitor_phone: string
+          wait_seconds: number | null
+        }
+        Insert: {
+          appointment_id: string
+          called_at?: string | null
+          called_by?: string | null
+          checkin_distance_m?: number | null
+          checkin_lat?: number | null
+          checkin_lng?: number | null
+          created_at?: string
+          feedback_id?: string | null
+          finished_at?: string | null
+          id?: string
+          issued_at?: string
+          notes?: string | null
+          sector_key: string
+          sector_label: string
+          served_by?: string | null
+          service_seconds?: number | null
+          service_started_at?: string | null
+          status?: string
+          ticket_number: string
+          visitor_email?: string | null
+          visitor_name: string
+          visitor_phone: string
+          wait_seconds?: number | null
+        }
+        Update: {
+          appointment_id?: string
+          called_at?: string | null
+          called_by?: string | null
+          checkin_distance_m?: number | null
+          checkin_lat?: number | null
+          checkin_lng?: number | null
+          created_at?: string
+          feedback_id?: string | null
+          finished_at?: string | null
+          id?: string
+          issued_at?: string
+          notes?: string | null
+          sector_key?: string
+          sector_label?: string
+          served_by?: string | null
+          service_seconds?: number | null
+          service_started_at?: string | null
+          status?: string
+          ticket_number?: string
+          visitor_email?: string | null
+          visitor_name?: string
+          visitor_phone?: string
+          wait_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_tickets_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "visit_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_tickets_called_by_fkey"
+            columns: ["called_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_tickets_feedback_fk"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_feedback"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_tickets_served_by_fkey"
+            columns: ["served_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_materials: {
         Row: {
           class_id: string
@@ -326,6 +546,66 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      confirmation_tracking: {
+        Row: {
+          appointment_id: string
+          created_at: string | null
+          delay_minutes: number
+          id: string
+          phone: string
+          responded_at: string | null
+          response_button_id: string | null
+          response_button_text: string | null
+          sent_at: string
+          status: string
+          template_id: string | null
+          wa_message_id: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string | null
+          delay_minutes?: number
+          id?: string
+          phone: string
+          responded_at?: string | null
+          response_button_id?: string | null
+          response_button_text?: string | null
+          sent_at?: string
+          status?: string
+          template_id?: string | null
+          wa_message_id: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string | null
+          delay_minutes?: number
+          id?: string
+          phone?: string
+          responded_at?: string | null
+          response_button_id?: string | null
+          response_button_text?: string | null
+          sent_at?: string
+          status?: string
+          template_id?: string | null
+          wa_message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confirmation_tracking_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "visit_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "confirmation_tracking_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1529,6 +1809,7 @@ export type Database = {
           cancelled_by: string | null
           companions: Json
           confirmation_sent: boolean
+          confirmation_status: string | null
           confirmed_at: string | null
           confirmed_by: string | null
           contact_request_id: string | null
@@ -1556,6 +1837,7 @@ export type Database = {
           cancelled_by?: string | null
           companions?: Json
           confirmation_sent?: boolean
+          confirmation_status?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           contact_request_id?: string | null
@@ -1583,6 +1865,7 @@ export type Database = {
           cancelled_by?: string | null
           companions?: Json
           confirmation_sent?: boolean
+          confirmation_status?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           contact_request_id?: string | null
@@ -1698,6 +1981,8 @@ export type Database = {
           sent_by: string | null
           status: string
           template_id: string | null
+          variables_used: Json | null
+          wa_message_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1714,6 +1999,8 @@ export type Database = {
           sent_by?: string | null
           status?: string
           template_id?: string | null
+          variables_used?: Json | null
+          wa_message_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1730,6 +2017,8 @@ export type Database = {
           sent_by?: string | null
           status?: string
           template_id?: string | null
+          variables_used?: Json | null
+          wa_message_id?: string | null
         }
         Relationships: [
           {
@@ -1878,9 +2167,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      expire_pending_confirmations: { Args: never; Returns: undefined }
       generate_enrollment_number: { Args: never; Returns: string }
       is_admin_or_coordinator: { Args: never; Returns: boolean }
       is_teacher_of_class: { Args: { p_class_id: string }; Returns: boolean }
+      next_attendance_ticket_number: {
+        Args: { p_format: Json; p_sector_key: string }
+        Returns: string
+      }
       notify_auto_trigger: {
         Args: {
           p_event: string
