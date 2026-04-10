@@ -31,6 +31,11 @@ import LegalConsent from '../components/LegalConsent';
 
 // ─── Fallback constants (used when DB settings are not yet loaded) ───────────
 
+interface VisitAvailabilityInterval {
+  start: string; // "HH:mm"
+  end: string;   // "HH:mm"
+}
+
 interface VisitReason {
   key: string;
   label: string;
@@ -40,19 +45,48 @@ interface VisitReason {
   max_per_slot: number;
   max_daily: number;
   availability_enabled: boolean;
-  availability_start: string;
-  availability_end: string;
+  /** 0 = Dom ... 6 = Sáb. Lista vazia = motivo indisponível. */
+  availability_weekdays: number[];
+  /** 1..3 intervalos não-sobrepostos. */
+  availability_intervals: VisitAvailabilityInterval[];
   lead_integrated: boolean;
 }
 
+const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
 const DEFAULT_VISIT_REASONS: VisitReason[] = [
-  { key: 'conhecer_estrutura',     label: 'Conhecer a estrutura',       icon: 'Building2', duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
-  { key: 'coordenacao',            label: 'Conversar com coordenação',  icon: 'Users',     duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
-  { key: 'gestora',                label: 'Conversar com a gestora',    icon: 'User',      duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
-  { key: 'entrega_documentos',     label: 'Entrega de documentos',      icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
-  { key: 'assinatura_contratos',   label: 'Assinatura de contratos',    icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
-  { key: 'solicitacao_documentos', label: 'Solicitação de documentos',  icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false },
+  { key: 'conhecer_estrutura',     label: 'Conhecer a estrutura',       icon: 'Building2', duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
+  { key: 'coordenacao',            label: 'Conversar com coordenação',  icon: 'Users',     duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
+  { key: 'gestora',                label: 'Conversar com a gestora',    icon: 'User',      duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
+  { key: 'entrega_documentos',     label: 'Entrega de documentos',      icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
+  { key: 'assinatura_contratos',   label: 'Assinatura de contratos',    icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
+  { key: 'solicitacao_documentos', label: 'Solicitação de documentos',  icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
 ];
+
+/**
+ * Normaliza um raw reason do banco (que pode estar no formato legacy
+ * `availability_start`/`availability_end`) para o shape novo com
+ * `availability_weekdays` e `availability_intervals`.
+ */
+function normalizeLegacyAvailability(raw: Record<string, unknown>): {
+  availability_weekdays: number[];
+  availability_intervals: VisitAvailabilityInterval[];
+} {
+  const weekdays =
+    Array.isArray(raw.availability_weekdays) &&
+    (raw.availability_weekdays as unknown[]).every((n) => typeof n === 'number')
+      ? (raw.availability_weekdays as number[])
+      : [...ALL_WEEKDAYS];
+  let intervals: VisitAvailabilityInterval[] = [];
+  if (Array.isArray(raw.availability_intervals)) {
+    intervals = (raw.availability_intervals as Array<Record<string, unknown>>)
+      .filter((i) => typeof i.start === 'string' && typeof i.end === 'string')
+      .map((i) => ({ start: String(i.start), end: String(i.end) }));
+  } else if (typeof raw.availability_start === 'string' && typeof raw.availability_end === 'string' && raw.availability_start && raw.availability_end) {
+    intervals = [{ start: String(raw.availability_start), end: String(raw.availability_end) }];
+  }
+  return { availability_weekdays: weekdays, availability_intervals: intervals };
+}
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Building2, Users, User, FileText,
@@ -265,18 +299,22 @@ export default function AgendarVisita() {
 
   const VISIT_REASONS = useMemo(() => {
     if (Array.isArray(visitSettings.reasons) && visitSettings.reasons.length > 0) {
-      const mergedReasons = (visitSettings.reasons as Array<Record<string, unknown>>).map((r) => ({
-        duration_minutes: 60,
-        buffer_minutes: 0,
-        max_per_slot: 2,
-        max_daily: 0,
-        availability_enabled: false,
-        availability_start: '',
-        availability_end: '',
-        lead_integrated: false,
-        ...DEFAULT_VISIT_REASONS.find((d) => d.key === r.key),
-        ...r,
-      })) as VisitReason[];
+      const mergedReasons = (visitSettings.reasons as Array<Record<string, unknown>>).map((r) => {
+        const { availability_weekdays, availability_intervals } = normalizeLegacyAvailability(r);
+        const defaults = DEFAULT_VISIT_REASONS.find((d) => d.key === r.key);
+        return {
+          duration_minutes: 60,
+          buffer_minutes: 0,
+          max_per_slot: 2,
+          max_daily: 0,
+          availability_enabled: false,
+          lead_integrated: false,
+          ...defaults,
+          ...r,
+          availability_weekdays,
+          availability_intervals,
+        } as VisitReason;
+      });
       return mergedReasons.map((r) => ({
         ...r,
         icon: (r.icon && ICON_MAP[r.icon as string]) || FileText,
@@ -293,6 +331,22 @@ export default function AgendarVisita() {
     [blockedWeekdays],
   );
 
+  /**
+   * Quando o motivo tem restrição de dias da semana (availability_enabled),
+   * bloqueia visualmente os dias que NÃO estão na lista. Se nenhum motivo
+   * foi selecionado ainda, não filtra por aqui.
+   */
+  const isBlockedByReasonWeekday = useCallback(
+    (d: Date) => {
+      if (!reason) return false;
+      if (!selectedReasonConfig.availability_enabled) return false;
+      const wd = selectedReasonConfig.availability_weekdays;
+      if (!Array.isArray(wd) || wd.length === 0) return true; // lista vazia = indisponível
+      return !wd.includes(d.getDay());
+    },
+    [reason, selectedReasonConfig],
+  );
+
   // ── Reason config (computed after VISIT_REASONS) ──
   const [reason, setReason]     = useState('');
 
@@ -304,34 +358,33 @@ export default function AgendarVisita() {
       max_daily: 0,
       lead_integrated: false,
       availability_enabled: false,
-      availability_start: '',
-      availability_end: '',
+      availability_weekdays: [...ALL_WEEKDAYS],
+      availability_intervals: [] as VisitAvailabilityInterval[],
     },
     [VISIT_REASONS, reason],
   );
 
   const ALL_SLOTS = useMemo(() => {
-    const effectiveStart =
-      selectedReasonConfig.availability_enabled && selectedReasonConfig.availability_start
-        ? (timeToMinutes(selectedReasonConfig.availability_start) >= timeToMinutes(startHour)
-            ? selectedReasonConfig.availability_start
-            : startHour)
-        : startHour;
-    const effectiveEnd =
-      selectedReasonConfig.availability_enabled && selectedReasonConfig.availability_end
-        ? (timeToMinutes(selectedReasonConfig.availability_end) <= timeToMinutes(endHour)
-            ? selectedReasonConfig.availability_end
-            : endHour)
-        : endHour;
     const step = selectedReasonConfig.duration_minutes + (selectedReasonConfig.buffer_minutes || 0);
-    return generateSlots(
-      effectiveStart,
-      effectiveEnd,
-      lunchStart,
-      lunchEnd,
-      step || 30,
-      selectedReasonConfig.duration_minutes,
-    );
+    const duration = selectedReasonConfig.duration_minutes;
+    // Se não há restrição específica, usa a janela global + almoço.
+    if (!selectedReasonConfig.availability_enabled || !selectedReasonConfig.availability_intervals?.length) {
+      return generateSlots(startHour, endHour, lunchStart, lunchEnd, step || 30, duration);
+    }
+    // Com restrição: gera slots para cada intervalo, cruza com janela global
+    // e concatena. O horário de almoço ainda é respeitado dentro de cada um.
+    const globalStartMin = timeToMinutes(startHour);
+    const globalEndMin   = timeToMinutes(endHour);
+    const unique = new Set<string>();
+    for (const interval of selectedReasonConfig.availability_intervals) {
+      const iStart = Math.max(timeToMinutes(interval.start), globalStartMin);
+      const iEnd   = Math.min(timeToMinutes(interval.end),   globalEndMin);
+      if (iEnd <= iStart) continue;
+      const toTime = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+      const slots = generateSlots(toTime(iStart), toTime(iEnd), lunchStart, lunchEnd, step || 30, duration);
+      slots.forEach((s) => unique.add(s));
+    }
+    return Array.from(unique).sort();
   }, [startHour, endHour, lunchStart, lunchEnd, selectedReasonConfig]);
 
   // ── Step state ──
@@ -673,7 +726,7 @@ export default function AgendarVisita() {
     holidays.some((h) => h.month === d.getMonth() + 1 && h.day === d.getDate());
 
   const isDateDisabled = (d: Date) =>
-    isPast(d) || isBlockedDay(d) || blockedDates.has(dateKey(d)) ||
+    isPast(d) || isBlockedDay(d) || isBlockedByReasonWeekday(d) || blockedDates.has(dateKey(d)) ||
     isHoliday(d) ||
     (selectedReasonConfig.max_daily > 0 && fullDates.has(dateKey(d)));
 

@@ -2231,6 +2231,11 @@ function SLASlider({ value, onChange }: { value: number; onChange: (v: number) =
 }
 
 // ── Appointments Settings Panel ──────────────────────────────────────────────
+interface VisitAvailabilityInterval {
+  start: string; // "HH:mm"
+  end: string;   // "HH:mm"
+}
+
 interface VisitSettings {
   start_hour: string;
   end_hour: string;
@@ -2245,10 +2250,43 @@ interface VisitSettings {
     max_per_slot: number;
     max_daily: number;
     availability_enabled: boolean;
-    availability_start: string;
-    availability_end: string;
+    /** 0 = Dom, 6 = Sáb. Lista vazia = dia nenhum (motivo indisponível). */
+    availability_weekdays: number[];
+    /** 1..3 intervalos não-sobrepostos. Substitui os antigos availability_start/end. */
+    availability_intervals: VisitAvailabilityInterval[];
     lead_integrated: boolean;
   }[];
+}
+
+const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+const MAX_INTERVALS = 3;
+
+/** Converte legacy {availability_start, availability_end} em intervals[]. */
+function normalizeReasonAvailability(raw: Record<string, unknown>): {
+  availability_weekdays: number[];
+  availability_intervals: VisitAvailabilityInterval[];
+} {
+  const weekdays =
+    Array.isArray(raw.availability_weekdays) &&
+    (raw.availability_weekdays as unknown[]).every((n) => typeof n === 'number')
+      ? (raw.availability_weekdays as number[])
+      : [...ALL_WEEKDAYS];
+
+  let intervals: VisitAvailabilityInterval[] = [];
+  if (Array.isArray(raw.availability_intervals)) {
+    intervals = (raw.availability_intervals as Array<Record<string, unknown>>)
+      .filter((i) => typeof i.start === 'string' && typeof i.end === 'string')
+      .map((i) => ({ start: String(i.start), end: String(i.end) }));
+  } else if (typeof raw.availability_start === 'string' && typeof raw.availability_end === 'string' && raw.availability_start && raw.availability_end) {
+    // Legacy: migra single-interval para o novo formato
+    intervals = [{ start: String(raw.availability_start), end: String(raw.availability_end) }];
+  }
+  return { availability_weekdays: weekdays, availability_intervals: intervals };
+}
+
+/** True se o intervalo `a` sobrepõe `b` (start < other.end && other.start < end). */
+function intervalsOverlap(a: VisitAvailabilityInterval, b: VisitAvailabilityInterval): boolean {
+  return a.start < b.end && b.start < a.end;
 }
 
 const DEFAULT_VISIT: VisitSettings = {
@@ -2305,20 +2343,26 @@ function AppointmentsSettingsPanel() {
             m[r.key] = typeof v === 'string' ? v : String(v);
           } else if (r.key === 'reasons') {
             try {
-              const raw: { key: string; label: string; duration_minutes?: number; buffer_minutes?: number; max_per_slot?: number }[] =
-                typeof v === 'string' ? JSON.parse(v) : v;
-              m[r.key] = raw.map((item) => ({
-                icon: 'FileText',
-                duration_minutes: 30,
-                buffer_minutes: 0,
-                max_per_slot: 1,
-                max_daily: 0,
-                availability_enabled: false,
-                availability_start: '',
-                availability_end: '',
-                lead_integrated: false,
-                ...item,
-              }));
+              const raw: Array<Record<string, unknown>> =
+                typeof v === 'string' ? JSON.parse(v) : (v as Array<Record<string, unknown>>);
+              m[r.key] = raw.map((item) => {
+                const { availability_weekdays, availability_intervals } = normalizeReasonAvailability(item);
+                // Remove campos legados antes do merge — não persistimos mais.
+                const { availability_start: _legacyStart, availability_end: _legacyEnd, ...rest } = item;
+                void _legacyStart; void _legacyEnd;
+                return {
+                  icon: 'FileText',
+                  duration_minutes: 30,
+                  buffer_minutes: 0,
+                  max_per_slot: 1,
+                  max_daily: 0,
+                  availability_enabled: false,
+                  lead_integrated: false,
+                  ...rest,
+                  availability_weekdays,
+                  availability_intervals,
+                };
+              });
             } catch { /* keep default */ }
           }
         });
@@ -2894,16 +2938,27 @@ function AppointmentsSettingsPanel() {
                     <CalendarCheck className="w-3.5 h-3.5 text-gray-400" />
                     <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Disponibilidade</span>
                   </div>
-                  <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-3">
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Horário específico</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Restringe horários disponíveis para este motivo</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Restringe dias e horários disponíveis para este motivo</p>
                       </div>
                       <button
                         onClick={() => setDrawerDraft((prev) => {
                           if (!prev) return prev;
-                          return { ...prev, availability_enabled: !prev.availability_enabled, availability_start: prev.availability_start || data.start_hour, availability_end: prev.availability_end || data.end_hour };
+                          const enabling = !prev.availability_enabled;
+                          // Ao ligar, garante pelo menos 1 intervalo e weekdays default
+                          const weekdays = prev.availability_weekdays?.length ? prev.availability_weekdays : [...ALL_WEEKDAYS];
+                          const intervals = prev.availability_intervals?.length
+                            ? prev.availability_intervals
+                            : [{ start: data.start_hour, end: data.end_hour }];
+                          return {
+                            ...prev,
+                            availability_enabled: enabling,
+                            availability_weekdays: weekdays,
+                            availability_intervals: intervals,
+                          };
                         })}
                         className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 flex-shrink-0 ${d.availability_enabled ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
                       >
@@ -2913,14 +2968,133 @@ function AppointmentsSettingsPanel() {
                       </button>
                     </div>
                     {d.availability_enabled && (
-                      <TimeRangeSlider
-                        workStart={data.start_hour} workEnd={data.end_hour}
-                        lunchStart={data.lunch_start} lunchEnd={data.lunch_end}
-                        valueStart={d.availability_start || data.start_hour}
-                        valueEnd={d.availability_end || data.end_hour}
-                        stepMin={drawerDraft?.duration_minutes || 30}
-                        onChange={(start, end) => setDrawerDraft((prev) => prev ? { ...prev, availability_start: start, availability_end: end } : prev)}
-                      />
+                      <>
+                        {/* ── Dias da semana ── */}
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Dias da semana</p>
+                          <div className="grid grid-cols-7 gap-1.5">
+                            {WEEKDAYS.map((label, idx) => {
+                              const selected = d.availability_weekdays?.includes(idx) ?? false;
+                              return (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setDrawerDraft((prev) => {
+                                    if (!prev) return prev;
+                                    const current = prev.availability_weekdays ?? [...ALL_WEEKDAYS];
+                                    const next = current.includes(idx)
+                                      ? current.filter((x) => x !== idx)
+                                      : [...current, idx].sort((a, b) => a - b);
+                                    return { ...prev, availability_weekdays: next };
+                                  })}
+                                  className={`h-9 rounded-lg text-[11px] font-semibold transition-all ${
+                                    selected
+                                      ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30'
+                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876]'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {(d.availability_weekdays?.length ?? 0) === 0 && (
+                            <p className="text-[11px] text-red-500 mt-1.5">Selecione pelo menos um dia</p>
+                          )}
+                        </div>
+
+                        {/* ── Intervalos de horário ── */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                              Intervalos de horário
+                              <span className="ml-1.5 text-[10px] font-normal text-gray-400">
+                                ({(d.availability_intervals?.length ?? 0)}/{MAX_INTERVALS})
+                              </span>
+                            </p>
+                            <button
+                              type="button"
+                              disabled={(d.availability_intervals?.length ?? 0) >= MAX_INTERVALS}
+                              onClick={() => setDrawerDraft((prev) => {
+                                if (!prev) return prev;
+                                const current = prev.availability_intervals ?? [];
+                                if (current.length >= MAX_INTERVALS) return prev;
+                                // Tenta encontrar um espaço livre depois do último intervalo
+                                const sorted = [...current].sort((a, b) => a.start.localeCompare(b.start));
+                                const lastEnd = sorted[sorted.length - 1]?.end ?? data.start_hour;
+                                const [lh, lm] = lastEnd.split(':').map(Number);
+                                const lastEndMin = lh * 60 + lm;
+                                const stepMin = prev.duration_minutes || 30;
+                                const newStartMin = Math.min(lastEndMin, (() => {
+                                  const [eh, em] = data.end_hour.split(':').map(Number);
+                                  return eh * 60 + em - stepMin;
+                                })());
+                                const newEndMin = Math.min(newStartMin + stepMin, (() => {
+                                  const [eh, em] = data.end_hour.split(':').map(Number);
+                                  return eh * 60 + em;
+                                })());
+                                const toTime = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+                                return {
+                                  ...prev,
+                                  availability_intervals: [...current, { start: toTime(newStartMin), end: toTime(newEndMin) }],
+                                };
+                              })}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#003876] text-white text-[11px] font-semibold hover:bg-[#002855] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Adicionar
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            {(d.availability_intervals ?? []).map((interval, idx) => (
+                              <div key={idx} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-3">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                    Intervalo {idx + 1}
+                                  </span>
+                                  {(d.availability_intervals?.length ?? 0) > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDrawerDraft((prev) => {
+                                        if (!prev) return prev;
+                                        return {
+                                          ...prev,
+                                          availability_intervals: (prev.availability_intervals ?? []).filter((_, i) => i !== idx),
+                                        };
+                                      })}
+                                      className="text-gray-400 hover:text-red-500 transition-colors"
+                                      title="Remover intervalo"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                                <TimeRangeSlider
+                                  workStart={data.start_hour}
+                                  workEnd={data.end_hour}
+                                  lunchStart={data.lunch_start}
+                                  lunchEnd={data.lunch_end}
+                                  valueStart={interval.start}
+                                  valueEnd={interval.end}
+                                  stepMin={drawerDraft?.duration_minutes || 30}
+                                  onChange={(start, end) => setDrawerDraft((prev) => {
+                                    if (!prev) return prev;
+                                    const current = prev.availability_intervals ?? [];
+                                    const candidate = { start, end };
+                                    // Rejeita se sobrepõe com outro intervalo
+                                    const others = current.filter((_, i) => i !== idx);
+                                    if (others.some((o) => intervalsOverlap(candidate, o))) {
+                                      return prev;
+                                    }
+                                    const next = current.map((it, i) => (i === idx ? candidate : it));
+                                    return { ...prev, availability_intervals: next };
+                                  })}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
