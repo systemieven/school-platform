@@ -116,37 +116,68 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
-function generateSlots(
-  startHour: string,
-  endHour: string,
-  lunchStart: string,
-  lunchEnd: string,
+/**
+ * Gera slots encaixados dentro de cada intervalo da lista. Cada intervalo é
+ * tratado como um bloco contínuo — o espaço entre dois intervalos (ex.:
+ * pausa de almoço) é automaticamente ignorado porque slots só são gerados
+ * dentro dos próprios intervalos.
+ */
+function generateSlotsForIntervals(
+  intervals: { start: string; end: string }[],
   slotInterval: number,
   reasonDuration: number,
 ): string[] {
-  const slots: string[] = [];
-  const startTotal = timeToMinutes(startHour);
-  const endTotal = timeToMinutes(endHour);
-  const lunchStartTotal = timeToMinutes(lunchStart);
-  const lunchEndTotal = timeToMinutes(lunchEnd);
-
-  for (let t = startTotal; t < endTotal; t += slotInterval) {
-    const slotEnd = t + reasonDuration;
-
-    // Slot não pode terminar depois do horário de encerramento
-    if (slotEnd > endTotal) break;
-
-    // Slot não pode começar durante o almoço
-    if (t >= lunchStartTotal && t < lunchEndTotal) continue;
-
-    // Slot não pode ocupar o período de almoço (início antes do almoço, término depois)
-    if (t < lunchStartTotal && slotEnd > lunchStartTotal) continue;
-
-    const h = Math.floor(t / 60);
-    const m = t % 60;
-    slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  const unique = new Set<string>();
+  for (const iv of intervals) {
+    const s = timeToMinutes(iv.start);
+    const e = timeToMinutes(iv.end);
+    for (let t = s; t + reasonDuration <= e; t += slotInterval) {
+      const h = Math.floor(t / 60);
+      const m = t % 60;
+      unique.add(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
   }
-  return slots;
+  return Array.from(unique).sort();
+}
+
+/** Interseção de dois intervalos. Retorna null se não há overlap. */
+function intersectIntervals(
+  a: { start: string; end: string },
+  b: { start: string; end: string },
+): { start: string; end: string } | null {
+  const start = a.start > b.start ? a.start : b.start;
+  const end   = a.end   < b.end   ? a.end   : b.end;
+  return start < end ? { start, end } : null;
+}
+
+/**
+ * Extrai os intervalos de funcionamento do dia da semana a partir de
+ * `general.business_hours`. Retorna [] se o dia estiver fechado ou o config
+ * não existir. Aceita tanto o shape novo (`intervals: [...]`) quanto o legado
+ * (`start` + `end`).
+ */
+function getBusinessIntervalsForWeekday(
+  rawBH: unknown,
+  weekday: number,
+): { start: string; end: string }[] {
+  if (!rawBH) return [];
+  let bh: Record<string, { open?: boolean; intervals?: Array<{ start?: string; end?: string }>; start?: string; end?: string }>;
+  try {
+    bh = typeof rawBH === 'string' ? JSON.parse(rawBH) : (rawBH as Record<string, never>);
+  } catch {
+    return [];
+  }
+  const d = bh?.[String(weekday)];
+  if (!d?.open) return [];
+  if (Array.isArray(d.intervals) && d.intervals.length > 0) {
+    return d.intervals
+      .filter((i) => typeof i.start === 'string' && typeof i.end === 'string')
+      .map((i) => ({ start: i.start as string, end: i.end as string }));
+  }
+  if (typeof d.start === 'string' && typeof d.end === 'string') {
+    return [{ start: d.start, end: d.end }];
+  }
+  return [];
 }
 
 function getCalendarDays(year: number, month: number): (Date | null)[] {
@@ -268,27 +299,38 @@ export default function AgendarVisita() {
   const cardHours = (() => {
     const raw = generalSettings.business_hours;
     if (!raw) return '';
-    const bh = (typeof raw === 'object' ? raw : (() => { try { return JSON.parse(raw as string); } catch { return null; } })()) as Record<string, { open?: boolean; start?: string; end?: string }> | null;
-    if (!bh) return '';
     const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    const open = Array.from({ length: 7 }, (_, i) => ({ idx: i, name: DAYS[i], ...bh[String(i)] })).filter((d) => d.open);
-    if (!open.length) return '';
     const fmt = (t: string) => { const [h, m] = t.split(':').map(Number); return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`; };
-    const groups: { names: string[]; lastIdx: number; start: string; end: string }[] = [];
-    for (const d of open) {
-      const last = groups[groups.length - 1];
-      const s = d.start || '07:00', e = d.end || '17:00';
-      if (last && last.start === s && last.end === e && last.lastIdx + 1 === d.idx) { last.names.push(d.name); last.lastIdx = d.idx; }
-      else groups.push({ names: [d.name], lastIdx: d.idx, start: s, end: e });
+    // Para cada dia aberto extrai os intervalos e cria uma assinatura que
+    // permite agrupar dias consecutivos com a mesma grade horária.
+    const openDays: { idx: number; name: string; intervals: { start: string; end: string }[]; signature: string }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const intervals = getBusinessIntervalsForWeekday(raw, i);
+      if (intervals.length === 0) continue;
+      openDays.push({
+        idx: i,
+        name: DAYS[i],
+        intervals,
+        signature: intervals.map((iv) => `${iv.start}-${iv.end}`).join('|'),
+      });
     }
-    return groups.map((g) => `${g.names.length === 1 ? g.names[0] : `${g.names[0]} - ${g.names[g.names.length - 1]}`}: ${fmt(g.start)} às ${fmt(g.end)}`).join(', ');
+    if (openDays.length === 0) return '';
+    const groups: { names: string[]; lastIdx: number; intervals: { start: string; end: string }[]; signature: string }[] = [];
+    for (const d of openDays) {
+      const last = groups[groups.length - 1];
+      if (last && last.signature === d.signature && last.lastIdx + 1 === d.idx) {
+        last.names.push(d.name); last.lastIdx = d.idx;
+      } else {
+        groups.push({ names: [d.name], lastIdx: d.idx, intervals: d.intervals, signature: d.signature });
+      }
+    }
+    return groups.map((g) => {
+      const label = g.names.length === 1 ? g.names[0] : `${g.names[0]} - ${g.names[g.names.length - 1]}`;
+      const times = g.intervals.map((iv) => `${fmt(iv.start)} às ${fmt(iv.end)}`).join(' e ');
+      return `${label}: ${times}`;
+    }).join(', ');
   })();
 
-  // Dynamic config from system_settings (with fallbacks)
-  const startHour   = (visitSettings.start_hour?.toString()) || '08:00';
-  const endHour     = (visitSettings.end_hour?.toString()) || '17:00';
-  const lunchStart  = (visitSettings.lunch_start?.toString()) || '12:00';
-  const lunchEnd    = (visitSettings.lunch_end?.toString()) || '13:30';
   // Derive blocked weekdays from business_hours (days where open === false)
   const blockedWeekdays = useMemo(() => {
     const bh = generalSettings.business_hours;
@@ -331,22 +373,6 @@ export default function AgendarVisita() {
     [blockedWeekdays],
   );
 
-  /**
-   * Quando o motivo tem restrição de dias da semana (availability_enabled),
-   * bloqueia visualmente os dias que NÃO estão na lista. Se nenhum motivo
-   * foi selecionado ainda, não filtra por aqui.
-   */
-  const isBlockedByReasonWeekday = useCallback(
-    (d: Date) => {
-      if (!reason) return false;
-      if (!selectedReasonConfig.availability_enabled) return false;
-      const wd = selectedReasonConfig.availability_weekdays;
-      if (!Array.isArray(wd) || wd.length === 0) return true; // lista vazia = indisponível
-      return !wd.includes(d.getDay());
-    },
-    [reason, selectedReasonConfig],
-  );
-
   // ── Reason config (computed after VISIT_REASONS) ──
   const [reason, setReason]     = useState('');
 
@@ -364,28 +390,21 @@ export default function AgendarVisita() {
     [VISIT_REASONS, reason],
   );
 
-  const ALL_SLOTS = useMemo(() => {
-    const step = selectedReasonConfig.duration_minutes + (selectedReasonConfig.buffer_minutes || 0);
-    const duration = selectedReasonConfig.duration_minutes;
-    // Se não há restrição específica, usa a janela global + almoço.
-    if (!selectedReasonConfig.availability_enabled || !selectedReasonConfig.availability_intervals?.length) {
-      return generateSlots(startHour, endHour, lunchStart, lunchEnd, step || 30, duration);
-    }
-    // Com restrição: gera slots para cada intervalo, cruza com janela global
-    // e concatena. O horário de almoço ainda é respeitado dentro de cada um.
-    const globalStartMin = timeToMinutes(startHour);
-    const globalEndMin   = timeToMinutes(endHour);
-    const unique = new Set<string>();
-    for (const interval of selectedReasonConfig.availability_intervals) {
-      const iStart = Math.max(timeToMinutes(interval.start), globalStartMin);
-      const iEnd   = Math.min(timeToMinutes(interval.end),   globalEndMin);
-      if (iEnd <= iStart) continue;
-      const toTime = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
-      const slots = generateSlots(toTime(iStart), toTime(iEnd), lunchStart, lunchEnd, step || 30, duration);
-      slots.forEach((s) => unique.add(s));
-    }
-    return Array.from(unique).sort();
-  }, [startHour, endHour, lunchStart, lunchEnd, selectedReasonConfig]);
+  /**
+   * Quando o motivo tem restrição de dias da semana (availability_enabled),
+   * bloqueia visualmente os dias que NÃO estão na lista. Se nenhum motivo
+   * foi selecionado ainda, não filtra por aqui.
+   */
+  const isBlockedByReasonWeekday = useCallback(
+    (d: Date) => {
+      if (!reason) return false;
+      if (!selectedReasonConfig.availability_enabled) return false;
+      const wd = selectedReasonConfig.availability_weekdays;
+      if (!Array.isArray(wd) || wd.length === 0) return true; // lista vazia = indisponível
+      return !wd.includes(d.getDay());
+    },
+    [reason, selectedReasonConfig],
+  );
 
   // ── Step state ──
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -407,6 +426,37 @@ export default function AgendarVisita() {
   const [bookedSlots, setBookedSlots]   = useState<{ time: string; duration: number; buffer: number }[]>([]);
   const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
   const [fullDates, setFullDates]       = useState<Set<string>>(new Set());
+
+  /**
+   * Slots do dia selecionado. A fonte de verdade da janela horária é
+   * `general.business_hours` (por dia da semana) — se o dia está fechado,
+   * não gera nada; se tem 2 intervalos, a pausa entre eles é ignorada
+   * automaticamente. Quando o motivo tem restrição própria
+   * (`availability_intervals`), fazemos a interseção de cada intervalo da
+   * escola com cada intervalo do motivo.
+   */
+  const ALL_SLOTS = useMemo(() => {
+    if (!selectedDate) return [];
+    const step = selectedReasonConfig.duration_minutes + (selectedReasonConfig.buffer_minutes || 0);
+    const duration = selectedReasonConfig.duration_minutes;
+    const weekday = selectedDate.getDay();
+    const baseIntervals = getBusinessIntervalsForWeekday(generalSettings.business_hours, weekday);
+    if (baseIntervals.length === 0) return [];
+
+    let effectiveIntervals: { start: string; end: string }[];
+    if (!selectedReasonConfig.availability_enabled || !selectedReasonConfig.availability_intervals?.length) {
+      effectiveIntervals = baseIntervals;
+    } else {
+      effectiveIntervals = [];
+      for (const base of baseIntervals) {
+        for (const reasonIv of selectedReasonConfig.availability_intervals) {
+          const cut = intersectIntervals(base, reasonIv);
+          if (cut) effectiveIntervals.push(cut);
+        }
+      }
+    }
+    return generateSlotsForIntervals(effectiveIntervals, step || 30, duration);
+  }, [selectedDate, generalSettings.business_hours, selectedReasonConfig]);
   const [holidays, setHolidays]         = useState<{ name: string; month: number; day: number }[]>([]);
 
   // ── Submit state ──

@@ -21,7 +21,7 @@ import {
   BookOpen, BookMarked, Calendar, ClipboardList, PenLine, Briefcase, Heart,
   Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
   Users, User, FileText, Trash2,
-  Hash, CalendarX2, Clock, ChevronDown, ChevronUp,
+  CalendarX2, Clock, ChevronDown, ChevronUp,
   Shield, CheckCircle2, TriangleAlert, Share2, Ticket,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
@@ -138,13 +138,7 @@ const KEY_META: Record<string, { label: string; placeholder?: string; secret?: b
   contact_reasons:  { label: 'Motivos de Contato', placeholder: '[{ "label": "...", "icon": "..." }]', multiline: true },
   // visit
   reasons:          { label: 'Motivos de Visita', placeholder: '[{ "key": "...", "label": "..." }]', multiline: true },
-  blocked_weekdays: { label: 'Dias Bloqueados (0=Dom)', placeholder: '[0, 6]' },
-  lunch_start:      { label: 'Início do Almoço', placeholder: '12:00', type: 'time' },
-  lunch_end:        { label: 'Fim do Almoço', placeholder: '13:30', type: 'time' },
-  slot_duration:    { label: 'Duração do Slot (minutos)', placeholder: '30', type: 'number' },
   max_per_slot:     { label: 'Máx. Visitas por Slot', placeholder: '2', type: 'number' },
-  start_hour:       { label: 'Horário de Início', placeholder: '08:00', type: 'time' },
-  end_hour:         { label: 'Horário de Término', placeholder: '17:00', type: 'time' },
   // enrollment (extra)
   segments_available: { label: 'Segmentos Disponíveis para Matrícula', placeholder: '["Educação Infantil", ...]', multiline: true },
   // contact (extra)
@@ -680,28 +674,62 @@ function AddressField({
 }
 
 // ── Business Hours Field ──────────────────────────────────────────────────────
+// Suporta 1 ou 2 intervalos por dia. Quando há 2 intervalos, o espaço entre eles
+// é, por consequência, o intervalo de almoço (ou qualquer outra pausa).
+// Fonte de verdade única para horário da instituição — o módulo de agendamentos
+// passou a derivar tudo daqui (start/end/almoço por dia) ao invés de manter
+// uma cópia separada em visit.start_hour/etc.
 const WEEKDAYS_BH = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-interface DaySchedule { open: boolean; start: string; end: string }
-type BusinessHoursData = Record<string, DaySchedule>;
+export interface BHInterval { start: string; end: string }
+export interface DaySchedule { open: boolean; intervals: BHInterval[] }
+export type BusinessHoursData = Record<string, DaySchedule>;
 
-const DEFAULT_DAY: DaySchedule = { open: false, start: '07:00', end: '17:00' };
+const DEFAULT_INTERVAL: BHInterval = { start: '07:00', end: '17:00' };
+const DEFAULT_DAY: DaySchedule = { open: false, intervals: [{ ...DEFAULT_INTERVAL }] };
+const MAX_BH_INTERVALS = 2;
 
-function parseBusinessHours(v: string): BusinessHoursData {
-  try {
-    const obj = JSON.parse(v);
-    if (obj && typeof obj === 'object') {
-      const result: BusinessHoursData = {};
-      for (let i = 0; i < 7; i++) {
-        const d = (obj as Record<string, unknown>)[String(i)];
-        result[String(i)] = (d && typeof d === 'object') ? { ...DEFAULT_DAY, ...(d as Partial<DaySchedule>) } : { ...DEFAULT_DAY };
+/** Aceita tanto o shape novo (`intervals`) quanto o legado (`start`/`end`). */
+export function parseBusinessHours(v: string | unknown): BusinessHoursData {
+  let obj: unknown = v;
+  if (typeof v === 'string') {
+    try { obj = JSON.parse(v); } catch { obj = null; }
+  }
+  const result: BusinessHoursData = {};
+  if (obj && typeof obj === 'object') {
+    const rec = obj as Record<string, unknown>;
+    for (let i = 0; i < 7; i++) {
+      const d = rec[String(i)];
+      if (d && typeof d === 'object') {
+        const day = d as { open?: boolean; intervals?: unknown; start?: string; end?: string };
+        let intervals: BHInterval[] = [];
+        if (Array.isArray(day.intervals)) {
+          intervals = (day.intervals as Array<Record<string, unknown>>)
+            .filter((it) => typeof it.start === 'string' && typeof it.end === 'string')
+            .slice(0, MAX_BH_INTERVALS)
+            .map((it) => ({ start: String(it.start), end: String(it.end) }));
+        }
+        if (intervals.length === 0 && typeof day.start === 'string' && typeof day.end === 'string') {
+          // Legacy single-interval shape.
+          intervals = [{ start: day.start, end: day.end }];
+        }
+        if (intervals.length === 0) intervals = [{ ...DEFAULT_INTERVAL }];
+        result[String(i)] = { open: Boolean(day.open), intervals };
+      } else {
+        result[String(i)] = { ...DEFAULT_DAY, intervals: [{ ...DEFAULT_INTERVAL }] };
       }
-      return result;
     }
-  } catch { /* not JSON */ }
-  const def: BusinessHoursData = {};
-  for (let i = 0; i < 7; i++) def[String(i)] = { ...DEFAULT_DAY, open: i >= 1 && i <= 5 };
-  return def;
+    return result;
+  }
+  for (let i = 0; i < 7; i++) {
+    result[String(i)] = { open: i >= 1 && i <= 5, intervals: [{ ...DEFAULT_INTERVAL }] };
+  }
+  return result;
+}
+
+/** True se os dois intervalos se sobrepõem. */
+function bhIntervalsOverlap(a: BHInterval, b: BHInterval): boolean {
+  return a.start < b.end && b.start < a.end;
 }
 
 function BusinessHoursField({ value, savedValue, onChange }: {
@@ -716,10 +744,54 @@ function BusinessHoursField({ value, savedValue, onChange }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedValue]);
 
-  function updateDay(idx: number, patch: Partial<DaySchedule>) {
-    const next = { ...hours, [String(idx)]: { ...hours[String(idx)], ...patch } };
+  function commit(next: BusinessHoursData) {
     setHours(next);
     onChange(JSON.stringify(next));
+  }
+
+  function updateDay(idx: number, patch: Partial<DaySchedule>) {
+    commit({ ...hours, [String(idx)]: { ...hours[String(idx)], ...patch } });
+  }
+
+  function updateInterval(dayIdx: number, intervalIdx: number, patch: Partial<BHInterval>) {
+    const day = hours[String(dayIdx)];
+    if (!day) return;
+    const candidate: BHInterval = { ...day.intervals[intervalIdx], ...patch };
+    // Rejeita se invalida a ordem (start >= end) ou sobrepõe o outro intervalo.
+    if (candidate.start >= candidate.end) return;
+    const others = day.intervals.filter((_, i) => i !== intervalIdx);
+    if (others.some((o) => bhIntervalsOverlap(candidate, o))) return;
+    const nextIntervals = day.intervals.map((it, i) => (i === intervalIdx ? candidate : it));
+    updateDay(dayIdx, { intervals: nextIntervals });
+  }
+
+  function addInterval(dayIdx: number) {
+    const day = hours[String(dayIdx)];
+    if (!day || day.intervals.length >= MAX_BH_INTERVALS) return;
+    // Calcula um intervalo razoável após o existente (ex.: 13:30–17:00 se já
+    // existe 07:00–12:00). Se não der, tenta antes. Se nada couber, usa fallback.
+    const existing = day.intervals[0];
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const toTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    const existEndMin = toMin(existing.end);
+    const existStartMin = toMin(existing.start);
+    let candidate: BHInterval;
+    if (existEndMin + 90 <= 23 * 60 + 30) {
+      candidate = { start: toTime(existEndMin + 90), end: toTime(Math.min(existEndMin + 90 + 180, 22 * 60)) };
+    } else if (existStartMin - 90 >= 6 * 60) {
+      candidate = { start: toTime(Math.max(existStartMin - 180, 6 * 60)), end: toTime(existStartMin - 90) };
+    } else {
+      candidate = { start: '13:30', end: '17:00' };
+    }
+    if (bhIntervalsOverlap(candidate, existing)) return;
+    const next = [...day.intervals, candidate].sort((a, b) => a.start.localeCompare(b.start));
+    updateDay(dayIdx, { intervals: next });
+  }
+
+  function removeInterval(dayIdx: number, intervalIdx: number) {
+    const day = hours[String(dayIdx)];
+    if (!day || day.intervals.length <= 1) return;
+    updateDay(dayIdx, { intervals: day.intervals.filter((_, i) => i !== intervalIdx) });
   }
 
   const savedHours = parseBusinessHours(savedValue);
@@ -731,6 +803,12 @@ function BusinessHoursField({ value, savedValue, onChange }: {
       ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20'
       : 'border-gray-200 dark:border-gray-600 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 dark:focus:ring-[#ffd700]/20'
     }`;
+
+  function intervalChanged(dayIdx: number, intervalIdx: number, field: keyof BHInterval): boolean {
+    const current = hours[String(dayIdx)]?.intervals?.[intervalIdx]?.[field];
+    const saved = savedHours[String(dayIdx)]?.intervals?.[intervalIdx]?.[field];
+    return current !== saved;
+  }
 
   return (
     <div className="space-y-4">
@@ -759,29 +837,60 @@ function BusinessHoursField({ value, savedValue, onChange }: {
         </div>
       </div>
 
-      {/* Time inputs for open days */}
+      {/* Intervalos por dia aberto */}
       {Array.from({ length: 7 }, (_, idx) => {
         const day = hours[String(idx)];
         if (!day?.open) return null;
-        const savedDay = savedHours[String(idx)];
+        const canAdd = day.intervals.length < MAX_BH_INTERVALS;
         return (
-          <div key={idx} className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 w-8 flex-shrink-0">
+          <div key={idx} className="flex items-start gap-3">
+            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 w-8 flex-shrink-0 pt-2.5">
               {WEEKDAYS_BH[idx]}
             </span>
-            <input
-              type="time"
-              value={day.start}
-              onChange={(e) => updateDay(idx, { start: e.target.value })}
-              className={timeCls(day.start !== savedDay?.start)}
-            />
-            <span className="text-xs text-gray-400">às</span>
-            <input
-              type="time"
-              value={day.end}
-              onChange={(e) => updateDay(idx, { end: e.target.value })}
-              className={timeCls(day.end !== savedDay?.end)}
-            />
+            <div className="flex-1 space-y-2">
+              {day.intervals.map((it, iidx) => (
+                <div key={iidx} className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={it.start}
+                    onChange={(e) => updateInterval(idx, iidx, { start: e.target.value })}
+                    className={timeCls(intervalChanged(idx, iidx, 'start'))}
+                  />
+                  <span className="text-xs text-gray-400">às</span>
+                  <input
+                    type="time"
+                    value={it.end}
+                    onChange={(e) => updateInterval(idx, iidx, { end: e.target.value })}
+                    className={timeCls(intervalChanged(idx, iidx, 'end'))}
+                  />
+                  {day.intervals.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeInterval(idx, iidx)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      title="Remover intervalo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {canAdd && (
+                <button
+                  type="button"
+                  onClick={() => addInterval(idx)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-[11px] font-medium text-gray-500 hover:text-[#003876] hover:border-[#003876] dark:hover:text-[#ffd700] dark:hover:border-[#ffd700] transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  Adicionar intervalo
+                </button>
+              )}
+              {day.intervals.length === MAX_BH_INTERVALS && (
+                <p className="text-[10px] text-gray-400">
+                  O espaço entre os dois intervalos funciona como pausa (almoço).
+                </p>
+              )}
+            </div>
           </div>
         );
       })}
@@ -2237,10 +2346,6 @@ interface VisitAvailabilityInterval {
 }
 
 interface VisitSettings {
-  start_hour: string;
-  end_hour: string;
-  lunch_start: string;
-  lunch_end: string;
   reasons: {
     key: string;
     label: string;
@@ -2290,14 +2395,9 @@ function intervalsOverlap(a: VisitAvailabilityInterval, b: VisitAvailabilityInte
 }
 
 const DEFAULT_VISIT: VisitSettings = {
-  start_hour: '08:00',
-  end_hour: '17:00',
-  lunch_start: '12:00',
-  lunch_end: '13:30',
   reasons: [],
 };
 
-const SLOT_OPTIONS = [15, 20, 30, 45, 60];
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 function AppointmentsSettingsPanel() {
@@ -2330,7 +2430,7 @@ function AppointmentsSettingsPanel() {
       .from('system_settings')
       .select('id, key, value')
       .eq('category', 'visit')
-      .in('key', ['start_hour', 'end_hour', 'lunch_start', 'lunch_end', 'reasons'])
+      .in('key', ['reasons'])
       .then(({ data: rows }) => {
         if (!rows) { setLoading(false); return; }
         const merged = { ...DEFAULT_VISIT };
@@ -2339,9 +2439,7 @@ function AppointmentsSettingsPanel() {
           newIds[r.key] = r.id;
           const v = r.value;
           const m = merged as Record<string, unknown>;
-          if (r.key === 'start_hour' || r.key === 'end_hour' || r.key === 'lunch_start' || r.key === 'lunch_end') {
-            m[r.key] = typeof v === 'string' ? v : String(v);
-          } else if (r.key === 'reasons') {
+          if (r.key === 'reasons') {
             try {
               const raw: Array<Record<string, unknown>> =
                 typeof v === 'string' ? JSON.parse(v) : (v as Array<Record<string, unknown>>);
@@ -2373,11 +2471,18 @@ function AppointmentsSettingsPanel() {
       });
   }, []);
 
-  // Dias em que a instituição está aberta (derivado de general.business_hours).
-  // Usado para permitir apenas dias úteis nas restrições de disponibilidade dos
-  // motivos — não faz sentido marcar domingo para "Psicopedagogia" se a escola
-  // não abre no domingo.
+  // Dias em que a instituição está aberta + janela horária derivadas de
+  // general.business_hours — fonte de verdade única. O drawer de motivos usa
+  // isso para: (1) restringir os dias da semana disponíveis, (2) limitar o
+  // TimeRangeSlider à janela real da instituição, (3) exibir a pausa de almoço
+  // quando a instituição tiver 2 intervalos configurados.
   const [businessOpenWeekdays, setBusinessOpenWeekdays] = useState<number[]>([...ALL_WEEKDAYS]);
+  const [businessWindow, setBusinessWindow] = useState<{
+    start: string;
+    end: string;
+    lunchStart: string;
+    lunchEnd: string;
+  }>({ start: '08:00', end: '17:00', lunchStart: '12:00', lunchEnd: '13:30' });
 
   useEffect(() => {
     supabase
@@ -2389,14 +2494,37 @@ function AppointmentsSettingsPanel() {
       .then(({ data: row }) => {
         if (!row) return;
         try {
-          const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
-          if (parsed && typeof parsed === 'object') {
-            const bh = parsed as Record<string, { open?: boolean }>;
-            const open = ALL_WEEKDAYS.filter((i) => bh[String(i)]?.open === true);
-            // Se a configuração não tem nenhum dia aberto (inconsistência),
-            // caímos no fallback de todos os dias para não travar o drawer.
-            setBusinessOpenWeekdays(open.length > 0 ? open : [...ALL_WEEKDAYS]);
+          const bh = parseBusinessHours(row.value as string | unknown);
+          const openDays = ALL_WEEKDAYS.filter((i) => bh[String(i)]?.open === true);
+          setBusinessOpenWeekdays(openDays.length > 0 ? openDays : [...ALL_WEEKDAYS]);
+
+          // Janela global = min(start) e max(end) atravessando todos os dias abertos
+          let minStart = '23:59';
+          let maxEnd   = '00:00';
+          // Para a "lunch band", usamos o gap do primeiro dia aberto que tenha
+          // 2 intervalos. Isso é só visual no slider — o slot generator real
+          // resolve por dia.
+          let lunchStart = '';
+          let lunchEnd   = '';
+          for (const d of openDays) {
+            const day = bh[String(d)];
+            if (!day || !day.intervals.length) continue;
+            const sorted = [...day.intervals].sort((a, b) => a.start.localeCompare(b.start));
+            if (sorted[0].start < minStart) minStart = sorted[0].start;
+            if (sorted[sorted.length - 1].end > maxEnd) maxEnd = sorted[sorted.length - 1].end;
+            if (!lunchStart && sorted.length === 2) {
+              lunchStart = sorted[0].end;
+              lunchEnd   = sorted[1].start;
+            }
           }
+          if (minStart === '23:59') minStart = '08:00';
+          if (maxEnd === '00:00')   maxEnd = '17:00';
+          setBusinessWindow({
+            start: minStart,
+            end: maxEnd,
+            lunchStart: lunchStart || minStart,
+            lunchEnd: lunchEnd || minStart,
+          });
         } catch {
           /* keep default */
         }
@@ -2472,11 +2600,7 @@ function AppointmentsSettingsPanel() {
     // Stringify manual armazena o valor como JSON-string (jsonb_typeof =
     // "string") e quebra leitores que esperam array/object.
     const rows: Array<{ key: string; value: unknown }> = [
-      { key: 'start_hour',  value: data.start_hour },
-      { key: 'end_hour',    value: data.end_hour },
-      { key: 'lunch_start', value: data.lunch_start },
-      { key: 'lunch_end',   value: data.lunch_end },
-      { key: 'reasons',     value: data.reasons },
+      { key: 'reasons', value: data.reasons },
     ];
     const results = await Promise.all(
       rows.map(async (r) => {
@@ -2618,36 +2742,18 @@ function AppointmentsSettingsPanel() {
   return (
     <div className="p-6 space-y-5">
 
-      {/* Horário de Atendimento */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
-          <p className={TITLE_CLS}>
-            <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Horário de Atendimento
+      {/* Aviso: horário é única fonte de verdade em Institucional. Removemos o
+          card duplicado que existia aqui (start/end/almoço) para evitar
+          configuração em dois lugares. */}
+      <div className="rounded-xl border border-blue-100 dark:border-blue-800/40 bg-blue-50/60 dark:bg-blue-900/15 px-4 py-3 flex items-start gap-3">
+        <Clock className="w-4 h-4 text-[#003876] dark:text-[#ffd700] mt-0.5 flex-shrink-0" />
+        <div className="text-xs text-gray-600 dark:text-gray-300">
+          <p className="font-semibold text-gray-700 dark:text-gray-200">Horário de funcionamento</p>
+          <p className="mt-0.5">
+            A janela de atendimento (início, término e pausas) é definida em{' '}
+            <span className="font-medium text-[#003876] dark:text-[#ffd700]">Institucional → Horário de Funcionamento</span>.
+            Os motivos abaixo herdam essa configuração automaticamente.
           </p>
-        </div>
-        <div className={BODY_CLS}>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Início</label>
-              <input type="time" value={data.start_hour} onChange={(e) => setData((p) => ({ ...p, start_hour: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Término</label>
-              <input type="time" value={data.end_hour} onChange={(e) => setData((p) => ({ ...p, end_hour: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
-            </div>
-          </div>
-          <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">Intervalo de Almoço</p>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Início</label>
-              <input type="time" value={data.lunch_start} onChange={(e) => setData((p) => ({ ...p, lunch_start: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Término</label>
-              <input type="time" value={data.lunch_end} onChange={(e) => setData((p) => ({ ...p, lunch_end: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -3003,7 +3109,7 @@ function AppointmentsSettingsPanel() {
                           const weekdays = baseWeekdays.filter((w) => businessOpenWeekdays.includes(w));
                           const intervals = prev.availability_intervals?.length
                             ? prev.availability_intervals
-                            : [{ start: data.start_hour, end: data.end_hour }];
+                            : [{ start: businessWindow.start, end: businessWindow.end }];
                           return {
                             ...prev,
                             availability_enabled: enabling,
@@ -3086,16 +3192,16 @@ function AppointmentsSettingsPanel() {
                                 if (current.length >= MAX_INTERVALS) return prev;
                                 // Tenta encontrar um espaço livre depois do último intervalo
                                 const sorted = [...current].sort((a, b) => a.start.localeCompare(b.start));
-                                const lastEnd = sorted[sorted.length - 1]?.end ?? data.start_hour;
+                                const lastEnd = sorted[sorted.length - 1]?.end ?? businessWindow.start;
                                 const [lh, lm] = lastEnd.split(':').map(Number);
                                 const lastEndMin = lh * 60 + lm;
                                 const stepMin = prev.duration_minutes || 30;
                                 const newStartMin = Math.min(lastEndMin, (() => {
-                                  const [eh, em] = data.end_hour.split(':').map(Number);
+                                  const [eh, em] = businessWindow.end.split(':').map(Number);
                                   return eh * 60 + em - stepMin;
                                 })());
                                 const newEndMin = Math.min(newStartMin + stepMin, (() => {
-                                  const [eh, em] = data.end_hour.split(':').map(Number);
+                                  const [eh, em] = businessWindow.end.split(':').map(Number);
                                   return eh * 60 + em;
                                 })());
                                 const toTime = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
@@ -3135,10 +3241,10 @@ function AppointmentsSettingsPanel() {
                                   )}
                                 </div>
                                 <TimeRangeSlider
-                                  workStart={data.start_hour}
-                                  workEnd={data.end_hour}
-                                  lunchStart={data.lunch_start}
-                                  lunchEnd={data.lunch_end}
+                                  workStart={businessWindow.start}
+                                  workEnd={businessWindow.end}
+                                  lunchStart={businessWindow.lunchStart}
+                                  lunchEnd={businessWindow.lunchEnd}
                                   valueStart={interval.start}
                                   valueEnd={interval.end}
                                   stepMin={drawerDraft?.duration_minutes || 30}
