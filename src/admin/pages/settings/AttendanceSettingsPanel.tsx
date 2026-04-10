@@ -59,7 +59,7 @@ import {
   EyeOff,
   Copy,
   Link,
-  Palette,
+  
 } from 'lucide-react';
 import type {
   AttendanceEligibilityRules,
