@@ -2766,21 +2766,6 @@ function AppointmentsSettingsPanel() {
   return (
     <div className="p-6 space-y-5">
 
-      {/* Aviso: horário é única fonte de verdade em Institucional. Removemos o
-          card duplicado que existia aqui (start/end/almoço) para evitar
-          configuração em dois lugares. */}
-      <div className="rounded-xl border border-blue-100 dark:border-blue-800/40 bg-blue-50/60 dark:bg-blue-900/15 px-4 py-3 flex items-start gap-3">
-        <Clock className="w-4 h-4 text-[#003876] dark:text-[#ffd700] mt-0.5 flex-shrink-0" />
-        <div className="text-xs text-gray-600 dark:text-gray-300">
-          <p className="font-semibold text-gray-700 dark:text-gray-200">Horário de funcionamento</p>
-          <p className="mt-0.5">
-            A janela de atendimento (início, término e pausas) é definida em{' '}
-            <span className="font-medium text-[#003876] dark:text-[#ffd700]">Institucional → Horário de Funcionamento</span>.
-            Os motivos abaixo herdam essa configuração automaticamente.
-          </p>
-        </div>
-      </div>
-
       {/* Motivos de Visita */}
       <CollapsibleSection
         collapseId="visits.reasons"
