@@ -1,25 +1,15 @@
 
 
-## Correção dos Erros de Build TypeScript
+## Erro que Impede a Publicação
 
-Ainda restam **6 arquivos** com erros. Todos são problemas simples: variáveis/imports não utilizados e um casting incorreto.
+Há **1 erro de TypeScript** no código frontend:
 
-### Arquivos e Correções
+### `src/admin/pages/settings/AttendanceSettingsPanel.tsx` (linha 62)
+- **Erro**: `Palette` é importado de `lucide-react` mas nunca utilizado (TS6133)
+- **Correção**: Remover `Palette` do import na linha 62
 
-| # | Arquivo | Erro | Correção |
-|---|---------|------|----------|
-| 1 | `src/admin/pages/events/EventsPage.tsx` | `CheckCircle2` e `fmtDate` não utilizados | Remover `CheckCircle2` do import (linha 11); remover função `fmtDate` (linhas 36-39) |
-| 2 | `src/admin/pages/library/LibraryPage.tsx` | `RESOURCE_TYPE_ICONS` não utilizado; `image` não existe no tipo `Record<ResourceType, ...>` | Remover `RESOURCE_TYPE_ICONS` do import (linha 8); remover a entrada `image` do objeto `SUBTYPES` (linha 39) |
-| 3 | `src/admin/pages/school/SegmentsPage.tsx` | `Save`, `ToggleLeft`, `ToggleRight` não utilizados | Remover essas 3 importações da linha 7 |
-| 4 | `src/admin/pages/whatsapp/TemplatesPage.tsx` | `toggleVar` não utilizado | Remover a função `toggleVar` (linhas 838-842) |
-| 5 | `src/portal/pages/events/EventsPage.tsx` | `fmtDate` não utilizado | Remover a função `fmtDate` (linhas 20-23 aproximadamente) |
-| 6 | `src/portal/pages/grades/GradesPage.tsx` | Casting de `activity` incompatível (array vs objeto) | Alterar linha 24: `as Grade[]` → `as unknown as Grade[]` |
+O outro erro sobre `npm:openai@^4.52.5` é um problema de resolução de tipos do Deno nas edge functions — não está no código do projeto, e sim em uma dependência do `@supabase/functions-js`. Esse erro não bloqueia o build do frontend.
 
-### Detalhes Técnicos
-
-- **Erros TS6133** (5 arquivos): Variáveis declaradas mas não usadas. Basta remover os imports/declarações.
-- **Erro TS2353** (LibraryPage): O tipo `ResourceType` não inclui `'image'`, então a chave `image` no objeto `SUBTYPES` é inválida. Remover essa entrada.
-- **Erro TS2352** (GradesPage): Supabase retorna `activity` como array `{ title }[]`, mas o tipo `Grade` espera `{ title: string } | null`. Usar double cast `as unknown as Grade[]`.
-
-Todas são correções de tipagem sem alteração de lógica.
+### Implementação
+Uma única linha a alterar: remover `Palette,` da linha 62.
 
