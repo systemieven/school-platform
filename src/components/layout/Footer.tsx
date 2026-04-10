@@ -1,6 +1,80 @@
 import { Link } from 'react-router-dom';
-import { Phone, MapPin, Instagram } from 'lucide-react';
+import { Phone, MapPin, Clock, Instagram } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
+
+// ── Business hours helpers ────────────────────────────────────────────────────
+interface BHInterval { start: string; end: string }
+interface BHDay { open?: boolean; intervals?: Array<{ start?: string; end?: string }>; start?: string; end?: string }
+
+function fmtTime(t: string): string {
+  const [h, m] = t.split(':').map(Number);
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
+
+/**
+ * Extrai os intervalos de funcionamento do dia da semana a partir do raw
+ * `general.business_hours`. Retorna [] se o dia estiver fechado, se o config
+ * não existir ou se nenhum intervalo válido estiver definido. NÃO aplica
+ * fallback hardcoded — preferimos não exibir nada a exibir informação errada.
+ */
+function getBusinessIntervalsForWeekday(rawBH: unknown, weekday: number): BHInterval[] {
+  if (!rawBH) return [];
+  let bh: Record<string, BHDay>;
+  try {
+    bh = typeof rawBH === 'string' ? JSON.parse(rawBH) : (rawBH as Record<string, BHDay>);
+  } catch {
+    return [];
+  }
+  const d = bh?.[String(weekday)];
+  if (!d?.open) return [];
+  if (Array.isArray(d.intervals) && d.intervals.length > 0) {
+    return d.intervals
+      .filter((i) => typeof i.start === 'string' && typeof i.end === 'string')
+      .map((i) => ({ start: i.start as string, end: i.end as string }))
+      .sort((a, b) => a.start.localeCompare(b.start));
+  }
+  if (typeof d.start === 'string' && typeof d.end === 'string') {
+    return [{ start: d.start, end: d.end }];
+  }
+  return [];
+}
+
+/**
+ * Constrói linhas legíveis agrupando dias consecutivos com o mesmo conjunto
+ * de intervalos. Retorna [] quando não há nada configurado.
+ */
+function buildBusinessHoursLines(raw: unknown): string[] {
+  const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const openDays: { idx: number; name: string; intervals: BHInterval[]; signature: string }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const intervals = getBusinessIntervalsForWeekday(raw, i);
+    if (intervals.length === 0) continue;
+    openDays.push({
+      idx: i,
+      name: DAYS[i],
+      intervals,
+      signature: intervals.map((iv) => `${iv.start}-${iv.end}`).join('|'),
+    });
+  }
+  if (openDays.length === 0) return [];
+
+  const groups: { names: string[]; lastIdx: number; intervals: BHInterval[]; signature: string }[] = [];
+  for (const d of openDays) {
+    const last = groups[groups.length - 1];
+    if (last && last.signature === d.signature && last.lastIdx + 1 === d.idx) {
+      last.names.push(d.name);
+      last.lastIdx = d.idx;
+    } else {
+      groups.push({ names: [d.name], lastIdx: d.idx, intervals: d.intervals, signature: d.signature });
+    }
+  }
+
+  return groups.map((g) => {
+    const label = g.names.length === 1 ? g.names[0] : `${g.names[0]} - ${g.names[g.names.length - 1]}`;
+    const times = g.intervals.map((iv) => `${fmtTime(iv.start)} às ${fmtTime(iv.end)}`).join(' e ');
+    return `${label}: ${times}`;
+  });
+}
 
 // ── Social network helpers ────────────────────────────────────────────────────
 interface SocialEntry { id: number; network: string; handle: string; message?: string }
@@ -98,6 +172,7 @@ export default function Footer() {
     || formatAddress('Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE');
 
   const socialNetworks = parseSocialNetworks(settings.social_networks);
+  const businessHoursLines = buildBusinessHoursLines(settings.business_hours);
 
   return (
     <footer className="bg-[#003876] text-white py-16">
@@ -118,6 +193,19 @@ export default function Footer() {
                 </span>
               </li>
             </ul>
+            {businessHoursLines.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center mb-2 text-white/90">
+                  <Clock size={16} className="mr-2" />
+                  <span className="text-sm font-semibold uppercase tracking-wide">Horários de funcionamento</span>
+                </div>
+                <ul className="space-y-1 text-sm opacity-90">
+                  {businessHoursLines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <div>
             <h3 className="text-xl font-semibold mb-4">Links Rápidos</h3>
