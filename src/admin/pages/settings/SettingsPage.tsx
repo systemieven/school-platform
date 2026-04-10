@@ -2236,7 +2236,6 @@ interface VisitSettings {
   end_hour: string;
   lunch_start: string;
   lunch_end: string;
-  slot_duration: number;
   reasons: {
     key: string;
     label: string;
@@ -2257,7 +2256,6 @@ const DEFAULT_VISIT: VisitSettings = {
   end_hour: '17:00',
   lunch_start: '12:00',
   lunch_end: '13:30',
-  slot_duration: 30,
   reasons: [],
 };
 
@@ -2294,7 +2292,7 @@ function AppointmentsSettingsPanel() {
       .from('system_settings')
       .select('id, key, value')
       .eq('category', 'visit')
-      .in('key', ['start_hour', 'end_hour', 'lunch_start', 'lunch_end', 'slot_duration', 'reasons'])
+      .in('key', ['start_hour', 'end_hour', 'lunch_start', 'lunch_end', 'reasons'])
       .then(({ data: rows }) => {
         if (!rows) { setLoading(false); return; }
         const merged = { ...DEFAULT_VISIT };
@@ -2305,8 +2303,6 @@ function AppointmentsSettingsPanel() {
           const m = merged as Record<string, unknown>;
           if (r.key === 'start_hour' || r.key === 'end_hour' || r.key === 'lunch_start' || r.key === 'lunch_end') {
             m[r.key] = typeof v === 'string' ? v : String(v);
-          } else if (r.key === 'slot_duration') {
-            m[r.key] = typeof v === 'number' ? v : parseInt(String(v)) || 0;
           } else if (r.key === 'reasons') {
             try {
               const raw: { key: string; label: string; duration_minutes?: number; buffer_minutes?: number; max_per_slot?: number }[] =
@@ -2402,8 +2398,7 @@ function AppointmentsSettingsPanel() {
       { key: 'end_hour',         value: data.end_hour },
       { key: 'lunch_start',      value: data.lunch_start },
       { key: 'lunch_end',        value: data.lunch_end },
-      { key: 'slot_duration', value: String(data.slot_duration) },
-      { key: 'reasons',       value: JSON.stringify(data.reasons) },
+      { key: 'reasons', value: JSON.stringify(data.reasons) },
     ];
     await Promise.all(
       rows.map((r) =>
@@ -2496,33 +2491,6 @@ function AppointmentsSettingsPanel() {
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Término</label>
               <input type="time" value={data.lunch_end} onChange={(e) => setData((p) => ({ ...p, lunch_end: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Duração do Slot */}
-      <div className={CARD_CLS}>
-        <div className={HEAD_CLS}>
-          <p className={TITLE_CLS}>
-            <Hash className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Duração do Slot
-          </p>
-        </div>
-        <div className={BODY_CLS}>
-          <div className="flex flex-wrap gap-2">
-            {SLOT_OPTIONS.map((min) => (
-              <button
-                key={min}
-                onClick={() => setData((p) => ({ ...p, slot_duration: min }))}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  data.slot_duration === min
-                    ? 'bg-[#003876] text-white shadow-md'
-                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#003876]/50'
-                }`}
-              >
-                {min} min
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -2886,7 +2854,7 @@ function AppointmentsSettingsPanel() {
                         lunchStart={data.lunch_start} lunchEnd={data.lunch_end}
                         valueStart={d.availability_start || data.start_hour}
                         valueEnd={d.availability_end || data.end_hour}
-                        stepMin={data.slot_duration || 30}
+                        stepMin={drawerDraft?.duration_minutes || 30}
                         onChange={(start, end) => setDrawerDraft((prev) => prev ? { ...prev, availability_start: start, availability_end: end } : prev)}
                       />
                     )}

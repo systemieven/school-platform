@@ -255,7 +255,6 @@ export default function AgendarVisita() {
   const endHour     = (visitSettings.end_hour?.toString()) || '17:00';
   const lunchStart  = (visitSettings.lunch_start?.toString()) || '12:00';
   const lunchEnd    = (visitSettings.lunch_end?.toString()) || '13:30';
-  const slotDuration = Number(visitSettings.slot_duration) || 60;
   // Derive blocked weekdays from business_hours (days where open === false)
   const blockedWeekdays = useMemo(() => {
     const bh = generalSettings.business_hours;
@@ -324,15 +323,16 @@ export default function AgendarVisita() {
             ? selectedReasonConfig.availability_end
             : endHour)
         : endHour;
+    const step = selectedReasonConfig.duration_minutes + (selectedReasonConfig.buffer_minutes || 0);
     return generateSlots(
       effectiveStart,
       effectiveEnd,
       lunchStart,
       lunchEnd,
-      slotDuration || 30,
+      step || 30,
       selectedReasonConfig.duration_minutes,
     );
-  }, [startHour, endHour, lunchStart, lunchEnd, slotDuration, selectedReasonConfig]);
+  }, [startHour, endHour, lunchStart, lunchEnd, selectedReasonConfig]);
 
   // ── Step state ──
   const [step, setStep] = useState<1 | 2 | 3>(1);
