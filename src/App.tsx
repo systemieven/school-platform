@@ -14,6 +14,7 @@ import TermosUso from './pages/TermosUso';
 import EmConstrucao from './pages/EmConstrucao';
 import NotFound from './pages/NotFound';
 import AtendimentoPublico from './pages/AtendimentoPublico';
+import PainelAtendimento from './pages/PainelAtendimento';
 import { Loader2 } from 'lucide-react';
 
 // Lazy-load admin panel and student portal as separate bundle chunks
@@ -51,6 +52,9 @@ export default function App() {
 
       {/* ── Public attendance (QR code, no site chrome) ── */}
       <Route path="atendimento" element={<AtendimentoPublico />} />
+
+      {/* ── Public call panel (TV display, no site chrome) ── */}
+      <Route path="painel-atendimento" element={<PainelAtendimento />} />
 
       {/* ── Admin panel (lazy-loaded) ── */}
       <Route

@@ -53,6 +53,13 @@ import {
   Minus,
   Edit3,
   Folder,
+  // Display panel icons
+  Tv,
+  Eye,
+  EyeOff,
+  Copy,
+  Link,
+  Palette,
 } from 'lucide-react';
 import type {
   AttendanceEligibilityRules,
@@ -62,6 +69,7 @@ import type {
   AttendanceFeedbackConfig,
   AttendanceQuestion,
   AttendanceQuestionType,
+  DisplayPanelConfig,
 } from '../../types/admin.types';
 
 interface AllowWalkins {
@@ -80,6 +88,7 @@ interface AttendanceState {
   sound: AttendanceSoundConfig;
   client_screen_fields: AttendanceClientScreenFields;
   feedback: AttendanceFeedbackConfig;
+  display_panel: DisplayPanelConfig;
 }
 
 const DEFAULTS: AttendanceState = {
@@ -109,6 +118,15 @@ const DEFAULTS: AttendanceState = {
     custom_questions_enabled: false,
     questions: [],
   },
+  display_panel: {
+    password: '',
+    show_visitor_name: true,
+    sound_preset: 'bell',
+    sound_repeat: 2,
+    history_count: 5,
+    sector_filter: [],
+    theme: 'dark-blue',
+  },
 };
 
 // NOTE: `estimated_service_time` foi removido — o tempo de atendimento é
@@ -123,6 +141,19 @@ const ATTENDANCE_KEYS: (keyof AttendanceState)[] = [
   'sound',
   'client_screen_fields',
   'feedback',
+  'display_panel',
+];
+
+const THEME_PRESETS: Array<{
+  key: DisplayPanelConfig['theme'];
+  label: string;
+  bg: string;
+  accent: string;
+}> = [
+  { key: 'dark-blue',  label: 'Azul escuro',  bg: '#0a1628', accent: '#003876' },
+  { key: 'dark-green', label: 'Verde escuro',  bg: '#0a1a0a', accent: '#166534' },
+  { key: 'dark-red',   label: 'Vermelho escuro', bg: '#1a0a0a', accent: '#991b1b' },
+  { key: 'light',      label: 'Claro',         bg: '#f8fafc', accent: '#003876' },
 ];
 
 const SOUND_PRESETS: Array<{
@@ -174,6 +205,8 @@ export default function AttendanceSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showPanelPassword, setShowPanelPassword] = useState(false);
+  const [panelLinkCopied, setPanelLinkCopied] = useState(false);
 
   // Load attendance settings + sectors from visit_settings.reasons
   useEffect(() => {
@@ -1149,6 +1182,226 @@ export default function AttendanceSettingsPanel() {
             )}
           </>
         )}
+      </SettingsCard>
+
+      {/* 6. Painel de Chamadas */}
+      <SettingsCard collapseId="attendance.displayPanel" title="Painel de Chamadas" icon={Tv} description="Configure o painel público exibido na TV da recepção.">
+        <div className="space-y-5">
+          {/* Senha de acesso */}
+          <div>
+            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Senha de acesso</label>
+            <div className="relative max-w-xs">
+              <input
+                type={showPanelPassword ? 'text' : 'password'}
+                value={data.display_panel.password}
+                onChange={(e) => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, password: e.target.value } }))}
+                placeholder="Defina uma senha simples"
+                className="w-full px-3 py-2 pr-10 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPanelPassword((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showPanelPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Exibir nome do visitante */}
+          <div>
+            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Exibir nome do visitante</label>
+            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+              {[
+                { value: true,  label: 'Exibir',  Icon: Eye },
+                { value: false, label: 'Ocultar', Icon: EyeOff },
+              ].map(({ value, label, Icon }) => {
+                const active = data.display_panel.show_visitor_name === value;
+                return (
+                  <button
+                    key={String(value)}
+                    type="button"
+                    onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, show_visitor_name: value } }))}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold border-r border-gray-200 dark:border-gray-600 last:border-r-0 transition-colors ${
+                      active ? 'bg-[#003876] text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-[#003876]'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Som do painel */}
+          <div>
+            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Som de alerta</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {SOUND_PRESETS.map(({ key, label, icon: Icon }) => {
+                const active = data.display_panel.sound_preset === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, sound_preset: key } }));
+                      playSoundPreview(key);
+                    }}
+                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border transition-all duration-200 ${
+                      active
+                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                    <span className="text-xs font-semibold">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Repetições do som */}
+          <div>
+            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Repetições do alerta sonoro</label>
+            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+              {[1, 2, 3].map((n) => {
+                const active = data.display_panel.sound_repeat === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, sound_repeat: n } }))}
+                    className={`px-4 py-2 text-xs font-semibold border-r border-gray-200 dark:border-gray-600 last:border-r-0 transition-colors ${
+                      active ? 'bg-[#003876] text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-[#003876]'
+                    }`}
+                  >
+                    {n}×
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Senhas no histórico */}
+          <div>
+            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Senhas no histórico por setor</label>
+            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+              {[3, 5, 7, 10].map((n) => {
+                const active = data.display_panel.history_count === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, history_count: n } }))}
+                    className={`px-3.5 py-2 text-xs font-semibold border-r border-gray-200 dark:border-gray-600 last:border-r-0 transition-colors ${
+                      active ? 'bg-[#003876] text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-[#003876]'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Filtro de setores */}
+          {sectors.length > 0 && (
+            <div>
+              <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">
+                Setores exibidos no painel
+                <span className="ml-1.5 font-normal normal-case tracking-normal text-gray-400/80">
+                  (vazio = todos)
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {sectors.map(({ key, label }) => {
+                  const active = data.display_panel.sector_filter.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() =>
+                        setData((prev) => ({
+                          ...prev,
+                          display_panel: {
+                            ...prev.display_panel,
+                            sector_filter: active
+                              ? prev.display_panel.sector_filter.filter((s) => s !== key)
+                              : [...prev.display_panel.sector_filter, key],
+                          },
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                        active
+                          ? 'bg-[#003876] text-white border-[#003876]'
+                          : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Tema visual */}
+          <div>
+            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Tema visual</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {THEME_PRESETS.map(({ key, label, bg, accent }) => {
+                const active = data.display_panel.theme === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, theme: key } }))}
+                    className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border transition-all duration-200 ${
+                      active
+                        ? 'border-[#003876] shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-[#003876]/40'
+                    }`}
+                  >
+                    <div className="flex gap-1">
+                      <span className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: bg }} />
+                      <span className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: accent }} />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Link direto */}
+          <div>
+            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Link direto para o painel</label>
+            <div className="flex items-center gap-2 max-w-md">
+              <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">
+                <Link className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <span className="text-xs text-gray-500 truncate">{`${window.location.origin}/painel-atendimento`}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/painel-atendimento`);
+                  setPanelLinkCopied(true);
+                  setTimeout(() => setPanelLinkCopied(false), 2000);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  panelLinkCopied
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-[#003876] text-white hover:bg-[#002855]'
+                }`}
+              >
+                {panelLinkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {panelLinkCopied ? 'Copiado!' : 'Copiar'}
+              </button>
+            </div>
+          </div>
+        </div>
       </SettingsCard>
 
       {/* Floating save button */}

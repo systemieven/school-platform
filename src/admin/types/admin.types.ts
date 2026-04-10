@@ -790,6 +790,16 @@ export interface AttendanceFeedbackConfig {
   questions: AttendanceQuestion[];
 }
 
+export interface DisplayPanelConfig {
+  password: string;
+  show_visitor_name: boolean;
+  sound_preset: 'bell' | 'chime' | 'ding' | 'buzzer';
+  sound_repeat: number;
+  history_count: number;
+  sector_filter: string[];
+  theme: 'dark-blue' | 'dark-green' | 'dark-red' | 'light';
+}
+
 export interface InstitutionGeolocation {
   latitude: number | null;
   longitude: number | null;
