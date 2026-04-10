@@ -2373,6 +2373,36 @@ function AppointmentsSettingsPanel() {
       });
   }, []);
 
+  // Dias em que a instituição está aberta (derivado de general.business_hours).
+  // Usado para permitir apenas dias úteis nas restrições de disponibilidade dos
+  // motivos — não faz sentido marcar domingo para "Psicopedagogia" se a escola
+  // não abre no domingo.
+  const [businessOpenWeekdays, setBusinessOpenWeekdays] = useState<number[]>([...ALL_WEEKDAYS]);
+
+  useEffect(() => {
+    supabase
+      .from('system_settings')
+      .select('value')
+      .eq('category', 'general')
+      .eq('key', 'business_hours')
+      .maybeSingle()
+      .then(({ data: row }) => {
+        if (!row) return;
+        try {
+          const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+          if (parsed && typeof parsed === 'object') {
+            const bh = parsed as Record<string, { open?: boolean }>;
+            const open = ALL_WEEKDAYS.filter((i) => bh[String(i)]?.open === true);
+            // Se a configuração não tem nenhum dia aberto (inconsistência),
+            // caímos no fallback de todos os dias para não travar o drawer.
+            setBusinessOpenWeekdays(open.length > 0 ? open : [...ALL_WEEKDAYS]);
+          }
+        } catch {
+          /* keep default */
+        }
+      });
+  }, []);
+
   useEffect(() => {
     supabase.from('visit_blocked_dates').select('id, blocked_date, reason').order('blocked_date').then(({ data: rows }) => {
       if (rows) setBlockedDates(rows);
@@ -2485,12 +2515,30 @@ function AppointmentsSettingsPanel() {
 
   function openDrawer(key: string | null) {
     if (key === null) {
-      setDrawerDraft({ key: '', label: '', icon: 'FileText', duration_minutes: 30, buffer_minutes: 0, max_per_slot: 1, max_daily: 0, availability_enabled: false, availability_start: '', availability_end: '', lead_integrated: false });
+      setDrawerDraft({
+        key: '',
+        label: '',
+        icon: 'FileText',
+        duration_minutes: 30,
+        buffer_minutes: 0,
+        max_per_slot: 1,
+        max_daily: 0,
+        availability_enabled: false,
+        availability_weekdays: [...businessOpenWeekdays],
+        availability_intervals: [],
+        lead_integrated: false,
+      });
       setDrawerIsNew(true);
     } else {
       const found = data.reasons.find((r) => r.key === key);
       if (!found) return;
-      setDrawerDraft({ ...found });
+      // Intersecta com os dias úteis da instituição — se o admin removeu um
+      // dia do horário de funcionamento depois que o motivo foi configurado,
+      // limpamos o orfão ao abrir o drawer para edição.
+      const cleanWeekdays = (found.availability_weekdays ?? [...businessOpenWeekdays]).filter((w) =>
+        businessOpenWeekdays.includes(w),
+      );
+      setDrawerDraft({ ...found, availability_weekdays: cleanWeekdays });
       setDrawerIsNew(false);
     }
     setDrawerOpen(true);
@@ -2948,15 +2996,18 @@ function AppointmentsSettingsPanel() {
                         onClick={() => setDrawerDraft((prev) => {
                           if (!prev) return prev;
                           const enabling = !prev.availability_enabled;
-                          // Ao ligar, garante pelo menos 1 intervalo e weekdays default
-                          const weekdays = prev.availability_weekdays?.length ? prev.availability_weekdays : [...ALL_WEEKDAYS];
+                          // Ao ligar, garante pelo menos 1 intervalo e weekdays default.
+                          // Intersecta com dias úteis da instituição para não começar
+                          // com dias fechados marcados.
+                          const baseWeekdays = prev.availability_weekdays?.length ? prev.availability_weekdays : businessOpenWeekdays;
+                          const weekdays = baseWeekdays.filter((w) => businessOpenWeekdays.includes(w));
                           const intervals = prev.availability_intervals?.length
                             ? prev.availability_intervals
                             : [{ start: data.start_hour, end: data.end_hour }];
                           return {
                             ...prev,
                             availability_enabled: enabling,
-                            availability_weekdays: weekdays,
+                            availability_weekdays: weekdays.length ? weekdays : [...businessOpenWeekdays],
                             availability_intervals: intervals,
                           };
                         })}
@@ -2970,36 +3021,50 @@ function AppointmentsSettingsPanel() {
                     {d.availability_enabled && (
                       <>
                         {/* ── Dias da semana ── */}
+                        {/* Exibe apenas dias em que a instituição está aberta
+                            (derivado de general.business_hours). Não faz sentido
+                            permitir marcar um dia que a escola nem abre. */}
                         <div>
                           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Dias da semana</p>
-                          <div className="grid grid-cols-7 gap-1.5">
-                            {WEEKDAYS.map((label, idx) => {
-                              const selected = d.availability_weekdays?.includes(idx) ?? false;
-                              return (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  onClick={() => setDrawerDraft((prev) => {
-                                    if (!prev) return prev;
-                                    const current = prev.availability_weekdays ?? [...ALL_WEEKDAYS];
-                                    const next = current.includes(idx)
-                                      ? current.filter((x) => x !== idx)
-                                      : [...current, idx].sort((a, b) => a - b);
-                                    return { ...prev, availability_weekdays: next };
-                                  })}
-                                  className={`h-9 rounded-lg text-[11px] font-semibold transition-all ${
-                                    selected
-                                      ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30'
-                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876]'
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {(d.availability_weekdays?.length ?? 0) === 0 && (
-                            <p className="text-[11px] text-red-500 mt-1.5">Selecione pelo menos um dia</p>
+                          {businessOpenWeekdays.length === 0 ? (
+                            <p className="text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded-lg px-3 py-2">
+                              Nenhum dia de funcionamento configurado em Institucional → Horário de Funcionamento.
+                            </p>
+                          ) : (
+                            <>
+                              <div
+                                className="grid gap-1.5"
+                                style={{ gridTemplateColumns: `repeat(${businessOpenWeekdays.length}, minmax(0, 1fr))` }}
+                              >
+                                {businessOpenWeekdays.map((idx) => {
+                                  const selected = d.availability_weekdays?.includes(idx) ?? false;
+                                  return (
+                                    <button
+                                      key={idx}
+                                      type="button"
+                                      onClick={() => setDrawerDraft((prev) => {
+                                        if (!prev) return prev;
+                                        const current = prev.availability_weekdays ?? [...businessOpenWeekdays];
+                                        const next = current.includes(idx)
+                                          ? current.filter((x) => x !== idx)
+                                          : [...current, idx].sort((a, b) => a - b);
+                                        return { ...prev, availability_weekdays: next };
+                                      })}
+                                      className={`h-9 rounded-lg text-[11px] font-semibold transition-all ${
+                                        selected
+                                          ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30'
+                                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876]'
+                                      }`}
+                                    >
+                                      {WEEKDAYS[idx]}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {(d.availability_weekdays?.length ?? 0) === 0 && (
+                                <p className="text-[11px] text-red-500 mt-1.5">Selecione pelo menos um dia</p>
+                              )}
+                            </>
                           )}
                         </div>
 
