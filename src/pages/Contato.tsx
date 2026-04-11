@@ -31,6 +31,77 @@ const DEFAULT_CONTACT_REASONS = [
   { value: 'outro',              label: 'Outro assunto',            icon: 'MoreHorizontal' },
 ];
 
+// ── Institutional data helpers (same logic as Footer) ─────────────────────
+interface BHInterval { start: string; end: string }
+interface BHDay { open?: boolean; intervals?: Array<{ start?: string; end?: string }>; start?: string; end?: string }
+
+function fmtTime(t: string): string {
+  const [h, m] = t.split(':').map(Number);
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
+
+function getBusinessIntervalsForWeekday(rawBH: unknown, weekday: number): BHInterval[] {
+  if (!rawBH) return [];
+  let bh: Record<string, BHDay>;
+  try {
+    bh = typeof rawBH === 'string' ? JSON.parse(rawBH) : (rawBH as Record<string, BHDay>);
+  } catch { return []; }
+  const d = bh?.[String(weekday)];
+  if (!d?.open) return [];
+  if (Array.isArray(d.intervals) && d.intervals.length > 0) {
+    return d.intervals
+      .filter((i) => typeof i.start === 'string' && typeof i.end === 'string')
+      .map((i) => ({ start: i.start as string, end: i.end as string }))
+      .sort((a, b) => a.start.localeCompare(b.start));
+  }
+  if (typeof d.start === 'string' && typeof d.end === 'string') {
+    return [{ start: d.start, end: d.end }];
+  }
+  return [];
+}
+
+function buildBusinessHoursLines(raw: unknown): string[] {
+  const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const openDays: { idx: number; name: string; intervals: BHInterval[]; signature: string }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const intervals = getBusinessIntervalsForWeekday(raw, i);
+    if (intervals.length === 0) continue;
+    openDays.push({ idx: i, name: DAYS[i], intervals, signature: intervals.map((iv) => `${iv.start}-${iv.end}`).join('|') });
+  }
+  if (openDays.length === 0) return [];
+  const groups: { names: string[]; lastIdx: number; intervals: BHInterval[]; signature: string }[] = [];
+  for (const d of openDays) {
+    const last = groups[groups.length - 1];
+    if (last && last.signature === d.signature && last.lastIdx + 1 === d.idx) {
+      last.names.push(d.name);
+      last.lastIdx = d.idx;
+    } else {
+      groups.push({ names: [d.name], lastIdx: d.idx, intervals: d.intervals, signature: d.signature });
+    }
+  }
+  return groups.map((g) => {
+    const label = g.names.length === 1 ? g.names[0] : `${g.names[0]} - ${g.names[g.names.length - 1]}`;
+    const times = g.intervals.map((iv) => `${fmtTime(iv.start)} às ${fmtTime(iv.end)}`).join(' e ');
+    return `${label}: ${times}`;
+  });
+}
+
+function formatInstitutionalAddress(raw: unknown): string[] {
+  if (!raw) return ['Rua Marcílio Dias, 99', 'São Francisco, Caruaru/PE'];
+  if (typeof raw === 'object' && raw !== null) {
+    const a = raw as Record<string, string>;
+    const line1 = [a.rua, a.numero && `, ${a.numero}`].filter(Boolean).join('');
+    const line2 = [a.bairro, a.cidade && `${a.cidade}${a.estado ? `/${a.estado}` : ''}`].filter(Boolean).join(', ');
+    return [line1, line2].filter(Boolean);
+  }
+  const s = String(raw);
+  const idx = s.indexOf(' | ');
+  if (idx !== -1) return [s.slice(0, idx), s.slice(idx + 3)];
+  const idx2 = s.indexOf(' - ');
+  if (idx2 !== -1) return [s.slice(0, idx2), s.slice(idx2 + 3)];
+  return [s];
+}
+
 // ── Masks ──────────────────────────────────────────────────────────────────
 function maskPhone(v: string) {
   return v.replace(/\D/g, '').slice(0, 11)
@@ -148,15 +219,18 @@ export default function Contato() {
   const infoRef   = useScrollReveal();
   const { settings: contactSettings } = useSettings('contact');
   const { settings: appearanceSettings } = useSettings('appearance');
+  const { settings: generalSettings } = useSettings('general');
   const heroCont = (appearanceSettings.contato as Record<string, string> | undefined) ?? {};
   const heroBadge    = heroCont.badge     || 'Fale conosco';
   const heroTitle    = heroCont.title     || 'Entre em Contato';
   const heroHL       = heroCont.highlight || 'Contato';
   const heroSubtitle = heroCont.subtitle  || 'Tire suas dúvidas, agende uma visita ou solicite informações sobre matrículas.';
   const heroImage    = heroCont.image     || 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&q=80&w=2070';
-  const heroPhone   = heroCont.phone   || '(81) 3721-4787';
-  const heroAddress = heroCont.address || 'Rua Marcílio Dias, 99 | São Francisco, Caruaru/PE';
-  const heroHours   = heroCont.hours   || 'Segunda a Sexta: 7h às 17h';
+
+  // Dados institucionais (fonte única de verdade — Institucional > Contato / Horários)
+  const instPhone   = (generalSettings.phone as string) || '(81) 3721-4787';
+  const instAddress = formatInstitutionalAddress(generalSettings.address);
+  const instHoursLines = buildBusinessHoursLines(generalSettings.business_hours);
 
   // Fields the admin marked as required
   const requiredFields = useMemo(() => {
@@ -329,18 +403,20 @@ export default function Contato() {
                 {
                   icon: Phone,
                   title: 'Telefone',
-                  lines: [heroPhone],
+                  lines: [instPhone],
                 },
                 {
                   icon: MapPin,
                   title: 'Endereço',
-                  lines: heroAddress.split(' | '),
+                  lines: instAddress,
                 },
-                {
-                  icon: Clock,
-                  title: 'Horário de Atendimento',
-                  lines: [heroHours],
-                },
+                ...(instHoursLines.length > 0
+                  ? [{
+                      icon: Clock,
+                      title: 'Horário de Atendimento',
+                      lines: instHoursLines,
+                    }]
+                  : []),
               ].map(({ icon: Icon, title, lines }, i) => (
                 <div
                   key={title}

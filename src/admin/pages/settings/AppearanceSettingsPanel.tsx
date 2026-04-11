@@ -21,11 +21,7 @@ interface HomeFields extends Omit<HeroFields, 'image'> {
   segments: { image: string; description: string }[];
 }
 
-interface ContatoFields extends HeroFields {
-  phone: string;
-  address: string;
-  hours: string;
-}
+type ContatoFields = HeroFields;
 
 type PageKey =
   | 'home' | 'educacao_infantil' | 'fundamental_1' | 'fundamental_2'
@@ -64,7 +60,7 @@ const DEFAULT_PAGES: AllPages = {
   fundamental_1:    { badge: 'Fundamental I · 1º ao 5º ano',   title: 'Construindo as Bases do Futuro',      highlight: 'Bases',      subtitle: 'Bases sólidas para o futuro através de uma educação integral, inovadora e com valores cristãos.',                                            image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=2070' },
   fundamental_2:    { badge: 'Fundamental II · 6º ao 9º ano',  title: 'Construindo o Futuro de cada jovem', highlight: 'Futuro',     subtitle: 'Preparando jovens para os desafios do futuro com excelência acadêmica e valores sólidos.',                                                  image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&q=80&w=2070' },
   ensino_medio:     { badge: 'Ensino Médio · 1º a 3º ano',     title: 'Sua rota para o Sucesso',            highlight: 'Sucesso',    subtitle: 'Excelência acadêmica e preparação completa para o sucesso no ENEM e vestibulares.',                                                       image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=2070' },
-  contato:          { badge: 'Fale conosco', title: 'Entre em Contato', highlight: 'Contato', subtitle: 'Tire suas dúvidas, agende uma visita ou solicite informações sobre matrículas.', image: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&q=80&w=2070', phone: '(81) 3721-4787', address: 'Rua Marcílio Dias, 99 | São Francisco, Caruaru/PE', hours: 'Segunda a Sexta: 7h às 17h' },
+  contato:          { badge: 'Fale conosco', title: 'Entre em Contato', highlight: 'Contato', subtitle: 'Tire suas dúvidas, agende uma visita ou solicite informações sobre matrículas.', image: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&q=80&w=2070' },
   visita:           { badge: 'Visita presencial',               title: 'Agende sua Visita',                 highlight: 'Visita',     subtitle: 'Conheça pessoalmente nossa estrutura, equipe pedagógica e tudo que o Colégio Batista tem a oferecer.',                                     image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2070' },
   matricula:        { badge: 'Matrículas 2026 abertas',         title: 'Matricule seu Filho',               highlight: 'Filho',      subtitle: 'Garanta a vaga do seu filho em uma das melhores escolas de Caruaru.',                                                                      image: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&q=80&w=2070' },
 };
@@ -84,9 +80,9 @@ const SUB_TABS: { key: PageKey; label: string }[] = [
 
 // ── Shared style constants ────────────────────────────────────────────────────
 
-const inputCls     = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003876]/30 focus:border-[#003876] bg-white dark:bg-gray-800 dark:border-gray-700';
+const inputCls     = 'w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003876]/30 focus:border-[#003876] bg-white dark:bg-gray-800 dark:border-gray-700';
 const textareaCls  = `${inputCls} resize-none`;
-const labelCls     = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5';
+const labelCls     = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5';
 
 // ── ImageField — dual-mode URL / Upload ───────────────────────────────────────
 
@@ -478,24 +474,6 @@ export default function AppearanceSettingsPanel() {
             pageKey="contato"
             onChange={(d) => updatePage('contato', { ...contato, ...d })}
           />
-
-          <SettingsCard collapseId="appearance.contato.info" title="Informações de Contato" description="Exibidas no sidebar da página de contato.">
-            <div>
-              <label className={labelCls}>Telefone</label>
-              <input type="text" value={contato.phone} onChange={(e) => updatePage('contato', { ...contato, phone: e.target.value })} placeholder="(81) 3721-4787" className={inputCls} />
-            </div>
-
-            <div>
-              <label className={labelCls}>Endereço</label>
-              <p className="text-xs text-gray-400 mb-1.5">Separe as linhas com " | " — ex: Rua X, 99 | Bairro, Cidade/UF</p>
-              <textarea rows={2} value={contato.address} onChange={(e) => updatePage('contato', { ...contato, address: e.target.value })} placeholder="Rua Marcílio Dias, 99 | São Francisco, Caruaru/PE" className={textareaCls} />
-            </div>
-
-            <div>
-              <label className={labelCls}>Horário de Atendimento</label>
-              <input type="text" value={contato.hours} onChange={(e) => updatePage('contato', { ...contato, hours: e.target.value })} placeholder="Segunda a Sexta: 7h às 17h" className={inputCls} />
-            </div>
-          </SettingsCard>
         </>
       )}
 

@@ -22,7 +22,7 @@ import {
   Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
   Users, User, FileText, Trash2,
   CalendarX2, Clock, ChevronDown, ChevronUp,
-  Shield, CheckCircle2, TriangleAlert, Share2, Ticket,
+  Shield, CheckCircle2, TriangleAlert, Share2, Ticket, Instagram,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
 
@@ -825,10 +825,10 @@ function BusinessHoursField({ value, savedValue, onChange }: {
                 key={idx}
                 type="button"
                 onClick={() => updateDay(idx, { open: !isOpen })}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all duration-200 ${
                   isOpen
-                    ? 'bg-[#003876] text-white shadow-md'
-                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] dark:hover:border-[#ffd700]'
+                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-[#003876]/40 hover:text-[#003876]'
                 }`}
               >
                 {isOpen && <Check className="w-3 h-3" />}
@@ -924,14 +924,21 @@ type NetworkKey = 'instagram' | 'facebook' | 'whatsapp' | 'twitter' | 'linkedin'
 
 interface SocialEntry { id: number; network: string; handle: string; message?: string }
 
-const NETWORK_CONFIGS: Record<NetworkKey, { label: string; color: string; initials: string; placeholder: string; handleLabel: string }> = {
-  instagram: { label: 'Instagram', color: '#E1306C', initials: 'IG', placeholder: 'colegiobatista',   handleLabel: 'Perfil (sem @)' },
-  facebook:  { label: 'Facebook',  color: '#1877F2', initials: 'FB', placeholder: 'colegiobatista',   handleLabel: 'Página ou perfil' },
-  whatsapp:  { label: 'WhatsApp',  color: '#25D366', initials: 'WA', placeholder: '5581991398203',    handleLabel: 'Número (com DDI, sem +)' },
-  twitter:   { label: 'Twitter/X', color: '#000000', initials: 'X',  placeholder: 'colegiobatista',   handleLabel: 'Perfil (sem @)' },
-  linkedin:  { label: 'LinkedIn',  color: '#0A66C2', initials: 'LI', placeholder: 'colegio-batista',  handleLabel: 'Empresa (slug)' },
-  youtube:   { label: 'YouTube',   color: '#FF0000', initials: 'YT', placeholder: 'colegiobatista',   handleLabel: 'Canal (sem @)' },
-  tiktok:    { label: 'TikTok',    color: '#010101', initials: 'TK', placeholder: 'colegiobatista',   handleLabel: 'Perfil (sem @)' },
+const NETWORK_CONFIGS: Record<NetworkKey, { label: string; color: string; placeholder: string; handleLabel: string; icon: (props: { size?: number; className?: string }) => React.ReactNode }> = {
+  instagram: { label: 'Instagram', color: '#E1306C', placeholder: 'colegiobatista',   handleLabel: 'Perfil (sem @)',
+    icon: ({ size = 16, className }) => <Instagram size={size} className={className} /> },
+  facebook:  { label: 'Facebook',  color: '#1877F2', placeholder: 'colegiobatista',   handleLabel: 'Página ou perfil',
+    icon: ({ size = 16, className }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg> },
+  whatsapp:  { label: 'WhatsApp',  color: '#25D366', placeholder: '5581991398203',    handleLabel: 'Número (com DDI, sem +)',
+    icon: ({ size = 16, className }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> },
+  twitter:   { label: 'Twitter/X', color: '#000000', placeholder: 'colegiobatista',   handleLabel: 'Perfil (sem @)',
+    icon: ({ size = 16, className }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
+  linkedin:  { label: 'LinkedIn',  color: '#0A66C2', placeholder: 'colegio-batista',  handleLabel: 'Empresa (slug)',
+    icon: ({ size = 16, className }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg> },
+  youtube:   { label: 'YouTube',   color: '#FF0000', placeholder: 'colegiobatista',   handleLabel: 'Canal (sem @)',
+    icon: ({ size = 16, className }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> },
+  tiktok:    { label: 'TikTok',    color: '#010101', placeholder: 'colegiobatista',   handleLabel: 'Perfil (sem @)',
+    icon: ({ size = 16, className }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.76a4.85 4.85 0 01-1.01-.07z"/></svg> },
 };
 
 const ALL_NETWORKS = Object.keys(NETWORK_CONFIGS) as NetworkKey[];
@@ -946,13 +953,13 @@ function parseSocialNetworks(v: string): SocialEntry[] {
 
 function NetworkBadge({ network }: { network: string }) {
   const cfg = NETWORK_CONFIGS[network as NetworkKey];
-  if (!cfg) return <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gray-400 text-white text-[10px] font-bold">?</span>;
+  if (!cfg) return <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-400 text-white text-[10px] font-bold">?</span>;
   return (
     <span
-      className="inline-flex items-center justify-center w-6 h-6 rounded-md text-white text-[10px] font-bold flex-shrink-0"
+      className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-white flex-shrink-0"
       style={{ backgroundColor: cfg.color }}
     >
-      {cfg.initials}
+      {cfg.icon({ size: 14, className: 'text-white' })}
     </span>
   );
 }
@@ -1035,10 +1042,10 @@ function SocialNetworksField({ value, savedValue, onChange }: {
               }`}
             >
               <span
-                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-white text-[10px] font-bold"
+                className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-white"
                 style={{ backgroundColor: selected ? 'rgba(255,255,255,0.25)' : cfg.color }}
               >
-                {cfg.initials}
+                {cfg.icon({ size: 14, className: 'text-white' })}
               </span>
               {cfg.label}
             </button>
@@ -1213,21 +1220,13 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
 
         const collapseId = `institucional.${group.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
         return (
-          <CollapsibleSection
+          <SettingsCard
             key={group.title}
             collapseId={collapseId}
+            title={group.title}
+            icon={GroupIcon}
+            description={group.subtitle}
             bodyClassName="!space-y-5"
-            head={
-              <>
-                <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">
-                  <GroupIcon className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-                  {group.title}
-                </p>
-                {group.subtitle && (
-                  <p className="text-xs text-gray-400 mt-1">{group.subtitle}</p>
-                )}
-              </>
-            }
           >
               {/* Inline group: render all keys side-by-side in one row */}
               {group.inlineKeys ? (
@@ -1256,7 +1255,7 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
                   return (
                     <div key={item.id}>
                       <div className="flex items-center gap-2 mb-3">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Endereço</label>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Endereço</label>
                         {isChanged && (
                           <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
                             Alterado
@@ -1303,7 +1302,7 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
                   return (
                     <div key={item.id}>
                       <div className="flex items-center gap-2 mb-3">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Geolocalização da instituição</label>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Geolocalização da instituição</label>
                         {isChanged && (
                           <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
                             Alterado
@@ -1359,7 +1358,7 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
                   />
                 );
               })}
-          </CollapsibleSection>
+          </SettingsCard>
         );
       })}
 
@@ -1491,7 +1490,7 @@ function WhatsAppProvidersPanel() {
           <div className="text-center py-12 text-gray-400">
             <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Nenhum provedor cadastrado ainda.</p>
-            <p className="text-xs mt-1 text-gray-300 dark:text-gray-600">Cadastre uma instância WhatsApp para começar a enviar mensagens.</p>
+            <p className="text-xs mt-1 text-gray-400">Cadastre uma instância WhatsApp para começar a enviar mensagens.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -1525,7 +1524,7 @@ function WhatsAppProvidersPanel() {
                   </div>
                   <button
                     onClick={() => handleEdit(p)}
-                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] transition-colors flex-shrink-0"
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] transition-colors flex-shrink-0"
                   >
                     <Pencil className="w-3 h-3" />
                     Editar
@@ -1539,7 +1538,7 @@ function WhatsAppProvidersPanel() {
                     <button
                       onClick={() => handleSetDefault(p.id)}
                       disabled={isSettingThis}
-                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] disabled:opacity-50 transition-colors flex-shrink-0"
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] disabled:opacity-50 transition-colors flex-shrink-0"
                     >
                       {isSettingThis ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
                       Definir padrão
@@ -1557,7 +1556,7 @@ function WhatsAppProvidersPanel() {
           <div className="flex-1 border-t border-gray-100 dark:border-gray-700" />
           <button
             onClick={handleAddNew}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all flex-shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all flex-shrink-0"
           >
             <Plug className="w-3.5 h-3.5" />
             Adicionar API
@@ -1594,7 +1593,7 @@ function SettingField({ item, meta, value, isChanged, onChange, hideDescription 
     const isConnected = value === 'true';
     return (
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{meta.label}</label>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">{meta.label}</label>
         <div className={`
           inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
           ${isConnected
@@ -1621,7 +1620,7 @@ function SettingField({ item, meta, value, isChanged, onChange, hideDescription 
 
   const fieldLabel = (
     <div className="flex items-center gap-2 mb-1.5">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{meta.label}</label>
+      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">{meta.label}</label>
       {isChanged && (
         <span className="text-[10px] font-semibold tracking-wide uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
           Alterado
@@ -1640,7 +1639,7 @@ function SettingField({ item, meta, value, isChanged, onChange, hideDescription 
     return (
       <div className="flex items-center justify-between gap-4 py-1">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{meta.label}</p>
+          <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{meta.label}</p>
           {item.description && <p className="text-xs text-gray-400 mt-0.5">{item.description}</p>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -2089,7 +2088,7 @@ function AutoConfirmSection() {
       {/* Toggle principal */}
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Ativar confirmação automática</p>
+          <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Ativar confirmação automática</p>
           <p className="text-xs text-gray-400 mt-0.5">Quando um template com botões é enviado como lembrete, o sistema rastreia a resposta e atualiza o status do agendamento.</p>
         </div>
         <button
@@ -3433,9 +3432,11 @@ function EnrollmentSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* Idade Mínima */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="enrollment.minAge"
-        head={<p className={TITLE_CLS}>Idade Mínima</p>}
+        title="Idade Mínima"
+        icon={Calendar}
+        description="Idade mínima exigida para pré-matrícula."
       >
         <div className="flex items-center gap-4">
           <button onClick={() => setData((p) => ({ ...p, min_age: Math.max(0, p.min_age - 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
@@ -3445,17 +3446,14 @@ function EnrollmentSettingsPanel() {
           </div>
           <button onClick={() => setData((p) => ({ ...p, min_age: Math.min(18, p.min_age + 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
         </div>
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Segmentos Disponíveis */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="enrollment.segments"
-        head={
-          <p className={TITLE_CLS}>
-            <GraduationCap className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Segmentos Disponíveis
-          </p>
-        }
+        title="Segmentos Disponíveis"
+        icon={GraduationCap}
+        description="Níveis de ensino habilitados para pré-matrícula."
       >
         <div className="flex flex-wrap gap-2">
           {SEGMENT_OPTIONS.map(({ label: seg, Icon: SegIcon }) => {
@@ -3476,17 +3474,14 @@ function EnrollmentSettingsPanel() {
             );
           })}
         </div>
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Documentos Obrigatórios */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="enrollment.requiredDocs"
-        head={
-          <p className={TITLE_CLS}>
-            <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Documentos Obrigatórios
-          </p>
-        }
+        title="Documentos Obrigatórios"
+        icon={FileText}
+        description="Documentos exigidos no formulário de pré-matrícula."
       >
           <div className="flex flex-wrap gap-2">
             {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
@@ -3495,9 +3490,9 @@ function EnrollmentSettingsPanel() {
                 <button
                   key={s}
                   onClick={() => added ? removeDoc(s) : addDoc(s)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
                     added
-                      ? 'bg-[#003876] border-[#003876] text-white'
+                      ? 'bg-[#003876] border-[#003876] text-white shadow-md shadow-[#003876]/20'
                       : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
                   }`}
                 >
@@ -3508,7 +3503,7 @@ function EnrollmentSettingsPanel() {
               );
             })}
             {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).map((doc) => (
-              <span key={doc} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-[#003876] border-[#003876] text-white text-xs font-medium">
+              <span key={doc} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-[#003876] border-[#003876] text-white text-xs font-medium">
                 <FileText className="w-3.5 h-3.5 flex-shrink-0" />
                 {doc}
                 <button onClick={() => removeDoc(doc)} className="opacity-70 hover:opacity-100 transition-opacity ml-0.5">
@@ -3521,17 +3516,14 @@ function EnrollmentSettingsPanel() {
             <input type="text" value={newDoc} onChange={(e) => setNewDoc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addDoc(newDoc)} placeholder="Outro documento..." className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
             <button onClick={() => addDoc(newDoc)} disabled={!newDoc.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">Adicionar</button>
           </div>
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Opções booleanas */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="enrollment.options"
-        head={
-          <p className={TITLE_CLS}>
-            <UserCheck className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Opções
-          </p>
-        }
+        title="Opções"
+        icon={UserCheck}
+        description="Requisitos adicionais para o formulário de pré-matrícula."
       >
           <div className="space-y-3">
             {(
@@ -3544,7 +3536,7 @@ function EnrollmentSettingsPanel() {
               return (
                 <div key={key} className="flex items-center justify-between gap-4 py-1">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</p>
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
                   </div>
                   <button
@@ -3560,7 +3552,7 @@ function EnrollmentSettingsPanel() {
               );
             })}
           </div>
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Floating save */}
       <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
@@ -3793,33 +3785,21 @@ function ContactSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* SLA de Resposta */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="contact.sla"
-        head={
-          <>
-            <p className={TITLE_CLS}>
-              <Clock className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-              SLA de Resposta
-            </p>
-            <p className="text-xs text-gray-400 mt-1">Prazo máximo esperado para responder a um contato recebido.</p>
-          </>
-        }
+        title="SLA de Resposta"
+        icon={Clock}
+        description="Prazo máximo esperado para responder a um contato recebido."
       >
         <SLASlider value={data.sla_hours} onChange={(v) => setData((p) => ({ ...p, sla_hours: v }))} />
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Campos Obrigatórios */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="contact.requiredFields"
-        head={
-          <>
-            <p className={TITLE_CLS}>
-              <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-              Campos Obrigatórios
-            </p>
-            <p className="text-xs text-gray-400 mt-1">Campos que o visitante precisa preencher no formulário.</p>
-          </>
-        }
+        title="Campos Obrigatórios"
+        icon={FileText}
+        description="Campos que o visitante precisa preencher no formulário."
       >
         <div className="flex flex-wrap gap-2">
           {REQUIRED_FIELD_OPTIONS.map(({ key, label, Icon }) => {
@@ -3840,22 +3820,19 @@ function ContactSettingsPanel() {
             );
           })}
         </div>
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Motivos de Contato */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="contact.reasons"
-        head={
-          <p className={TITLE_CLS}>
-            <MessageSquare className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Motivos de Contato
-          </p>
-        }
+        title="Motivos de Contato"
+        icon={MessageSquare}
+        description="Opções de assunto disponíveis no formulário de contato."
         headerExtra={
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400">{data.reasons.length}/12</span>
             {data.reasons.length < 12 && (
-              <button onClick={() => openDrawer(null)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all">
+              <button onClick={() => openDrawer(null)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all">
                 <Plus className="w-3.5 h-3.5" />
                 Adicionar
               </button>
@@ -3886,7 +3863,7 @@ function ContactSettingsPanel() {
             })}
           </div>
         )}
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Floating save */}
       <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
@@ -3939,17 +3916,17 @@ function ContactSettingsPanel() {
                   </div>
                   <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Nome</label>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Nome</label>
                       <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Ícone</p>
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Ícone</p>
                       <div className="grid grid-cols-8 gap-1.5">
                         {REASON_ICON_OPTIONS.map(({ key: iconKey, label: iconLabel, Icon: IconComp }) => {
                           const isSelected = (d.icon || 'MessageSquare') === iconKey;
                           return (
                             <button key={iconKey} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, icon: iconKey } : prev)} title={iconLabel}
-                              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${isSelected ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'}`}>
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isSelected ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'}`}>
                               <IconComp className="w-4 h-4" />
                             </button>
                           );
@@ -3968,7 +3945,7 @@ function ContactSettingsPanel() {
                   <div className="bg-white dark:bg-gray-900 px-4 py-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Detalhe obrigatório</p>
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Detalhe obrigatório</p>
                         <p className="text-xs text-gray-400 mt-0.5">Exige preenchimento do campo de mensagem</p>
                       </div>
                       <button
@@ -3992,7 +3969,7 @@ function ContactSettingsPanel() {
                   <div className="bg-white dark:bg-gray-900 px-4 py-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Gestão de Leads</p>
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Gestão de Leads</p>
                         <p className="text-xs text-gray-400 mt-0.5">Cria um lead automaticamente ao receber este contato</p>
                       </div>
                       <button

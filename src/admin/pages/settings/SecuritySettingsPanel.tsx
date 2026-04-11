@@ -49,7 +49,7 @@ function Slider({ value, min, max, step = 1, onChange, formatLabel, zeroLabel }:
         />
       </div>
       {/* Value badge */}
-      <span className="text-xs font-semibold text-[#003876] dark:text-[#ffd700] bg-[#003876]/10 dark:bg-[#ffd700]/10 px-2.5 py-1 rounded-lg min-w-[52px] text-center tabular-nums whitespace-nowrap">
+      <span className="text-xs font-semibold text-[#003876] dark:text-[#ffd700] bg-[#003876]/10 dark:bg-[#ffd700]/10 px-2.5 py-1 rounded-xl min-w-[52px] text-center tabular-nums whitespace-nowrap">
         {label}
       </span>
     </div>
@@ -135,7 +135,7 @@ export default function SecuritySettingsPanel() {
       <SettingsCard collapseId="security.complexity" title="Critérios de Complexidade" icon={Lock}>
         {/* Min length slider */}
         <div>
-          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
             Mínimo de caracteres
           </label>
           <Slider
@@ -166,7 +166,7 @@ export default function SecuritySettingsPanel() {
 
         {/* Live preview */}
         <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+          <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 mb-2">
             Pré-visualização dos critérios
           </p>
           <PasswordCriteriaChecker password="" policy={policy} />
