@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import imageCompression from 'browser-image-compression';
 import {
   Loader2, Save, Check, Link2, Upload, AlertCircle, ExternalLink,
@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { SettingsCard } from '../../components/SettingsCard';
-import { Toggle } from '../../components/Toggle';
+
 import {
   DndContext,
   closestCenter,

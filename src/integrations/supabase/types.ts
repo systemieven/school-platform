@@ -403,6 +403,8 @@ export type Database = {
           id: string
           issued_at: string
           notes: string | null
+          priority_group: number
+          scheduled_time: string | null
           sector_key: string
           sector_label: string
           served_by: string | null
@@ -428,6 +430,8 @@ export type Database = {
           id?: string
           issued_at?: string
           notes?: string | null
+          priority_group?: number
+          scheduled_time?: string | null
           sector_key: string
           sector_label: string
           served_by?: string | null
@@ -453,6 +457,8 @@ export type Database = {
           id?: string
           issued_at?: string
           notes?: string | null
+          priority_group?: number
+          scheduled_time?: string | null
           sector_key?: string
           sector_label?: string
           served_by?: string | null

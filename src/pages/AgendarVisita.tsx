@@ -386,6 +386,7 @@ export default function AgendarVisita() {
       max_per_slot: 2,
       max_daily: 0,
       lead_integrated: false,
+      min_advance_hours: 0,
       availability_enabled: false,
       availability_weekdays: [...ALL_WEEKDAYS],
       availability_intervals: [] as VisitAvailabilityInterval[],
