@@ -19,6 +19,7 @@ import LibraryPage from './pages/library/LibraryPage';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
 import EventsPage from './pages/events/EventsPage';
 import AttendancePage from './pages/attendance/AttendancePage';
+import AttendanceHistoryPage from './pages/attendance/AttendanceHistoryPage';
 import PermissionsPage from './pages/permissions/PermissionsPage';
 import AuditLogsPage from './pages/audit/AuditLogsPage';
 
@@ -50,6 +51,7 @@ export default function AdminRoutes() {
           <Route path="matriculas"   element={<EnrollmentsPage />} />
           <Route path="contatos"     element={<ContactsPage />} />
           <Route path="atendimentos" element={<AttendancePage />} />
+          <Route path="historico-atendimentos" element={<AttendanceHistoryPage />} />
 
           {/* Leads */}
           <Route path="leads/kanban" element={<KanbanPage />} />

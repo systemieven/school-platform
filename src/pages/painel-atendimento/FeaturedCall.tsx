@@ -27,7 +27,7 @@ export default function FeaturedCall({ ticket, showVisitorName, theme }: Props) 
       style={{ animation: 'panelCallIn 500ms ease-out' }}
     >
       <p
-        className="text-2xl sm:text-3xl font-semibold tracking-widest uppercase"
+        className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-widest uppercase"
         style={{ color: theme.muted }}
       >
         {ticket.sector_label}
@@ -36,7 +36,7 @@ export default function FeaturedCall({ ticket, showVisitorName, theme }: Props) 
       <p
         className="font-black leading-none"
         style={{
-          fontSize: 'clamp(5rem, 12vw, 10rem)',
+          fontSize: 'clamp(7rem, 16vw, 14rem)',
           color: theme.highlight,
           animation: 'panelGlow 2s ease-in-out 3',
           textShadow: `0 0 40px ${theme.highlight}40`,
@@ -47,7 +47,7 @@ export default function FeaturedCall({ ticket, showVisitorName, theme }: Props) 
 
       {showVisitorName && ticket.visitor_name && (
         <p
-          className="text-xl sm:text-2xl font-medium"
+          className="text-2xl sm:text-3xl lg:text-4xl font-medium"
           style={{ color: theme.text, opacity: 0.85 }}
         >
           {ticket.visitor_name}

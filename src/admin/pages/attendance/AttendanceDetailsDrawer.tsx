@@ -32,6 +32,29 @@ const STATUS_CONFIG: Record<AttendanceTicketStatus, { label: string; color: stri
   no_show:    { label: 'Não veio',        color: 'bg-red-500/20 text-red-100',       dot: 'bg-red-400'     },
 };
 
+// ── Mapeamento centralizado de status técnico → nome amigável ────────────────
+const STATUS_FRIENDLY: Record<string, string> = {
+  waiting:     'Aguardando atendimento',
+  called:      'Senha chamada',
+  in_service:  'Em atendimento',
+  finished:    'Atendimento finalizado',
+  abandoned:   'Atendimento cancelado',
+  no_show:     'Cliente não compareceu',
+  transferred: 'Transferido para outro setor',
+  confirmed:   'Agendamento confirmado',
+  cancelled:   'Agendamento cancelado',
+  pending:     'Agendamento pendente',
+  attended:    'Cliente presente',
+};
+
+/** Substitui nomes técnicos de status por nomes amigáveis na descrição */
+function translateDescription(desc: string): string {
+  return desc.replace(/"([a-z_]+)"/g, (_match, key: string) => {
+    const friendly = STATUS_FRIENDLY[key];
+    return friendly ? `"${friendly}"` : `"${key}"`;
+  });
+}
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('pt-BR', {
@@ -337,7 +360,7 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
                   <ChevronRight className="w-3 h-3" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-700 dark:text-gray-300">{e.description}</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-300">{translateDescription(e.description)}</p>
                   <p className="text-[10px] text-gray-400">
                     {formatDateTime(e.created_at)}
                     {' · '}

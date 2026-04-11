@@ -61,6 +61,7 @@ import {
   Copy,
   Link,
   ArrowRightLeft,
+  AlertTriangle,
 
   // Sector icon map
   Building2,
@@ -131,7 +132,7 @@ const DEFAULTS: AttendanceState = {
   },
   allow_walkins: { enabled: false },
   priority_queue: { enabled: false, window_minutes_before: 30, window_minutes_after: 30, show_type_indicator: true },
-  ticket_format: { prefix_mode: 'none', custom_prefix: 'A', digits: 3, per_sector_counter: false },
+  ticket_format: { prefix_mode: 'none', custom_prefix: 'A', digits: 3, per_sector_counter: false, daily_reset: true },
   sound: { enabled: true, preset: 'bell' },
   client_screen_fields: {
     show_last_called: true,
@@ -266,6 +267,7 @@ export default function AttendanceSettingsPanel() {
   const [saved, setSaved] = useState(false);
   const [showPanelPassword, setShowPanelPassword] = useState(false);
   const [panelLinkCopied, setPanelLinkCopied] = useState(false);
+  const [showDailyResetConfirm, setShowDailyResetConfirm] = useState(false);
 
   // Load attendance settings + sectors from visit_settings.reasons
   useEffect(() => {
@@ -773,7 +775,7 @@ export default function AttendanceSettingsPanel() {
           })()}
         </div>
 
-        <div className="sm:w-1/2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <button
             type="button"
             onClick={() =>
@@ -800,7 +802,76 @@ export default function AttendanceSettingsPanel() {
               </p>
             </div>
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (data.ticket_format.daily_reset) {
+                // Desativar reset diário (ativar contínuo) → sem confirmação
+                setData((prev) => ({
+                  ...prev,
+                  ticket_format: { ...prev.ticket_format, daily_reset: false },
+                }));
+              } else {
+                // Reativar reset diário → pede confirmação
+                setShowDailyResetConfirm(true);
+              }
+            }}
+            className={`
+              w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+              ${!data.ticket_format.daily_reset
+                ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+              }
+            `}
+          >
+            <InfinityIcon className={`w-4 h-4 shrink-0 mt-0.5 ${!data.ticket_format.daily_reset ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-semibold ${!data.ticket_format.daily_reset ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                Numeração contínua
+              </p>
+              <p className={`text-[11px] mt-0.5 leading-tight ${!data.ticket_format.daily_reset ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                O contador nunca reinicia. Desative para resetar a numeração todo dia à meia-noite.
+              </p>
+            </div>
+          </button>
         </div>
+
+        {/* Alerta de confirmação ao reativar reset diário */}
+        {showDailyResetConfirm && (
+          <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4 space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                Ao habilitar esta opção, a numeração das senhas será reiniciada todos os dias à meia-noite.
+                Senhas geradas em dias anteriores manterão seus números no histórico, mas novas senhas
+                começarão do número inicial configurado. Deseja continuar?
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDailyResetConfirm(false)}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setData((prev) => ({
+                    ...prev,
+                    ticket_format: { ...prev.ticket_format, daily_reset: true },
+                  }));
+                  setShowDailyResetConfirm(false);
+                }}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        )}
         </div>
       </SettingsCard>
 

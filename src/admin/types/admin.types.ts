@@ -717,6 +717,7 @@ export interface AttendanceTicketFormat {
   custom_prefix: string;
   digits: number;
   per_sector_counter: boolean;
+  daily_reset: boolean;
 }
 
 export interface AttendanceSoundConfig {

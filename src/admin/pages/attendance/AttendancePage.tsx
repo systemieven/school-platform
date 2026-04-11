@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { useRealtimeRows } from '../../hooks/useRealtimeRows';
+import { usePermissions } from '../../contexts/PermissionsContext';
 import type { AttendanceTicket, AttendanceTicketStatus, AttendancePriorityQueueConfig, AttendanceTransferConfig } from '../../types/admin.types';
 import {
   Ticket,
@@ -20,9 +22,10 @@ import {
   Calendar,
   Footprints,
   ArrowRightLeft,
-  X,
   ChevronDown,
+  History,
 } from 'lucide-react';
+import { Drawer, DrawerCard } from '../../components/Drawer';
 import AttendanceDetailsDrawer from './AttendanceDetailsDrawer';
 
 // ── Status config ────────────────────────────────────────────────────────────
@@ -76,7 +79,7 @@ function useNow(intervalMs = 1000): number {
 interface TicketCardProps {
   ticket: AttendanceTicket;
   now: number;
-  onCall: (t: AttendanceTicket) => void;
+  onRecall?: (t: AttendanceTicket) => void;
   onStart: (t: AttendanceTicket) => void;
   onFinish: (t: AttendanceTicket) => void;
   onAbandon: (t: AttendanceTicket) => void;
@@ -87,7 +90,7 @@ interface TicketCardProps {
   transferEnabled?: boolean;
 }
 
-function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onTransfer, onOpen, busy, showTypeIndicator, transferEnabled }: TicketCardProps) {
+function TicketCard({ ticket, now, onRecall, onStart, onFinish, onAbandon, onTransfer, onOpen, busy, showTypeIndicator, transferEnabled }: TicketCardProps) {
   const status = STATUS_CONFIG[ticket.status];
 
   // Live wait / service timer
@@ -170,24 +173,14 @@ function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onTrans
       {/* Footer actions */}
       <div className="border-t border-gray-100 dark:border-gray-700 px-3 py-2.5 bg-gray-50/70 dark:bg-gray-900/40 flex items-center gap-2">
         {ticket.status === 'waiting' && (
-          <>
-            <button
-              disabled={busy}
-              onClick={(e) => { e.stopPropagation(); onCall(ticket); }}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#003876] text-white text-xs font-semibold hover:bg-[#002255] disabled:opacity-50 transition-colors"
-            >
-              <PhoneCall className="w-3.5 h-3.5" />
-              Chamar
-            </button>
-            <button
-              disabled={busy}
-              onClick={(e) => { e.stopPropagation(); onAbandon(ticket); }}
-              title="Marcar como abandonado"
-              className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-red-600 hover:border-red-200 disabled:opacity-50 transition-colors"
-            >
-              <Ban className="w-3.5 h-3.5" />
-            </button>
-          </>
+          <button
+            disabled={busy}
+            onClick={(e) => { e.stopPropagation(); onAbandon(ticket); }}
+            title="Marcar como abandonado"
+            className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-red-600 hover:border-red-200 disabled:opacity-50 transition-colors ml-auto"
+          >
+            <Ban className="w-3.5 h-3.5" />
+          </button>
         )}
         {ticket.status === 'called' && (
           <>
@@ -211,7 +204,7 @@ function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onTrans
             )}
             <button
               disabled={busy}
-              onClick={(e) => { e.stopPropagation(); onCall(ticket); }}
+              onClick={(e) => { e.stopPropagation(); onRecall?.(ticket); }}
               title="Chamar novamente"
               className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-[#003876] hover:border-[#003876]/40 disabled:opacity-50 transition-colors"
             >
@@ -279,10 +272,10 @@ function Column({ title, accent, icon: Icon, tickets, children }: ColumnProps) {
   );
 }
 
-// ── Transfer Modal ──────────────────────────────────────────────────────────
+// ── Transfer Drawer ─────────────────────────────────────────────────────────
 
-interface TransferModalProps {
-  ticket: AttendanceTicket;
+interface TransferDrawerProps {
+  ticket: AttendanceTicket | null;
   sectors: Array<{ key: string; label: string }>;
   quickReasons: string[];
   onConfirm: (sectorKey: string, sectorLabel: string, reason: string) => void;
@@ -290,115 +283,126 @@ interface TransferModalProps {
   busy: boolean;
 }
 
-function TransferModal({ ticket, sectors, quickReasons, onConfirm, onClose, busy }: TransferModalProps) {
+function TransferDrawer({ ticket, sectors, quickReasons, onConfirm, onClose, busy }: TransferDrawerProps) {
   const [sectorKey, setSectorKey] = useState('');
   const [reason, setReason] = useState('');
 
-  const available = sectors.filter((s) => s.key !== ticket.sector_key);
+  // Reset state when ticket changes
+  useEffect(() => {
+    setSectorKey('');
+    setReason('');
+  }, [ticket?.id]);
+
+  const available = ticket ? sectors.filter((s) => s.key !== ticket.sector_key) : [];
   const selectedLabel = available.find((s) => s.key === sectorKey)?.label || '';
   const canConfirm = sectorKey !== '' && reason.trim() !== '';
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
-      <div className="fixed inset-0 flex items-center justify-center z-[61] p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-purple-600 to-purple-800 px-5 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-white">
-              <ArrowRightLeft className="w-4 h-4" />
-              <span className="font-semibold text-sm">Transferir Senha {ticket.ticket_number}</span>
-            </div>
-            <button onClick={onClose} className="text-white/70 hover:text-white hover:bg-white/20 p-1 rounded-lg transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="p-5 space-y-4">
-            {/* Current sector */}
-            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <LayoutGrid className="w-3.5 h-3.5" />
-              Setor atual: <span className="font-medium text-gray-700 dark:text-gray-200">{ticket.sector_label}</span>
-            </div>
-
-            {/* Destination sector */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                Setor destino
-              </label>
-              <div className="relative">
-                <select
-                  value={sectorKey}
-                  onChange={(e) => setSectorKey(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-purple-500 appearance-none pr-9"
-                >
-                  <option value="">Selecione o setor...</option>
-                  {available.map((s) => (
-                    <option key={s.key} value={s.key}>{s.label}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+    <Drawer
+      open={!!ticket}
+      onClose={onClose}
+      title={`Transferir Senha ${ticket?.ticket_number ?? ''}`}
+      icon={ArrowRightLeft}
+      badge={
+        ticket ? (
+          <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-lg bg-white/15 text-white/90">
+            {STATUS_CONFIG[ticket.status].label}
+          </span>
+        ) : undefined
+      }
+      footer={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!canConfirm || busy}
+            onClick={() => onConfirm(sectorKey, selectedLabel, reason.trim())}
+            className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002255] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+            Confirmar Transferência
+          </button>
+        </div>
+      }
+    >
+      {ticket && (
+        <>
+          {/* Ticket info */}
+          <DrawerCard title="Senha" icon={Ticket}>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-display text-2xl font-bold text-[#003876] dark:text-white">{ticket.ticket_number}</span>
               </div>
+              <p className="text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                {ticket.visitor_name}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                <Phone className="w-3 h-3 flex-shrink-0" />
+                {formatPhone(ticket.visitor_phone)}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                <LayoutGrid className="w-3 h-3 flex-shrink-0" />
+                Setor atual: <span className="font-medium text-gray-700 dark:text-gray-200">{ticket.sector_label}</span>
+              </p>
             </div>
+          </DrawerCard>
 
-            {/* Quick reasons */}
-            {quickReasons.length > 0 && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                  Justificativas rápidas
-                </label>
+          {/* Destination sector */}
+          <DrawerCard title="Setor destino" icon={LayoutGrid}>
+            <div className="relative">
+              <select
+                value={sectorKey}
+                onChange={(e) => setSectorKey(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] appearance-none pr-9"
+              >
+                <option value="">Selecione o setor...</option>
+                {available.map((s) => (
+                  <option key={s.key} value={s.key}>{s.label}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          </DrawerCard>
+
+          {/* Justification */}
+          <DrawerCard title="Justificativa" icon={ArrowRightLeft}>
+            <div className="space-y-3">
+              {/* Quick reasons */}
+              {quickReasons.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {quickReasons.filter(Boolean).map((qr, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => setReason((prev) => prev ? `${prev}. ${qr}` : qr)}
-                      className="px-2.5 py-1.5 text-[11px] rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                      className="px-2.5 py-1.5 text-[11px] rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#003876]/40 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
                       {qr}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Free-text reason */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                Justificativa
-              </label>
+              {/* Free-text */}
               <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                rows={3}
+                rows={4}
                 placeholder="Descreva o motivo da transferência..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-purple-500 resize-none"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] resize-none"
               />
             </div>
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={!canConfirm || busy}
-                onClick={() => onConfirm(sectorKey, selectedLabel, reason.trim())}
-                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+          </DrawerCard>
+        </>
+      )}
+    </Drawer>
   );
 }
 
@@ -417,6 +421,8 @@ const DEFAULT_TRANSFER_CFG: AttendanceTransferConfig = {
 
 export default function AttendancePage() {
   const { profile } = useAdminAuth();
+  const { canView } = usePermissions();
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<AttendanceTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -556,12 +562,36 @@ export default function AttendancePage() {
     return true;
   }
 
-  const handleCall = (t: AttendanceTicket) => {
-    patchTicket(t.id, {
-      status: 'called',
-      called_at: new Date().toISOString(),
-      called_by: profile?.id || null,
+  const handleCallNext = async () => {
+    if (!profile) return;
+    setBusyId('__calling_next__');
+    const sectorKeys = effectiveSectors; // null = all sectors, string[] = restricted
+    const { data, error } = await supabase.rpc('claim_next_ticket', {
+      p_sector_keys: sectorKeys,
+      p_caller_id: profile.id,
     });
+    setBusyId(null);
+    if (error) {
+      console.error('Failed to claim next ticket', error);
+      alert('Erro ao chamar próximo: ' + error.message);
+      return;
+    }
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      alert('Nenhuma senha disponível na fila.');
+    }
+  };
+
+  const handleRecall = async (t: AttendanceTicket) => {
+    setBusyId(t.id);
+    const { error } = await supabase.rpc('recall_ticket', {
+      p_ticket_id: t.id,
+      p_caller_id: profile?.id,
+    });
+    setBusyId(null);
+    if (error) {
+      console.error('Failed to recall ticket', error);
+      alert('Erro ao rechamar: ' + error.message);
+    }
   };
 
   const handleStart = (t: AttendanceTicket) => {
@@ -667,13 +697,24 @@ export default function AttendancePage() {
             Fila em tempo real das senhas emitidas pela recepção.
           </p>
         </div>
-        <button
-          onClick={fetchData}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Atualizar
-        </button>
+        <div className="flex items-center gap-2">
+          {canView('attendance_history') && (
+            <button
+              onClick={() => navigate('/admin/historico-atendimentos')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            >
+              <History className="w-4 h-4" />
+              Histórico
+            </button>
+          )}
+          <button
+            onClick={fetchData}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Atualizar
+          </button>
+        </div>
       </div>
 
       {/* KPI chips */}
@@ -749,7 +790,7 @@ export default function AttendancePage() {
             {waitingTickets.length > 0 && (
               <button
                 disabled={busyId !== null}
-                onClick={() => handleCall(waitingTickets[0])}
+                onClick={handleCallNext}
                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#003876] text-white text-xs font-semibold hover:bg-[#002255] disabled:opacity-50 transition-colors mb-1"
               >
                 <PhoneCall className="w-4 h-4" />
@@ -762,7 +803,6 @@ export default function AttendancePage() {
                 ticket={t}
                 now={now}
                 busy={busyId === t.id}
-                onCall={handleCall}
                 onStart={handleStart}
                 onFinish={handleFinish}
                 onAbandon={handleAbandon}
@@ -780,7 +820,7 @@ export default function AttendancePage() {
                 ticket={t}
                 now={now}
                 busy={busyId === t.id}
-                onCall={handleCall}
+                onRecall={handleRecall}
                 onStart={handleStart}
                 onFinish={handleFinish}
                 onAbandon={handleAbandon}
@@ -797,7 +837,6 @@ export default function AttendancePage() {
                 ticket={t}
                 now={now}
                 busy={busyId === t.id}
-                onCall={handleCall}
                 onStart={handleStart}
                 onFinish={handleFinish}
                 onAbandon={handleAbandon}
@@ -810,17 +849,15 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* Transfer modal */}
-      {transferTarget && (
-        <TransferModal
-          ticket={transferTarget}
-          sectors={allSectors}
-          quickReasons={transferCfg.quick_reasons}
-          onConfirm={handleTransfer}
-          onClose={() => setTransferTarget(null)}
-          busy={busyId === transferTarget.id}
-        />
-      )}
+      {/* Transfer drawer */}
+      <TransferDrawer
+        ticket={transferTarget}
+        sectors={allSectors}
+        quickReasons={transferCfg.quick_reasons}
+        onConfirm={handleTransfer}
+        onClose={() => setTransferTarget(null)}
+        busy={transferTarget ? busyId === transferTarget.id : false}
+      />
 
       {/* Details drawer */}
       <AttendanceDetailsDrawer ticket={selected} onClose={() => setSelected(null)} />

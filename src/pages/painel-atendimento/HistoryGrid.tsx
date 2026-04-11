@@ -32,30 +32,30 @@ export default function HistoryGrid({ history, theme, sectors }: Props) {
             style={{ backgroundColor: theme.card }}
           >
             <p
-              className="text-xs font-semibold tracking-widest uppercase mb-3 pb-2 border-b"
+              className="text-sm sm:text-base lg:text-lg font-semibold tracking-widest uppercase mb-3 pb-2 border-b"
               style={{ color: theme.muted, borderColor: `${theme.muted}20` }}
             >
               {sector.label}
             </p>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {entries.map((ticket, idx) => (
                 <div
                   key={ticket.id}
-                  className="flex items-center justify-between px-2 py-1.5 rounded-lg"
+                  className="flex items-center justify-between px-3 py-2 rounded-lg"
                   style={{
-                    opacity: 1 - idx * 0.15,
+                    opacity: 1 - idx * 0.12,
                     backgroundColor: `${theme.accent}15`,
                   }}
                 >
                   <span
-                    className="text-lg font-bold"
+                    className="text-xl sm:text-2xl lg:text-3xl font-bold"
                     style={{ color: theme.text }}
                   >
                     {ticket.ticket_number}
                   </span>
                   {ticket.visitor_name && (
                     <span
-                      className="text-xs truncate max-w-[50%]"
+                      className="text-sm sm:text-base truncate max-w-[50%]"
                       style={{ color: theme.muted }}
                     >
                       {ticket.visitor_name}
