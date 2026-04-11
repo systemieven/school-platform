@@ -133,7 +133,8 @@ export default function SecuritySettingsPanel() {
     <div className="p-6 space-y-5">
       {/* Complexity */}
       <SettingsCard collapseId="security.complexity" title="Critérios de Complexidade" icon={Lock}>
-        {/* Min length slider */}
+        {/* ── Tamanho mínimo ── */}
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Tamanho mínimo</p>
         <div>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
             Mínimo de caracteres
@@ -147,8 +148,11 @@ export default function SecuritySettingsPanel() {
           />
         </div>
 
-        {/* Toggles */}
-        <div className="space-y-3 pt-1">
+        <hr className="border-gray-100 dark:border-gray-700/50" />
+
+        {/* ── Requisitos ── */}
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Requisitos</p>
+        <div className="space-y-3">
           {(
             [
               ['require_uppercase', 'Exigir letras maiúsculas (A–Z)'],
@@ -164,10 +168,12 @@ export default function SecuritySettingsPanel() {
           ))}
         </div>
 
-        {/* Live preview */}
-        <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
-          <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 mb-2">
-            Pré-visualização dos critérios
+        <hr className="border-gray-100 dark:border-gray-700/50" />
+
+        {/* ── Pré-visualização ── */}
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-2">
+            Pré-visualização
           </p>
           <PasswordCriteriaChecker password="" policy={policy} />
           <p className="text-[11px] text-gray-400 mt-2 italic">

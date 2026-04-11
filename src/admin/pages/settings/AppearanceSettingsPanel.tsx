@@ -441,6 +441,8 @@ function HeroFieldsBlock({
 
   return (
     <SettingsCard collapseId={`appearance.${pageKey}.hero`} title="Hero da Página">
+      {/* ── Textos ── */}
+      <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Textos</p>
       <div>
         <label className={labelCls}>Badge</label>
         <input type="text" value={data.badge} onChange={(e) => set('badge', e.target.value)} placeholder="Ex: Matrículas 2026 abertas" className={inputCls} />
@@ -462,6 +464,10 @@ function HeroFieldsBlock({
         <textarea rows={3} value={data.subtitle} onChange={(e) => set('subtitle', e.target.value)} placeholder="Descrição exibida abaixo do título" className={textareaCls} />
       </div>
 
+      <hr className="border-gray-100 dark:border-gray-700/50" />
+
+      {/* ── Mídia ── */}
+      <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Mídia</p>
       <ImageField
         label="Imagem de Fundo"
         value={data.image}
@@ -612,6 +618,8 @@ export default function AppearanceSettingsPanel() {
       {activeTab === 'home' && (
         <>
           <SettingsCard collapseId="appearance.home.hero" title="Hero da Página" icon={Layers}>
+            {/* ── Textos ── */}
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Textos</p>
             <div>
               <label className={labelCls}>Badge</label>
               <input type="text" value={home.badge} onChange={(e) => updateHome({ badge: e.target.value })} placeholder="Ex: Matrículas 2026 abertas" className={inputCls} />
@@ -633,6 +641,10 @@ export default function AppearanceSettingsPanel() {
               <textarea rows={3} value={home.subtitle} onChange={(e) => updateHome({ subtitle: e.target.value })} placeholder="Descrição exibida abaixo do título" className={textareaCls} />
             </div>
 
+            <hr className="border-gray-100 dark:border-gray-700/50" />
+
+            {/* ── Mídia ── */}
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Mídia</p>
             <div>
               <label className={labelCls}>URL do Vídeo de Fundo (fallback)</label>
               <p className="text-xs text-gray-400 mb-1.5">Usado quando nenhuma cena estiver configurada no slideshow abaixo.</p>
@@ -642,7 +654,8 @@ export default function AppearanceSettingsPanel() {
 
           {/* ── Slideshow ── */}
           <SettingsCard collapseId="appearance.home.slideshow" title="Slideshow da Hero" icon={Play} description="Configure cenas com imagens ou vídeos para exibição em sequência na hero.">
-            {/* Global settings */}
+            {/* ── Configurações ── */}
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Configurações</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-900/30 rounded-xl">
               <div>
                 <label className={labelCls}>Duração padrão (s)</label>
@@ -703,9 +716,11 @@ export default function AppearanceSettingsPanel() {
               </div>
             </div>
 
-            {/* Transition style visual picker */}
+            <hr className="border-gray-100 dark:border-gray-700/50" />
+
+            {/* ── Transição ── */}
             <div>
-              <label className={labelCls}>Estilo de transição</label>
+              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Transição</p>
               <div className="grid grid-cols-5 gap-2">
                 {TRANSITION_OPTIONS.map((opt) => (
                   <button
@@ -738,8 +753,11 @@ export default function AppearanceSettingsPanel() {
               </div>
             </div>
 
-            {/* Scene list */}
+            <hr className="border-gray-100 dark:border-gray-700/50" />
+
+            {/* ── Cenas ── */}
             <div className="space-y-3">
+              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Cenas</p>
               <div className="flex items-center justify-between">
                 <label className={labelCls + ' mb-0'}>Cenas ({(home.scenes ?? []).length})</label>
                 <button type="button" onClick={addScene} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-[#003876] hover:bg-[#002855] transition-colors shadow-sm">

@@ -519,7 +519,8 @@ export default function AttendanceSettingsPanel() {
 
           return (
             <div className="space-y-4">
-              {/* Linha 1: Datas futuras | Ultimos N dias */}
+              {/* ── Regras de data ── */}
+              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Regras de data</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                 <div className="space-y-3">
                   <ToggleBtn active={data.eligibility_rules.future} disabled={anyActive} onClick={() => toggleRule('future')} icon={CalendarPlus} label="Datas futuras" desc="Agendamentos de amanha em diante." />
@@ -535,13 +536,15 @@ export default function AttendanceSettingsPanel() {
                 </div>
               </div>
 
-              {/* Linha 2: Qualquer data | Walk-in */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                 <ToggleBtn active={data.eligibility_rules.any} onClick={() => toggleRule('any')} icon={InfinityIcon} label="Qualquer data" desc="Sem restricao - libera todas as regras." />
                 <ToggleBtn active={data.allow_walkins.enabled} onClick={() => setData((prev) => ({ ...prev, allow_walkins: { enabled: !prev.allow_walkins.enabled } }))} icon={UserPlus} label="Sem agendamento previo (walk-in)" desc="Permite gerar senha informando nome e setor direto na recepcao." />
               </div>
 
-              {/* Linha 3: Prioridade | Indicador */}
+              <hr className="border-gray-100 dark:border-gray-700/50" />
+
+              {/* ── Prioridade ── */}
+              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Prioridade</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                 <ToggleBtn active={data.priority_queue.enabled} onClick={() => setData((prev) => ({ ...prev, priority_queue: { ...prev.priority_queue, enabled: !prev.priority_queue.enabled } }))} icon={CalendarClock} label="Prioridade por agendamento" desc="Agendados no horario sao chamados antes dos demais." />
                 {data.priority_queue.enabled && (
@@ -549,7 +552,6 @@ export default function AttendanceSettingsPanel() {
                 )}
               </div>
 
-              {/* Sliders de tolerancia — mesma linha */}
               {data.priority_queue.enabled && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                   <MinutesSlider label="Tolerância antes do horário" value={data.priority_queue.window_minutes_before} onChange={(v) => setData((prev) => ({ ...prev, priority_queue: { ...prev.priority_queue, window_minutes_before: v } }))} />
@@ -563,14 +565,20 @@ export default function AttendanceSettingsPanel() {
 
       {/* 2. Formato de Senha */}
       <SettingsCard collapseId="attendance.ticketFormat" title="Formato de Senha" icon={Hash} description="Personalize o formato do número exibido na senha emitida.">
-        <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
-          <span className="text-[10px] font-semibold tracking-[0.1em] uppercase text-gray-400">Prévia</span>
-          <span className="font-display text-2xl font-bold text-[#003876] dark:text-white">{ticketPreview()}</span>
+        {/* ── Prévia ── */}
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Prévia</p>
+          <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
+            <span className="font-display text-2xl font-bold text-[#003876] dark:text-white">{ticketPreview()}</span>
+          </div>
         </div>
 
-        {/* Prefixo — botões com ícones, igual aos demais cards */}
+        <hr className="border-gray-100 dark:border-gray-700/50" />
+
+        {/* ── Prefixo ── */}
+        <div className="space-y-4">
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Prefixo</p>
         <div>
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Prefixo</label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {([
               { key: 'none',   label: 'Nenhum',        desc: 'Apenas os dígitos (ex: 001).',       icon: Minus      },
@@ -626,8 +634,13 @@ export default function AttendanceSettingsPanel() {
             />
           </div>
         )}
+        </div>
 
-        {/* Dígitos — slider estilo business hours (thumb branco com anel azul) */}
+        <hr className="border-gray-100 dark:border-gray-700/50" />
+
+        {/* ── Numeração ── */}
+        <div className="space-y-4">
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Numeração</p>
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Dígitos</label>
@@ -694,81 +707,93 @@ export default function AttendanceSettingsPanel() {
           })()}
         </div>
 
-        <label className="flex items-center gap-2.5 pt-2">
-          <input
-            type="checkbox"
-            checked={data.ticket_format.per_sector_counter}
-            onChange={(e) =>
+        <div className="sm:w-1/2">
+          <button
+            type="button"
+            onClick={() =>
               setData((prev) => ({
                 ...prev,
-                ticket_format: { ...prev.ticket_format, per_sector_counter: e.target.checked },
+                ticket_format: { ...prev.ticket_format, per_sector_counter: !prev.ticket_format.per_sector_counter },
               }))
             }
-            className="w-4 h-4 rounded border-gray-300 text-[#003876] focus:ring-[#003876]/30"
-          />
-          <span className="text-sm text-gray-700 dark:text-gray-300">Contador separado por setor</span>
-        </label>
+            className={`
+              w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+              ${data.ticket_format.per_sector_counter
+                ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+              }
+            `}
+          >
+            <Hash className={`w-4 h-4 shrink-0 mt-0.5 ${data.ticket_format.per_sector_counter ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-semibold ${data.ticket_format.per_sector_counter ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                Contador separado por setor
+              </p>
+              <p className={`text-[11px] mt-0.5 leading-tight ${data.ticket_format.per_sector_counter ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                Cada setor reinicia a contagem de senhas independentemente.
+              </p>
+            </div>
+          </button>
+        </div>
+        </div>
       </SettingsCard>
 
       {/* 3. Som de Notificação */}
       <SettingsCard collapseId="attendance.sound" title="Som de Notificação" icon={Volume2} description="Som tocado no painel do cliente quando a senha for chamada. Clique num preset para ouvir.">
-        <button
-          type="button"
-          onClick={() =>
-            setData((prev) => ({
-              ...prev,
-              sound: { ...prev.sound, enabled: !prev.sound.enabled },
-            }))
-          }
-          className={`
-            w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
-            ${data.sound.enabled
-              ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+        <div className={`grid gap-2.5 ${data.sound.enabled ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-5'}`}>
+          {/* Toggle habilitar — primeiro na linha */}
+          <button
+            type="button"
+            onClick={() =>
+              setData((prev) => ({
+                ...prev,
+                sound: { ...prev.sound, enabled: !prev.sound.enabled },
+              }))
             }
-          `}
-        >
-          <Volume2 className={`w-4 h-4 shrink-0 mt-0.5 ${data.sound.enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-semibold ${data.sound.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
-              Habilitar som de notificação
-            </p>
-            <p className={`text-[11px] mt-0.5 leading-tight ${data.sound.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
-              Toca o preset escolhido quando a senha do cliente for chamada.
-            </p>
-          </div>
-        </button>
+            className={`
+              flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
+              ${data.sound.enabled
+                ? 'bg-[#ffd700] text-[#003876] border-[#ffd700] shadow-md shadow-[#ffd700]/25'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+              }
+            `}
+          >
+            <Volume2 className={`w-6 h-6 ${data.sound.enabled ? 'text-[#003876]' : 'text-gray-400'}`} />
+            <span className={`text-xs font-semibold ${data.sound.enabled ? 'text-[#003876]' : 'text-gray-800 dark:text-gray-100'}`}>
+              {data.sound.enabled ? 'Ativado' : 'Desativado'}
+            </span>
+          </button>
 
-        {data.sound.enabled && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-            {SOUND_PRESETS.map(({ key, label, icon: Icon }) => {
-              const active = data.sound.preset === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => selectSoundPreset(key)}
-                  className={`
-                    flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
-                    ${active
-                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
-                    }
-                  `}
-                >
-                  <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
-                  <span className={`text-xs font-semibold ${
-                    active ? 'text-white' : 'text-gray-800 dark:text-gray-100'
-                  }`}>{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+          {/* Presets — só quando habilitado */}
+          {data.sound.enabled && SOUND_PRESETS.map(({ key, label, icon: Icon }) => {
+            const active = data.sound.preset === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => selectSoundPreset(key)}
+                className={`
+                  flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
+                  ${active
+                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                  }
+                `}
+              >
+                <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <span className={`text-xs font-semibold ${
+                  active ? 'text-white' : 'text-gray-800 dark:text-gray-100'
+                }`}>{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </SettingsCard>
 
       {/* 4. Tela do cliente */}
       <SettingsCard collapseId="attendance.clientScreen" title="Tela do Cliente" icon={Monitor} description="Controle o que é exibido na página pública após a senha ser gerada. Clique para habilitar/desabilitar cada item.">
+        {/* ── Campos visíveis ── */}
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Campos visíveis</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {([
             { key: 'show_last_called',   label: 'Última senha chamada', desc: 'Exibe a última senha chamada em outro setor.', icon: History         },
@@ -812,11 +837,10 @@ export default function AttendanceSettingsPanel() {
           })}
         </div>
 
-        {data.client_screen_fields.show_instructions && (
+        {data.client_screen_fields.show_instructions && (<>
+          <hr className="border-gray-100 dark:border-gray-700/50" />
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-              Texto das instruções
-            </label>
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Instruções</p>
             <textarea
               value={data.client_screen_fields.instructions_text}
               onChange={(e) =>
@@ -829,42 +853,48 @@ export default function AttendanceSettingsPanel() {
               className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
             />
           </div>
-        )}
+        </>)}
       </SettingsCard>
 
       {/* 5. Feedback */}
       <SettingsCard collapseId="attendance.feedback" title="Feedback Pós-Atendimento" icon={Star} description="Coleta de avaliação do cliente após a finalização do atendimento.">
-        {/* Master toggle — padrão de botão igual aos outros cards */}
-        <button
-          type="button"
-          onClick={() =>
-            setData((prev) => ({
-              ...prev,
-              feedback: { ...prev.feedback, enabled: !prev.feedback.enabled },
-            }))
-          }
-          className={`
-            w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
-            ${data.feedback.enabled
-              ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+        {/* ── Ativação ── */}
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Ativação</p>
+        <div className="sm:w-1/2">
+          <button
+            type="button"
+            onClick={() =>
+              setData((prev) => ({
+                ...prev,
+                feedback: { ...prev.feedback, enabled: !prev.feedback.enabled },
+              }))
             }
-          `}
-        >
-          <ThumbsUp className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-semibold ${data.feedback.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
-              Habilitar feedback pós-atendimento
-            </p>
-            <p className={`text-[11px] mt-0.5 leading-tight ${data.feedback.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
-              Coleta avaliação do cliente logo após o atendimento ser finalizado.
-            </p>
-          </div>
-        </button>
+            className={`
+              w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+              ${data.feedback.enabled
+                ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+              }
+            `}
+          >
+            <ThumbsUp className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-semibold ${data.feedback.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                Habilitar feedback pós-atendimento
+              </p>
+              <p className={`text-[11px] mt-0.5 leading-tight ${data.feedback.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                Coleta avaliação do cliente logo após o atendimento ser finalizado.
+              </p>
+            </div>
+          </button>
+        </div>
 
         {data.feedback.enabled && (
           <>
-            {/* Texto do convite — editável */}
+            <hr className="border-gray-100 dark:border-gray-700/50" />
+
+            {/* ── Configuração ── */}
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Configuração</p>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
                 Texto exibido ao cliente
@@ -921,7 +951,10 @@ export default function AttendanceSettingsPanel() {
               </div>
             </div>
 
-            {/* Toggles adicionais: campo livre (independente) + perguntas personalizadas (independente) */}
+            <hr className="border-gray-100 dark:border-gray-700/50" />
+
+            {/* ── Campos adicionais ── */}
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Campos adicionais</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* Campo livre para comentários — campo adicional no formulário do cliente */}
               <button
@@ -981,10 +1014,11 @@ export default function AttendanceSettingsPanel() {
             </div>
 
             {/* Lista de perguntas personalizadas — só quando o toggle estiver ligado */}
-            {data.feedback.custom_questions_enabled && (
+            {data.feedback.custom_questions_enabled && (<>
+              <hr className="border-gray-100 dark:border-gray-700/50" />
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold tracking-[0.1em] uppercase text-gray-400">Perguntas personalizadas</p>
+                  <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Perguntas personalizadas</p>
                   <button
                     type="button"
                     onClick={() =>
@@ -1255,60 +1289,74 @@ export default function AttendanceSettingsPanel() {
                   </div>
                 )}
               </div>
-            )}
+            </>)}
           </>
         )}
       </SettingsCard>
 
       {/* 6. Painel de Chamadas */}
       <SettingsCard collapseId="attendance.displayPanel" title="Painel de Chamadas" icon={Tv} description="Configure o painel público exibido na TV da recepção.">
-        {/* Senha de acesso */}
+        {/* ── Acesso ── */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Senha de acesso ao painel</label>
-          <div className="relative max-w-xs">
-            <input
-              type={showPanelPassword ? 'text' : 'password'}
-              value={data.display_panel.password}
-              onChange={(e) => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, password: e.target.value } }))}
-              placeholder="Defina uma senha simples"
-              className="w-full px-3 py-2.5 pr-10 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-            />
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Acesso</p>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Senha de acesso ao painel</label>
+            <div className="relative max-w-xs">
+              <input
+                type={showPanelPassword ? 'text' : 'password'}
+                value={data.display_panel.password}
+                onChange={(e) => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, password: e.target.value } }))}
+                placeholder="Defina uma senha simples"
+                className="w-full px-3 py-2.5 pr-10 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPanelPassword((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showPanelPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-gray-100 dark:border-gray-700/50" />
+
+        {/* ── Exibição ── */}
+        <div className="space-y-4">
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Exibição</p>
+          <div className="sm:w-1/2">
             <button
               type="button"
-              onClick={() => setShowPanelPassword((v) => !v)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, show_visitor_name: !prev.display_panel.show_visitor_name } }))}
+              className={`
+                w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+                ${data.display_panel.show_visitor_name
+                  ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                }
+              `}
             >
-              {showPanelPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <Eye className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_visitor_name ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-semibold ${data.display_panel.show_visitor_name ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                  Exibir nome do visitante
+                </p>
+                <p className={`text-[11px] mt-0.5 leading-tight ${data.display_panel.show_visitor_name ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                  Mostra o nome do visitante abaixo da senha em destaque no painel.
+                </p>
+              </div>
             </button>
           </div>
         </div>
 
-        {/* Exibir nome do visitante — toggle full-width igual cards 3 e 5 */}
-        <button
-          type="button"
-          onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, show_visitor_name: !prev.display_panel.show_visitor_name } }))}
-          className={`
-            w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
-            ${data.display_panel.show_visitor_name
-              ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
-            }
-          `}
-        >
-          <Eye className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_visitor_name ? 'text-[#ffd700]' : 'text-gray-400'}`} />
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-semibold ${data.display_panel.show_visitor_name ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
-              Exibir nome do visitante
-            </p>
-            <p className={`text-[11px] mt-0.5 leading-tight ${data.display_panel.show_visitor_name ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
-              Mostra o nome do visitante abaixo da senha em destaque no painel.
-            </p>
-          </div>
-        </button>
+        <hr className="border-gray-100 dark:border-gray-700/50" />
 
-        {/* Som do painel — grid centralizado igual ao card 3 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Som de alerta</label>
+        {/* ── Som ── */}
+        <div className="space-y-4">
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Som</p>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Som de alerta</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {SOUND_PRESETS.map(({ key, label, icon: Icon }) => {
               const active = data.display_panel.sound_preset === key;
@@ -1394,10 +1442,13 @@ export default function AttendanceSettingsPanel() {
             </div>
           </div>
         </div>
+        </div>
 
-        {/* Filtro de setores */}
-        {sectors.length > 0 && (
-          <div>
+        {/* ── Setores ── */}
+        {sectors.length > 0 && (<>
+          <hr className="border-gray-100 dark:border-gray-700/50" />
+          <div className="space-y-3">
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Setores</p>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
               Setores exibidos no painel
               <span className="ml-1 text-gray-400/80 font-normal">(vazio = todos)</span>
@@ -1424,24 +1475,27 @@ export default function AttendanceSettingsPanel() {
                     className={`
                       flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
                       ${active
-                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                        ? 'bg-[#ffd700] text-[#003876] border-[#ffd700] shadow-md shadow-[#ffd700]/25'
+                        : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[#ffd700]/40 hover:text-gray-600'
                       }
                     `}
                   >
-                    <SectorIcon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                    <SectorIcon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#003876]' : 'text-gray-400'}`} />
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold truncate ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{label}</p>
+                      <p className={`text-sm font-semibold truncate ${active ? 'text-[#003876]' : 'text-gray-400 dark:text-gray-500'}`}>{label}</p>
                     </div>
                   </button>
                 );
               })}
             </div>
           </div>
-        )}
+        </>)}
 
-        {/* Tema visual */}
-        <div>
+        <hr className="border-gray-100 dark:border-gray-700/50" />
+
+        {/* ── Aparência ── */}
+        <div className="space-y-3">
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Aparência</p>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Tema visual</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {THEME_PRESETS.map(({ key, label, bg, card, highlight, text, muted }) => {
@@ -1451,10 +1505,10 @@ export default function AttendanceSettingsPanel() {
                   key={key}
                   type="button"
                   onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, theme: key } }))}
-                  className={`rounded-xl border overflow-hidden transition-all duration-200 ${
+                  className={`rounded-xl border-2 overflow-hidden transition-all duration-200 ${
                     active
-                      ? 'border-[#003876] shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-[#003876]/40'
+                      ? 'border-[#ffd700] shadow-md shadow-[#ffd700]/25 ring-2 ring-[#ffd700]/30'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-[#ffd700]/40'
                   }`}
                 >
                   {/* Mini panel mockup */}
@@ -1488,8 +1542,11 @@ export default function AttendanceSettingsPanel() {
           </div>
         </div>
 
-        {/* Link direto */}
+        <hr className="border-gray-100 dark:border-gray-700/50" />
+
+        {/* ── Link direto ── */}
         <div>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Link de acesso</p>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Link direto para o painel</label>
           <div className="flex items-center gap-2 max-w-md">
             <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">

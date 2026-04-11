@@ -2889,6 +2889,8 @@ function AppointmentsSettingsPanel() {
         icon={CalendarX2}
         description="Datas específicas em que não há atendimento."
       >
+          {/* ── Cadastrados ── */}
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Cadastrados</p>
           <div className="space-y-2">
             {blockedDates.length === 0 && (
               <p className="text-xs text-gray-400 italic">Nenhum dia fechado cadastrado.</p>
@@ -2908,6 +2910,9 @@ function AppointmentsSettingsPanel() {
               );
             })}
           </div>
+          <hr className="border-gray-100 dark:border-gray-700/50" />
+          {/* ── Adicionar ── */}
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Adicionar</p>
           <div className="flex gap-2 flex-wrap items-center">
             <select value={newBlockedDay} onChange={(e) => setNewBlockedDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
               <option value="">Dia</option>
@@ -2941,6 +2946,8 @@ function AppointmentsSettingsPanel() {
         icon={Calendar}
         description="Datas fixas recorrentes (dia/mês). Feriados variáveis use Dias Fechados."
       >
+          {/* ── Cadastrados ── */}
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Cadastrados</p>
           <div className="space-y-2">
             {holidays.length === 0 && (
               <p className="text-xs text-gray-400 italic">Nenhum feriado cadastrado.</p>
@@ -2960,6 +2967,9 @@ function AppointmentsSettingsPanel() {
               );
             })}
           </div>
+          <hr className="border-gray-100 dark:border-gray-700/50" />
+          {/* ── Adicionar ── */}
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Adicionar</p>
           <div className="flex gap-2 flex-wrap items-center">
             <select value={newHolidayDay} onChange={(e) => setNewHolidayDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
               <option value="">Dia</option>
@@ -3545,6 +3555,8 @@ function EnrollmentSettingsPanel() {
         icon={FileText}
         description="Documentos exigidos no formulário de pré-matrícula."
       >
+          {/* ── Sugeridos ── */}
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Sugeridos</p>
           <div className="flex flex-wrap gap-2">
             {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
               const added = data.required_docs_list.includes(s);
@@ -3574,6 +3586,9 @@ function EnrollmentSettingsPanel() {
               </span>
             ))}
           </div>
+          <hr className="border-gray-100 dark:border-gray-700/50" />
+          {/* ── Adicionar personalizado ── */}
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Adicionar personalizado</p>
           <div className="flex gap-2">
             <input type="text" value={newDoc} onChange={(e) => setNewDoc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addDoc(newDoc)} placeholder="Outro documento..." className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
             <button onClick={() => addDoc(newDoc)} disabled={!newDoc.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">Adicionar</button>
