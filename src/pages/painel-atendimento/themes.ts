@@ -24,13 +24,13 @@ export const THEMES: Record<string, PanelTheme> = {
     card: '#112211',
     muted: '#94a3b8',
   },
-  'dark-red': {
-    bg: '#1a0a0a',
+  'dark-gold': {
+    bg: '#1a1400',
     text: '#ffffff',
-    accent: '#991b1b',
-    highlight: '#fca5a5',
-    card: '#221111',
-    muted: '#94a3b8',
+    accent: '#92700c',
+    highlight: '#ffd700',
+    card: '#221c05',
+    muted: '#b0a47a',
   },
   light: {
     bg: '#f8fafc',

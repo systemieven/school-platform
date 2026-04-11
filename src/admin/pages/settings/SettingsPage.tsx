@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import AppearanceSettingsPanel from './AppearanceSettingsPanel';
 import AttendanceSettingsPanel from './AttendanceSettingsPanel';
 import GeolocationField from '../../components/GeolocationField';
-import { TITLE_CLS, CollapsibleSection } from '../../components/SettingsCard';
+import { TITLE_CLS, CollapsibleSection, SettingsCard } from '../../components/SettingsCard';
 import { supabase } from '../../../lib/supabase';
 import { getProviders, setDefaultProvider, registerWebhook, WEBHOOK_FUNCTION_BASE } from '../../lib/whatsapp-api';
 import type { WhatsAppProvider } from '../../lib/whatsapp-api';
@@ -2767,21 +2767,18 @@ function AppointmentsSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* Motivos de Visita */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="visits.reasons"
-        head={
-          <p className={TITLE_CLS}>
-            <FileText className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Motivos de Visita
-          </p>
-        }
+        title="Motivos de Visita"
+        icon={FileText}
+        description="Tipos de visita disponíveis para agendamento público."
         headerExtra={
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400">{data.reasons.length}/10</span>
             {data.reasons.length < 10 && (
               <button
                 onClick={() => openDrawer(null)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Adicionar
@@ -2822,17 +2819,14 @@ function AppointmentsSettingsPanel() {
               })}
             </div>
           )}
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Dias Fechados */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="visits.blockedDates"
-        head={
-          <p className={TITLE_CLS}>
-            <CalendarX2 className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-            Dias Fechados
-          </p>
-        }
+        title="Dias Fechados"
+        icon={CalendarX2}
+        description="Datas específicas em que não há atendimento."
       >
           <div className="space-y-2">
             {blockedDates.length === 0 && (
@@ -2877,20 +2871,14 @@ function AppointmentsSettingsPanel() {
               Adicionar
             </button>
           </div>
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Feriados */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="visits.holidays"
-        head={
-          <>
-            <p className={TITLE_CLS}>
-              <Calendar className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-              Feriados
-            </p>
-            <p className="text-xs text-gray-400 mt-1">Datas fixas recorrentes (dia/mês). Feriados variáveis use Dias Fechados.</p>
-          </>
-        }
+        title="Feriados"
+        icon={Calendar}
+        description="Datas fixas recorrentes (dia/mês). Feriados variáveis use Dias Fechados."
       >
           <div className="space-y-2">
             {holidays.length === 0 && (
@@ -2929,39 +2917,27 @@ function AppointmentsSettingsPanel() {
               Adicionar
             </button>
           </div>
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Lembretes Automáticos */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="visits.reminderChain"
-        head={
-          <>
-            <p className={TITLE_CLS}>
-              <Bell className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-              Lembretes Automáticos
-            </p>
-            <p className="text-xs text-gray-400 mt-1">Cadeia de lembretes enviada antes da visita. Requer template com trigger <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">on_reminder</code>.</p>
-          </>
-        }
+        title="Lembretes Automáticos"
+        icon={Bell}
+        description={<>Cadeia de lembretes enviada antes da visita. Requer template com trigger <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded text-[11px]">on_reminder</code>.</>}
       >
         <ReminderChainSection />
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Confirmação Automática */}
-      <CollapsibleSection
+      <SettingsCard
         collapseId="visits.autoConfirm"
-        head={
-          <>
-            <p className={TITLE_CLS}>
-              <CheckCircle2 className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" />
-              Confirmação Automática
-            </p>
-            <p className="text-xs text-gray-400 mt-1">Rastreia respostas de botões WhatsApp para confirmar/cancelar agendamentos automaticamente.</p>
-          </>
-        }
+        title="Confirmação Automática"
+        icon={CheckCircle2}
+        description="Rastreia respostas de botões WhatsApp para confirmar/cancelar agendamentos automaticamente."
       >
         <AutoConfirmSection />
-      </CollapsibleSection>
+      </SettingsCard>
 
       {/* Floating save */}
       <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
@@ -3020,17 +2996,17 @@ function AppointmentsSettingsPanel() {
                   </div>
                   <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Nome</label>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Nome</label>
                       <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Ícone</p>
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Ícone</p>
                       <div className="grid grid-cols-8 gap-1.5">
                         {REASON_ICON_OPTIONS.map(({ key: iconKey, label: iconLabel, Icon: IconComp }) => {
                           const isSelected = (d.icon || 'FileText') === iconKey;
                           return (
                             <button key={iconKey} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, icon: iconKey } : prev)} title={iconLabel}
-                              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${isSelected ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'}`}>
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isSelected ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'}`}>
                               <IconComp className="w-4 h-4" />
                             </button>
                           );
@@ -3048,21 +3024,21 @@ function AppointmentsSettingsPanel() {
                   </div>
                   <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Duração da visita</p>
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Duração da visita</p>
                       <div className="flex flex-wrap gap-2">
                         {DURATION_OPTIONS.map((min) => (
-                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, duration_minutes: min } : prev)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${d.duration_minutes === min ? 'bg-[#003876] text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, duration_minutes: min } : prev)} className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.duration_minutes === min ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'}`}>
                             {min} min
                           </button>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-0.5">Intervalo após</p>
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Intervalo após</p>
                       <p className="text-xs text-gray-400 mb-2">Tempo de preparação entre atendimentos</p>
                       <div className="flex flex-wrap gap-2">
                         {BUFFER_OPTIONS.map((min) => (
-                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, buffer_minutes: min } : prev)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${d.buffer_minutes === min ? 'bg-[#003876] text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, buffer_minutes: min } : prev)} className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.buffer_minutes === min ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'}`}>
                             {min === 0 ? 'Nenhum' : `${min} min`}
                           </button>
                         ))}
@@ -3080,24 +3056,24 @@ function AppointmentsSettingsPanel() {
                   <div className="bg-white dark:bg-gray-900 px-4 py-4 divide-y divide-gray-100 dark:divide-gray-700">
                     <div className="flex items-center justify-between pb-4">
                       <div>
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Máx. simultâneos</p>
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Máx. simultâneos</p>
                         <p className="text-xs text-gray-400 mt-0.5">Agendamentos no mesmo horário</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.max(1, (prev.max_per_slot ?? 1) - 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.max(1, (prev.max_per_slot ?? 1) - 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
                         <span className="w-8 text-center text-lg font-bold text-gray-800 dark:text-white">{d.max_per_slot ?? 1}</span>
-                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.min(10, (prev.max_per_slot ?? 1) + 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.min(10, (prev.max_per_slot ?? 1) + 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-4">
                       <div>
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Máx. diário</p>
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Máx. diário</p>
                         <p className="text-xs text-gray-400 mt-0.5">0 = ilimitado</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.max(0, (prev.max_daily ?? 0) - 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.max(0, (prev.max_daily ?? 0) - 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
                         <span className="w-8 text-center text-lg font-bold text-gray-800 dark:text-white">{d.max_daily ?? 0}</span>
-                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.min(50, (prev.max_daily ?? 0) + 1) } : prev)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.min(50, (prev.max_daily ?? 0) + 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
                       </div>
                     </div>
                   </div>
@@ -3112,7 +3088,7 @@ function AppointmentsSettingsPanel() {
                   <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Horário específico</p>
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Horário específico</p>
                         <p className="text-xs text-gray-400 mt-0.5">Restringe dias e horários disponíveis para este motivo</p>
                       </div>
                       <button
@@ -3148,7 +3124,7 @@ function AppointmentsSettingsPanel() {
                             (derivado de general.business_hours). Não faz sentido
                             permitir marcar um dia que a escola nem abre. */}
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Dias da semana</p>
+                          <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Dias da semana</p>
                           {businessOpenWeekdays.length === 0 ? (
                             <p className="text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded-lg px-3 py-2">
                               Nenhum dia de funcionamento configurado em Institucional → Horário de Funcionamento.
@@ -3173,10 +3149,10 @@ function AppointmentsSettingsPanel() {
                                           : [...current, idx].sort((a, b) => a - b);
                                         return { ...prev, availability_weekdays: next };
                                       })}
-                                      className={`h-9 rounded-lg text-[11px] font-semibold transition-all ${
+                                      className={`h-9 rounded-xl text-[11px] font-semibold transition-all ${
                                         selected
-                                          ? 'bg-[#003876] text-white shadow-sm ring-2 ring-[#003876]/30'
-                                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876]'
+                                          ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30'
+                                          : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
                                       }`}
                                     >
                                       {WEEKDAYS[idx]}
@@ -3194,7 +3170,7 @@ function AppointmentsSettingsPanel() {
                         {/* ── Intervalos de horário ── */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
                               Intervalos de horário
                               <span className="ml-1.5 text-[10px] font-normal text-gray-400">
                                 ({(d.availability_intervals?.length ?? 0)}/{MAX_INTERVALS})
@@ -3296,7 +3272,7 @@ function AppointmentsSettingsPanel() {
                   <div className="bg-white dark:bg-gray-900 px-4 py-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Gestão de Leads</p>
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Gestão de Leads</p>
                         <p className="text-xs text-gray-400 mt-0.5">Cria um lead automaticamente ao agendar</p>
                       </div>
                       <button

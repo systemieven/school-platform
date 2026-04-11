@@ -59,7 +59,29 @@ import {
   EyeOff,
   Copy,
   Link,
-  
+  Palette,
+  // Sector icon map
+  Building2,
+  Users,
+  User,
+  FileText,
+  BookOpen,
+  BookMarked,
+  GraduationCap,
+  Calendar,
+  ClipboardList,
+  PenLine,
+  Briefcase,
+  Heart,
+  Phone,
+  Mail,
+  Home,
+  HelpCircle,
+  Award,
+  UserCheck,
+  Handshake,
+  Baby,
+  Bus,
 } from 'lucide-react';
 import type {
   AttendanceEligibilityRules,
@@ -79,6 +101,7 @@ interface AllowWalkins {
 interface Sector {
   key: string;
   label: string;
+  icon?: string;
 }
 
 interface AttendanceState {
@@ -144,16 +167,26 @@ const ATTENDANCE_KEYS: (keyof AttendanceState)[] = [
   'display_panel',
 ];
 
+const SECTOR_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Building2, Users, User, FileText, BookOpen, BookMarked, GraduationCap,
+  MessageCircle, MessageSquare, Calendar, ClipboardList, PenLine, Briefcase,
+  Heart, Star, Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
+};
+
 const THEME_PRESETS: Array<{
   key: DisplayPanelConfig['theme'];
   label: string;
   bg: string;
+  card: string;
   accent: string;
+  highlight: string;
+  text: string;
+  muted: string;
 }> = [
-  { key: 'dark-blue',  label: 'Azul escuro',  bg: '#0a1628', accent: '#003876' },
-  { key: 'dark-green', label: 'Verde escuro',  bg: '#0a1a0a', accent: '#166534' },
-  { key: 'dark-red',   label: 'Vermelho escuro', bg: '#1a0a0a', accent: '#991b1b' },
-  { key: 'light',      label: 'Claro',         bg: '#f8fafc', accent: '#003876' },
+  { key: 'dark-blue',  label: 'Azul escuro',    bg: '#0a1628', card: '#111d33', accent: '#003876', highlight: '#ffd700', text: '#ffffff', muted: '#94a3b8' },
+  { key: 'dark-green', label: 'Verde escuro',   bg: '#0a1a0a', card: '#112211', accent: '#166534', highlight: '#86efac', text: '#ffffff', muted: '#94a3b8' },
+  { key: 'dark-gold',  label: 'Dourado escuro', bg: '#1a1400', card: '#221c05', accent: '#92700c', highlight: '#ffd700', text: '#ffffff', muted: '#b0a47a' },
+  { key: 'light',      label: 'Claro',          bg: '#f8fafc', card: '#ffffff', accent: '#003876', highlight: '#ffd700', text: '#1e293b', muted: '#64748b' },
 ];
 
 const SOUND_PRESETS: Array<{
@@ -259,9 +292,9 @@ export default function AttendanceSettingsPanel() {
             ? JSON.parse(reasonsRes.data.value)
             : reasonsRes.data.value;
           if (Array.isArray(raw)) {
-            parsedSectors = (raw as Array<{ key: string; label: string }>)
+            parsedSectors = (raw as Array<{ key: string; label: string; icon?: string }>)
               .filter((r) => r.key && r.label)
-              .map((r) => ({ key: r.key, label: r.label }));
+              .map((r) => ({ key: r.key, label: r.label, icon: r.icon }));
           }
         } catch {
           /* ignore */
@@ -1186,108 +1219,116 @@ export default function AttendanceSettingsPanel() {
 
       {/* 6. Painel de Chamadas */}
       <SettingsCard collapseId="attendance.displayPanel" title="Painel de Chamadas" icon={Tv} description="Configure o painel público exibido na TV da recepção.">
-        <div className="space-y-5">
-          {/* Senha de acesso */}
-          <div>
-            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Senha de acesso</label>
-            <div className="relative max-w-xs">
-              <input
-                type={showPanelPassword ? 'text' : 'password'}
-                value={data.display_panel.password}
-                onChange={(e) => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, password: e.target.value } }))}
-                placeholder="Defina uma senha simples"
-                className="w-full px-3 py-2 pr-10 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPanelPassword((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                {showPanelPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
+        {/* Senha de acesso */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Senha de acesso ao painel</label>
+          <div className="relative max-w-xs">
+            <input
+              type={showPanelPassword ? 'text' : 'password'}
+              value={data.display_panel.password}
+              onChange={(e) => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, password: e.target.value } }))}
+              placeholder="Defina uma senha simples"
+              className="w-full px-3 py-2.5 pr-10 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPanelPassword((v) => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {showPanelPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
+        </div>
 
-          {/* Exibir nome do visitante */}
+        {/* Exibir nome do visitante — toggle full-width igual cards 3 e 5 */}
+        <button
+          type="button"
+          onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, show_visitor_name: !prev.display_panel.show_visitor_name } }))}
+          className={`
+            w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+            ${data.display_panel.show_visitor_name
+              ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+            }
+          `}
+        >
+          <Eye className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_visitor_name ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-semibold ${data.display_panel.show_visitor_name ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+              Exibir nome do visitante
+            </p>
+            <p className={`text-[11px] mt-0.5 leading-tight ${data.display_panel.show_visitor_name ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+              Mostra o nome do visitante abaixo da senha em destaque no painel.
+            </p>
+          </div>
+        </button>
+
+        {/* Som do painel — grid centralizado igual ao card 3 */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Som de alerta</label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {SOUND_PRESETS.map(({ key, label, icon: Icon }) => {
+              const active = data.display_panel.sound_preset === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, sound_preset: key } }));
+                    playSoundPreview(key);
+                  }}
+                  className={`
+                    flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
+                    ${active
+                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    }
+                  `}
+                >
+                  <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                  <span className={`text-xs font-semibold ${
+                    active ? 'text-white' : 'text-gray-800 dark:text-gray-100'
+                  }`}>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Repetições + Histórico — grid 2 colunas com botões card-style */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Exibir nome do visitante</label>
-            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Repetições do alerta</label>
+            <div className="grid grid-cols-3 gap-2">
               {[
-                { value: true,  label: 'Exibir',  Icon: Eye },
-                { value: false, label: 'Ocultar', Icon: EyeOff },
-              ].map(({ value, label, Icon }) => {
-                const active = data.display_panel.show_visitor_name === value;
-                return (
-                  <button
-                    key={String(value)}
-                    type="button"
-                    onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, show_visitor_name: value } }))}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold border-r border-gray-200 dark:border-gray-600 last:border-r-0 transition-colors ${
-                      active ? 'bg-[#003876] text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-[#003876]'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Som do painel */}
-          <div>
-            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Som de alerta</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {SOUND_PRESETS.map(({ key, label, icon: Icon }) => {
-                const active = data.display_panel.sound_preset === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, sound_preset: key } }));
-                      playSoundPreview(key);
-                    }}
-                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border transition-all duration-200 ${
-                      active
-                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
-                    <span className="text-xs font-semibold">{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Repetições do som */}
-          <div>
-            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Repetições do alerta sonoro</label>
-            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
-              {[1, 2, 3].map((n) => {
+                { n: 1, label: '1×', desc: 'Único' },
+                { n: 2, label: '2×', desc: 'Duplo' },
+                { n: 3, label: '3×', desc: 'Triplo' },
+              ].map(({ n, label, desc }) => {
                 const active = data.display_panel.sound_repeat === n;
                 return (
                   <button
                     key={n}
                     type="button"
                     onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, sound_repeat: n } }))}
-                    className={`px-4 py-2 text-xs font-semibold border-r border-gray-200 dark:border-gray-600 last:border-r-0 transition-colors ${
-                      active ? 'bg-[#003876] text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-[#003876]'
-                    }`}
+                    className={`
+                      flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all duration-200
+                      ${active
+                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                      }
+                    `}
                   >
-                    {n}×
+                    <span className={`text-lg font-bold ${active ? 'text-[#ffd700]' : 'text-gray-400'}`}>{label}</span>
+                    <span className={`text-[10px] font-medium ${active ? 'text-white/70' : 'text-gray-500'}`}>{desc}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-
-          {/* Senhas no histórico */}
           <div>
-            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Senhas no histórico por setor</label>
-            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Senhas no histórico por setor</label>
+            <div className="grid grid-cols-4 gap-2">
               {[3, 5, 7, 10].map((n) => {
                 const active = data.display_panel.history_count === n;
                 return (
@@ -1295,111 +1336,139 @@ export default function AttendanceSettingsPanel() {
                     key={n}
                     type="button"
                     onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, history_count: n } }))}
-                    className={`px-3.5 py-2 text-xs font-semibold border-r border-gray-200 dark:border-gray-600 last:border-r-0 transition-colors ${
-                      active ? 'bg-[#003876] text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-[#003876]'
-                    }`}
+                    className={`
+                      flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all duration-200
+                      ${active
+                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                      }
+                    `}
                   >
-                    {n}
+                    <span className={`text-lg font-bold ${active ? 'text-[#ffd700]' : 'text-gray-400'}`}>{n}</span>
                   </button>
                 );
               })}
             </div>
           </div>
+        </div>
 
-          {/* Filtro de setores */}
-          {sectors.length > 0 && (
-            <div>
-              <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">
-                Setores exibidos no painel
-                <span className="ml-1.5 font-normal normal-case tracking-normal text-gray-400/80">
-                  (vazio = todos)
-                </span>
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {sectors.map(({ key, label }) => {
-                  const active = data.display_panel.sector_filter.includes(key);
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() =>
-                        setData((prev) => ({
-                          ...prev,
-                          display_panel: {
-                            ...prev.display_panel,
-                            sector_filter: active
-                              ? prev.display_panel.sector_filter.filter((s) => s !== key)
-                              : [...prev.display_panel.sector_filter, key],
-                          },
-                        }))
-                      }
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                        active
-                          ? 'bg-[#003876] text-white border-[#003876]'
-                          : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Tema visual */}
+        {/* Filtro de setores */}
+        {sectors.length > 0 && (
           <div>
-            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Tema visual</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {THEME_PRESETS.map(({ key, label, bg, accent }) => {
-                const active = data.display_panel.theme === key;
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+              Setores exibidos no painel
+              <span className="ml-1 text-gray-400/80 font-normal">(vazio = todos)</span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {sectors.map(({ key, label, icon }) => {
+                const active = data.display_panel.sector_filter.includes(key);
+                const SectorIcon = (icon && SECTOR_ICON_MAP[icon]) || SECTOR_ICON_MAP.FileText;
                 return (
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, theme: key } }))}
-                    className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border transition-all duration-200 ${
-                      active
-                        ? 'border-[#003876] shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-[#003876]/40'
-                    }`}
+                    onClick={() =>
+                      setData((prev) => ({
+                        ...prev,
+                        display_panel: {
+                          ...prev.display_panel,
+                          sector_filter: active
+                            ? prev.display_panel.sector_filter.filter((s) => s !== key)
+                            : [...prev.display_panel.sector_filter, key],
+                        },
+                      }))
+                    }
+                    className={`
+                      flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+                      ${active
+                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                      }
+                    `}
                   >
-                    <div className="flex gap-1">
-                      <span className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: bg }} />
-                      <span className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: accent }} />
+                    <SectorIcon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold truncate ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{label}</p>
                     </div>
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
+        )}
 
-          {/* Link direto */}
-          <div>
-            <label className="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1.5">Link direto para o painel</label>
-            <div className="flex items-center gap-2 max-w-md">
-              <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">
-                <Link className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                <span className="text-xs text-gray-500 truncate">{`${window.location.origin}/painel-atendimento`}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/painel-atendimento`);
-                  setPanelLinkCopied(true);
-                  setTimeout(() => setPanelLinkCopied(false), 2000);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  panelLinkCopied
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-[#003876] text-white hover:bg-[#002855]'
-                }`}
-              >
-                {panelLinkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {panelLinkCopied ? 'Copiado!' : 'Copiar'}
-              </button>
+        {/* Tema visual */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Tema visual</label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {THEME_PRESETS.map(({ key, label, bg, card, highlight, text, muted }) => {
+              const active = data.display_panel.theme === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, theme: key } }))}
+                  className={`rounded-xl border overflow-hidden transition-all duration-200 ${
+                    active
+                      ? 'border-[#003876] shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-[#003876]/40'
+                  }`}
+                >
+                  {/* Mini panel mockup */}
+                  <div className="aspect-[4/3] p-2 flex flex-col" style={{ backgroundColor: bg }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="h-1 w-8 rounded-full" style={{ backgroundColor: muted, opacity: 0.5 }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center gap-1">
+                      <div className="h-1 w-6 rounded-full" style={{ backgroundColor: muted, opacity: 0.4 }} />
+                      <div className="text-base font-black leading-none" style={{ color: highlight }}>A001</div>
+                      <div className="h-1 w-8 rounded-full" style={{ backgroundColor: text, opacity: 0.25 }} />
+                    </div>
+                    <div className="flex gap-1 mt-1">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="flex-1 rounded p-1 space-y-0.5" style={{ backgroundColor: card }}>
+                          <div className="h-0.5 w-4 rounded-full" style={{ backgroundColor: muted, opacity: 0.3 }} />
+                          <div className="h-0.5 w-3 rounded-full" style={{ backgroundColor: text, opacity: 0.2 }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={`px-2 py-1.5 text-center text-[10px] font-semibold transition-colors ${
+                    active ? 'bg-[#003876] text-white' : 'bg-gray-50 dark:bg-gray-800 text-gray-500'
+                  }`}>
+                    {label}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Link direto */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Link direto para o painel</label>
+          <div className="flex items-center gap-2 max-w-md">
+            <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">
+              <Link className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <span className="text-xs text-gray-500 truncate">{`${window.location.origin}/painel-atendimento`}</span>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/painel-atendimento`);
+                setPanelLinkCopied(true);
+                setTimeout(() => setPanelLinkCopied(false), 2000);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                panelLinkCopied
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-[#003876] text-white hover:bg-[#002855]'
+              }`}
+            >
+              {panelLinkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              {panelLinkCopied ? 'Copiado!' : 'Copiar'}
+            </button>
           </div>
         </div>
       </SettingsCard>

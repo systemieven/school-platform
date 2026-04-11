@@ -797,7 +797,7 @@ export interface DisplayPanelConfig {
   sound_repeat: number;
   history_count: number;
   sector_filter: string[];
-  theme: 'dark-blue' | 'dark-green' | 'dark-red' | 'light';
+  theme: 'dark-blue' | 'dark-green' | 'dark-gold' | 'light';
 }
 
 export interface InstitutionGeolocation {
