@@ -135,6 +135,8 @@ interface TicketRow {
   issued_at: string;
   called_at: string | null;
   finished_at: string | null;
+  priority_group: 1 | 2;
+  scheduled_time: string | null;
 }
 
 const SOUND_FILES: Record<string, string> = {
@@ -183,6 +185,8 @@ export default function AtendimentoPublico() {
 
   const [ticket, setTicket] = useState<TicketRow | null>(null);
   const [lastCalled, setLastCalled] = useState<{ ticket_number: string; sector_label: string } | null>(null);
+
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const calledOnceRef = useRef(false);
@@ -254,6 +258,37 @@ export default function AtendimentoPublico() {
       supabase.removeChannel(channel);
     };
   }, [ticket, config]);
+
+  // ── Queue position (real-time) ─────────────────────────────────────────────
+  const calcPosition = useCallback(async () => {
+    if (!ticket || ticket.status !== 'waiting') { setQueuePosition(null); return; }
+    const { data } = await supabase
+      .from('attendance_tickets')
+      .select('id, priority_group, scheduled_time, issued_at')
+      .eq('status', 'waiting');
+    if (!data) return;
+    const sorted = (data as Array<{ id: string; priority_group: number; scheduled_time: string | null; issued_at: string }>)
+      .sort((a, b) => {
+        if (a.priority_group !== b.priority_group) return a.priority_group - b.priority_group;
+        if (a.priority_group === 1)
+          return (a.scheduled_time || '').localeCompare(b.scheduled_time || '') || a.issued_at.localeCompare(b.issued_at);
+        return a.issued_at.localeCompare(b.issued_at);
+      });
+    const idx = sorted.findIndex((t) => t.id === ticket.id);
+    setQueuePosition(idx >= 0 ? idx + 1 : null);
+  }, [ticket]);
+
+  useEffect(() => {
+    if (!ticket || ticket.status !== 'waiting') { setQueuePosition(null); return; }
+    calcPosition();
+    const channel = supabase
+      .channel('queue-position')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_tickets' }, () => {
+        calcPosition();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [ticket?.status, calcPosition]);
 
   // ── Submit phone (dry-run) ─────────────────────────────────────────────────
   const submitPhone = useCallback(async () => {
@@ -625,6 +660,11 @@ export default function AtendimentoPublico() {
                   Aguardando ser chamado
                 </p>
                 {elapsedWait && <p className="text-[11px] text-amber-600 mt-0.5">há {elapsedWait}</p>}
+                {queuePosition !== null && (
+                  <p className="text-lg font-bold text-amber-800 mt-2 transition-all duration-500 ease-in-out">
+                    Posição na fila: <span className="font-display text-2xl">{queuePosition}</span>
+                  </p>
+                )}
               </div>
             )}
             {ticket.status === 'called' && (

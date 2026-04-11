@@ -54,6 +54,7 @@ interface EligibilityRules {
   past_limited: boolean;
   any: boolean;
   past_days_limit: number;
+  future_days_limit: number;
 }
 
 function normalizeEligibilityRules(raw: unknown): EligibilityRules {
@@ -61,6 +62,10 @@ function normalizeEligibilityRules(raw: unknown): EligibilityRules {
   const past_days_limit =
     typeof r.past_days_limit === "number" && r.past_days_limit > 0
       ? r.past_days_limit
+      : 7;
+  const future_days_limit =
+    typeof r.future_days_limit === "number" && r.future_days_limit > 0
+      ? r.future_days_limit
       : 7;
   const legacyMode = typeof r.mode === "string" ? (r.mode as string) : null;
   if (legacyMode) {
@@ -70,6 +75,7 @@ function normalizeEligibilityRules(raw: unknown): EligibilityRules {
       past_limited: legacyMode === "past_limited",
       any: legacyMode === "any",
       past_days_limit,
+      future_days_limit,
     };
   }
   return {
@@ -78,6 +84,7 @@ function normalizeEligibilityRules(raw: unknown): EligibilityRules {
     past_limited: !!r.past_limited,
     any: !!r.any,
     past_days_limit,
+    future_days_limit,
   };
 }
 
@@ -117,7 +124,13 @@ function isEligible(
 
   // Testa cada regra ativa; basta uma bater.
   if (rules.same_day && apptDate === today) return { ok: true };
-  if (rules.future && apptDate > today) return { ok: true };
+  if (rules.future && apptDate > today) {
+    const diffDays =
+      (new Date(apptDate).getTime() - new Date(today).getTime()) /
+      (1000 * 60 * 60 * 24);
+    if (diffDays <= rules.future_days_limit) return { ok: true };
+    return { ok: false, reason: "future_limit_exceeded" };
+  }
   if (rules.past_limited && apptDate < today) {
     const diffDays =
       (new Date(today).getTime() - new Date(apptDate).getTime()) /
@@ -296,6 +309,7 @@ Deno.serve(async (req: Request) => {
             "Seu agendamento é para uma data futura. Volte no dia marcado.",
           past_not_allowed: "Seu agendamento já passou.",
           past_limit_exceeded: `Seu agendamento passou do limite de ${rules.past_days_limit} dias retroativos.`,
+          future_limit_exceeded: `Seu agendamento excede o limite de ${rules.future_days_limit} dias futuros.`,
         };
         return json({
           eligible: false,
@@ -422,6 +436,43 @@ Deno.serve(async (req: Request) => {
     }
     const ticketNumber = numberRow as unknown as string;
 
+    // ── Determinar grupo de prioridade ─────────────────────────────────────
+    const priorityCfg = (settings.attendance?.priority_queue ?? {
+      enabled: false,
+      window_minutes_before: 30,
+      window_minutes_after: 30,
+      show_type_indicator: true,
+    }) as {
+      enabled: boolean;
+      window_minutes_before: number;
+      window_minutes_after: number;
+      show_type_indicator: boolean;
+    };
+
+    let priorityGroup = 2;
+    let scheduledTime: string | null = null;
+
+    if (
+      priorityCfg.enabled &&
+      matched &&
+      matched.appointment_date === today
+    ) {
+      // Calcular diferença em minutos entre agora e o horário agendado
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const [apptH, apptM] = matched.appointment_time.split(":").map(Number);
+      const apptMinutes = apptH * 60 + apptM;
+      const diffMinutes = nowMinutes - apptMinutes; // positivo = atrasado, negativo = adiantado
+
+      if (
+        diffMinutes >= -priorityCfg.window_minutes_before &&
+        diffMinutes <= priorityCfg.window_minutes_after
+      ) {
+        priorityGroup = 1;
+        scheduledTime = matched.appointment_time;
+      }
+    }
+
     const { data: ticket, error: ticketErr } = await supabase
       .from("attendance_tickets")
       .insert({
@@ -436,6 +487,8 @@ Deno.serve(async (req: Request) => {
         checkin_lat: lat,
         checkin_lng: lng,
         checkin_distance_m: distance,
+        priority_group: priorityGroup,
+        scheduled_time: scheduledTime,
       })
       .select("*")
       .single();
@@ -447,7 +500,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    return json({ eligible: true, ticket, distance_m: distance });
+    return json({ eligible: true, ticket, distance_m: distance, priority_group: priorityGroup });
   } catch (err) {
     console.error("[attendance-checkin] unexpected", err);
     return json(

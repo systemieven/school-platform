@@ -640,7 +640,16 @@ export interface AttendanceTicket {
   checkin_distance_m: number | null;
   feedback_id: string | null;
   notes: string | null;
+  priority_group: 1 | 2;
+  scheduled_time: string | null;
   created_at: string;
+}
+
+export interface AttendancePriorityQueueConfig {
+  enabled: boolean;
+  window_minutes_before: number;
+  window_minutes_after: number;
+  show_type_indicator: boolean;
 }
 
 export interface AttendanceHistoryEntry {
@@ -675,6 +684,7 @@ export interface AttendanceEligibilityRules {
   past_limited: boolean;
   any: boolean;
   past_days_limit: number;
+  future_days_limit: number;
 }
 
 export interface AttendanceTicketFormat {

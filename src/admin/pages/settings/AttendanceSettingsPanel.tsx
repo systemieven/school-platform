@@ -23,6 +23,7 @@ import {
   Plus,
   Trash2,
   // Eligibility icons
+  CalendarClock,
   CalendarCheck,
   CalendarPlus,
   History,
@@ -89,6 +90,7 @@ import type {
   AttendanceSoundConfig,
   AttendanceClientScreenFields,
   AttendanceFeedbackConfig,
+  AttendancePriorityQueueConfig,
   AttendanceQuestion,
   AttendanceQuestionType,
   DisplayPanelConfig,
@@ -107,6 +109,7 @@ interface Sector {
 interface AttendanceState {
   eligibility_rules: AttendanceEligibilityRules;
   allow_walkins: AllowWalkins;
+  priority_queue: AttendancePriorityQueueConfig;
   ticket_format: AttendanceTicketFormat;
   sound: AttendanceSoundConfig;
   client_screen_fields: AttendanceClientScreenFields;
@@ -121,8 +124,10 @@ const DEFAULTS: AttendanceState = {
     past_limited: false,
     any: false,
     past_days_limit: 7,
+    future_days_limit: 7,
   },
   allow_walkins: { enabled: false },
+  priority_queue: { enabled: false, window_minutes_before: 30, window_minutes_after: 30, show_type_indicator: true },
   ticket_format: { prefix_mode: 'none', custom_prefix: 'A', digits: 3, per_sector_counter: false },
   sound: { enabled: true, preset: 'bell' },
   client_screen_fields: {
@@ -160,6 +165,7 @@ const DEFAULTS: AttendanceState = {
 const ATTENDANCE_KEYS: (keyof AttendanceState)[] = [
   'eligibility_rules',
   'allow_walkins',
+  'priority_queue',
   'ticket_format',
   'sound',
   'client_screen_fields',
@@ -212,6 +218,9 @@ function normalizeEligibilityRules(raw: unknown): AttendanceEligibilityRules {
   const past_days_limit = typeof r.past_days_limit === 'number' && r.past_days_limit > 0
     ? r.past_days_limit
     : 7;
+  const future_days_limit = typeof r.future_days_limit === 'number' && r.future_days_limit > 0
+    ? r.future_days_limit
+    : 7;
   if (legacyMode) {
     return {
       same_day:     legacyMode === 'same_day',
@@ -219,6 +228,7 @@ function normalizeEligibilityRules(raw: unknown): AttendanceEligibilityRules {
       past_limited: legacyMode === 'past_limited',
       any:          legacyMode === 'any',
       past_days_limit,
+      future_days_limit,
     };
   }
   return {
@@ -227,6 +237,7 @@ function normalizeEligibilityRules(raw: unknown): AttendanceEligibilityRules {
     past_limited: !!r.past_limited,
     any:          !!r.any,
     past_days_limit,
+    future_days_limit,
   };
 }
 
@@ -316,9 +327,15 @@ export default function AttendanceSettingsPanel() {
 
   async function handleSave() {
     setSaving(true);
+    // same_day é sempre true — agendamento no dia marcado é o comportamento natural.
+    // O botão foi removido do UI; forçamos aqui para nunca gravar false.
+    const safeData = {
+      ...data,
+      eligibility_rules: { ...data.eligibility_rules, same_day: true },
+    };
     const rows = ATTENDANCE_KEYS.map((key) => ({
       key,
-      value: data[key],
+      value: safeData[key],
     }));
 
     await Promise.all(
@@ -385,23 +402,11 @@ export default function AttendanceSettingsPanel() {
 
   return (
     <div className="p-6 space-y-5">
-      {/* 1. Regras de Elegibilidade */}
-      <SettingsCard collapseId="attendance.eligibility" title="Regras de Elegibilidade" icon={Shield} description="Defina quando um visitante pode emitir senha. Marque mais de uma para combinar as regras; “Qualquer data” desabilita as demais.">
+      {/* 1. Regras de Elegibilidade e Fila */}
+      <SettingsCard collapseId="attendance.eligibility" title="Elegibilidade e Fila" icon={Shield} description="Defina quando um visitante pode emitir senha, aceite walk-ins e configure a prioridade de agendados na fila.">
         {(() => {
-          // Quando "any" está ativo, as outras ficam desabilitadas (cinza).
           const anyActive = data.eligibility_rules.any;
           type RuleKey = 'same_day' | 'future' | 'past_limited' | 'any';
-          const rules: Array<{
-            key: RuleKey;
-            label: string;
-            desc: string;
-            icon: React.ComponentType<{ className?: string }>;
-          }> = [
-            { key: 'same_day',     label: 'No dia da visita',   desc: 'Agendamentos marcados para hoje.',           icon: CalendarCheck },
-            { key: 'future',       label: 'Datas futuras',      desc: 'Agendamentos de amanhã em diante.',          icon: CalendarPlus  },
-            { key: 'past_limited', label: 'Últimos N dias',     desc: 'Agendamentos anteriores dentro do limite.',  icon: History       },
-            { key: 'any',          label: 'Qualquer data',      desc: 'Sem restrição — libera todas as regras.',    icon: InfinityIcon  },
-          ];
 
           function toggleRule(key: RuleKey) {
             setData((prev) => ({
@@ -413,109 +418,147 @@ export default function AttendanceSettingsPanel() {
             }));
           }
 
-          return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {rules.map(({ key, label, desc, icon: Icon }) => {
-                const active = data.eligibility_rules[key];
-                const disabled = anyActive && key !== 'any';
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => toggleRule(key)}
-                    className={`
-                      flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
-                      ${disabled
-                        ? 'bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 opacity-60 cursor-not-allowed'
-                        : active
-                          ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
-                      }
-                    `}
-                  >
-                    <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${
-                      disabled ? 'text-gray-400' : active ? 'text-[#ffd700]' : 'text-gray-400'
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold ${
-                        disabled
-                          ? 'text-gray-400'
-                          : active
-                            ? 'text-white'
-                            : 'text-gray-800 dark:text-gray-100'
-                      }`}>{label}</p>
-                      <p className={`text-[11px] mt-0.5 leading-tight ${
-                        disabled
-                          ? 'text-gray-400'
-                          : active
-                            ? 'text-white/70'
-                            : 'text-gray-500 dark:text-gray-400'
-                      }`}>{desc}</p>
-                    </div>
-                  </button>
-                );
-              })}
+          const SLIDER_CLS = `absolute inset-x-0 w-full h-full appearance-none bg-transparent cursor-pointer
+            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+            [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
+            [&::-webkit-slider-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)]
+            [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:active:cursor-grabbing
+            [&::-webkit-slider-thumb]:active:scale-110 [&::-webkit-slider-thumb]:transition-transform
+            [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full
+            [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0
+            [&::-moz-range-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)]`;
 
-              {/* Walk-in button (armazena em allow_walkins.enabled, nao na mesma chave) */}
+          function DaysSlider({ value, onChange, label, suffix }: { value: number; onChange: (v: number) => void; label: string; suffix: string }) {
+            const MIN = 1;
+            const MAX = 10;
+            const clamped = Math.max(MIN, Math.min(MAX, value));
+            const pct = ((clamped - MIN) / (MAX - MIN)) * 100;
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</label>
+                  <span className="font-display text-xl font-bold text-[#003876] dark:text-white tabular-nums">
+                    {clamped}<span className="text-xs font-normal text-gray-400 ml-0.5">{suffix}</span>
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div className="relative h-6 flex items-center">
+                    <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
+                    <div className="absolute h-2 rounded-full bg-gradient-to-r from-[#003876] to-blue-500 pointer-events-none" style={{ width: `${pct}%` }} />
+                    <input type="range" min={MIN} max={MAX} step={1} value={clamped} onChange={(e) => onChange(parseInt(e.target.value) || MIN)} className={SLIDER_CLS} />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-gray-400 px-0.5">
+                    {Array.from({ length: MAX - MIN + 1 }).map((_, i) => {
+                      const tick = MIN + i;
+                      return <span key={tick} className={`tabular-nums ${tick === clamped ? 'text-[#003876] dark:text-[#ffd700] font-semibold' : ''}`}>{tick}</span>;
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          function MinutesSlider({ value, onChange, label }: { value: number; onChange: (v: number) => void; label: string }) {
+            const MIN = 0;
+            const MAX = 60;
+            const clamped = Math.max(MIN, Math.min(MAX, value));
+            const pct = ((clamped - MIN) / (MAX - MIN)) * 100;
+            const ticks = [0, 15, 30, 45, 60];
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</label>
+                  <span className="font-display text-xl font-bold text-[#003876] dark:text-white tabular-nums">
+                    {clamped}<span className="text-xs font-normal text-gray-400 ml-0.5">min</span>
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div className="relative h-6 flex items-center">
+                    <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
+                    <div className="absolute h-2 rounded-full bg-gradient-to-r from-[#003876] to-blue-500 pointer-events-none" style={{ width: `${pct}%` }} />
+                    <input type="range" min={MIN} max={MAX} step={5} value={clamped} onChange={(e) => onChange(parseInt(e.target.value) || 0)} className={SLIDER_CLS} />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-gray-400 px-0.5">
+                    {ticks.map((tick) => (
+                      <span key={tick} className={`tabular-nums ${tick === clamped ? 'text-[#003876] dark:text-[#ffd700] font-semibold' : ''}`}>{tick}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Botão toggle reutilizável
+          function ToggleBtn({ active, disabled, onClick, icon: Icon, label: lbl, desc }: {
+            active: boolean; disabled?: boolean; onClick: () => void;
+            icon: React.ComponentType<{ className?: string }>; label: string; desc: string;
+          }) {
+            return (
               <button
                 type="button"
-                onClick={() =>
-                  setData((prev) => ({
-                    ...prev,
-                    allow_walkins: { enabled: !prev.allow_walkins.enabled },
-                  }))
-                }
+                disabled={disabled}
+                onClick={onClick}
                 className={`
-                  flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 sm:col-span-2
-                  ${data.allow_walkins.enabled
-                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                  w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+                  ${disabled
+                    ? 'bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 opacity-60 cursor-not-allowed'
+                    : active
+                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
                   }
                 `}
               >
-                <UserPlus className={`w-4 h-4 shrink-0 mt-0.5 ${
-                  data.allow_walkins.enabled ? 'text-[#ffd700]' : 'text-gray-400'
-                }`} />
+                <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${disabled ? 'text-gray-400' : active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${
-                    data.allow_walkins.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'
-                  }`}>Sem agendamento prévio (walk-in)</p>
-                  <p className={`text-[11px] mt-0.5 leading-tight ${
-                    data.allow_walkins.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
-                  }`}>
-                    Permite gerar senha informando nome e setor direto na recepção; um agendamento sintético é criado para manter a timeline.
-                  </p>
+                  <p className={`text-sm font-semibold ${disabled ? 'text-gray-400' : active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{lbl}</p>
+                  <p className={`text-[11px] mt-0.5 leading-tight ${disabled ? 'text-gray-400' : active ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>{desc}</p>
                 </div>
               </button>
+            );
+          }
+
+          return (
+            <div className="space-y-4">
+              {/* Linha 1: Datas futuras | Ultimos N dias */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                <div className="space-y-3">
+                  <ToggleBtn active={data.eligibility_rules.future} disabled={anyActive} onClick={() => toggleRule('future')} icon={CalendarPlus} label="Datas futuras" desc="Agendamentos de amanha em diante." />
+                  {data.eligibility_rules.future && !anyActive && (
+                    <DaysSlider label="Limite de dias futuros" suffix=" dias" value={data.eligibility_rules.future_days_limit} onChange={(v) => setData((prev) => ({ ...prev, eligibility_rules: { ...prev.eligibility_rules, future_days_limit: v } }))} />
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <ToggleBtn active={data.eligibility_rules.past_limited} disabled={anyActive} onClick={() => toggleRule('past_limited')} icon={History} label="Ultimos N dias" desc="Agendamentos anteriores dentro do limite." />
+                  {data.eligibility_rules.past_limited && !anyActive && (
+                    <DaysSlider label="Limite de dias anteriores" suffix=" dias" value={data.eligibility_rules.past_days_limit} onChange={(v) => setData((prev) => ({ ...prev, eligibility_rules: { ...prev.eligibility_rules, past_days_limit: v } }))} />
+                  )}
+                </div>
+              </div>
+
+              {/* Linha 2: Qualquer data | Walk-in */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                <ToggleBtn active={data.eligibility_rules.any} onClick={() => toggleRule('any')} icon={InfinityIcon} label="Qualquer data" desc="Sem restricao - libera todas as regras." />
+                <ToggleBtn active={data.allow_walkins.enabled} onClick={() => setData((prev) => ({ ...prev, allow_walkins: { enabled: !prev.allow_walkins.enabled } }))} icon={UserPlus} label="Sem agendamento previo (walk-in)" desc="Permite gerar senha informando nome e setor direto na recepcao." />
+              </div>
+
+              {/* Linha 3: Prioridade | Indicador */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                <ToggleBtn active={data.priority_queue.enabled} onClick={() => setData((prev) => ({ ...prev, priority_queue: { ...prev.priority_queue, enabled: !prev.priority_queue.enabled } }))} icon={CalendarClock} label="Prioridade por agendamento" desc="Agendados no horario sao chamados antes dos demais." />
+                {data.priority_queue.enabled && (
+                  <ToggleBtn active={data.priority_queue.show_type_indicator} onClick={() => setData((prev) => ({ ...prev, priority_queue: { ...prev.priority_queue, show_type_indicator: !prev.priority_queue.show_type_indicator } }))} icon={Eye} label="Indicador de tipo na fila" desc="Exibe icone diferenciando agendados e walk-ins." />
+                )}
+              </div>
+
+              {/* Sliders de tolerancia — mesma linha */}
+              {data.priority_queue.enabled && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                  <MinutesSlider label="Tolerância antes do horário" value={data.priority_queue.window_minutes_before} onChange={(v) => setData((prev) => ({ ...prev, priority_queue: { ...prev.priority_queue, window_minutes_before: v } }))} />
+                  <MinutesSlider label="Tolerância após o horário" value={data.priority_queue.window_minutes_after} onChange={(v) => setData((prev) => ({ ...prev, priority_queue: { ...prev.priority_queue, window_minutes_after: v } }))} />
+                </div>
+              )}
             </div>
           );
         })()}
-
-        {/* Input de limite de dias — só quando past_limited está ativo e any não está */}
-        {data.eligibility_rules.past_limited && !data.eligibility_rules.any && (
-          <div className="pt-2">
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-              Limite de dias anteriores
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={90}
-              value={data.eligibility_rules.past_days_limit}
-              onChange={(e) =>
-                setData((prev) => ({
-                  ...prev,
-                  eligibility_rules: {
-                    ...prev.eligibility_rules,
-                    past_days_limit: Math.max(1, parseInt(e.target.value) || 1),
-                  },
-                }))
-              }
-              className="w-32 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
-            />
-          </div>
-        )}
       </SettingsCard>
 
       {/* 2. Formato de Senha */}

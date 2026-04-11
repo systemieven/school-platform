@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { useRealtimeRows } from '../../hooks/useRealtimeRows';
-import type { AttendanceTicket, AttendanceTicketStatus } from '../../types/admin.types';
+import type { AttendanceTicket, AttendanceTicketStatus, AttendancePriorityQueueConfig } from '../../types/admin.types';
 import {
   Ticket,
   Search,
@@ -17,6 +17,8 @@ import {
   Hourglass,
   LayoutGrid,
   RefreshCw,
+  Calendar,
+  Footprints,
 } from 'lucide-react';
 import AttendanceDetailsDrawer from './AttendanceDetailsDrawer';
 
@@ -77,9 +79,10 @@ interface TicketCardProps {
   onAbandon: (t: AttendanceTicket) => void;
   onOpen: (t: AttendanceTicket) => void;
   busy: boolean;
+  showTypeIndicator?: boolean;
 }
 
-function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onOpen, busy }: TicketCardProps) {
+function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onOpen, busy, showTypeIndicator }: TicketCardProps) {
   const status = STATUS_CONFIG[ticket.status];
 
   // Live wait / service timer
@@ -132,6 +135,19 @@ function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onOpen,
           <Clock className="w-3 h-3 flex-shrink-0" />
           Emitido às {formatTime(ticket.issued_at)}
         </p>
+        {showTypeIndicator && (
+          ticket.priority_group === 1 ? (
+            <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <Calendar className="w-3 h-3 flex-shrink-0" />
+              Agendado às {ticket.scheduled_time?.slice(0, 5) || '--:--'}
+            </p>
+          ) : (
+            <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+              <Footprints className="w-3 h-3 flex-shrink-0" />
+              Chegou às {formatTime(ticket.issued_at)}
+            </p>
+          )
+        )}
         {timerLabel && (
           <p className="text-[11px] font-medium text-[#003876] dark:text-blue-300 flex items-center gap-1.5 pt-1">
             <Hourglass className="w-3 h-3 flex-shrink-0" />
@@ -231,6 +247,13 @@ function Column({ title, accent, icon: Icon, tickets, children }: ColumnProps) {
 }
 
 // ── Main page ────────────────────────────────────────────────────────────────
+const DEFAULT_PRIORITY_CFG: AttendancePriorityQueueConfig = {
+  enabled: false,
+  window_minutes_before: 30,
+  window_minutes_after: 30,
+  show_type_indicator: true,
+};
+
 export default function AttendancePage() {
   const { profile } = useAdminAuth();
   const [tickets, setTickets] = useState<AttendanceTicket[]>([]);
@@ -239,7 +262,21 @@ export default function AttendancePage() {
   const [sectorFilter, setSectorFilter] = useState<string>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selected, setSelected] = useState<AttendanceTicket | null>(null);
+  const [priorityCfg, setPriorityCfg] = useState<AttendancePriorityQueueConfig>(DEFAULT_PRIORITY_CFG);
   const now = useNow(1000);
+
+  // Load priority queue setting
+  useEffect(() => {
+    supabase
+      .from('system_settings')
+      .select('value')
+      .eq('category', 'attendance')
+      .eq('key', 'priority_queue')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) setPriorityCfg({ ...DEFAULT_PRIORITY_CFG, ...(data.value as object) });
+      });
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -279,7 +316,12 @@ export default function AttendancePage() {
     });
   }, [tickets, search, sectorFilter]);
 
-  const waitingTickets    = useMemo(() => filtered.filter((t) => t.status === 'waiting').sort((a, b) => a.issued_at.localeCompare(b.issued_at)), [filtered]);
+  const waitingTickets = useMemo(() => filtered.filter((t) => t.status === 'waiting').sort((a, b) => {
+    if (a.priority_group !== b.priority_group) return a.priority_group - b.priority_group;
+    if (a.priority_group === 1)
+      return (a.scheduled_time || '').localeCompare(b.scheduled_time || '') || a.issued_at.localeCompare(b.issued_at);
+    return a.issued_at.localeCompare(b.issued_at);
+  }), [filtered]);
   const calledTickets     = useMemo(() => filtered.filter((t) => t.status === 'called').sort((a, b) => (a.called_at || '').localeCompare(b.called_at || '')), [filtered]);
   const inServiceTickets  = useMemo(() => filtered.filter((t) => t.status === 'in_service').sort((a, b) => (a.service_started_at || '').localeCompare(b.service_started_at || '')), [filtered]);
 
@@ -419,6 +461,16 @@ export default function AttendancePage() {
       ) : (
         <div className="flex flex-col lg:flex-row gap-5">
           <Column title="Aguardando" accent="bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300" icon={Hourglass} tickets={waitingTickets}>
+            {waitingTickets.length > 0 && (
+              <button
+                disabled={busyId !== null}
+                onClick={() => handleCall(waitingTickets[0])}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#003876] text-white text-xs font-semibold hover:bg-[#002255] disabled:opacity-50 transition-colors mb-1"
+              >
+                <PhoneCall className="w-4 h-4" />
+                Chamar Próximo — {waitingTickets[0].ticket_number}
+              </button>
+            )}
             {waitingTickets.map((t) => (
               <TicketCard
                 key={t.id}
@@ -430,6 +482,7 @@ export default function AttendancePage() {
                 onFinish={handleFinish}
                 onAbandon={handleAbandon}
                 onOpen={setSelected}
+                showTypeIndicator={priorityCfg.enabled && priorityCfg.show_type_indicator}
               />
             ))}
           </Column>
