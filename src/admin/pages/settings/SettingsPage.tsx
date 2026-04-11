@@ -396,38 +396,11 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Save button — only for generic tabs; custom panels have their own saves */}
-              {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional', 'attendance'].includes(activeTab) && (
-                <button
-                  onClick={handleSave}
-                  disabled={!tabHasChanges || saving}
-                  className={`
-                    inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm
-                    transition-all duration-300 flex-shrink-0
-                    ${saved
-                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                      : tabHasChanges
-                        ? 'bg-[#003876] text-white hover:bg-[#002855] hover:shadow-lg'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                    }
-                  `}
-                >
-                  {saving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : saved ? (
-                    <Check className="w-4 h-4" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  <span className="hidden sm:inline">
-                    {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
-                  </span>
-                </button>
-              )}
+              {/* Save button removed from header — generic tabs now use floating save below */}
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'institutional', 'security', 'attendance'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'institutional', 'security', 'attendance', 'notifications'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
@@ -453,13 +426,18 @@ export default function SettingsPage() {
                   saved={saved}
                   hasChanges={tabHasChanges}
                 />
+              ) : activeTab === 'notifications' ? (
+                <NotificationsPanel
+                  settings={tabSettings.filter((s) => s.key !== 'reminder_hours_before')}
+                  editValues={editValues}
+                  toStr={toStr}
+                  onChange={(id, val) => setEditValues((prev) => ({ ...prev, [id]: val }))}
+                />
               ) : tabSettings.length === 0 ? (
                 <EmptyTabState tab={currentTab} />
               ) : (
                 <SettingsFieldGroup
-                  settings={activeTab === 'notifications'
-                    ? tabSettings.filter((s) => s.key !== 'reminder_hours_before')
-                    : tabSettings}
+                  settings={tabSettings}
                   editValues={editValues}
                   toStr={toStr}
                   onChange={(id, val) =>
@@ -469,6 +447,26 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
+
+          {/* Floating save — generic tabs (notifications, etc.) */}
+          {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional', 'attendance'].includes(activeTab) && (
+            <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
+              tabHasChanges || saving || saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
+            }`}>
+              <button
+                onClick={handleSave}
+                disabled={!tabHasChanges || saving}
+                className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
+                  saved
+                    ? 'bg-emerald-500 text-white shadow-emerald-500/25'
+                    : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50'
+                }`}
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1406,29 +1404,30 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
 type WaSubTab = 'apis' | 'templates' | 'historico';
 
 const WA_SUB_TABS: { key: WaSubTab; label: string; icon: React.ElementType }[] = [
-  { key: 'apis',      label: 'APIs',      icon: Wifi          },
   { key: 'templates', label: 'Templates', icon: LayoutTemplate },
   { key: 'historico', label: 'Histórico', icon: Send           },
+  { key: 'apis',      label: 'APIs',      icon: Wifi          },
 ];
 
 function WhatsAppSettingsPanel() {
-  const [sub, setSub] = useState<WaSubTab>('apis');
+  const [sub, setSub] = useState<WaSubTab>('templates');
 
   return (
     <div>
       {/* Sub-tab bar */}
-      <div className="flex border-b border-gray-100 dark:border-gray-700 px-6">
+      <div className="flex flex-wrap gap-1.5 px-6 pt-5 pb-1">
         {WA_SUB_TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setSub(key)}
-            className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={[
+              'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
               sub === key
-                ? 'border-[#003876] dark:border-[#ffd700] text-[#003876] dark:text-[#ffd700]'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
+                ? 'bg-[#ffd700] text-[#003876] shadow-md shadow-[#ffd700]/20'
+                : 'text-[#003876] dark:text-[#ffd700] hover:bg-[#003876]/10 dark:hover:bg-[#ffd700]/10',
+            ].join(' ')}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="w-3.5 h-3.5" />
             {label}
           </button>
         ))}
@@ -1730,6 +1729,69 @@ function SettingField({ item, meta, value, isChanged, onChange, hideDescription 
           className={inputBase}
         />
       )}
+    </div>
+  );
+}
+
+// ── Notifications Panel (card-style toggles) ────────────────────────────────
+const NOTIF_CARD_META: Record<string, { desc: string; icon: React.ComponentType<{ className?: string }> }> = {
+  admin_email_alerts:        { desc: 'Enviar alertas por e-mail para admins',              icon: Mail },
+  auto_notify_on_contact:    { desc: 'Criar notificação interna ao receber novo contato',  icon: MessageSquare },
+  auto_notify_on_enrollment: { desc: 'Criar notificação interna ao receber nova matrícula', icon: GraduationCap },
+  auto_notify_on_visit:      { desc: 'Criar notificação interna ao receber novo agendamento', icon: CalendarCheck },
+  notify_wa_connection:      { desc: 'Alertar quando a conexão do WhatsApp cair',          icon: Wifi },
+};
+
+function NotificationsPanel({ settings, editValues, toStr, onChange }: {
+  settings: SystemSetting[];
+  editValues: Record<string, string>;
+  toStr: (v: unknown) => string;
+  onChange: (id: string, val: string) => void;
+}) {
+  const booleanSettings = settings.filter((s) => (KEY_META[s.key] || {}).type === 'boolean');
+
+  return (
+    <div className="p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        {booleanSettings.map((item) => {
+          const meta = KEY_META[item.key] || { label: item.key };
+          const cardMeta = NOTIF_CARD_META[item.key];
+          const Icon = cardMeta?.icon || Bell;
+          const desc = cardMeta?.desc || '';
+          const currentVal = editValues[item.id] ?? toStr(item.value);
+          const active = currentVal === 'true';
+          const isChanged = editValues[item.id] !== toStr(item.value);
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onChange(item.id, active ? 'false' : 'true')}
+              className={[
+                'flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 relative',
+                active
+                  ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]',
+              ].join(' ')}
+            >
+              <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                  {meta.label}
+                </p>
+                {desc && (
+                  <p className={`text-[11px] mt-0.5 leading-tight ${active ? 'text-white/60' : 'text-gray-400'}`}>
+                    {desc}
+                  </p>
+                )}
+              </div>
+              {isChanged && (
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#ffd700]" />
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

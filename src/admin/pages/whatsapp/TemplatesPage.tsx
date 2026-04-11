@@ -8,7 +8,7 @@ import type {
   TemplateButton, TemplateButtonType,
 } from '../../types/admin.types';
 import {
-  MessageCircle, Plus, Pencil, Trash2,
+  MessageCircle, Plus, FilePlus2, Pencil, Trash2,
   X, Save, Loader2, ChevronDown, Eye, EyeOff,
   Zap, Clock, Tag, AlertCircle, FileText,
   Settings2, Check, ChevronRight, Link, Upload,
@@ -1789,7 +1789,7 @@ export default function TemplatesPage({ embedded }: { embedded?: boolean } = {})
               onClick={handleNew}
               className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#002855] hover:shadow-lg transition-all"
             >
-              <Plus className="w-4 h-4" />
+              <FilePlus2 className="w-4 h-4" />
               Novo Template
             </button>
           </div>
@@ -1811,7 +1811,7 @@ export default function TemplatesPage({ embedded }: { embedded?: boolean } = {})
               onClick={handleNew}
               className="inline-flex items-center gap-2 bg-[#003876] text-white px-4 py-2 rounded-xl font-medium text-sm hover:bg-[#002855] transition-all"
             >
-              <Plus className="w-4 h-4" />
+              <FilePlus2 className="w-4 h-4" />
               Novo Template
             </button>
           </div>

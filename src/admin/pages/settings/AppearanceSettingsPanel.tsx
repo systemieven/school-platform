@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import imageCompression from 'browser-image-compression';
 import {
   Loader2, Save, Check, Link2, Upload, AlertCircle, ExternalLink,
+  Home, Baby, BookOpen, BookMarked, GraduationCap, MessageSquare,
+  CalendarCheck, ClipboardList,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { SettingsCard } from '../../components/SettingsCard';
@@ -67,15 +69,15 @@ const DEFAULT_PAGES: AllPages = {
 
 // ── Sub-tabs ──────────────────────────────────────────────────────────────────
 
-const SUB_TABS: { key: PageKey; label: string }[] = [
-  { key: 'home',              label: 'Home' },
-  { key: 'educacao_infantil', label: 'Infantil' },
-  { key: 'fundamental_1',    label: 'Fund. I' },
-  { key: 'fundamental_2',    label: 'Fund. II' },
-  { key: 'ensino_medio',     label: 'Médio' },
-  { key: 'contato',          label: 'Contato' },
-  { key: 'visita',           label: 'Visita' },
-  { key: 'matricula',        label: 'Matrícula' },
+const SUB_TABS: { key: PageKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'home',              label: 'Home',      icon: Home },
+  { key: 'educacao_infantil', label: 'Infantil',  icon: Baby },
+  { key: 'fundamental_1',    label: 'Fund. I',    icon: BookOpen },
+  { key: 'fundamental_2',    label: 'Fund. II',   icon: BookMarked },
+  { key: 'ensino_medio',     label: 'Médio',      icon: GraduationCap },
+  { key: 'contato',          label: 'Contato',    icon: MessageSquare },
+  { key: 'visita',           label: 'Visita',     icon: CalendarCheck },
+  { key: 'matricula',        label: 'Matrícula',  icon: ClipboardList },
 ];
 
 // ── Shared style constants ────────────────────────────────────────────────────
@@ -376,18 +378,19 @@ export default function AppearanceSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* ── Sub-tab bar ── */}
-      <div className="flex flex-wrap gap-1 border-b border-gray-100 dark:border-gray-700 -mx-6 px-6 pb-0">
-        {SUB_TABS.map(({ key, label }) => (
+      <div className="flex flex-wrap gap-1.5 -mx-6 px-6 pb-1">
+        {SUB_TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
             className={[
-              'px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 -mb-px transition-colors',
+              'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
               activeTab === key
-                ? 'bg-[#003876] text-white border-[#003876]'
-                : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-200 dark:hover:text-gray-300',
+                ? 'bg-[#ffd700] text-[#003876] shadow-md shadow-[#ffd700]/20'
+                : 'text-[#003876] dark:text-[#ffd700] hover:bg-[#003876]/10 dark:hover:bg-[#ffd700]/10',
             ].join(' ')}
           >
+            <Icon className="w-3.5 h-3.5" />
             {label}
           </button>
         ))}
