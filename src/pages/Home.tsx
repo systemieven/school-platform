@@ -14,6 +14,8 @@ import {
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
 import Testimonials from '../components/Testimonials';
+import HeroSlideshow from '../components/HeroSlideshow';
+import type { HeroScene, HeroSlideshowConfig } from '../components/HeroSlideshow';
 
 const SEGMENTS = [
   {
@@ -108,6 +110,8 @@ export default function Home() {
   const heroHL       = (homeConfig.highlight as string) || 'Transforma';
   const heroSubtitle = (homeConfig.subtitle as string)  || 'Há mais de 20 anos formando cidadãos com excelência acadêmica e valores cristãos em Caruaru.';
   const heroVideoUrl = (homeConfig.video_url as string) || 'https://s3.ibotcloud.com.br/colegiobatista/imagens/site/video-inicio.mp4';
+  const heroScenes   = (homeConfig.scenes as HeroScene[] | undefined) ?? [];
+  const heroSlideshow = (homeConfig.slideshow as HeroSlideshowConfig | undefined) ?? { default_duration: 8, order: 'sequential' as const, transition: 'crossfade' as const, transition_duration: 1200 };
   type SegConfig = { image: string; description: string };
   const segConfigs   = (homeConfig.segments as SegConfig[] | undefined) ?? [];
 
@@ -121,22 +125,8 @@ export default function Home() {
     <>
       {/* ── Hero ── */}
       <section className="relative h-screen min-h-[600px] overflow-hidden">
-        {/* Video Background */}
-        <div className="absolute inset-0">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="hero-video w-full h-full object-cover"
-          >
-            <source
-              src={heroVideoUrl}
-              type="video/mp4"
-            />
-          </video>
-          <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/80 to-[#002855]/70" />
-        </div>
+        {/* Slideshow / Video Background */}
+        <HeroSlideshow scenes={heroScenes} config={heroSlideshow} fallbackVideoUrl={heroVideoUrl} />
 
         {/* Decorative diagonal slice */}
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
