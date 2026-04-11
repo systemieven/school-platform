@@ -1,15 +1,20 @@
 
 
-## Erro que Impede a Publicação
+## Erros que Impedem a Publicação
 
-Há **1 erro de TypeScript** no código frontend:
+Há **3 erros de TypeScript** (TS6133) — todos imports não utilizados:
 
-### `src/admin/pages/settings/AttendanceSettingsPanel.tsx` (linha 62)
-- **Erro**: `Palette` é importado de `lucide-react` mas nunca utilizado (TS6133)
-- **Correção**: Remover `Palette` do import na linha 62
+### 1. `src/admin/pages/settings/AttendanceSettingsPanel.tsx` (linha 62)
+- `Palette` importado de `lucide-react` mas nunca usado
+- **Correção**: remover `Palette,` da linha 62
 
-O outro erro sobre `npm:openai@^4.52.5` é um problema de resolução de tipos do Deno nas edge functions — não está no código do projeto, e sim em uma dependência do `@supabase/functions-js`. Esse erro não bloqueia o build do frontend.
+### 2. `src/admin/pages/settings/SettingsPage.tsx` (linha 5)
+- `TITLE_CLS` e `CollapsibleSection` importados de `SettingsCard` mas nunca usados
+- **Correção**: alterar o import para `import { SettingsCard } from '../../components/SettingsCard';`
+
+### Nota
+O erro sobre `npm:openai@^4.52.5` é um problema de resolução de tipos do Deno nas Edge Functions do Supabase — não bloqueia o build do frontend.
 
 ### Implementação
-Uma única linha a alterar: remover `Palette,` da linha 62.
+Duas linhas a alterar. Nenhuma lógica é afetada.
 
