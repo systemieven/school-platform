@@ -59,7 +59,7 @@ import {
   EyeOff,
   Copy,
   Link,
-  Palette,
+  
   // Sector icon map
   Building2,
   Users,
