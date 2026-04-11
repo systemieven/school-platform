@@ -50,17 +50,19 @@ interface VisitReason {
   /** 1..3 intervalos não-sobrepostos. */
   availability_intervals: VisitAvailabilityInterval[];
   lead_integrated: boolean;
+  /** Antecedência mínima em horas. 0 = sem restrição. */
+  min_advance_hours: number;
 }
 
 const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
 const DEFAULT_VISIT_REASONS: VisitReason[] = [
-  { key: 'conhecer_estrutura',     label: 'Conhecer a estrutura',       icon: 'Building2', duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
-  { key: 'coordenacao',            label: 'Conversar com coordenação',  icon: 'Users',     duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
-  { key: 'gestora',                label: 'Conversar com a gestora',    icon: 'User',      duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
-  { key: 'entrega_documentos',     label: 'Entrega de documentos',      icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
-  { key: 'assinatura_contratos',   label: 'Assinatura de contratos',    icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
-  { key: 'solicitacao_documentos', label: 'Solicitação de documentos',  icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false },
+  { key: 'conhecer_estrutura',     label: 'Conhecer a estrutura',       icon: 'Building2', duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false, min_advance_hours: 0 },
+  { key: 'coordenacao',            label: 'Conversar com coordenação',  icon: 'Users',     duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false, min_advance_hours: 0 },
+  { key: 'gestora',                label: 'Conversar com a gestora',    icon: 'User',      duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false, min_advance_hours: 0 },
+  { key: 'entrega_documentos',     label: 'Entrega de documentos',      icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false, min_advance_hours: 0 },
+  { key: 'assinatura_contratos',   label: 'Assinatura de contratos',    icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false, min_advance_hours: 0 },
+  { key: 'solicitacao_documentos', label: 'Solicitação de documentos',  icon: 'FileText',  duration_minutes: 60, buffer_minutes: 0, max_per_slot: 2, max_daily: 0, availability_enabled: false, availability_weekdays: [...ALL_WEEKDAYS], availability_intervals: [], lead_integrated: false, min_advance_hours: 0 },
 ];
 
 /**
@@ -351,6 +353,7 @@ export default function AgendarVisita() {
           max_daily: 0,
           availability_enabled: false,
           lead_integrated: false,
+          min_advance_hours: 0,
           ...defaults,
           ...r,
           availability_weekdays,
@@ -640,10 +643,26 @@ export default function AgendarVisita() {
   const availableSlots = useMemo(() => {
     const duration = selectedReasonConfig.duration_minutes;
     const maxPerSlot = selectedReasonConfig.max_per_slot;
+    const minAdvanceHours = selectedReasonConfig.min_advance_hours ?? 0;
 
     return ALL_SLOTS.filter((slot) => {
       const slotStart = timeToMinutes(slot);
       const slotEnd = slotStart + duration;
+
+      // Antecedência mínima — bloqueia horários muito próximos do momento atual
+      if (minAdvanceHours > 0 && selectedDate) {
+        const now = new Date();
+        const slotDate = new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate(),
+          Math.floor(slotStart / 60),
+          slotStart % 60,
+        );
+        const diffMs = slotDate.getTime() - now.getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+        if (diffHours < minAdvanceHours) return false;
+      }
 
       const overlapping = bookedSlots.filter((b) => {
         const bStart = timeToMinutes(b.time);
@@ -653,7 +672,7 @@ export default function AgendarVisita() {
 
       return overlapping.length < maxPerSlot;
     });
-  }, [ALL_SLOTS, bookedSlots, selectedReasonConfig]);
+  }, [ALL_SLOTS, bookedSlots, selectedReasonConfig, selectedDate]);
 
   const canGoPrevMonth = useMemo(() => {
     const now = new Date();

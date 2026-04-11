@@ -21,7 +21,7 @@ import {
   BookOpen, BookMarked, Calendar, ClipboardList, PenLine, Briefcase, Heart,
   Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
   Users, User, FileText, Trash2,
-  CalendarX2, Clock, ChevronDown, ChevronUp,
+  CalendarX2, Clock, Timer, ChevronDown, ChevronUp,
   Shield, CheckCircle2, TriangleAlert, Share2, Ticket, Instagram,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
@@ -2445,6 +2445,8 @@ interface VisitSettings {
     /** 1..3 intervalos não-sobrepostos. Substitui os antigos availability_start/end. */
     availability_intervals: VisitAvailabilityInterval[];
     lead_integrated: boolean;
+    /** Antecedência mínima em horas para agendamento. 0 = sem restrição. */
+    min_advance_hours: number;
   }[];
 }
 
@@ -2541,6 +2543,7 @@ function AppointmentsSettingsPanel() {
                   max_daily: 0,
                   availability_enabled: false,
                   lead_integrated: false,
+                  min_advance_hours: 0,
                   ...rest,
                   availability_weekdays,
                   availability_intervals,
@@ -2736,6 +2739,7 @@ function AppointmentsSettingsPanel() {
         availability_weekdays: [...businessOpenWeekdays],
         availability_intervals: [],
         lead_integrated: false,
+        min_advance_hours: 0,
       });
       setDrawerIsNew(true);
     } else {
@@ -2870,6 +2874,7 @@ function AppointmentsSettingsPanel() {
                         <span className="text-[10px] text-gray-400">{r.duration_minutes}min</span>
                         {(r.buffer_minutes ?? 0) > 0 && <span className="text-[10px] text-gray-400">+{r.buffer_minutes}buf</span>}
                         <span className="text-[10px] text-gray-400">×{r.max_per_slot ?? 1}</span>
+                        {(r.min_advance_hours ?? 0) > 0 && <span className="text-[10px] text-gray-400">⏱{r.min_advance_hours}h</span>}
                         {(r.lead_integrated ?? false) && (
                           <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#003876]/10 text-[#003876] dark:text-[#ffd700]">Lead</span>
                         )}
@@ -3113,6 +3118,63 @@ function AppointmentsSettingsPanel() {
                             {min === 0 ? 'Nenhum' : `${min} min`}
                           </button>
                         ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Antecedência ── */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+                    <Timer className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">Antecedência</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-3">
+                    <div>
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Antecedência mínima</p>
+                      <p className="text-xs text-gray-400 mb-3">Tempo mínimo entre o agendamento e o horário escolhido. Impede agendamentos de última hora.</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">0h</span>
+                          <span className="font-display text-xl font-bold text-[#003876] dark:text-white tabular-nums">
+                            {(d.min_advance_hours ?? 0) === 0 ? 'Sem restrição' : `${d.min_advance_hours}h`}
+                          </span>
+                          <span className="text-xs text-gray-500">72h</span>
+                        </div>
+                        <div className="relative h-6 flex items-center">
+                          <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
+                          <div
+                            className="absolute h-2 rounded-full bg-gradient-to-r from-[#003876] to-blue-500 pointer-events-none"
+                            style={{ width: `${((d.min_advance_hours ?? 0) / 72) * 100}%` }}
+                          />
+                          <input
+                            type="range"
+                            min={0}
+                            max={72}
+                            step={1}
+                            value={d.min_advance_hours ?? 0}
+                            onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, min_advance_hours: Number(e.target.value) } : prev)}
+                            className="absolute inset-x-0 w-full h-full appearance-none bg-transparent cursor-pointer
+                              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+                              [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
+                              [&::-webkit-slider-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)]
+                              [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:active:cursor-grabbing
+                              [&::-webkit-slider-thumb]:active:scale-110 [&::-webkit-slider-thumb]:transition-transform
+                              [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full
+                              [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0
+                              [&::-moz-range-thumb]:shadow-[0_0_0_3px_#003876,0_2px_6px_rgba(0,0,0,0.25)]"
+                          />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-gray-400 px-0.5">
+                          {[0, 6, 12, 24, 48, 72].map((tick) => {
+                            const current = tick === (d.min_advance_hours ?? 0);
+                            return (
+                              <span key={tick} className={`tabular-nums ${current ? 'text-[#003876] dark:text-[#ffd700] font-semibold' : ''}`}>
+                                {tick === 0 ? '0' : `${tick}h`}
+                              </span>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
