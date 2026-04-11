@@ -24,7 +24,7 @@ import {
   Trash2,
   // Eligibility icons
   CalendarClock,
-  CalendarCheck,
+  
   CalendarPlus,
   History,
   Infinity as InfinityIcon,
