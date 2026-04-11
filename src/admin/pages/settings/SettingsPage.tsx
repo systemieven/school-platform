@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import AppearanceSettingsPanel from './AppearanceSettingsPanel';
 import AttendanceSettingsPanel from './AttendanceSettingsPanel';
 import GeolocationField from '../../components/GeolocationField';
-import { TITLE_CLS, CollapsibleSection, SettingsCard } from '../../components/SettingsCard';
+import { SettingsCard } from '../../components/SettingsCard';
 import { supabase } from '../../../lib/supabase';
 import { getProviders, setDefaultProvider, registerWebhook, WEBHOOK_FUNCTION_BASE } from '../../lib/whatsapp-api';
 import type { WhatsAppProvider } from '../../lib/whatsapp-api';
