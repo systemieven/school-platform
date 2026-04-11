@@ -5,6 +5,7 @@ import type {
   AttendanceTicket,
   AttendanceTicketStatus,
   AttendanceFeedback,
+  AttendanceTransferHistoryEntry,
 } from '../../types/admin.types';
 import {
   Ticket,
@@ -19,6 +20,7 @@ import {
   Loader2,
   LayoutGrid,
   History,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<AttendanceTicketStatus, { label: string; color: string; dot: string }> = {
@@ -88,6 +90,7 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [feedback, setFeedback] = useState<AttendanceFeedback | null>(null);
   const [visitorHistory, setVisitorHistory] = useState<VisitorTicketSummary[]>([]);
+  const [transferHistory, setTransferHistory] = useState<AttendanceTransferHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -95,7 +98,7 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
     setLoading(true);
 
     const load = async () => {
-      const [attHistRes, apptHistRes, fbRes, visitorRes] = await Promise.all([
+      const [attHistRes, apptHistRes, fbRes, visitorRes, transferRes] = await Promise.all([
         supabase
           .from('attendance_history')
           .select('id, event_type, description, created_at')
@@ -120,6 +123,11 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
           .neq('id', ticket.id)
           .order('issued_at', { ascending: false })
           .limit(8),
+        supabase
+          .from('attendance_transfer_history')
+          .select('*')
+          .eq('ticket_id', ticket.id)
+          .order('created_at', { ascending: false }),
       ]);
 
       const att: TimelineEvent[] = ((attHistRes.data as AppointmentHistoryRow[]) || []).map((r) => ({
@@ -141,6 +149,7 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
       setTimeline(merged);
       setFeedback((fbRes.data as AttendanceFeedback | null) || null);
       setVisitorHistory((visitorRes.data as VisitorTicketSummary[]) || []);
+      setTransferHistory((transferRes.data as AttendanceTransferHistoryEntry[]) || []);
       setLoading(false);
     };
 
@@ -163,10 +172,18 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
       width="w-[460px]"
       badge={
         status && (
-          <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md flex items-center gap-1.5 ${status.color}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-            {status.label}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {ticket.transferred_from_sector_key && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+                <ArrowRightLeft className="w-3 h-3" />
+                Transferido
+              </span>
+            )}
+            <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md flex items-center gap-1.5 ${status.color}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+              {status.label}
+            </span>
+          </div>
         )
       }
     >
@@ -241,6 +258,36 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
                 Distância da instituição: <span className="text-gray-700 dark:text-gray-200">{ticket.checkin_distance_m}m</span>
               </p>
             )}
+          </div>
+        </DrawerCard>
+      )}
+
+      {/* Transfer history */}
+      {transferHistory.length > 0 && (
+        <DrawerCard title="Transferências" icon={ArrowRightLeft}>
+          <div className="space-y-3">
+            {transferHistory.map((th) => (
+              <div key={th.id} className="flex gap-2.5">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300">
+                  <ArrowRightLeft className="w-3 h-3" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">{th.from_sector_label}</span>
+                    {' → '}
+                    <span className="font-medium">{th.to_sector_label}</span>
+                  </p>
+                  {th.reason && (
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 italic">
+                      &ldquo;{th.reason}&rdquo;
+                    </p>
+                  )}
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {formatDateTime(th.created_at)}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </DrawerCard>
       )}

@@ -642,8 +642,31 @@ export interface AttendanceTicket {
   checkin_distance_m: number | null;
   feedback_id: string | null;
   notes: string | null;
-  priority_group: 1 | 2;
+  // Transfer fields
+  transferred_from_sector_key: string | null;
+  transferred_from_sector_label: string | null;
+  transfer_reason: string | null;
+  transferred_at: string | null;
+  transferred_by: string | null;
+  priority_group: 0 | 1 | 2;
   scheduled_time: string | null;
+  created_at: string;
+}
+
+export interface AttendanceTransferConfig {
+  enabled: boolean;
+  quick_reasons: string[];
+}
+
+export interface AttendanceTransferHistoryEntry {
+  id: string;
+  ticket_id: string;
+  from_sector_key: string;
+  from_sector_label: string;
+  to_sector_key: string;
+  to_sector_label: string;
+  reason: string | null;
+  transferred_by: string | null;
   created_at: string;
 }
 

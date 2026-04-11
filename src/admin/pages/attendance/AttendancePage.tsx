@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { useRealtimeRows } from '../../hooks/useRealtimeRows';
-import type { AttendanceTicket, AttendanceTicketStatus, AttendancePriorityQueueConfig } from '../../types/admin.types';
+import type { AttendanceTicket, AttendanceTicketStatus, AttendancePriorityQueueConfig, AttendanceTransferConfig } from '../../types/admin.types';
 import {
   Ticket,
   Search,
@@ -19,6 +19,9 @@ import {
   RefreshCw,
   Calendar,
   Footprints,
+  ArrowRightLeft,
+  X,
+  ChevronDown,
 } from 'lucide-react';
 import AttendanceDetailsDrawer from './AttendanceDetailsDrawer';
 
@@ -77,12 +80,14 @@ interface TicketCardProps {
   onStart: (t: AttendanceTicket) => void;
   onFinish: (t: AttendanceTicket) => void;
   onAbandon: (t: AttendanceTicket) => void;
+  onTransfer?: (t: AttendanceTicket) => void;
   onOpen: (t: AttendanceTicket) => void;
   busy: boolean;
   showTypeIndicator?: boolean;
+  transferEnabled?: boolean;
 }
 
-function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onOpen, busy, showTypeIndicator }: TicketCardProps) {
+function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onTransfer, onOpen, busy, showTypeIndicator, transferEnabled }: TicketCardProps) {
   const status = STATUS_CONFIG[ticket.status];
 
   // Live wait / service timer
@@ -135,7 +140,13 @@ function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onOpen,
           <Clock className="w-3 h-3 flex-shrink-0" />
           Emitido às {formatTime(ticket.issued_at)}
         </p>
-        {showTypeIndicator && (
+        {ticket.priority_group === 0 && ticket.transferred_from_sector_label && (
+          <p className="text-[11px] font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+            <ArrowRightLeft className="w-3 h-3 flex-shrink-0" />
+            Transferido de {ticket.transferred_from_sector_label}
+          </p>
+        )}
+        {showTypeIndicator && ticket.priority_group !== 0 && (
           ticket.priority_group === 1 ? (
             <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
               <Calendar className="w-3 h-3 flex-shrink-0" />
@@ -186,8 +197,18 @@ function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onOpen,
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
             >
               <PlayCircle className="w-3.5 h-3.5" />
-              Iniciar
+              Aceitar
             </button>
+            {transferEnabled && onTransfer && (
+              <button
+                disabled={busy}
+                onClick={(e) => { e.stopPropagation(); onTransfer(ticket); }}
+                title="Transferir para outro setor"
+                className="p-2 rounded-lg border border-purple-200 dark:border-purple-700 text-purple-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50 transition-colors"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               disabled={busy}
               onClick={(e) => { e.stopPropagation(); onCall(ticket); }}
@@ -199,14 +220,26 @@ function TicketCard({ ticket, now, onCall, onStart, onFinish, onAbandon, onOpen,
           </>
         )}
         {ticket.status === 'in_service' && (
-          <button
-            disabled={busy}
-            onClick={(e) => { e.stopPropagation(); onFinish(ticket); }}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Finalizar
-          </button>
+          <>
+            <button
+              disabled={busy}
+              onClick={(e) => { e.stopPropagation(); onFinish(ticket); }}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Finalizar
+            </button>
+            {transferEnabled && onTransfer && (
+              <button
+                disabled={busy}
+                onClick={(e) => { e.stopPropagation(); onTransfer(ticket); }}
+                title="Transferir para outro setor"
+                className="p-2 rounded-lg border border-purple-200 dark:border-purple-700 text-purple-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50 transition-colors"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -246,12 +279,140 @@ function Column({ title, accent, icon: Icon, tickets, children }: ColumnProps) {
   );
 }
 
+// ── Transfer Modal ──────────────────────────────────────────────────────────
+
+interface TransferModalProps {
+  ticket: AttendanceTicket;
+  sectors: Array<{ key: string; label: string }>;
+  quickReasons: string[];
+  onConfirm: (sectorKey: string, sectorLabel: string, reason: string) => void;
+  onClose: () => void;
+  busy: boolean;
+}
+
+function TransferModal({ ticket, sectors, quickReasons, onConfirm, onClose, busy }: TransferModalProps) {
+  const [sectorKey, setSectorKey] = useState('');
+  const [reason, setReason] = useState('');
+
+  const available = sectors.filter((s) => s.key !== ticket.sector_key);
+  const selectedLabel = available.find((s) => s.key === sectorKey)?.label || '';
+  const canConfirm = sectorKey !== '' && reason.trim() !== '';
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
+      <div className="fixed inset-0 flex items-center justify-center z-[61] p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-600 to-purple-800 px-5 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-white">
+              <ArrowRightLeft className="w-4 h-4" />
+              <span className="font-semibold text-sm">Transferir Senha {ticket.ticket_number}</span>
+            </div>
+            <button onClick={onClose} className="text-white/70 hover:text-white hover:bg-white/20 p-1 rounded-lg transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Current sector */}
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Setor atual: <span className="font-medium text-gray-700 dark:text-gray-200">{ticket.sector_label}</span>
+            </div>
+
+            {/* Destination sector */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                Setor destino
+              </label>
+              <div className="relative">
+                <select
+                  value={sectorKey}
+                  onChange={(e) => setSectorKey(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-purple-500 appearance-none pr-9"
+                >
+                  <option value="">Selecione o setor...</option>
+                  {available.map((s) => (
+                    <option key={s.key} value={s.key}>{s.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Quick reasons */}
+            {quickReasons.length > 0 && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                  Justificativas rápidas
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {quickReasons.filter(Boolean).map((qr, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setReason((prev) => prev ? `${prev}. ${qr}` : qr)}
+                      className="px-2.5 py-1.5 text-[11px] rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                    >
+                      {qr}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Free-text reason */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                Justificativa
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                placeholder="Descreva o motivo da transferência..."
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-purple-500 resize-none"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={!canConfirm || busy}
+                onClick={() => onConfirm(sectorKey, selectedLabel, reason.trim())}
+                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 const DEFAULT_PRIORITY_CFG: AttendancePriorityQueueConfig = {
   enabled: false,
   window_minutes_before: 30,
   window_minutes_after: 30,
   show_type_indicator: true,
+};
+
+const DEFAULT_TRANSFER_CFG: AttendanceTransferConfig = {
+  enabled: true,
+  quick_reasons: [],
 };
 
 export default function AttendancePage() {
@@ -264,6 +425,9 @@ export default function AttendancePage() {
   const [selected, setSelected] = useState<AttendanceTicket | null>(null);
   const [priorityCfg, setPriorityCfg] = useState<AttendancePriorityQueueConfig>(DEFAULT_PRIORITY_CFG);
   const [sectorMode, setSectorMode] = useState<'all' | 'restricted'>('all');
+  const [transferCfg, setTransferCfg] = useState<AttendanceTransferConfig>(DEFAULT_TRANSFER_CFG);
+  const [allSectors, setAllSectors] = useState<Array<{ key: string; label: string }>>([]);
+  const [transferTarget, setTransferTarget] = useState<AttendanceTicket | null>(null);
   const now = useNow(1000);
 
   // Load priority queue + sector visibility settings
@@ -272,7 +436,7 @@ export default function AttendancePage() {
       .from('system_settings')
       .select('key, value')
       .eq('category', 'attendance')
-      .in('key', ['priority_queue', 'sector_visibility_mode'])
+      .in('key', ['priority_queue', 'sector_visibility_mode', 'transfer'])
       .then(({ data }) => {
         (data || []).forEach((row) => {
           const r = row as { key: string; value: unknown };
@@ -283,7 +447,30 @@ export default function AttendancePage() {
             const parsed = typeof r.value === 'string' ? JSON.parse(r.value) : r.value;
             setSectorMode(parsed === 'restricted' ? 'restricted' : 'all');
           }
+          if (r.key === 'transfer' && r.value) {
+            setTransferCfg({ ...DEFAULT_TRANSFER_CFG, ...(r.value as object) });
+          }
         });
+      });
+  }, []);
+
+  // Load all sectors from visit reasons setting
+  useEffect(() => {
+    supabase
+      .from('system_settings')
+      .select('value')
+      .eq('category', 'visit')
+      .eq('key', 'reasons')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value && Array.isArray(data.value)) {
+          setAllSectors(
+            (data.value as Array<{ key: string; label: string }>).map((s) => ({
+              key: s.key,
+              label: s.label,
+            })),
+          );
+        }
       });
   }, []);
 
@@ -400,6 +587,67 @@ export default function AttendancePage() {
     });
   };
 
+  const handleTransfer = async (sectorKey: string, sectorLabel: string, reason: string) => {
+    if (!transferTarget || !profile) return;
+    setBusyId(transferTarget.id);
+
+    const nowIso = new Date().toISOString();
+
+    // 1. Update ticket: move to new sector, reset to waiting at top of queue
+    const { error: updateErr } = await supabase
+      .from('attendance_tickets')
+      .update({
+        sector_key: sectorKey,
+        sector_label: sectorLabel,
+        status: 'waiting',
+        priority_group: 0,
+        called_at: null,
+        called_by: null,
+        service_started_at: null,
+        served_by: null,
+        transferred_from_sector_key: transferTarget.sector_key,
+        transferred_from_sector_label: transferTarget.sector_label,
+        transfer_reason: reason,
+        transferred_at: nowIso,
+        transferred_by: profile.id,
+      })
+      .eq('id', transferTarget.id);
+
+    if (updateErr) {
+      console.error('Transfer update failed', updateErr);
+      alert('Erro ao transferir: ' + updateErr.message);
+      setBusyId(null);
+      return;
+    }
+
+    // 2. Insert transfer history
+    await supabase.from('attendance_transfer_history').insert({
+      ticket_id: transferTarget.id,
+      from_sector_key: transferTarget.sector_key,
+      from_sector_label: transferTarget.sector_label,
+      to_sector_key: sectorKey,
+      to_sector_label: sectorLabel,
+      reason,
+      transferred_by: profile.id,
+    });
+
+    // 3. Audit log
+    await supabase.rpc('log_audit', {
+      p_action: 'transfer',
+      p_module: 'attendance',
+      p_details: {
+        ticket_id: transferTarget.id,
+        ticket_number: transferTarget.ticket_number,
+        from_sector: transferTarget.sector_label,
+        to_sector: sectorLabel,
+        reason,
+      },
+    });
+
+    setBusyId(null);
+    setTransferTarget(null);
+  };
+
   return (
     <div>
       {/* Page header */}
@@ -512,8 +760,10 @@ export default function AttendancePage() {
                 onStart={handleStart}
                 onFinish={handleFinish}
                 onAbandon={handleAbandon}
+                onTransfer={setTransferTarget}
                 onOpen={setSelected}
                 showTypeIndicator={priorityCfg.enabled && priorityCfg.show_type_indicator}
+                transferEnabled={transferCfg.enabled}
               />
             ))}
           </Column>
@@ -528,7 +778,9 @@ export default function AttendancePage() {
                 onStart={handleStart}
                 onFinish={handleFinish}
                 onAbandon={handleAbandon}
+                onTransfer={setTransferTarget}
                 onOpen={setSelected}
+                transferEnabled={transferCfg.enabled}
               />
             ))}
           </Column>
@@ -543,11 +795,25 @@ export default function AttendancePage() {
                 onStart={handleStart}
                 onFinish={handleFinish}
                 onAbandon={handleAbandon}
+                onTransfer={setTransferTarget}
                 onOpen={setSelected}
+                transferEnabled={transferCfg.enabled}
               />
             ))}
           </Column>
         </div>
+      )}
+
+      {/* Transfer modal */}
+      {transferTarget && (
+        <TransferModal
+          ticket={transferTarget}
+          sectors={allSectors}
+          quickReasons={transferCfg.quick_reasons}
+          onConfirm={handleTransfer}
+          onClose={() => setTransferTarget(null)}
+          busy={busyId === transferTarget.id}
+        />
       )}
 
       {/* Details drawer */}

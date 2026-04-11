@@ -60,7 +60,8 @@ import {
   EyeOff,
   Copy,
   Link,
-  
+  ArrowRightLeft,
+
   // Sector icon map
   Building2,
   Users,
@@ -116,6 +117,7 @@ interface AttendanceState {
   feedback: AttendanceFeedbackConfig;
   display_panel: DisplayPanelConfig;
   sector_visibility_mode: 'all' | 'restricted';
+  transfer: { enabled: boolean; quick_reasons: string[] };
 }
 
 const DEFAULTS: AttendanceState = {
@@ -157,6 +159,15 @@ const DEFAULTS: AttendanceState = {
     theme: 'dark-blue',
   },
   sector_visibility_mode: 'all',
+  transfer: {
+    enabled: true,
+    quick_reasons: [
+      'Motivo incorreto no agendamento',
+      'Assunto resolvido por outro setor',
+      'Solicitação do cliente',
+      'Erro de triagem',
+    ],
+  },
 };
 
 // NOTE: `estimated_service_time` foi removido — o tempo de atendimento é
@@ -174,6 +185,7 @@ const ATTENDANCE_KEYS: (keyof AttendanceState)[] = [
   'feedback',
   'display_panel',
   'sector_visibility_mode',
+  'transfer',
 ];
 
 const SECTOR_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -1625,6 +1637,80 @@ export default function AttendanceSettingsPanel() {
             </button>
           </div>
         </div>
+      </SettingsCard>
+
+      {/* Transferência de Senhas */}
+      <SettingsCard collapseId="attendance.transfer" title="Transferência de Senhas" icon={ArrowRightLeft} description="Permite transferir senhas entre setores durante o atendimento.">
+        <button
+          type="button"
+          onClick={() => setData((prev) => ({ ...prev, transfer: { ...prev.transfer, enabled: !prev.transfer.enabled } }))}
+          className={`
+            w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+            ${data.transfer.enabled
+              ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+            }
+          `}
+        >
+          <ArrowRightLeft className={`w-4 h-4 shrink-0 mt-0.5 ${data.transfer.enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-semibold ${data.transfer.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>Habilitar transferências</p>
+            <p className={`text-[11px] mt-0.5 leading-tight ${data.transfer.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>Quando desabilitado, as ações de transferência não são exibidas para o atendente.</p>
+          </div>
+        </button>
+
+        {data.transfer.enabled && (
+          <div className="mt-4 space-y-3">
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Justificativas rápidas
+            </label>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              Textos de atalho exibidos como botões no fluxo de transferência. O atendente pode complementar livremente.
+            </p>
+
+            <div className="space-y-2">
+              {data.transfer.quick_reasons.map((reason, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={reason}
+                    onChange={(e) => {
+                      const updated = [...data.transfer.quick_reasons];
+                      updated[idx] = e.target.value;
+                      setData((prev) => ({ ...prev, transfer: { ...prev.transfer, quick_reasons: updated } }));
+                    }}
+                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = data.transfer.quick_reasons.filter((_, i) => i !== idx);
+                      setData((prev) => ({ ...prev, transfer: { ...prev.transfer, quick_reasons: updated } }));
+                    }}
+                    className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                    title="Remover"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setData((prev) => ({
+                  ...prev,
+                  transfer: { ...prev.transfer, quick_reasons: [...prev.transfer.quick_reasons, ''] },
+                }));
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#003876] dark:text-[#ffd700] border border-[#003876]/20 dark:border-[#ffd700]/20 rounded-lg hover:bg-[#003876]/5 dark:hover:bg-[#ffd700]/5 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Adicionar justificativa
+            </button>
+          </div>
+        )}
       </SettingsCard>
 
       {/* Floating save button */}
