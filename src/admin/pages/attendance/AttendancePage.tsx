@@ -444,8 +444,8 @@ export default function AttendancePage() {
             setPriorityCfg({ ...DEFAULT_PRIORITY_CFG, ...(r.value as object) });
           }
           if (r.key === 'sector_visibility_mode') {
-            const parsed = typeof r.value === 'string' ? JSON.parse(r.value) : r.value;
-            setSectorMode(parsed === 'restricted' ? 'restricted' : 'all');
+            const raw = r.value;
+            setSectorMode(raw === 'restricted' ? 'restricted' : 'all');
           }
           if (r.key === 'transfer' && r.value) {
             setTransferCfg({ ...DEFAULT_TRANSFER_CFG, ...(r.value as object) });
@@ -635,11 +635,17 @@ export default function AttendancePage() {
     await supabase.rpc('log_audit', {
       p_action: 'transfer',
       p_module: 'attendance',
-      p_details: {
-        ticket_id: transferTarget.id,
-        ticket_number: transferTarget.ticket_number,
-        from_sector: transferTarget.sector_label,
-        to_sector: sectorLabel,
+      p_record_id: transferTarget.id,
+      p_description: `Senha ${transferTarget.ticket_number} transferida de "${transferTarget.sector_label}" para "${sectorLabel}". Motivo: ${reason}`,
+      p_old_data: {
+        sector_key: transferTarget.sector_key,
+        sector_label: transferTarget.sector_label,
+        status: transferTarget.status,
+      },
+      p_new_data: {
+        sector_key: sectorKey,
+        sector_label: sectorLabel,
+        status: 'waiting',
         reason,
       },
     });
