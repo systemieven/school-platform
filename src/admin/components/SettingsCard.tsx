@@ -120,12 +120,12 @@ export function SettingsCard({
             type="button"
             onClick={toggle}
             aria-expanded={!isCollapsed}
-            className="flex-1 min-w-0 flex items-start gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/40"
+            className="flex-1 min-w-0 flex items-center gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/40"
           >
-            <ChevronDown
-              className={`w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
-            />
             {headInner}
+            <ChevronDown
+              className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
+            />
           </button>
         ) : (
           headInner
@@ -181,12 +181,12 @@ export function CollapsibleSection({
           type="button"
           onClick={toggle}
           aria-expanded={!collapsed}
-          className="flex-1 min-w-0 flex items-start gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/40"
+          className="flex-1 min-w-0 flex items-center gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/40"
         >
-          <ChevronDown
-            className={`w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0 transition-transform ${collapsed ? '' : 'rotate-180'}`}
-          />
           <div className="min-w-0 flex-1">{head}</div>
+          <ChevronDown
+            className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${collapsed ? '' : 'rotate-180'}`}
+          />
         </button>
         {headerExtra && <div className="flex-shrink-0">{headerExtra}</div>}
       </div>
