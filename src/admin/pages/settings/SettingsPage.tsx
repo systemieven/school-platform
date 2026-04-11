@@ -3103,7 +3103,8 @@ function AppointmentsSettingsPanel() {
                       <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Duração da visita</p>
                       <div className="flex flex-wrap gap-2">
                         {DURATION_OPTIONS.map((min) => (
-                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, duration_minutes: min } : prev)} className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.duration_minutes === min ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'}`}>
+                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, duration_minutes: min } : prev)} className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.duration_minutes === min ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'}`}>
+                            <Clock className={`w-3 h-3 ${d.duration_minutes === min ? 'text-[#ffd700]' : 'text-gray-400'}`} />
                             {min} min
                           </button>
                         ))}
@@ -3114,7 +3115,8 @@ function AppointmentsSettingsPanel() {
                       <p className="text-xs text-gray-400 mb-2">Tempo de preparação entre atendimentos</p>
                       <div className="flex flex-wrap gap-2">
                         {BUFFER_OPTIONS.map((min) => (
-                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, buffer_minutes: min } : prev)} className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.buffer_minutes === min ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'}`}>
+                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, buffer_minutes: min } : prev)} className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.buffer_minutes === min ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'}`}>
+                            <Timer className={`w-3 h-3 ${d.buffer_minutes === min ? 'text-[#ffd700]' : 'text-gray-400'}`} />
                             {min === 0 ? 'Nenhum' : `${min} min`}
                           </button>
                         ))}
