@@ -263,18 +263,27 @@ export default function AttendancePage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selected, setSelected] = useState<AttendanceTicket | null>(null);
   const [priorityCfg, setPriorityCfg] = useState<AttendancePriorityQueueConfig>(DEFAULT_PRIORITY_CFG);
+  const [sectorMode, setSectorMode] = useState<'all' | 'restricted'>('all');
   const now = useNow(1000);
 
-  // Load priority queue setting
+  // Load priority queue + sector visibility settings
   useEffect(() => {
     supabase
       .from('system_settings')
-      .select('value')
+      .select('key, value')
       .eq('category', 'attendance')
-      .eq('key', 'priority_queue')
-      .maybeSingle()
+      .in('key', ['priority_queue', 'sector_visibility_mode'])
       .then(({ data }) => {
-        if (data?.value) setPriorityCfg({ ...DEFAULT_PRIORITY_CFG, ...(data.value as object) });
+        (data || []).forEach((row) => {
+          const r = row as { key: string; value: unknown };
+          if (r.key === 'priority_queue' && r.value) {
+            setPriorityCfg({ ...DEFAULT_PRIORITY_CFG, ...(r.value as object) });
+          }
+          if (r.key === 'sector_visibility_mode') {
+            const parsed = typeof r.value === 'string' ? JSON.parse(r.value) : r.value;
+            setSectorMode(parsed === 'restricted' ? 'restricted' : 'all');
+          }
+        });
       });
   }, []);
 
@@ -298,14 +307,25 @@ export default function AttendancePage() {
     },
   });
 
+  // null = see all; string[] = restricted to these keys
+  const effectiveSectors = useMemo<string[] | null>(() => {
+    if (profile?.role === 'super_admin') return null;
+    if (sectorMode === 'all') return null;
+    return (profile as { sector_keys?: string[] } | null)?.sector_keys ?? [];
+  }, [profile, sectorMode]);
+
   const sectors = useMemo(() => {
     const map = new Map<string, string>();
     tickets.forEach((t) => { if (!map.has(t.sector_key)) map.set(t.sector_key, t.sector_label); });
-    return Array.from(map.entries());
-  }, [tickets]);
+    const all = Array.from(map.entries());
+    if (effectiveSectors === null) return all;
+    return all.filter(([key]) => effectiveSectors.includes(key));
+  }, [tickets, effectiveSectors]);
 
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
+      // Sector restriction from user profile
+      if (effectiveSectors !== null && !effectiveSectors.includes(t.sector_key)) return false;
       const matchSearch =
         search === '' ||
         t.visitor_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -314,7 +334,7 @@ export default function AttendancePage() {
       const matchSector = sectorFilter === 'all' || t.sector_key === sectorFilter;
       return matchSearch && matchSector;
     });
-  }, [tickets, search, sectorFilter]);
+  }, [tickets, search, sectorFilter, effectiveSectors]);
 
   const waitingTickets = useMemo(() => filtered.filter((t) => t.status === 'waiting').sort((a, b) => {
     if (a.priority_group !== b.priority_group) return a.priority_group - b.priority_group;
@@ -326,13 +346,16 @@ export default function AttendancePage() {
   const inServiceTickets  = useMemo(() => filtered.filter((t) => t.status === 'in_service').sort((a, b) => (a.service_started_at || '').localeCompare(b.service_started_at || '')), [filtered]);
 
   const counts = useMemo(() => {
+    const visible = effectiveSectors === null
+      ? tickets
+      : tickets.filter((t) => effectiveSectors.includes(t.sector_key));
     const c: Record<AttendanceTicketStatus | 'active' | 'total', number> = {
-      waiting: 0, called: 0, in_service: 0, finished: 0, abandoned: 0, no_show: 0, active: 0, total: tickets.length,
+      waiting: 0, called: 0, in_service: 0, finished: 0, abandoned: 0, no_show: 0, active: 0, total: visible.length,
     };
-    tickets.forEach((t) => { c[t.status]++; });
+    visible.forEach((t) => { c[t.status]++; });
     c.active = c.waiting + c.called + c.in_service;
     return c;
-  }, [tickets]);
+  }, [tickets, effectiveSectors]);
 
   async function patchTicket(id: string, patch: Record<string, unknown>): Promise<boolean> {
     setBusyId(id);
@@ -446,7 +469,15 @@ export default function AttendancePage() {
       </div>
 
       {/* Board */}
-      {loading ? (
+      {effectiveSectors !== null && effectiveSectors.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-900/10 py-16 text-center">
+          <User className="w-12 h-12 text-amber-400 mx-auto mb-3" />
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Nenhum setor atribuído ao seu perfil</p>
+          <p className="text-xs text-amber-500 dark:text-amber-500 mt-1">
+            Solicite a um administrador que vincule setores de atendimento ao seu usuário.
+          </p>
+        </div>
+      ) : loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin text-[#003876]" />
         </div>

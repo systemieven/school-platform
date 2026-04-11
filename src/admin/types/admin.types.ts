@@ -21,6 +21,7 @@ export interface Profile {
   avatar_url: string | null;
   role: Role;
   phone?: string | null;
+  sector_keys: string[];          // visit reason keys assigned to this user
   is_active: boolean;
   must_change_password: boolean;
   password_changed_at: string | null;
@@ -302,7 +303,8 @@ export interface NavItem {
   label: string;
   icon: string;          // Lucide icon name
   path: string;
-  roles: Role[];         // roles that can see this item
+  roles: Role[];         // legacy fallback — used when permissions haven't loaded yet
+  moduleKey?: string;    // maps to modules.key for granular permission check
   badge?: number;
 }
 

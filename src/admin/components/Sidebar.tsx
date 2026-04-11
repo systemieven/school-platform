@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../hooks/useAdminAuth';
+import { usePermissions } from '../contexts/PermissionsContext';
 import { ADMIN_NAV } from '../lib/admin-navigation';
 import { ROLE_LABELS } from '../types/admin.types';
 import {
@@ -24,6 +25,8 @@ import {
   Megaphone,
   CalendarDays,
   Ticket,
+  Shield,
+  FileSearch,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -45,6 +48,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Megaphone,
   CalendarDays,
   Ticket,
+  Shield,
+  FileSearch,
 };
 
 interface Props {
@@ -54,6 +59,7 @@ interface Props {
 
 export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
   const { profile, signOut } = useAdminAuth();
+  const { canView, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
   const [isDark, setIsDark] = useState(() =>
     document.documentElement.classList.contains('dark'),
@@ -97,9 +103,12 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
         {ADMIN_NAV.map((group) => {
-          const visibleItems = group.items.filter(
-            (item) => profile && item.roles.includes(profile.role),
-          );
+          const visibleItems = group.items.filter((item) => {
+            if (!profile) return false;
+            // Use granular permissions if loaded; fall back to legacy roles array
+            if (!permsLoading && item.moduleKey) return canView(item.moduleKey);
+            return item.roles.includes(profile.role);
+          });
           if (visibleItems.length === 0) return null;
 
           return (

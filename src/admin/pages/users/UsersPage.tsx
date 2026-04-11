@@ -134,14 +134,21 @@ function TempPasswordModal({ profile, tempPassword, waStatus, sendError, mode = 
 }
 
 // ── Create Modal ──────────────────────────────────────────────────────────────
+interface SectorOption {
+  key: string;
+  label: string;
+}
+
 interface CreateModalProps {
   callerRole: Role;
+  sectors: SectorOption[];
   onClose: () => void;
   onCreated: (p: Profile) => void;
 }
 
-function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) {
-  const [form, setForm] = useState({ full_name: '', email: '', role: 'user' as Role, phone: '' });
+function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateModalProps) {
+  const { profile: currentUser } = useAdminAuth();
+  const [form, setForm] = useState({ full_name: '', email: '', role: 'user' as Role, phone: '', sector_keys: [] as string[], attendance_enabled: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -189,6 +196,17 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
 
     const profile = data.profile as Profile;
     const tempPassword = data.temp_password as string;
+
+    // Save module permission overrides (appointments + attendance)
+    const attEnabled = form.attendance_enabled;
+    const permOverrides = ['appointments', 'attendance'].map(key => ({
+      user_id: profile.id,
+      module_key: key,
+      can_view: attEnabled, can_create: attEnabled, can_edit: attEnabled,
+      can_delete: false,
+      granted_by: currentUser?.id ?? profile.id,
+    }));
+    await supabase.from('user_permission_overrides').insert(permOverrides);
 
     // WhatsApp check + send (all before showing modal)
     let waStatus: WaStatus = 'no-phone';
@@ -255,7 +273,7 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
     setCreatedResult({ profile, tempPassword, waStatus, sendError });
   }
 
-  function set(k: keyof typeof form, v: string) {
+  function set<K extends keyof typeof form>(k: K, v: typeof form[K]) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
@@ -335,6 +353,55 @@ function CreateUserDrawer({ callerRole, onClose, onCreated }: CreateModalProps) 
               Uma senha temporária será gerada automaticamente no momento da criação.
             </p>
           </SettingsCard>
+
+          <SettingsCard title="Atendimentos">
+            <Toggle
+              checked={form.attendance_enabled}
+              onChange={(v) => {
+                setForm(f => ({
+                  ...f,
+                  attendance_enabled: v,
+                  ...(v ? {} : { sector_keys: [] }),
+                }));
+              }}
+              label="Permitir que usuário realize atendimentos"
+              description="Habilita acesso aos módulos de agendamento e atendimento. Ao ativar, as permissões necessárias serão configuradas automaticamente."
+            />
+          </SettingsCard>
+
+          {sectors.length > 0 && form.attendance_enabled && (
+            <SettingsCard title="Setores de Atendimento">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
+                Selecione os setores que este usuário poderá atender. Se nenhum for selecionado, o usuário não verá tickets no modo restrito.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {sectors.map((s) => {
+                  const active = form.sector_keys.includes(s.key);
+                  return (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          sector_keys: active
+                            ? f.sector_keys.filter((k) => k !== s.key)
+                            : [...f.sector_keys, s.key],
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                        active
+                          ? 'bg-[#003876] border-[#003876] text-white shadow-sm'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 dark:hover:border-[#ffd700]/40'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </SettingsCard>
+          )}
         </form>
 
         {/* Footer */}
@@ -356,13 +423,14 @@ interface EditDrawerProps {
   user: Profile;
   callerRole: Role;
   currentUserId: string;
+  sectors: SectorOption[];
   onClose: () => void;
   onUpdated: (p: Profile) => void;
   onDeleted: (id: string) => void;
 }
 
-function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, onDeleted }: EditDrawerProps) {
-  const [form, setForm] = useState({ full_name: user.full_name || '', phone: user.phone || '', role: user.role, is_active: user.is_active });
+function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onUpdated, onDeleted }: EditDrawerProps) {
+  const [form, setForm] = useState({ full_name: user.full_name || '', phone: user.phone || '', role: user.role, is_active: user.is_active, sector_keys: user.sector_keys ?? [], attendance_enabled: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -379,15 +447,55 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
     return true;
   });
 
+  // Load current attendance permission state
+  useEffect(() => {
+    supabase
+      .from('user_permission_overrides')
+      .select('module_key, can_view')
+      .eq('user_id', user.id)
+      .in('module_key', ['appointments', 'attendance'])
+      .then(({ data }) => {
+        const appt = data?.find(d => d.module_key === 'appointments');
+        const att  = data?.find(d => d.module_key === 'attendance');
+        const hasOverrides = appt !== undefined || att !== undefined;
+
+        if (hasOverrides) {
+          setForm(f => ({ ...f, attendance_enabled: appt?.can_view === true && att?.can_view === true }));
+        } else {
+          // No overrides: inherit from role. Admin/coordinator have access by default.
+          const roleHasAccess = ['super_admin', 'admin', 'coordinator'].includes(user.role);
+          setForm(f => ({ ...f, attendance_enabled: roleHasAccess }));
+        }
+      });
+  }, [user.id, user.role]);
+
   async function handleSave() {
     setSaving(true);
     setError('');
     const { error: err } = await supabase
       .from('profiles')
-      .update({ full_name: form.full_name, phone: form.phone || null, role: form.role, is_active: form.is_active })
+      .update({ full_name: form.full_name, phone: form.phone || null, role: form.role, is_active: form.is_active, sector_keys: form.sector_keys })
       .eq('id', user.id);
+    if (err) { setSaving(false); setError(err.message); return; }
+
+    // Update attendance/appointment permission overrides
+    await supabase
+      .from('user_permission_overrides')
+      .delete()
+      .eq('user_id', user.id)
+      .in('module_key', ['appointments', 'attendance']);
+
+    const attEnabled = form.attendance_enabled;
+    const permOverrides = ['appointments', 'attendance'].map(key => ({
+      user_id: user.id,
+      module_key: key,
+      can_view: attEnabled, can_create: attEnabled, can_edit: attEnabled,
+      can_delete: false,
+      granted_by: currentUserId,
+    }));
+    await supabase.from('user_permission_overrides').insert(permOverrides);
+
     setSaving(false);
-    if (err) { setError(err.message); return; }
     onUpdated({ ...user, ...form });
   }
 
@@ -573,6 +681,55 @@ function EditUserDrawer({ user, callerRole, currentUserId, onClose, onUpdated, o
             />
           </SettingsCard>
 
+          <SettingsCard title="Atendimentos">
+            <Toggle
+              checked={form.attendance_enabled}
+              onChange={(v) => {
+                setForm(f => ({
+                  ...f,
+                  attendance_enabled: v,
+                  ...(v ? {} : { sector_keys: [] }),
+                }));
+              }}
+              label="Permitir que usuário realize atendimentos"
+              description="Habilita acesso aos módulos de agendamento e atendimento. Ao ativar, as permissões necessárias serão configuradas automaticamente."
+            />
+          </SettingsCard>
+
+          {sectors.length > 0 && form.attendance_enabled && (
+            <SettingsCard title="Setores de Atendimento">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
+                Selecione os setores que este usuário poderá atender.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {sectors.map((s) => {
+                  const active = form.sector_keys.includes(s.key);
+                  return (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          sector_keys: active
+                            ? f.sector_keys.filter((k) => k !== s.key)
+                            : [...f.sector_keys, s.key],
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                        active
+                          ? 'bg-[#003876] border-[#003876] text-white shadow-sm'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 dark:hover:border-[#ffd700]/40'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </SettingsCard>
+          )}
+
           {canReset && (
             <SettingsCard title="Segurança">
               {confirmReset ? (
@@ -668,8 +825,28 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editUser, setEditUser] = useState<Profile | null>(null);
+  const [sectors, setSectors] = useState<SectorOption[]>([]);
 
   useEffect(() => { fetchProfiles(); }, []);
+
+  // Fetch visit reasons (sectors) from system_settings
+  useEffect(() => {
+    supabase
+      .from('system_settings')
+      .select('value')
+      .eq('category', 'visit')
+      .eq('key', 'reasons')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value && Array.isArray(data.value)) {
+          setSectors(
+            (data.value as { key: string; label: string; active?: boolean }[])
+              .filter((r) => r.active !== false)
+              .map((r) => ({ key: r.key, label: r.label })),
+          );
+        }
+      });
+  }, []);
 
   async function fetchProfiles() {
     setLoading(true);
@@ -802,6 +979,7 @@ export default function UsersPage() {
       {showCreate && currentUser && (
         <CreateUserDrawer
           callerRole={currentUser.role}
+          sectors={sectors}
           onClose={() => setShowCreate(false)}
           onCreated={(p) => {
             setProfiles((prev) => [p, ...prev]);
@@ -815,6 +993,7 @@ export default function UsersPage() {
           user={editUser}
           callerRole={currentUser.role}
           currentUserId={currentUser.id}
+          sectors={sectors}
           onClose={() => setEditUser(null)}
           onUpdated={(updated) => {
             setProfiles((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));

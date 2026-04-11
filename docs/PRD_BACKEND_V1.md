@@ -1,9 +1,13 @@
+> **NOTA**: Este documento foi substituido pelo [PRD v2](./PRD_V2.md) em 11/04/2026.
+> O PRD v2 reflete o estado real do sistema apos implementacao completa das Fases 1-5.
+> Este arquivo e mantido como referencia historica do planejamento original.
+
 # PRD — Sistema de Gestao do Colegio Batista em Caruaru
 
-> **Versao**: 1.0
+> **Versao**: 1.0 (superseded by v2)
 > **Data**: 07 de abril de 2026
 > **Autor**: IA (Claude) + Iftael (Product Owner)
-> **Status**: Rascunho para validacao
+> **Status**: Arquivo historico — ver [PRD_V2.md](./PRD_V2.md)
 
 ---
 

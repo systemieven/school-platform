@@ -10,6 +10,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'LayoutDashboard',
         path: '/admin',
         roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'dashboard',
       },
     ],
   },
@@ -22,6 +23,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'CalendarCheck',
         path: '/admin/agendamentos',
         roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'appointments',
       },
       {
         key: 'enrollments',
@@ -29,6 +31,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'GraduationCap',
         path: '/admin/matriculas',
         roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'enrollments',
       },
       {
         key: 'contacts',
@@ -36,6 +39,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'MessageSquare',
         path: '/admin/contatos',
         roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'contacts',
       },
       {
         key: 'attendance',
@@ -43,6 +47,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Ticket',
         path: '/admin/atendimentos',
         roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'attendance',
       },
     ],
   },
@@ -55,6 +60,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Kanban',
         path: '/admin/leads/kanban',
         roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'kanban',
       },
       {
         key: 'reports',
@@ -62,6 +68,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'BarChart2',
         path: '/admin/relatorios',
         roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'reports',
       },
     ],
   },
@@ -74,6 +81,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'School',
         path: '/admin/segmentos',
         roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'segments',
       },
       {
         key: 'students',
@@ -81,6 +89,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'UserCheck',
         path: '/admin/alunos',
         roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'students',
       },
       {
         key: 'teacher-area',
@@ -88,6 +97,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'BookOpen',
         path: '/admin/area-professor',
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
+        moduleKey: 'teacher-area',
       },
       {
         key: 'library',
@@ -95,6 +105,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Library',
         path: '/admin/biblioteca',
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
+        moduleKey: 'library',
       },
       {
         key: 'announcements',
@@ -102,6 +113,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Megaphone',
         path: '/admin/comunicados',
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
+        moduleKey: 'announcements',
       },
       {
         key: 'events',
@@ -109,6 +121,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'CalendarDays',
         path: '/admin/eventos',
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
+        moduleKey: 'events',
       },
     ],
   },
@@ -116,11 +129,28 @@ export const ADMIN_NAV: NavGroup[] = [
     label: 'Sistema',
     items: [
       {
+        key: 'audit',
+        label: 'Auditoria',
+        icon: 'FileSearch',
+        path: '/admin/auditoria',
+        roles: ['super_admin', 'admin'],
+        moduleKey: 'audit',
+      },
+      {
+        key: 'permissions',
+        label: 'Permissões',
+        icon: 'Shield',
+        path: '/admin/permissoes',
+        roles: ['super_admin', 'admin'],
+        moduleKey: 'permissions',
+      },
+      {
         key: 'users',
         label: 'Usuários',
         icon: 'Users',
         path: '/admin/usuarios',
         roles: ['super_admin', 'admin'],
+        moduleKey: 'users',
       },
       {
         key: 'settings',
@@ -128,6 +158,7 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Settings',
         path: '/admin/configuracoes',
         roles: ['super_admin', 'admin'],
+        moduleKey: 'settings',
       },
     ],
   },

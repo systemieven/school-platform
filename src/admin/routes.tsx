@@ -19,6 +19,8 @@ import LibraryPage from './pages/library/LibraryPage';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
 import EventsPage from './pages/events/EventsPage';
 import AttendancePage from './pages/attendance/AttendancePage';
+import PermissionsPage from './pages/permissions/PermissionsPage';
+import AuditLogsPage from './pages/audit/AuditLogsPage';
 
 export default function AdminRoutes() {
   return (
@@ -90,6 +92,22 @@ export default function AdminRoutes() {
             }
           />
 
+          <Route
+            path="auditoria"
+            element={
+              <ProtectedRoute roles={['super_admin', 'admin']}>
+                <AuditLogsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="permissoes"
+            element={
+              <ProtectedRoute roles={['super_admin', 'admin']}>
+                <PermissionsPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="usuarios"
             element={

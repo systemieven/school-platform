@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import AdminHeader from './components/AdminHeader';
 import { WhatsAppStatusProvider } from './contexts/WhatsAppStatusContext';
+import { PermissionsProvider } from './contexts/PermissionsContext';
 
 const STORAGE_KEY = 'admin_sidebar_collapsed';
 
@@ -36,19 +37,21 @@ export default function AdminLayout() {
   }, []);
 
   return (
-    <WhatsAppStatusProvider>
-      <div className="admin-layout min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-        <Sidebar collapsed={collapsed} onToggle={toggle} />
-        <AdminHeader sidebarCollapsed={collapsed} onToggleSidebar={toggle} />
+    <PermissionsProvider>
+      <WhatsAppStatusProvider>
+        <div className="admin-layout min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+          <Sidebar collapsed={collapsed} onToggle={toggle} />
+          <AdminHeader sidebarCollapsed={collapsed} onToggleSidebar={toggle} />
 
-        <main
-          className={`transition-all duration-300 p-6 ${
-            collapsed ? 'ml-[72px]' : 'ml-64'
-          }`}
-        >
-          <Outlet />
-        </main>
-      </div>
-    </WhatsAppStatusProvider>
+          <main
+            className={`transition-all duration-300 p-6 ${
+              collapsed ? 'ml-[72px]' : 'ml-64'
+            }`}
+          >
+            <Outlet />
+          </main>
+        </div>
+      </WhatsAppStatusProvider>
+    </PermissionsProvider>
   );
 }

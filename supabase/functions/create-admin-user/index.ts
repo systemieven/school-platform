@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Forbidden: insufficient role' }, 403);
 
     const body = await req.json();
-    const { email, full_name, role, phone } = body;
+    const { email, full_name, role, phone, sector_keys } = body;
 
     if (!email || !full_name || !role)
       return json({ error: 'Missing required fields: email, full_name, role' }, 400);
@@ -88,6 +88,7 @@ Deno.serve(async (req: Request) => {
         full_name,
         role,
         phone: phone || null,
+        sector_keys: Array.isArray(sector_keys) ? sector_keys : [],
         is_active: true,
         must_change_password: true,
       })

@@ -115,6 +115,7 @@ interface AttendanceState {
   client_screen_fields: AttendanceClientScreenFields;
   feedback: AttendanceFeedbackConfig;
   display_panel: DisplayPanelConfig;
+  sector_visibility_mode: 'all' | 'restricted';
 }
 
 const DEFAULTS: AttendanceState = {
@@ -155,6 +156,7 @@ const DEFAULTS: AttendanceState = {
     sector_filter: [],
     theme: 'dark-blue',
   },
+  sector_visibility_mode: 'all',
 };
 
 // NOTE: `estimated_service_time` foi removido — o tempo de atendimento é
@@ -171,6 +173,7 @@ const ATTENDANCE_KEYS: (keyof AttendanceState)[] = [
   'client_screen_fields',
   'feedback',
   'display_panel',
+  'sector_visibility_mode',
 ];
 
 const SECTOR_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -284,6 +287,9 @@ export default function AttendanceSettingsPanel() {
           if (r.key === 'eligibility_rules') {
             // Normaliza valores legados (campo `mode` → flags multi-select)
             merged.eligibility_rules = normalizeEligibilityRules(parsed);
+          } else if (r.key === 'sector_visibility_mode') {
+            // Simple string value, not an object — assign directly
+            merged.sector_visibility_mode = (parsed === 'restricted' ? 'restricted' : 'all');
           } else {
             (merged as unknown as Record<string, unknown>)[r.key] = {
               ...((DEFAULTS as unknown as Record<string, unknown>)[r.key] as object),
@@ -561,6 +567,54 @@ export default function AttendanceSettingsPanel() {
             </div>
           );
         })()}
+      </SettingsCard>
+
+      {/* Visibilidade de Setores */}
+      <SettingsCard collapseId="attendance.sectorVisibility" title="Visibilidade de Setores" icon={Users} description="Defina se cada atendente vê apenas os tickets dos seus setores ou se todos veem tudo.">
+        <div className="space-y-3">
+          <label
+            className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+              data.sector_visibility_mode === 'all'
+                ? 'border-[#003876] dark:border-[#ffd700] bg-[#003876]/5 dark:bg-[#ffd700]/5'
+                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+            }`}
+          >
+            <input
+              type="radio"
+              name="sector_visibility"
+              checked={data.sector_visibility_mode === 'all'}
+              onChange={() => setData((prev) => ({ ...prev, sector_visibility_mode: 'all' }))}
+              className="mt-0.5 accent-[#003876]"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Todos os setores</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                Todos os atendentes veem e podem chamar senhas de qualquer setor.
+              </p>
+            </div>
+          </label>
+          <label
+            className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+              data.sector_visibility_mode === 'restricted'
+                ? 'border-[#003876] dark:border-[#ffd700] bg-[#003876]/5 dark:bg-[#ffd700]/5'
+                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+            }`}
+          >
+            <input
+              type="radio"
+              name="sector_visibility"
+              checked={data.sector_visibility_mode === 'restricted'}
+              onChange={() => setData((prev) => ({ ...prev, sector_visibility_mode: 'restricted' }))}
+              className="mt-0.5 accent-[#003876]"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Restrito ao setor</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                Cada atendente vê apenas os tickets dos setores atribuídos ao seu perfil. Super Admin sempre vê tudo.
+              </p>
+            </div>
+          </label>
+        </div>
       </SettingsCard>
 
       {/* 2. Formato de Senha */}
