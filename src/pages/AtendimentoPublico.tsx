@@ -160,7 +160,7 @@ function digitsOnly(s: string): string {
 
 /**
  * Deriva uma sigla de ate 2 letras a partir do nome da instituicao, pulando
- * preposicoes comuns. Ex: "Colégio Batista em Caruaru" → "CB".
+ * preposicoes comuns. Ex: "Minha Escola" → "ME".
  * Usada apenas como fallback visual no badge dourado do header.
  */
 function deriveInitials(name: string): string {

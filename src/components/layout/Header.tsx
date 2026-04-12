@@ -19,8 +19,8 @@ function formatAddress(raw: unknown): string {
 export default function Header() {
   const { settings } = useSettings('general');
 
-  const phone   = (settings.phone as string) || '(81) 3721-4787';
-  const address = formatAddress(settings.address) || 'Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE';
+  const phone   = (settings.phone as string) || '';
+  const address = formatAddress(settings.address) || '';
 
   return (
     <header className="bg-brand-primary text-white">

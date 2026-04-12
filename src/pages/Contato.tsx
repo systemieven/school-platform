@@ -88,7 +88,7 @@ function buildBusinessHoursLines(raw: unknown): string[] {
 }
 
 function formatInstitutionalAddress(raw: unknown): string[] {
-  if (!raw) return ['Rua Marcílio Dias, 99', 'São Francisco, Caruaru/PE'];
+  if (!raw) return ['', ''];
   if (typeof raw === 'object' && raw !== null) {
     const a = raw as Record<string, string>;
     const line1 = [a.rua, a.numero && `, ${a.numero}`].filter(Boolean).join('');
@@ -230,7 +230,7 @@ export default function Contato() {
   const heroImage    = heroCont.image     || 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&q=80&w=2070';
 
   // Dados institucionais (fonte única de verdade — Institucional > Contato / Horários)
-  const instPhone   = (generalSettings.phone as string) || '(81) 3721-4787';
+  const instPhone   = (generalSettings.phone as string) || '';
   const instAddress = formatInstitutionalAddress(generalSettings.address);
   const instHoursLines = buildBusinessHoursLines(generalSettings.business_hours);
 
@@ -359,7 +359,7 @@ export default function Contato() {
         <div className="absolute inset-0">
           <img
             src={heroImage}
-            alt="Colégio Batista"
+            alt=""
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
@@ -445,7 +445,7 @@ export default function Contato() {
                 <p className="font-display text-lg font-bold mb-1">Prefere o WhatsApp?</p>
                 <p className="text-white/70 text-sm mb-4">Atendemos também pelo WhatsApp em horário comercial.</p>
                 <a
-                  href="https://wa.me/5581991398203?text=Olá, vim do site e queria mais informações"
+                  href={(() => { const sn = Array.isArray(generalSettings.social_networks) ? generalSettings.social_networks : []; const wa = (sn as Array<{network:string;handle:string;message?:string}>).find(s => s.network === 'whatsapp'); return wa ? `https://wa.me/${wa.handle.replace(/\D/g, '')}${wa.message ? `?text=${encodeURIComponent(wa.message)}` : ''}` : '#'; })()}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group inline-flex items-center gap-2 bg-brand-secondary text-brand-primary px-5 py-2.5 rounded-full font-semibold text-sm hover:bg-brand-secondary-light transition-all duration-300"

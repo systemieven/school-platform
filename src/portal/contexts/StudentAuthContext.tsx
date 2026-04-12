@@ -4,7 +4,7 @@
  * Students log in with enrollment_number + password (Supabase Auth).
  * First-access flow: enrollment_number + guardian CPF → set own password.
  *
- * Auth email convention: {enrollment_number}@portal.colegiobatista.com.br
+ * Auth email convention: {enrollment_number}{PORTAL_EMAIL_SUFFIX}
  */
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -44,7 +44,9 @@ const StudentAuthContext = createContext<StudentAuthState>({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const PORTAL_EMAIL_SUFFIX = '@portal.colegiobatista.com.br';
+import { CLIENT_DEFAULTS } from '../../config/client';
+
+const PORTAL_EMAIL_SUFFIX = CLIENT_DEFAULTS.portal.email_suffix;
 
 function toEmail(enrollmentNumber: string): string {
   return `${enrollmentNumber.trim().toLowerCase()}${PORTAL_EMAIL_SUFFIX}`;

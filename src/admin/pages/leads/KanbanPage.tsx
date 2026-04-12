@@ -475,7 +475,7 @@ function LeadDetailModal({ lead, stages, onClose, onUpdated }: {
     const { data, error } = await supabase.from('enrollments').insert({
       guardian_name: lead.name, guardian_phone: lead.phone, guardian_email: lead.email,
       student_name: '', student_birth_date: '2020-01-01',
-      guardian_cpf: '', guardian_zip_code: '', guardian_street: '', guardian_number: '', guardian_neighborhood: '', guardian_city: 'Caruaru', guardian_state: 'PE',
+      guardian_cpf: '', guardian_zip_code: '', guardian_street: '', guardian_number: '', guardian_neighborhood: '', guardian_city: '', guardian_state: '',
       father_name: '', father_cpf: '', father_phone: '', mother_name: '', mother_cpf: '', mother_phone: '',
       segment: lead.segment_interest, origin: 'referral', status: 'new', first_school: false,
     }).select('id').single();
@@ -858,7 +858,7 @@ export default function KanbanPage() {
             guardian_name:  lead.name,
             visitor_phone:  lead.phone,
             contact_phone:  lead.phone,
-            school_name:    identity.school_name || 'Colégio Batista',
+            school_name:    identity.school_name || '',
             current_date:   new Date().toLocaleDateString('pt-BR'),
           };
           await sendWhatsAppTemplate({
@@ -1039,7 +1039,7 @@ export default function KanbanPage() {
             contact_phone:  waLead.phone,
             contact_reason: waLead.segment_interest || '',
             contact_status: stages.find((s) => s.name === waLead.stage)?.label || waLead.stage,
-            school_name:    identity.school_name || 'Colégio Batista',
+            school_name:    identity.school_name || '',
             current_date:   new Date().toLocaleDateString('pt-BR'),
           }}
           onClose={() => setWaLead(null)}

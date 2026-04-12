@@ -16,7 +16,7 @@ const LAST_UPDATE = '06 de abril de 2026';
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function formatInstitutionalAddress(raw: unknown): string {
-  if (!raw) return 'Rua Marcílio Dias, 99, São Francisco, Caruaru/PE';
+  if (!raw) return '';
   if (typeof raw === 'object' && raw !== null) {
     const a = raw as Record<string, string>;
     const parts = [
@@ -24,10 +24,10 @@ function formatInstitutionalAddress(raw: unknown): string {
       a.neighborhood,
       a.city && a.state ? `${a.city}/${a.state}` : a.city,
     ].filter(Boolean);
-    return parts.join(', ') || 'Rua Marcílio Dias, 99, São Francisco, Caruaru/PE';
+    return parts.join(', ') || '';
   }
   if (typeof raw === 'string' && raw.trim()) return raw;
-  return 'Rua Marcílio Dias, 99, São Francisco, Caruaru/PE';
+  return '';
 }
 
 interface InstData {
@@ -168,11 +168,11 @@ export default function PoliticaPrivacidade() {
   const { settings: generalSettings } = useSettings('general');
 
   const inst = useMemo<InstData>(() => ({
-    name:        identity.school_name || 'Colégio Batista em Caruaru',
-    cnpj:        identity.cnpj        || '01.873.279/0002-61',
+    name:        identity.school_name || '',
+    cnpj:        identity.cnpj        || '',
     addressLine: formatInstitutionalAddress(generalSettings.address),
-    phone:       (generalSettings.phone as string)  || '(81) 3721-4787',
-    email:       (generalSettings.email as string)  || 'privacidade@colegiobatistacaruaru.com.br',
+    phone:       (generalSettings.phone as string)  || '',
+    email:       (generalSettings.email as string)  || '',
   }), [identity, generalSettings]);
 
   const sections = useMemo(() => buildSections(inst), [inst]);

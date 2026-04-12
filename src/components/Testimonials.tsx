@@ -77,7 +77,7 @@ const FALLBACK: Testimonial[] = [
     student_grade: 'Fundamental I – 3º ano',
     provider: 'google',
     content:
-      'Meu filho está no Batista desde o 1º ano e a evolução dele é visível a cada semestre. Os professores são dedicados, o ambiente é acolhedor e os valores transmitidos fazem diferença na vida dele.',
+      'Meu filho está na escola desde o 1º ano e a evolução dele é visível a cada semestre. Os professores são dedicados, o ambiente é acolhedor e os valores transmitidos fazem diferença na vida dele.',
     rating: 5,
     created_at: '',
   },
@@ -88,7 +88,7 @@ const FALLBACK: Testimonial[] = [
     student_grade: 'Ensino Médio – 3º ano',
     provider: 'facebook',
     content:
-      'Minha filha entrou no ensino médio e já foi aprovada em duas universidades federais. O preparo acadêmico do Batista é realmente de excelência. Muito orgulhoso da escolha que fizemos.',
+      'Minha filha entrou no ensino médio e já foi aprovada em duas universidades federais. O preparo acadêmico da escola é realmente de excelência. Muito orgulhoso da escolha que fizemos.',
     rating: 5,
     created_at: '',
   },
@@ -697,7 +697,7 @@ export default function Testimonials() {
                     <textarea
                       value={content}
                       onChange={(e) => setContent(e.target.value.slice(0, 500))}
-                      placeholder="Conte sua experiência com o Colégio Batista… (mínimo 20 caracteres)"
+                      placeholder="Conte sua experiência com a escola… (mínimo 20 caracteres)"
                       rows={4}
                       className={`${inputCls} resize-none`}
                     />

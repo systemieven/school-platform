@@ -213,12 +213,12 @@ export default function Footer() {
 
   const footerConfig = parseFooter(navSettings.footer);
 
-  const schoolName = identity.school_name || (generalSettings.school_name as string) || 'Colégio Batista em Caruaru';
-  const cnpj       = identity.cnpj || (generalSettings.cnpj as string) || '01.873.279/0002-61';
-  const phone      = (generalSettings.phone as string) || '(81) 3721-4787';
+  const schoolName = identity.school_name || (generalSettings.school_name as string) || '';
+  const cnpj       = identity.cnpj || (generalSettings.cnpj as string) || '';
+  const phone      = (generalSettings.phone as string) || '';
 
   const { line1: addrLine1, line2: addrLine2 } = formatAddress(generalSettings.address)
-    || formatAddress('Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE');
+    || { line1: '', line2: '' };
 
   const socialNetworks = parseSocialNetworks(generalSettings.social_networks);
   const businessHoursLines = buildBusinessHoursLines(generalSettings.business_hours);

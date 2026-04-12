@@ -294,7 +294,7 @@ export default function BrandingSettingsPanel() {
             icon={Building2}
             value={identity.school_short_name}
             onChange={(e) => setIdentity((s) => ({ ...s, school_short_name: e.target.value }))}
-            placeholder="Ex: Colégio Batista"
+            placeholder="Ex: Nome Curto"
             maxLength={40}
           />
           <InputField

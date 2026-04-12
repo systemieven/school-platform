@@ -96,7 +96,7 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <p className="font-display font-bold text-sm leading-tight truncate">{identity.school_short_name || 'Colégio Batista'}</p>
+            <p className="font-display font-bold text-sm leading-tight truncate">{identity.school_short_name || ''}</p>
             <p className="text-[10px] text-white/50">Painel Administrativo</p>
           </div>
         )}

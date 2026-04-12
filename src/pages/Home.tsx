@@ -125,8 +125,8 @@ export default function Home() {
   const heroBadge    = (homeConfig.badge as string)     || 'Matrículas 2026 abertas';
   const heroTitle    = (homeConfig.title as string)     || 'Educação que Transforma Vidas';
   const heroHL       = (homeConfig.highlight as string) || 'Transforma';
-  const heroSubtitle = (homeConfig.subtitle as string)  || 'Há mais de 20 anos formando cidadãos com excelência acadêmica e valores cristãos em Caruaru.';
-  const heroVideoUrl = (homeConfig.video_url as string) || 'https://s3.ibotcloud.com.br/colegiobatista/imagens/site/video-inicio.mp4';
+  const heroSubtitle = (homeConfig.subtitle as string)  || '';
+  const heroVideoUrl = (homeConfig.video_url as string) || '';
   const heroScenes   = (homeConfig.scenes as HeroScene[] | undefined) ?? [];
   const heroSlideshow = (homeConfig.slideshow as HeroSlideshowConfig | undefined) ?? { default_duration: 8, order: 'sequential' as const, transition: 'crossfade' as const, transition_duration: 1200 };
   const segments = (contentSettings.home_segments as SegmentData[] | undefined) ?? [];
@@ -269,8 +269,7 @@ export default function Home() {
               Diferenciais
             </p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-brand-primary">
-              Por que escolher o{' '}
-              <span className="italic">Colégio Batista?</span>
+              Por que nos escolher<span className="italic">?</span>
             </h2>
             <div className="section-divider mx-auto mt-6" />
           </div>
@@ -359,14 +358,13 @@ export default function Home() {
 
         <div className="relative container mx-auto px-4 text-center" data-reveal="scale">
           <p className="text-brand-secondary text-sm font-semibold tracking-[0.2em] uppercase mb-4">
-            Matrícula 2026
+            {(contentSettings.cta_band_badge as string) || 'Matrícula'}
           </p>
           <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-6">
-            Comece a transformação <span className="italic">agora</span>
+            {(contentSettings.cta_band_title as string) || 'Comece a transformação'} <span className="italic">agora</span>
           </h2>
           <p className="text-white/70 max-w-xl mx-auto mb-10 leading-relaxed">
-            Garanta a vaga do seu filho em uma das melhores escolas de Caruaru.
-            Venha conhecer nossa estrutura e metodologia.
+            {(contentSettings.cta_band_subtitle as string) || 'Garanta a vaga do seu filho. Venha conhecer nossa estrutura e metodologia.'}
           </p>
           <Link
             to="/matricula"

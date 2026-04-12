@@ -800,7 +800,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
             enrollment_status:  PIPELINE.find((p) => p.key === enr.status)?.label || enr.status,
             enrollment_number:  enr.enrollment_number || 'Pendente',
             pending_docs:       '',
-            school_name:        identity.school_name || 'Colégio Batista',
+            school_name:        identity.school_name || '',
             current_date:       new Date().toLocaleDateString('pt-BR'),
           }}
           onClose={() => setShowWhatsApp(false)}

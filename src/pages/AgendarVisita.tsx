@@ -284,15 +284,15 @@ export default function AgendarVisita() {
   const heroBadge    = heroApp.badge     || 'Visita presencial';
   const heroTitle    = heroApp.title     || 'Agende sua Visita';
   const heroHL       = heroApp.highlight || 'Visita';
-  const heroSubtitle = heroApp.subtitle  || 'Conheça pessoalmente nossa estrutura, equipe pedagógica e tudo que o Colégio Batista tem a oferecer.';
+  const heroSubtitle = heroApp.subtitle  || 'Conheça pessoalmente nossa estrutura, equipe pedagógica e tudo que temos a oferecer.';
   const heroImage    = heroApp.image     || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2070';
 
   // General settings — card info
-  const schoolName = (generalSettings.school_name as string) || 'Colégio Batista';
+  const schoolName = (generalSettings.school_name as string) || '';
 
   const cardAddress = (() => {
     const raw = generalSettings.address;
-    if (!raw) return 'Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE';
+    if (!raw) return '';
     if (typeof raw === 'object' && raw !== null) {
       const a = raw as Record<string, string>;
       return [a.rua, a.numero && `, ${a.numero}`, a.bairro && ` - ${a.bairro}`, a.cidade && `, ${a.cidade}`, a.estado && `/${a.estado}`].filter(Boolean).join('');
@@ -811,7 +811,7 @@ export default function AgendarVisita() {
         <div className="absolute inset-0">
           <img
             src={heroImage}
-            alt="Colégio Batista"
+            alt=""
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/85 to-brand-primary-dark/75" />
@@ -1405,7 +1405,7 @@ export default function AgendarVisita() {
                           <div>
                             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Local</p>
                             <p className="font-bold text-brand-primary text-sm">
-                              Rua Marcílio Dias, 99 – São Francisco, Caruaru/PE
+                              {cardAddress}
                             </p>
                           </div>
                         </div>

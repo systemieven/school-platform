@@ -468,7 +468,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
             contact_phone: contact.phone,
             contact_reason: REASON_LABELS[contact.contact_reason || ''] || contact.contact_reason || '',
             contact_status: STATUS_CONFIG[contact.status]?.label || contact.status,
-            school_name: identity.school_name || 'Colégio Batista',
+            school_name: identity.school_name || '',
             current_date: new Date().toLocaleDateString('pt-BR'),
           }}
           onClose={() => setShowWhatsApp(false)}

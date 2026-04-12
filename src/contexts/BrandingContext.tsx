@@ -57,52 +57,27 @@ interface BrandingContextValue {
   loading: boolean;
 }
 
-// ── Defaults (current hardcoded values — used as fallback) ──
+// ── Defaults (from client config — used as fallback before DB loads) ──
 
-const DEFAULT_COLORS: BrandingColors = {
-  primary: '#003876',
-  primary_dark: '#002855',
-  secondary: '#ffd700',
-  secondary_light: '#ffe44d',
-  surface: '#f8f7f4',
-  surface_warm: '#f3f1ec',
-  text_on_primary: '#ffffff',
-  text_on_secondary: '#1a1a2e',
-};
+import { CLIENT_DEFAULTS } from '../config/client';
 
-const DEFAULT_FONTS: BrandingFonts = {
-  display_family: 'Playfair Display',
-  display_weight: '700',
-  sans_family: 'Inter',
-  sans_weight: '400',
-  admin_family: 'Sora',
-  google_fonts_url:
-    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Sora:wght@300;400;500;600;700&display=swap',
-};
+const DEFAULT_COLORS: BrandingColors = { ...CLIENT_DEFAULTS.colors };
+
+const DEFAULT_FONTS: BrandingFonts = { ...CLIENT_DEFAULTS.fonts };
 
 const DEFAULT_IDENTITY: BrandingIdentity = {
-  school_name: 'Colégio Batista em Caruaru',
-  school_short_name: 'Batista',
-  school_initials: 'CB',
-  slogan: 'Educação que Transforma Vidas',
-  cnpj: '01.873.279/0002-61',
+  school_name:       CLIENT_DEFAULTS.identity.school_name,
+  school_short_name: CLIENT_DEFAULTS.identity.school_short_name,
+  school_initials:   CLIENT_DEFAULTS.identity.school_initials,
+  slogan:            CLIENT_DEFAULTS.identity.slogan,
+  cnpj:              CLIENT_DEFAULTS.identity.cnpj,
   logo_url: '',
   logo_dark_url: '',
   favicon_url: '',
   og_image_url: '',
 };
 
-const DEFAULT_CTA: BrandingCTA = {
-  enrollment_label: 'Matrícula 2026',
-  enrollment_route: '/matricula',
-  enrollment_pulse: true,
-  hero_primary_label: 'Conheça Nossa Escola',
-  hero_primary_route: '/sobre',
-  hero_secondary_label: 'Agende uma Visita',
-  hero_secondary_route: '/agendar-visita',
-  band_label: 'Faça sua matrícula',
-  band_route: '/matricula',
-};
+const DEFAULT_CTA: BrandingCTA = { ...CLIENT_DEFAULTS.cta };
 
 // ── Context ──
 

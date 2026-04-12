@@ -18,7 +18,7 @@ interface NavbarConfig {
 
 // ── Defaults ──
 
-const DEFAULT_LOGO_URL = 'https://s3.ibotcloud.com.br/colegiobatista/imagens/Logo-Nova.jpeg';
+const DEFAULT_LOGO_URL = '';
 
 const DEFAULT_ITEMS: NavItem[] = [
   { label: 'Início', route: '/' },
@@ -57,7 +57,7 @@ export default function Navbar() {
 
   const config = parseNavbar(settings.navbar);
   const logoUrl = identity.logo_url || DEFAULT_LOGO_URL;
-  const logoAlt = identity.school_short_name || identity.school_name || 'Colégio Batista em Caruaru';
+  const logoAlt = identity.school_short_name || identity.school_name || '';
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 0);

@@ -34,7 +34,7 @@ function PortalNav({ onClose }: { onClose?: () => void }) {
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-brand-secondary flex items-center justify-center text-brand-primary font-bold text-sm">{identity.school_initials || 'CB'}</div>
           <div>
-            <p className="text-white font-bold text-sm leading-tight">{identity.school_short_name || 'Colégio Batista'}</p>
+            <p className="text-white font-bold text-sm leading-tight">{identity.school_short_name || ''}</p>
             <p className="text-white/50 text-xs">Portal do Aluno</p>
           </div>
         </div>

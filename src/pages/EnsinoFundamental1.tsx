@@ -40,7 +40,7 @@ export default function EnsinoFundamental1() {
   const heroBadge    = hero.badge     || 'Fundamental I · 1º ao 5º ano';
   const heroTitle    = hero.title     || 'Construindo as Bases do Futuro';
   const heroHL       = hero.highlight || 'Bases';
-  const heroSubtitle = hero.subtitle  || 'Bases sólidas para o futuro através de uma educação integral, inovadora e com valores cristãos.';
+  const heroSubtitle = hero.subtitle  || '';
   const heroImage    = hero.image     || '';
 
   return (
@@ -138,7 +138,7 @@ export default function EnsinoFundamental1() {
             style={{ '--delay': '0.1s' } as React.CSSProperties}
           >
             No Ensino Fundamental I, focamos no desenvolvimento das habilidades essenciais, preparando
-            os alunos para os desafios futuros com uma base acadêmica sólida e valores cristãos.
+            os alunos para os desafios futuros com uma base acadêmica sólida e valores sólidos.
           </p>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -180,7 +180,7 @@ export default function EnsinoFundamental1() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
-              Por que o Batista
+              Por que nos escolher
             </p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-brand-primary">
               Nossos <span className="italic">Diferenciais</span>

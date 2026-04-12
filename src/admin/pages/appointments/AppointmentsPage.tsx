@@ -648,7 +648,7 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
             appointment_time: formatTime(apt.appointment_time),
             visit_reason: REASON_LABELS[apt.visit_reason] || apt.visit_reason,
             companions_count: String(Array.isArray(apt.companions) ? apt.companions.length : 0),
-            school_name: identity.school_name || 'Colégio Batista',
+            school_name: identity.school_name || '',
             current_date: new Date().toLocaleDateString('pt-BR'),
           }}
           onClose={() => setShowWhatsApp(false)}

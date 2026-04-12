@@ -235,7 +235,7 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
             user_name:    profile.full_name ?? 'usuário',
             temp_password: tempPassword,
             system_url:   systemUrl,
-            school_name:  identity.school_name || 'Colégio Batista',
+            school_name:  identity.school_name || '',
           };
 
           let result;
@@ -250,7 +250,7 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
             });
           } else {
             // Fallback: template not found — send plain text
-            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSeu acesso ao *Painel Administrativo* do ${identity.school_name || 'Colégio Batista'} foi criado.\n\n🔑 *Senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSeu acesso ao *Painel Administrativo* do ${identity.school_name || ''} foi criado.\n\n🔑 *Senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
             result = await sendWhatsAppText({
               phone: profile.phone,
               text,
@@ -581,7 +581,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
             user_name:    profile.full_name ?? 'usuário',
             temp_password: tempPassword,
             system_url:   systemUrl,
-            school_name:  identity.school_name || 'Colégio Batista',
+            school_name:  identity.school_name || '',
           };
 
           let result;
@@ -595,7 +595,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
               relatedRecordId: profile.id,
             });
           } else {
-            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSua senha de acesso ao *Painel Administrativo* do ${identity.school_name || 'Colégio Batista'} foi redefinida por um administrador.\n\n🔑 *Nova senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no próximo acesso\n\n_Se você não solicitou esta alteração, entre em contato com o administrador imediatamente._\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSua senha de acesso ao *Painel Administrativo* do ${identity.school_name || ''} foi redefinida por um administrador.\n\n🔑 *Nova senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no próximo acesso\n\n_Se você não solicitou esta alteração, entre em contato com o administrador imediatamente._\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
             result = await sendWhatsAppText({
               phone,
               text,

@@ -388,7 +388,7 @@ export default function Matricula() {
   const heroBadge    = heroMat.badge     || 'Matrículas 2026 abertas';
   const heroTitle    = heroMat.title     || 'Matricule seu Filho';
   const heroHL       = heroMat.highlight || 'Filho';
-  const heroSubtitle = heroMat.subtitle  || 'Garanta a vaga do seu filho em uma das melhores escolas de Caruaru. O processo é simples e feito pelo responsável legal do candidato.';
+  const heroSubtitle = heroMat.subtitle  || 'Garanta a vaga do seu filho. O processo é simples e feito pelo responsável legal do candidato.';
   const heroImage    = heroMat.image     || 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&q=80&w=2070';
 
   const segmentsAvailable = (settings.segments_available as string[] | undefined) ?? [];
@@ -764,7 +764,7 @@ export default function Matricula() {
         <div className="absolute inset-0">
           <img
             src={heroImage}
-            alt="Matrícula Colégio Batista"
+            alt="Matrícula"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />

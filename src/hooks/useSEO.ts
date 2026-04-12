@@ -23,7 +23,7 @@ export interface PageSEO {
 const PAGE_DEFAULTS: Record<string, PageSEO> = {
   home: {
     title: '',  // Uses school name directly
-    description: 'Educação que Transforma Vidas. Formando cidadãos com excelência acadêmica e valores cristãos.',
+    description: '',
   },
   educacao_infantil: {
     title: 'Educação Infantil',
@@ -31,7 +31,7 @@ const PAGE_DEFAULTS: Record<string, PageSEO> = {
   },
   fundamental_1: {
     title: 'Ensino Fundamental I',
-    description: 'Bases sólidas para o futuro através de uma educação integral, inovadora e com valores cristãos.',
+    description: 'Bases sólidas para o futuro através de uma educação integral e inovadora.',
   },
   fundamental_2: {
     title: 'Ensino Fundamental II',
@@ -43,7 +43,7 @@ const PAGE_DEFAULTS: Record<string, PageSEO> = {
   },
   matricula: {
     title: 'Matrícula',
-    description: 'Garanta a vaga do seu filho em uma escola comprometida com a excelência e valores cristãos.',
+    description: 'Garanta a vaga do seu filho em uma escola comprometida com a excelência.',
   },
   contato: {
     title: 'Contato',
@@ -105,7 +105,7 @@ export function useSEO(pageKey: string, overrides?: Partial<PageSEO>) {
   const { identity } = useBranding();
   const { settings: seoSettings } = useSettings('seo');
 
-  const schoolName = identity.school_name || 'Colégio Batista';
+  const schoolName = identity.school_name || '';
   // Stabilize overrides to avoid infinite re-renders when passed inline
   const overridesKey = overrides ? JSON.stringify(overrides) : '';
 

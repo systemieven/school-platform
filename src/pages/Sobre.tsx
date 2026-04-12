@@ -43,9 +43,9 @@ export default function Sobre() {
 
   const hero = (appearanceSettings.sobre as Record<string, string> | undefined) ?? {};
   const heroBadge    = hero.badge     || 'Conheça nossa história';
-  const heroTitle    = hero.title     || 'Sobre o Colégio Batista';
-  const heroHL       = hero.highlight || 'Batista';
-  const heroSubtitle = hero.subtitle  || 'Mais de 20 anos formando cidadãos com excelência acadêmica e valores cristãos.';
+  const heroTitle    = hero.title     || 'Sobre Nós';
+  const heroHL       = hero.highlight || 'Nós';
+  const heroSubtitle = hero.subtitle  || '';
   const heroImage    = hero.image     || '';
 
   return (

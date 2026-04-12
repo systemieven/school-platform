@@ -16,7 +16,7 @@ export default function AdminLayout() {
 
   // Set document title for admin area
   useEffect(() => {
-    const schoolName = identity.school_name || 'Colégio Batista';
+    const schoolName = identity.school_name || '';
     document.title = `Gestão | ${schoolName}`;
     return () => { document.title = schoolName; };
   }, [identity.school_name]);

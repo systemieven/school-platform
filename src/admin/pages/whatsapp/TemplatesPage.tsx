@@ -142,7 +142,7 @@ function extractVars(body: string): string[] {
   return [...new Set(matches.map((m) => m.slice(2, -2)))];
 }
 
-function renderPreview(body: string, vars: string[], schoolName = 'Colégio Batista'): string {
+function renderPreview(body: string, vars: string[], schoolName = ''): string {
   const demo: Record<string, string> = {
     visitor_name: 'João Silva', guardian_name: 'Maria Santos',
     student_name: 'Ana Santos', appointment_date: '15/04/2026',
@@ -152,7 +152,7 @@ function renderPreview(body: string, vars: string[], schoolName = 'Colégio Bati
     contact_name: 'Pedro Lima', contact_phone: '(81) 99999-9999',
     contact_reason: 'Informações', contact_status: 'Novo',
     school_name: schoolName, school_phone: '(81) 3000-0000',
-    school_address: 'Rua das Flores, 123 - Caruaru/PE',
+    school_address: 'Rua Exemplo, 123',
     current_date: new Date().toLocaleDateString('pt-BR'),
     visitor_phone: '(81) 98888-8888',
   };
@@ -658,7 +658,7 @@ function TemplateDrawer({
                   <div className="flex items-center gap-3 px-3 py-2 bg-[#1f2c34]">
                     <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{identity.school_initials || 'CB'}</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-[13px] font-semibold leading-tight truncate">{identity.school_short_name || 'Colégio Batista'}</p>
+                      <p className="text-white text-[13px] font-semibold leading-tight truncate">{identity.school_short_name || ''}</p>
                       <p className="text-[10px] text-gray-400">online</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -700,7 +700,7 @@ function TemplateDrawer({
                           )}
 
                           <p className="text-[12px] text-[#e9edef] whitespace-pre-wrap leading-relaxed"
-                            dangerouslySetInnerHTML={{ __html: renderPreview(body, detectedVars, identity.school_name || 'Colégio Batista')
+                            dangerouslySetInnerHTML={{ __html: renderPreview(body, detectedVars, identity.school_name || '')
                               .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
                               .replace(/_(.*?)_/g, '<em>$1</em>')
                               .replace(/~(.*?)~/g, '<s>$1</s>')
@@ -867,7 +867,7 @@ function TemplateDrawer({
                       ref={textareaRef}
                       value={body}
                       onChange={(e) => handleBodyChange(e.target.value)}
-                      placeholder={`Olá {{visitor_name}}! Sua visita ao ${identity.school_short_name || 'Colégio Batista'} está confirmada para {{appointment_date}} às {{appointment_time}}.`}
+                      placeholder={`Olá {{visitor_name}}! Sua visita ao ${identity.school_short_name || ''} está confirmada para {{appointment_date}} às {{appointment_time}}.`}
                       rows={5}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 transition-all resize-y font-mono leading-relaxed"
                     />
