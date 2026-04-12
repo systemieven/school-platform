@@ -35,7 +35,7 @@ function playCallSound(preset: string, repeat: number) {
   playOnce();
 }
 
-export default function PanelDisplay({ config, schoolName, sectors }: Props) {
+export default function PanelDisplay({ config, schoolName }: Props) {
   const soundRef = useRef({ preset: config.sound_preset, repeat: config.sound_repeat });
   soundRef.current = { preset: config.sound_preset, repeat: config.sound_repeat };
 
