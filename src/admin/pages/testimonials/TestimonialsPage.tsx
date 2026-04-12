@@ -19,7 +19,7 @@ import { supabase } from '../../../integrations/supabase/client';
 import type { Tables } from '../../../integrations/supabase/types';
 import { logAudit } from '../../../lib/audit';
 import { usePermissions } from '../../contexts/PermissionsContext';
-import SettingsCard from '../../components/SettingsCard';
+import { SettingsCard } from '../../components/SettingsCard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
