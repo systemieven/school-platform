@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Loader2, Lock, Maximize } from 'lucide-react';
 
 interface PanelConfig {
+  show_history: boolean;
   show_visitor_name: boolean;
+  ticket_effect: string;
   sound_preset: string;
   sound_repeat: number;
   history_count: number;

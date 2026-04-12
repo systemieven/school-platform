@@ -19,7 +19,6 @@ interface PanelConfig {
 interface Props {
   config: PanelConfig;
   schoolName: string | null;
-  sectors: Array<{ key: string; label: string }>;
 }
 
 function playCallSound(preset: string, repeat: number) {

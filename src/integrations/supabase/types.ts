@@ -412,6 +412,11 @@ export type Database = {
           service_started_at: string | null
           status: string
           ticket_number: string
+          transfer_reason: string | null
+          transferred_at: string | null
+          transferred_by: string | null
+          transferred_from_sector_key: string | null
+          transferred_from_sector_label: string | null
           visitor_email: string | null
           visitor_name: string
           visitor_phone: string
@@ -439,6 +444,11 @@ export type Database = {
           service_started_at?: string | null
           status?: string
           ticket_number: string
+          transfer_reason?: string | null
+          transferred_at?: string | null
+          transferred_by?: string | null
+          transferred_from_sector_key?: string | null
+          transferred_from_sector_label?: string | null
           visitor_email?: string | null
           visitor_name: string
           visitor_phone: string
@@ -466,6 +476,11 @@ export type Database = {
           service_started_at?: string | null
           status?: string
           ticket_number?: string
+          transfer_reason?: string | null
+          transferred_at?: string | null
+          transferred_by?: string | null
+          transferred_from_sector_key?: string | null
+          transferred_from_sector_label?: string | null
           visitor_email?: string | null
           visitor_name?: string
           visitor_phone?: string
@@ -500,7 +515,113 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "attendance_tickets_transferred_by_fkey"
+            columns: ["transferred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      attendance_transfer_history: {
+        Row: {
+          created_at: string
+          from_sector_key: string
+          from_sector_label: string
+          id: string
+          reason: string | null
+          ticket_id: string
+          to_sector_key: string
+          to_sector_label: string
+          transferred_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          from_sector_key: string
+          from_sector_label: string
+          id?: string
+          reason?: string | null
+          ticket_id: string
+          to_sector_key: string
+          to_sector_label: string
+          transferred_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          from_sector_key?: string
+          from_sector_label?: string
+          id?: string
+          reason?: string | null
+          ticket_id?: string
+          to_sector_key?: string
+          to_sector_label?: string
+          transferred_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_transfer_history_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_transfer_history_transferred_by_fkey"
+            columns: ["transferred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          description: string | null
+          id: string
+          ip_address: unknown
+          module: string | null
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          user_agent: string | null
+          user_id: string | null
+          user_name: string | null
+          user_role: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          ip_address?: unknown
+          module?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          user_role?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          ip_address?: unknown
+          module?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          user_role?: string | null
+        }
+        Relationships: []
       }
       class_materials: {
         Row: {
@@ -1368,6 +1489,42 @@ export type Database = {
           },
         ]
       }
+      modules: {
+        Row: {
+          created_at: string
+          depends_on: string[]
+          description: string | null
+          group: string
+          icon: string | null
+          is_active: boolean
+          key: string
+          label: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          depends_on?: string[]
+          description?: string | null
+          group?: string
+          icon?: string | null
+          is_active?: boolean
+          key: string
+          label: string
+          position?: number
+        }
+        Update: {
+          created_at?: string
+          depends_on?: string[]
+          description?: string | null
+          group?: string
+          icon?: string | null
+          is_active?: boolean
+          key?: string
+          label?: string
+          position?: number
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           enabled_types: string[]
@@ -1480,6 +1637,7 @@ export type Database = {
           password_changed_at: string | null
           phone: string | null
           role: string
+          sector_keys: string[]
           updated_at: string
         }
         Insert: {
@@ -1493,6 +1651,7 @@ export type Database = {
           password_changed_at?: string | null
           phone?: string | null
           role?: string
+          sector_keys?: string[]
           updated_at?: string
         }
         Update: {
@@ -1506,9 +1665,54 @@ export type Database = {
           password_changed_at?: string | null
           phone?: string | null
           role?: string
+          sector_keys?: string[]
           updated_at?: string
         }
         Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          can_create: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_view: boolean
+          created_at: string
+          id: string
+          module_key: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          module_key: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          module_key?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       school_classes: {
         Row: {
@@ -1804,6 +2008,53 @@ export type Database = {
           student_grade?: string | null
         }
         Relationships: []
+      }
+      user_permission_overrides: {
+        Row: {
+          can_create: boolean | null
+          can_delete: boolean | null
+          can_edit: boolean | null
+          can_view: boolean | null
+          created_at: string
+          granted_by: string | null
+          id: string
+          module_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_view?: boolean | null
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          module_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_view?: boolean | null
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          module_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_overrides_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       visit_appointments: {
         Row: {
@@ -2173,10 +2424,72 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_next_ticket: {
+        Args: { p_caller_id?: string; p_sector_keys?: string[] }
+        Returns: {
+          appointment_id: string
+          called_at: string | null
+          called_by: string | null
+          checkin_distance_m: number | null
+          checkin_lat: number | null
+          checkin_lng: number | null
+          created_at: string
+          feedback_id: string | null
+          finished_at: string | null
+          id: string
+          issued_at: string
+          notes: string | null
+          priority_group: number
+          scheduled_time: string | null
+          sector_key: string
+          sector_label: string
+          served_by: string | null
+          service_seconds: number | null
+          service_started_at: string | null
+          status: string
+          ticket_number: string
+          transfer_reason: string | null
+          transferred_at: string | null
+          transferred_by: string | null
+          transferred_from_sector_key: string | null
+          transferred_from_sector_label: string | null
+          visitor_email: string | null
+          visitor_name: string
+          visitor_phone: string
+          wait_seconds: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "attendance_tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       expire_pending_confirmations: { Args: never; Returns: undefined }
       generate_enrollment_number: { Args: never; Returns: string }
+      get_effective_permissions: {
+        Args: { p_user_id: string }
+        Returns: {
+          can_create: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_view: boolean
+          module_key: string
+        }[]
+      }
       is_admin_or_coordinator: { Args: never; Returns: boolean }
       is_teacher_of_class: { Args: { p_class_id: string }; Returns: boolean }
+      log_audit: {
+        Args: {
+          p_action: string
+          p_description?: string
+          p_module?: string
+          p_new_data?: Json
+          p_old_data?: Json
+          p_record_id?: string
+        }
+        Returns: string
+      }
       next_attendance_ticket_number: {
         Args: { p_format: Json; p_sector_key: string }
         Returns: string
@@ -2192,6 +2505,47 @@ export type Database = {
         Returns: undefined
       }
       process_visit_reminders: { Args: never; Returns: undefined }
+      recall_ticket: {
+        Args: { p_caller_id: string; p_ticket_id: string }
+        Returns: {
+          appointment_id: string
+          called_at: string | null
+          called_by: string | null
+          checkin_distance_m: number | null
+          checkin_lat: number | null
+          checkin_lng: number | null
+          created_at: string
+          feedback_id: string | null
+          finished_at: string | null
+          id: string
+          issued_at: string
+          notes: string | null
+          priority_group: number
+          scheduled_time: string | null
+          sector_key: string
+          sector_label: string
+          served_by: string | null
+          service_seconds: number | null
+          service_started_at: string | null
+          status: string
+          ticket_number: string
+          transfer_reason: string | null
+          transferred_at: string | null
+          transferred_by: string | null
+          transferred_from_sector_key: string | null
+          transferred_from_sector_label: string | null
+          visitor_email: string | null
+          visitor_name: string
+          visitor_phone: string
+          wait_seconds: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "attendance_tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never
