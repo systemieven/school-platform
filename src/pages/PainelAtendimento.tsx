@@ -28,7 +28,6 @@ export default function PainelAtendimento() {
     <PanelDisplay
       config={auth.config}
       schoolName={auth.school_name}
-      sectors={auth.sectors}
     />
   );
 }
