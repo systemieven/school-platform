@@ -1,0 +1,69 @@
+# Workflow para o repo BASE (school-platform).
+# A cada push em main, abre PR automaticamente em todos os repos clientes.
+#
+# Requisitos:
+#   - Secret PAT_TOKEN com permissões repo + workflow (token pessoal)
+#   - Listar os repos clientes na matrix abaixo
+
+name: Propagate to Clients
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  propagate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        client:
+          - batista-site
+          # Adicione novos clientes aqui:
+          # - cliente-b
+          # - cliente-c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone client repo
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/systemieven/${{ matrix.client }}.git /tmp/client
+
+      - name: Create sync branch and merge upstream
+        working-directory: /tmp/client
+        run: |
+          git remote add upstream https://github.com/systemieven/school-platform.git
+          git fetch upstream main
+          BRANCH="sync/upstream-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git merge upstream/main --no-edit || true
+          git push origin "$BRANCH"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Create Pull Request
+        working-directory: /tmp/client
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          gh pr create \
+            --repo "systemieven/${{ matrix.client }}" \
+            --title "Sync upstream $(date +%Y-%m-%d)" \
+            --body "$(cat <<'BODY'
+          ## Sync from school-platform (base)
+
+          Automatic PR with latest changes from the base repository.
+
+          **Commit:** ${{ github.sha }}
+
+          Review for merge conflicts before merging.
+          BODY
+          )" \
+            --head "${{ env.BRANCH }}" \
+            --base main \
+            --label upstream-sync || echo "PR already exists or merge was clean"
