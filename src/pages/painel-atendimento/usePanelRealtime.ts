@@ -79,25 +79,15 @@ export default function usePanelRealtime(config: PanelRealtimeConfig) {
           if (ticket.status === 'called') {
             // New call: current featured goes to history, new ticket becomes featured
             setFeatured((prev) => {
+              if (prev && prev.id === ticket.id) return prev; // duplicate event
               if (prev) {
                 setHistory((h) =>
-                  [prev, ...h].slice(0, configRef.current.history_count),
+                  [prev, ...h].filter((t) => t.id !== ticket.id).slice(0, configRef.current.history_count),
                 );
               }
               return ticket;
             });
             configRef.current.onCall?.();
-          } else if (ticket.status === 'finished' || ticket.status === 'in_service') {
-            // If the featured ticket changed status, move it to history
-            setFeatured((prev) => {
-              if (prev && prev.id === ticket.id) {
-                setHistory((h) =>
-                  [prev, ...h].slice(0, configRef.current.history_count),
-                );
-                return null;
-              }
-              return prev;
-            });
           }
         },
       )
@@ -119,7 +109,7 @@ export default function usePanelRealtime(config: PanelRealtimeConfig) {
       if (today !== dateRef.current) {
         dateRef.current = today;
         setFeatured(null);
-        setHistory(new Map());
+        setHistory([]);
         fetchInitial();
       }
     }, 60_000);
