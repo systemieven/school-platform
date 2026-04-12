@@ -49,7 +49,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const handleSession = useCallback(
     async (session: Session | null) => {
       if (!session?.user) {
-        setState({ session: null, user: null, profile: null, loading: false, error: null });
+        // Preserve any existing error (e.g. "no permission") when sign-out triggers this callback
+        setState((prev) => ({ session: null, user: null, profile: null, loading: false, error: prev.error }));
         return;
       }
 
@@ -79,7 +80,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const adminRoles: Role[] = ['super_admin', 'admin', 'coordinator', 'teacher'];
+      const adminRoles: Role[] = ['super_admin', 'admin', 'coordinator', 'teacher', 'user'];
       if (!adminRoles.includes(profile.role)) {
         setState({
           session: null,

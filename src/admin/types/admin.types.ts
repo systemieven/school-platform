@@ -17,6 +17,7 @@ export const ADMIN_ROLES: Role[] = ['super_admin', 'admin', 'coordinator'];
 // ── Profile (mirrors profiles table) ──
 export interface Profile {
   id: string;
+  email: string;
   full_name: string | null;
   avatar_url: string | null;
   role: Role;

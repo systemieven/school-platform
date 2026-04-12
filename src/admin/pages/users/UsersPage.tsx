@@ -655,6 +655,10 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
               <input type="text" value={form.full_name} onChange={(e) => set('full_name', e.target.value)} className={inputCls} />
             </div>
             <div>
+              <label className={labelCls}>E-mail</label>
+              <input type="email" value={user.email} readOnly className={`${inputCls} bg-gray-50 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 cursor-not-allowed`} />
+            </div>
+            <div>
               <label className={labelCls}>Telefone</label>
               <input type="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="(81) 99999-9999" className={inputCls} />
             </div>
