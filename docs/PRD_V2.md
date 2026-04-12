@@ -1,7 +1,7 @@
 # PRD v2 — Sistema de Gestao do Colegio Batista em Caruaru
 
 > **Versao**: 2.0
-> **Data**: 11 de abril de 2026
+> **Data**: 12 de abril de 2026
 > **Baseado em**: PRD v1 (07/04/2026) — `docs/PRD_BACKEND_V1.md`
 > **Status**: Documento de referencia — descreve o estado real do sistema
 
@@ -255,10 +255,12 @@ Acessada via QR Code na recepcao. Fluxo de 4 etapas:
 Display para TV/monitor na recepcao:
 - **Protecao por senha** (Edge Function `attendance-panel-auth`)
 - **Temas visuais**: dark-blue, dark-green, dark-gold, light
-- **Exibe**: senha atual chamada, nome do visitante (opcional), historico recente, setor
+- **Senha em destaque**: numero grande + setor; nome do visitante condicional (`show_visitor_name`)
+- **Efeito visual da senha**: 4 presets configuraveis — brilho (glow pulsante), deslizar (slide lateral), quique (bounce elastico), neon (contorno piscante)
+- **Historico de chamadas**: lista plana das ultimas N senhas (configuravel, max 4 cards visiveis) com label "ULTIMAS SENHAS CHAMADAS"; toggle `show_history` para exibir/ocultar; `show_visitor_name` aplicado tambem ao historico
 - **Filtro por setor**: exibe apenas setores selecionados
-- **Som configuravel**: preset + repetitions
-- **Realtime**: atualiza automaticamente ao chamar/finalizar
+- **Som configuravel**: preset (bell/chime/ding/buzzer) + repeticoes (1-3x)
+- **Realtime**: atualiza automaticamente ao chamar; senha atual so vai para historico quando a proxima e chamada; guarda contra duplicacao de eventos; reset automatico a meia-noite
 
 ---
 
@@ -317,7 +319,7 @@ Embutido nas configuracoes (aba WhatsApp) com 3 sub-abas:
 - **Provider padrao** selecionavel
 
 **Infraestrutura**:
-- Edge Function `uazapi-proxy`: proxy autenticado (token nunca exposto ao client)
+- Edge Function `uazapi-proxy`: proxy autenticado — acessivel por todas as roles autenticadas (token nunca exposto ao client)
 - Edge Function `uazapi-webhook`: recebe status de entrega (ibotcloud format)
 - Edge Function `auto-notify`: disparado por triggers do banco; renderiza variaveis; envia via UazAPI
 
@@ -507,7 +509,7 @@ Detalhado na secao [4.8 WhatsApp e Comunicacao](#48-whatsapp-e-comunicacao).
 | Som de Chamada | `sound` | Toggle + preset (bell/chime/ding/buzzer) com preview audio |
 | Tela do Cliente | `client_screen_fields` | Toggles: ultimo chamado, setor, estimativa, instrucoes + texto |
 | Feedback | `feedback` | Toggle, prompt text, escala (stars/numeric), comentarios, perguntas customizadas (7 tipos: rating, text, single_choice, multi_choice, scale, yes_no, emoji) |
-| Painel de Exibicao | `display_panel` | Senha de acesso, nome do visitante, som, historico, filtro por setor, tema visual (4 opcoes) |
+| Painel de Exibicao | `display_panel` | Senha de acesso, toggle historico (`show_history`), nome do visitante (`show_visitor_name`), efeito da senha (`ticket_effect`: glow/slide/bounce/neon), som (preset + repeticoes), qtd historico (`history_count`), filtro por setor, tema visual (4 opcoes) |
 
 ### 5.5 Pre-Matricula
 
