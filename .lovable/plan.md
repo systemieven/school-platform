@@ -2,19 +2,18 @@
 
 ## Erros que Impedem a Publicação
 
-Foram encontrados **4 erros de TypeScript** no build:
+Há **2 erros de TypeScript**:
 
-### 1. `src/admin/pages/settings/AppearanceSettingsPanel.tsx`
-- **Linha 1**: `useCallback` importado mas nunca usado — remover do import
-- **Linha 12**: `Toggle` importado mas nunca usado — remover a linha inteira
+### 1. `src/pages/PainelAtendimento.tsx` — tipos incompatíveis entre `AuthResult`
+O `PainelAtendimento.tsx` define `AuthResult.config` com `show_history` e `ticket_effect`, mas o `PanelAuthScreen.tsx` define seu próprio `PanelConfig` sem essas propriedades. Como ambos usam o mesmo `setAuth`, os tipos colidem.
 
-### 2. `src/admin/pages/settings/AttendanceSettingsPanel.tsx`
-- **Linha 27**: `CalendarCheck` importado mas nunca usado — remover do import
+**Correção**: Adicionar `show_history: boolean` e `ticket_effect: string` ao `PanelConfig` no `PanelAuthScreen.tsx` (linhas 4-11), alinhando com a definição em `PainelAtendimento.tsx`.
 
-### 3. `src/pages/AgendarVisita.tsx`
-- **Linha 646**: `min_advance_hours` não existe no tipo do fallback. O objeto fallback (linhas 383-392) não inclui a propriedade `min_advance_hours`, mas o código a acessa na linha 646
-- **Correção**: adicionar `min_advance_hours: 0` ao objeto fallback (após `lead_integrated`)
+### 2. `src/pages/painel-atendimento/PanelDisplay.tsx` — `sectors` não utilizado
+O parâmetro `sectors` é declarado na Props mas nunca usado (linha 39).
+
+**Correção**: Remover `sectors` da desestruturação e da interface `Props`.
 
 ### Implementação
-Quatro edits pontuais em três arquivos. Nenhuma lógica é afetada — apenas remoção de imports não utilizados e adição de uma propriedade default ao fallback.
+Dois edits pontuais em dois arquivos. Nenhuma lógica é afetada.
 
