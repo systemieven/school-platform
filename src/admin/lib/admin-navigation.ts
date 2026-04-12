@@ -123,6 +123,14 @@ export const ADMIN_NAV: NavGroup[] = [
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
         moduleKey: 'events',
       },
+      {
+        key: 'testimonials',
+        label: 'Depoimentos',
+        icon: 'MessageSquare',
+        path: '/admin/depoimentos',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'testimonials',
+      },
     ],
   },
   {

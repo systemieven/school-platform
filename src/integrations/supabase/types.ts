@@ -1975,6 +1975,7 @@ export type Database = {
           parent_name: string
           provider: string | null
           rating: number
+          rejection_reason: string | null
           social_id: string | null
           status: string
           student_grade: string | null
@@ -1989,6 +1990,7 @@ export type Database = {
           parent_name: string
           provider?: string | null
           rating?: number
+          rejection_reason?: string | null
           social_id?: string | null
           status?: string
           student_grade?: string | null
@@ -2003,6 +2005,7 @@ export type Database = {
           parent_name?: string
           provider?: string | null
           rating?: number
+          rejection_reason?: string | null
           social_id?: string | null
           status?: string
           student_grade?: string | null

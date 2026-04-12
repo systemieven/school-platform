@@ -23,6 +23,7 @@ import AttendancePage from './pages/attendance/AttendancePage';
 import AttendanceHistoryPage from './pages/attendance/AttendanceHistoryPage';
 import PermissionsPage from './pages/permissions/PermissionsPage';
 import AuditLogsPage from './pages/audit/AuditLogsPage';
+import TestimonialsPage from './pages/testimonials/TestimonialsPage';
 
 export default function AdminRoutes() {
   return (
@@ -64,6 +65,7 @@ export default function AdminRoutes() {
           <Route path="biblioteca"     element={<ModuleGuard moduleKey="library"><LibraryPage /></ModuleGuard>} />
           <Route path="comunicados"    element={<ModuleGuard moduleKey="announcements"><AnnouncementsPage /></ModuleGuard>} />
           <Route path="eventos"        element={<ModuleGuard moduleKey="events"><EventsPage /></ModuleGuard>} />
+          <Route path="depoimentos"   element={<ModuleGuard moduleKey="testimonials"><TestimonialsPage /></ModuleGuard>} />
 
           {/* System */}
           <Route path="auditoria"      element={<ModuleGuard moduleKey="audit"><AuditLogsPage /></ModuleGuard>} />
