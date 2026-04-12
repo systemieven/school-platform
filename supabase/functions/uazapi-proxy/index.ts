@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
       .eq("id", user.id)
       .single();
 
-    if (!profile || !["super_admin", "admin", "coordinator"].includes(profile.role)) {
+    if (!profile || !profile.role) {
       return json({ error: "Forbidden" }, 403);
     }
 
