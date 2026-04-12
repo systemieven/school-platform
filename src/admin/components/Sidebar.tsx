@@ -4,6 +4,7 @@ import { useAdminAuth } from '../hooks/useAdminAuth';
 import { usePermissions } from '../contexts/PermissionsContext';
 import { ADMIN_NAV } from '../lib/admin-navigation';
 import { ROLE_LABELS } from '../types/admin.types';
+import { useBranding } from '../../contexts/BrandingContext';
 import {
   LayoutDashboard,
   CalendarCheck,
@@ -60,6 +61,7 @@ interface Props {
 export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
   const { profile, signOut } = useAdminAuth();
   const { canView, loading: permsLoading } = usePermissions();
+  const { identity } = useBranding();
   const navigate = useNavigate();
   const [isDark, setIsDark] = useState(() =>
     document.documentElement.classList.contains('dark'),
@@ -90,11 +92,11 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
       {/* Brand */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-white/10 flex-shrink-0">
         <div className="w-9 h-9 bg-brand-secondary rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-brand-primary font-bold text-sm">CB</span>
+          <span className="text-brand-primary font-bold text-sm">{identity.school_initials || 'CB'}</span>
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <p className="font-display font-bold text-sm leading-tight truncate">Colégio Batista</p>
+            <p className="font-display font-bold text-sm leading-tight truncate">{identity.school_short_name || 'Colégio Batista'}</p>
             <p className="text-[10px] text-white/50">Painel Administrativo</p>
           </div>
         )}

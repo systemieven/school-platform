@@ -2,9 +2,11 @@ import { useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { Lock, Mail, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { useBranding } from '../../../contexts/BrandingContext';
 
 export default function LoginPage() {
   const { profile, loading: authLoading, error: authError, signIn } = useAdminAuth();
+  const { identity } = useBranding();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +37,7 @@ export default function LoginPage() {
             <Lock className="w-8 h-8 text-brand-primary" />
           </div>
           <h1 className="font-display text-3xl font-bold text-white">Painel Administrativo</h1>
-          <p className="text-white/60 mt-2 text-sm">Colégio Batista em Caruaru</p>
+          <p className="text-white/60 mt-2 text-sm">{identity.school_name || 'Colégio Batista em Caruaru'}</p>
         </div>
 
         {/* Card */}
@@ -110,7 +112,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-white/40 text-xs mt-6">
-          © {new Date().getFullYear()} Colégio Batista em Caruaru
+          © {new Date().getFullYear()} {identity.school_name || 'Colégio Batista em Caruaru'}
         </p>
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
 import { sendWhatsAppText, sendWhatsAppTemplate, checkWhatsAppNumber } from '../../lib/whatsapp-api';
+import { useBranding } from '../../../contexts/BrandingContext';
 
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
@@ -149,6 +150,7 @@ interface CreateModalProps {
 
 function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateModalProps) {
   const { profile: currentUser } = useAdminAuth();
+  const { identity } = useBranding();
   const [form, setForm] = useState({ full_name: '', email: '', role: 'user' as Role, phone: '', sector_keys: [] as string[], attendance_enabled: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -233,7 +235,7 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
             user_name:    profile.full_name ?? 'usuário',
             temp_password: tempPassword,
             system_url:   systemUrl,
-            school_name:  'Colégio Batista em Caruaru',
+            school_name:  identity.school_name || 'Colégio Batista',
           };
 
           let result;
@@ -248,7 +250,7 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
             });
           } else {
             // Fallback: template not found — send plain text
-            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSeu acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi criado.\n\n🔑 *Senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSeu acesso ao *Painel Administrativo* do ${identity.school_name || 'Colégio Batista'} foi criado.\n\n🔑 *Senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no primeiro acesso\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
             result = await sendWhatsAppText({
               phone: profile.phone,
               text,
@@ -433,6 +435,7 @@ interface EditDrawerProps {
 }
 
 function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onUpdated, onDeleted }: EditDrawerProps) {
+  const { identity } = useBranding();
   const [form, setForm] = useState({ full_name: user.full_name || '', phone: user.phone || '', role: user.role, is_active: user.is_active, sector_keys: user.sector_keys ?? [], attendance_enabled: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -578,7 +581,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
             user_name:    profile.full_name ?? 'usuário',
             temp_password: tempPassword,
             system_url:   systemUrl,
-            school_name:  'Colégio Batista em Caruaru',
+            school_name:  identity.school_name || 'Colégio Batista',
           };
 
           let result;
@@ -592,7 +595,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
               relatedRecordId: profile.id,
             });
           } else {
-            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSua senha de acesso ao *Painel Administrativo* do Colégio Batista em Caruaru foi redefinida por um administrador.\n\n🔑 *Nova senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no próximo acesso\n\n_Se você não solicitou esta alteração, entre em contato com o administrador imediatamente._\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
+            const text = `Olá, ${profile.full_name ?? 'usuário'}! 👋\n\nSua senha de acesso ao *Painel Administrativo* do ${identity.school_name || 'Colégio Batista'} foi redefinida por um administrador.\n\n🔑 *Nova senha temporária:* ${tempPassword}\n\n*Como acessar:*\n1. Acesse: ${systemUrl}\n2. Entre com seu e-mail e a senha acima\n3. Você será solicitado(a) a criar uma nova senha no próximo acesso\n\n_Se você não solicitou esta alteração, entre em contato com o administrador imediatamente._\n\n_Esta senha é pessoal e intransferível. Não a compartilhe._`;
             result = await sendWhatsAppText({
               phone,
               text,

@@ -14,6 +14,7 @@ import {
   StickyNote, Send,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
+import { useBranding } from '../../../contexts/BrandingContext';
 
 // ── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; dot: string }> = {
@@ -264,6 +265,7 @@ interface DrawerProps {
 
 function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS }: DrawerProps) {
   const { profile } = useAdminAuth();
+  const { identity } = useBranding();
   const [saving, setSaving] = useState(false);
   const [internalNotes, setInternalNotes] = useState<InternalNote[]>([]);
   const [newNote, setNewNote] = useState('');
@@ -646,7 +648,7 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
             appointment_time: formatTime(apt.appointment_time),
             visit_reason: REASON_LABELS[apt.visit_reason] || apt.visit_reason,
             companions_count: String(Array.isArray(apt.companions) ? apt.companions.length : 0),
-            school_name: 'Colégio Batista',
+            school_name: identity.school_name || 'Colégio Batista',
             current_date: new Date().toLocaleDateString('pt-BR'),
           }}
           onClose={() => setShowWhatsApp(false)}

@@ -4,6 +4,7 @@ import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import { sendWhatsAppTemplate } from '../../lib/whatsapp-api';
+import { useBranding } from '../../../contexts/BrandingContext';
 import {
   Kanban, Plus, MessageCircle, Phone, Clock, ChevronDown,
   Loader2, X, Save, AlertCircle, Star, User,
@@ -787,6 +788,7 @@ function KanbanColumn({
 
 export default function KanbanPage() {
   const { profile } = useAdminAuth();
+  const { identity } = useBranding();
   const [stages, setStages]   = useState<LeadStage[]>([]);
   const [leads, setLeads]     = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -856,7 +858,7 @@ export default function KanbanPage() {
             guardian_name:  lead.name,
             visitor_phone:  lead.phone,
             contact_phone:  lead.phone,
-            school_name:    'Colégio Batista em Caruaru',
+            school_name:    identity.school_name || 'Colégio Batista',
             current_date:   new Date().toLocaleDateString('pt-BR'),
           };
           await sendWhatsAppTemplate({
@@ -1037,7 +1039,7 @@ export default function KanbanPage() {
             contact_phone:  waLead.phone,
             contact_reason: waLead.segment_interest || '',
             contact_status: stages.find((s) => s.name === waLead.stage)?.label || waLead.stage,
-            school_name:    'Colégio Batista',
+            school_name:    identity.school_name || 'Colégio Batista',
             current_date:   new Date().toLocaleDateString('pt-BR'),
           }}
           onClose={() => setWaLead(null)}

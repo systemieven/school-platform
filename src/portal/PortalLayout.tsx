@@ -5,6 +5,7 @@ import StudentProtectedRoute from './components/StudentProtectedRoute';
 import {
   LayoutDashboard, ClipboardList, Star, Megaphone, Library, User, LogOut, Menu, X, CalendarDays,
 } from 'lucide-react';
+import { useBranding } from '../contexts/BrandingContext';
 
 const NAV = [
   { path: '/portal',            label: 'Início',       icon: LayoutDashboard, end: true },
@@ -18,6 +19,7 @@ const NAV = [
 
 function PortalNav({ onClose }: { onClose?: () => void }) {
   const { student, signOut } = useStudentAuth();
+  const { identity } = useBranding();
   const navigate = useNavigate();
 
   async function handleSignOut() {
@@ -30,9 +32,9 @@ function PortalNav({ onClose }: { onClose?: () => void }) {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-brand-secondary flex items-center justify-center text-brand-primary font-bold text-sm">CB</div>
+          <div className="w-9 h-9 rounded-xl bg-brand-secondary flex items-center justify-center text-brand-primary font-bold text-sm">{identity.school_initials || 'CB'}</div>
           <div>
-            <p className="text-white font-bold text-sm leading-tight">Colégio Batista</p>
+            <p className="text-white font-bold text-sm leading-tight">{identity.school_short_name || 'Colégio Batista'}</p>
             <p className="text-white/50 text-xs">Portal do Aluno</p>
           </div>
         </div>
@@ -80,6 +82,7 @@ function PortalNav({ onClose }: { onClose?: () => void }) {
 
 export default function PortalLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { identity } = useBranding();
 
   return (
     <StudentProtectedRoute>
@@ -110,7 +113,7 @@ export default function PortalLayout() {
           {/* Mobile topbar */}
           <header className="md:hidden flex items-center justify-between px-4 py-3 bg-brand-primary text-white sticky top-0 z-20">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-brand-secondary flex items-center justify-center text-brand-primary font-bold text-xs">CB</div>
+              <div className="w-7 h-7 rounded-lg bg-brand-secondary flex items-center justify-center text-brand-primary font-bold text-xs">{identity.school_initials || 'CB'}</div>
               <span className="font-semibold text-sm">Portal do Aluno</span>
             </div>
             <button onClick={() => setMobileOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10">

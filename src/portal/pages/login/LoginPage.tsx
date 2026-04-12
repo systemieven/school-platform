@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useStudentAuth } from '../../contexts/StudentAuthContext';
 import { Loader2, Eye, EyeOff, BookOpen } from 'lucide-react';
+import { useBranding } from '../../../contexts/BrandingContext';
 
 type Mode = 'login' | 'first-access';
 
 export default function PortalLoginPage() {
   const { signIn, firstAccess, session } = useStudentAuth();
+  const { identity } = useBranding();
   const navigate = useNavigate();
 
   const [mode, setMode]           = useState<Mode>('login');
@@ -56,7 +58,7 @@ export default function PortalLoginPage() {
           <div className="w-16 h-16 rounded-2xl bg-brand-secondary flex items-center justify-center mx-auto mb-4 shadow-lg">
             <BookOpen className="w-8 h-8 text-brand-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Colégio Batista</h1>
+          <h1 className="text-2xl font-bold text-white">{identity.school_short_name || 'Colégio Batista'}</h1>
           <p className="text-white/60 text-sm mt-1">Portal do Aluno</p>
         </div>
 
@@ -144,7 +146,7 @@ export default function PortalLoginPage() {
         </div>
 
         <p className="text-center text-white/40 text-xs mt-6">
-          Colégio Batista em Caruaru · {new Date().getFullYear()}
+          {identity.school_name || 'Colégio Batista em Caruaru'} · {new Date().getFullYear()}
         </p>
       </div>
     </div>

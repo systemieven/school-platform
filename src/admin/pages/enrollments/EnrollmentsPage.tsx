@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
+import { useBranding } from '../../../contexts/BrandingContext';
 
 // ── Pipeline config ──────────────────────────────────────────────────────────
 const PIPELINE: { key: EnrollmentStatus; label: string; color: string; dot: string }[] = [
@@ -298,6 +299,7 @@ interface DrawerProps {
 
 function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   const { profile } = useAdminAuth();
+  const { identity } = useBranding();
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
   const [newStatus, setNewStatus] = useState<EnrollmentStatus | ''>('');
@@ -798,7 +800,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
             enrollment_status:  PIPELINE.find((p) => p.key === enr.status)?.label || enr.status,
             enrollment_number:  enr.enrollment_number || 'Pendente',
             pending_docs:       '',
-            school_name:        'Colégio Batista',
+            school_name:        identity.school_name || 'Colégio Batista',
             current_date:       new Date().toLocaleDateString('pt-BR'),
           }}
           onClose={() => setShowWhatsApp(false)}
