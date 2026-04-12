@@ -174,7 +174,9 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       supabase.from('system_settings').select('key, value').eq('category', 'branding'),
       // Institutional settings (school_name, cnpj — single source of truth)
       supabase.from('system_settings').select('key, value').eq('category', 'general').in('key', ['school_name', 'cnpj']),
-    ]).then(([brandingRes, generalRes]) => {
+      // CTA settings (now in navigation category)
+      supabase.from('system_settings').select('key, value').eq('category', 'navigation').eq('key', 'cta'),
+    ]).then(([brandingRes, generalRes, ctaRes]) => {
       // Apply general (institutional) fields to identity
       if (generalRes.data) {
         const general: Record<string, string> = {};
@@ -217,19 +219,26 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
             case 'logos':
               setIdentity((prev) => ({ ...prev, ...(val as Partial<BrandingIdentity>) }));
               break;
-            case 'cta':
-              setCta((prev) => ({ ...prev, ...(val as Partial<BrandingCTA>) }));
-              break;
           }
         }
       }
+
+      // Apply CTA settings from navigation
+      if (ctaRes.data && ctaRes.data.length > 0) {
+        let val = ctaRes.data[0].value;
+        if (typeof val === 'string') {
+          try { val = JSON.parse(val); } catch { /* keep */ }
+        }
+        setCta((prev) => ({ ...prev, ...(val as Partial<BrandingCTA>) }));
+      }
+
       setLoading(false);
     });
   }, []);
 
   // Listen for realtime changes to branding settings
   useEffect(() => {
-    const channel = supabase
+    const brandingChannel = supabase
       .channel('branding-changes')
       .on(
         'postgres_changes',
@@ -259,15 +268,33 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
             case 'identity':
               setIdentity((prev) => ({ ...prev, ...(val as Partial<BrandingIdentity>) }));
               break;
-            case 'cta':
-              setCta((prev) => ({ ...prev, ...(val as Partial<BrandingCTA>) }));
-              break;
           }
         },
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Listen for CTA changes in navigation category
+    const ctaChannel = supabase
+      .channel('cta-changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'system_settings', filter: "category=eq.navigation" },
+        (payload) => {
+          const { key, value } = payload.new as { key: string; value: unknown };
+          if (key !== 'cta') return;
+          let val = value;
+          if (typeof val === 'string') {
+            try { val = JSON.parse(val); } catch { /* keep */ }
+          }
+          setCta((prev) => ({ ...prev, ...(val as Partial<BrandingCTA>) }));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(brandingChannel);
+      supabase.removeChannel(ctaChannel);
+    };
   }, []);
 
   return (

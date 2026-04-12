@@ -2,14 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
-import { Toggle } from '../../components/Toggle';
 import {
   Save, Loader2, Check,
-  Building2, Image, Palette, Type, MousePointer,
+  Building2, Image, Palette, Type,
 } from 'lucide-react';
 import ImageField from '../../components/ImageField';
 import FontPicker, { buildGoogleFontsUrl } from '../../components/FontPicker';
-import RoutePicker from '../../components/RoutePicker';
 import {
   InputField, SelectField, SectionLabel, SectionDivider, INPUT_CLS,
 } from '../../components/FormField';
@@ -49,24 +47,11 @@ interface FontsFields {
   google_fonts_url: string;
 }
 
-interface CtaFields {
-  enrollment_label: string;
-  enrollment_route: string;
-  enrollment_pulse: boolean;
-  hero_primary_label: string;
-  hero_primary_route: string;
-  hero_secondary_label: string;
-  hero_secondary_route: string;
-  band_label: string;
-  band_route: string;
-}
-
 interface SettingIds {
   identity: string | null;
   logos: string | null;
   colors: string | null;
   fonts: string | null;
-  cta: string | null;
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
@@ -102,18 +87,6 @@ const DEFAULT_FONTS: FontsFields = {
   sans_weight: '400',
   admin_family: 'Sora',
   google_fonts_url: '',
-};
-
-const DEFAULT_CTA: CtaFields = {
-  enrollment_label: '',
-  enrollment_route: '',
-  enrollment_pulse: false,
-  hero_primary_label: '',
-  hero_primary_route: '',
-  hero_secondary_label: '',
-  hero_secondary_route: '',
-  band_label: '',
-  band_route: '',
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -172,16 +145,14 @@ export default function BrandingSettingsPanel() {
   const [logos, setLogos]       = useState<LogosFields>(DEFAULT_LOGOS);
   const [colors, setColors]     = useState<ColorsFields>(DEFAULT_COLORS);
   const [fonts, setFonts]       = useState<FontsFields>(DEFAULT_FONTS);
-  const [cta, setCta]           = useState<CtaFields>(DEFAULT_CTA);
 
   const [origIdentity, setOrigIdentity] = useState<IdentityFields>(DEFAULT_IDENTITY);
   const [origLogos, setOrigLogos]       = useState<LogosFields>(DEFAULT_LOGOS);
   const [origColors, setOrigColors]     = useState<ColorsFields>(DEFAULT_COLORS);
   const [origFonts, setOrigFonts]       = useState<FontsFields>(DEFAULT_FONTS);
-  const [origCta, setOrigCta]           = useState<CtaFields>(DEFAULT_CTA);
 
   const [ids, setIds] = useState<SettingIds>({
-    identity: null, logos: null, colors: null, fonts: null, cta: null,
+    identity: null, logos: null, colors: null, fonts: null,
   });
 
   const [loading, setLoading]   = useState(true);
@@ -195,10 +166,10 @@ export default function BrandingSettingsPanel() {
       .from('system_settings')
       .select('id, key, value')
       .eq('category', 'branding')
-      .in('key', ['identity', 'logos', 'colors', 'fonts', 'cta'])
+      .in('key', ['identity', 'logos', 'colors', 'fonts'])
       .then(({ data }) => {
         if (data) {
-          const newIds: SettingIds = { identity: null, logos: null, colors: null, fonts: null, cta: null };
+          const newIds: SettingIds = { identity: null, logos: null, colors: null, fonts: null };
           for (const row of data) {
             const val = row.value as Record<string, unknown>;
             switch (row.key) {
@@ -226,12 +197,6 @@ export default function BrandingSettingsPanel() {
                 newIds.fonts = row.id as string;
                 break;
               }
-              case 'cta': {
-                const v = { ...DEFAULT_CTA, ...val } as CtaFields;
-                setCta(v); setOrigCta(v);
-                newIds.cta = row.id as string;
-                break;
-              }
             }
           }
           setIds(newIds);
@@ -245,8 +210,7 @@ export default function BrandingSettingsPanel() {
     JSON.stringify(identity) !== JSON.stringify(origIdentity) ||
     JSON.stringify(logos) !== JSON.stringify(origLogos) ||
     JSON.stringify(colors) !== JSON.stringify(origColors) ||
-    JSON.stringify(fonts) !== JSON.stringify(origFonts) ||
-    JSON.stringify(cta) !== JSON.stringify(origCta);
+    JSON.stringify(fonts) !== JSON.stringify(origFonts);
 
   // ── Save ─────────────────────────────────────────────────────────────────
   async function upsertKey(
@@ -272,12 +236,11 @@ export default function BrandingSettingsPanel() {
   async function handleSave() {
     setSaving(true);
 
-    const [idIdentity, idLogos, idColors, idFonts, idCta] = await Promise.all([
+    const [idIdentity, idLogos, idColors, idFonts] = await Promise.all([
       upsertKey('identity', identity as unknown as Record<string, unknown>, ids.identity),
       upsertKey('logos', logos as unknown as Record<string, unknown>, ids.logos),
       upsertKey('colors', colors as unknown as Record<string, unknown>, ids.colors),
       upsertKey('fonts', fonts as unknown as Record<string, unknown>, ids.fonts),
-      upsertKey('cta', cta as unknown as Record<string, unknown>, ids.cta),
     ]);
 
     setIds({
@@ -285,20 +248,18 @@ export default function BrandingSettingsPanel() {
       logos: idLogos,
       colors: idColors,
       fonts: idFonts,
-      cta: idCta,
     });
 
     setOrigIdentity(identity);
     setOrigLogos(logos);
     setOrigColors(colors);
     setOrigFonts(fonts);
-    setOrigCta(cta);
 
     logAudit({
       action: 'update',
       module: 'settings',
       description: 'Configuracoes de branding atualizadas',
-      newData: { identity, logos, colors, fonts, cta },
+      newData: { identity, logos, colors, fonts },
     });
 
     setSaving(false);
@@ -491,76 +452,6 @@ export default function BrandingSettingsPanel() {
               const url = buildGoogleFontsUrl([fonts.display_family, fonts.sans_family, f]);
               setFonts((s) => ({ ...s, admin_family: f, google_fonts_url: url }));
             }}
-          />
-        </div>
-      </SettingsCard>
-
-      {/* ─── 5. CTAs ─────────────────────────────────────────────────────── */}
-      <SettingsCard collapseId="branding-cta" title="CTAs" icon={MousePointer}>
-        <SectionLabel>Matrícula</SectionLabel>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InputField
-            label="Label"
-            value={cta.enrollment_label}
-            onChange={(e) => setCta((s) => ({ ...s, enrollment_label: e.target.value }))}
-            placeholder="Ex: Matricule-se"
-          />
-          <RoutePicker
-            label="Rota"
-            value={cta.enrollment_route}
-            onChange={(v) => setCta((s) => ({ ...s, enrollment_route: v }))}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-700 dark:text-gray-300">Efeito pulse</span>
-          <Toggle
-            checked={cta.enrollment_pulse}
-            onChange={(v) => setCta((s) => ({ ...s, enrollment_pulse: v }))}
-          />
-        </div>
-
-        <SectionDivider />
-
-        <SectionLabel>Hero</SectionLabel>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InputField
-            label="Botão primário — label"
-            value={cta.hero_primary_label}
-            onChange={(e) => setCta((s) => ({ ...s, hero_primary_label: e.target.value }))}
-            placeholder="Ex: Agendar Visita"
-          />
-          <RoutePicker
-            label="Botão primário — rota"
-            value={cta.hero_primary_route}
-            onChange={(v) => setCta((s) => ({ ...s, hero_primary_route: v }))}
-          />
-          <InputField
-            label="Botão secundário — label"
-            value={cta.hero_secondary_label}
-            onChange={(e) => setCta((s) => ({ ...s, hero_secondary_label: e.target.value }))}
-            placeholder="Ex: Conhecer mais"
-          />
-          <RoutePicker
-            label="Botão secundário — rota"
-            value={cta.hero_secondary_route}
-            onChange={(v) => setCta((s) => ({ ...s, hero_secondary_route: v }))}
-          />
-        </div>
-
-        <SectionDivider />
-
-        <SectionLabel>Faixa (Band)</SectionLabel>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InputField
-            label="Label"
-            value={cta.band_label}
-            onChange={(e) => setCta((s) => ({ ...s, band_label: e.target.value }))}
-            placeholder="Ex: Garanta sua vaga"
-          />
-          <RoutePicker
-            label="Rota"
-            value={cta.band_route}
-            onChange={(v) => setCta((s) => ({ ...s, band_route: v }))}
           />
         </div>
       </SettingsCard>

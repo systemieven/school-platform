@@ -4,7 +4,7 @@ import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
 import {
-  Save, Loader2, Check, PanelTop, Menu, PanelBottom,
+  Save, Loader2, Check, PanelTop, Menu, PanelBottom, MousePointer,
 } from 'lucide-react';
 import RoutePicker from '../../components/RoutePicker';
 import {
@@ -45,6 +45,18 @@ interface FooterSettings {
   legal_links: LinkItem[];
 }
 
+interface CtaSettings {
+  enrollment_label: string;
+  enrollment_route: string;
+  enrollment_pulse: boolean;
+  hero_primary_label: string;
+  hero_primary_route: string;
+  hero_secondary_label: string;
+  hero_secondary_route: string;
+  band_label: string;
+  band_route: string;
+}
+
 // ── Defaults ─────────────────────────────────────────────────────────────────
 const DEFAULT_TOPBAR: TopBarSettings = {
   show_topbar: true,
@@ -62,15 +74,29 @@ const DEFAULT_FOOTER: FooterSettings = {
   legal_links: [],
 };
 
+const DEFAULT_CTA: CtaSettings = {
+  enrollment_label: '',
+  enrollment_route: '',
+  enrollment_pulse: false,
+  hero_primary_label: '',
+  hero_primary_route: '',
+  hero_secondary_label: '',
+  hero_secondary_route: '',
+  band_label: '',
+  band_route: '',
+};
+
 // ── Panel ────────────────────────────────────────────────────────────────────
 export default function NavigationSettingsPanel() {
   const [topbar, setTopbar] = useState<TopBarSettings>(DEFAULT_TOPBAR);
   const [navbar, setNavbar] = useState<NavbarSettings>(DEFAULT_NAVBAR);
   const [footer, setFooter] = useState<FooterSettings>(DEFAULT_FOOTER);
+  const [cta, setCta] = useState<CtaSettings>(DEFAULT_CTA);
 
   const [originalTopbar, setOriginalTopbar] = useState<TopBarSettings>(DEFAULT_TOPBAR);
   const [originalNavbar, setOriginalNavbar] = useState<NavbarSettings>(DEFAULT_NAVBAR);
   const [originalFooter, setOriginalFooter] = useState<FooterSettings>(DEFAULT_FOOTER);
+  const [originalCta, setOriginalCta] = useState<CtaSettings>(DEFAULT_CTA);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -99,6 +125,10 @@ export default function NavigationSettingsPanel() {
               const loaded = { ...DEFAULT_FOOTER, ...val } as FooterSettings;
               setFooter(loaded);
               setOriginalFooter(loaded);
+            } else if (row.key === 'cta') {
+              const loaded = { ...DEFAULT_CTA, ...val } as CtaSettings;
+              setCta(loaded);
+              setOriginalCta(loaded);
             }
           }
         }
@@ -110,7 +140,8 @@ export default function NavigationSettingsPanel() {
   const hasChanges =
     JSON.stringify(topbar) !== JSON.stringify(originalTopbar) ||
     JSON.stringify(navbar) !== JSON.stringify(originalNavbar) ||
-    JSON.stringify(footer) !== JSON.stringify(originalFooter);
+    JSON.stringify(footer) !== JSON.stringify(originalFooter) ||
+    JSON.stringify(cta) !== JSON.stringify(originalCta);
 
   // ── Save ───────────────────────────────────────────────────────────────────
   async function handleSave() {
@@ -120,6 +151,7 @@ export default function NavigationSettingsPanel() {
       { category: 'navigation', key: 'topbar', value: topbar as unknown as Record<string, unknown> },
       { category: 'navigation', key: 'navbar', value: navbar as unknown as Record<string, unknown> },
       { category: 'navigation', key: 'footer', value: footer as unknown as Record<string, unknown> },
+      { category: 'navigation', key: 'cta', value: cta as unknown as Record<string, unknown> },
     ];
 
     const { error } = await supabase
@@ -132,6 +164,7 @@ export default function NavigationSettingsPanel() {
       setOriginalTopbar(topbar);
       setOriginalNavbar(navbar);
       setOriginalFooter(footer);
+      setOriginalCta(cta);
       setSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setSaved(false), 2500);
@@ -438,6 +471,78 @@ export default function NavigationSettingsPanel() {
               setFooter((p) => ({ ...p, legal_links: [...p.legal_links, { label: '', route: '' }] }));
             }} />
           </div>
+        </div>
+      </SettingsCard>
+
+      {/* ═══════════════════════════════════ CTAs */}
+      <SettingsCard collapseId="navigation-cta" title="CTAs" icon={MousePointer}
+        description="Botões de ação exibidos na navbar, hero e faixa promocional do site.">
+
+        <SectionLabel>Matrícula</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InputField
+            label="Label"
+            value={cta.enrollment_label}
+            onChange={(e) => setCta((s) => ({ ...s, enrollment_label: e.target.value }))}
+            placeholder="Ex: Matricule-se"
+          />
+          <RoutePicker
+            label="Rota"
+            value={cta.enrollment_route}
+            onChange={(v) => setCta((s) => ({ ...s, enrollment_route: v }))}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-700 dark:text-gray-300">Efeito pulse</span>
+          <Toggle
+            checked={cta.enrollment_pulse}
+            onChange={(v) => setCta((s) => ({ ...s, enrollment_pulse: v }))}
+          />
+        </div>
+
+        <SectionDivider />
+
+        <SectionLabel>Hero</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InputField
+            label="Botão primário — label"
+            value={cta.hero_primary_label}
+            onChange={(e) => setCta((s) => ({ ...s, hero_primary_label: e.target.value }))}
+            placeholder="Ex: Agendar Visita"
+          />
+          <RoutePicker
+            label="Botão primário — rota"
+            value={cta.hero_primary_route}
+            onChange={(v) => setCta((s) => ({ ...s, hero_primary_route: v }))}
+          />
+          <InputField
+            label="Botão secundário — label"
+            value={cta.hero_secondary_label}
+            onChange={(e) => setCta((s) => ({ ...s, hero_secondary_label: e.target.value }))}
+            placeholder="Ex: Conhecer mais"
+          />
+          <RoutePicker
+            label="Botão secundário — rota"
+            value={cta.hero_secondary_route}
+            onChange={(v) => setCta((s) => ({ ...s, hero_secondary_route: v }))}
+          />
+        </div>
+
+        <SectionDivider />
+
+        <SectionLabel>Faixa (Band)</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InputField
+            label="Label"
+            value={cta.band_label}
+            onChange={(e) => setCta((s) => ({ ...s, band_label: e.target.value }))}
+            placeholder="Ex: Garanta sua vaga"
+          />
+          <RoutePicker
+            label="Rota"
+            value={cta.band_route}
+            onChange={(v) => setCta((s) => ({ ...s, band_route: v }))}
+          />
         </div>
       </SettingsCard>
 
