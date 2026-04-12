@@ -4,7 +4,7 @@ import { useAdminAuth } from '../hooks/useAdminAuth';
 import { useNotifications } from '../hooks/useNotifications';
 import { useWhatsAppStatus } from '../contexts/WhatsAppStatusContext';
 import { ROLE_LABELS } from '../types/admin.types';
-import { Bell, ChevronDown, KeyRound, PanelLeftClose, PanelLeftOpen, MessageCircle, UserCog } from 'lucide-react';
+import { Bell, ChevronDown, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, MessageCircle, UserCog } from 'lucide-react';
 import NotificationsPanel from './NotificationsPanel';
 import EditProfileDrawer from './EditProfileDrawer';
 import ChangePasswordDrawer from './ChangePasswordDrawer';
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props) {
-  const { profile } = useAdminAuth();
+  const { profile, signOut } = useAdminAuth();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const { state: waState } = useWhatsAppStatus();
   const navigate = useNavigate();
@@ -163,6 +163,14 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
                 >
                   <KeyRound className="w-4 h-4 text-gray-400" />
                   Alterar senha
+                </button>
+                <div className="mx-3 my-1 border-t border-gray-100 dark:border-gray-700" />
+                <button
+                  onClick={async () => { setMenuOpen(false); await signOut(); navigate('/admin/login'); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sair
                 </button>
               </div>
             )}

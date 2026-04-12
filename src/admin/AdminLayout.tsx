@@ -4,13 +4,22 @@ import Sidebar from './components/Sidebar';
 import AdminHeader from './components/AdminHeader';
 import { WhatsAppStatusProvider } from './contexts/WhatsAppStatusContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
+import { useBranding } from '../contexts/BrandingContext';
 
 const STORAGE_KEY = 'admin_sidebar_collapsed';
 
 export default function AdminLayout() {
+  const { identity } = useBranding();
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(STORAGE_KEY) === 'true'; } catch { return false; }
   });
+
+  // Set document title for admin area
+  useEffect(() => {
+    const schoolName = identity.school_name || 'Colégio Batista';
+    document.title = `Gestão | ${schoolName}`;
+    return () => { document.title = schoolName; };
+  }, [identity.school_name]);
 
   // Restore dark mode preference on mount — light is default
   useEffect(() => {
