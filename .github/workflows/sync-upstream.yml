@@ -1,0 +1,52 @@
+name: Sync from Upstream
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Upstream version tag (optional)'
+        required: false
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/systemieven/school-platform.git || true
+          git fetch upstream main
+
+      - name: Create sync branch and merge
+        run: |
+          BRANCH="sync/upstream-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git merge upstream/main --no-edit || echo "Merge conflicts detected — PR will be created for manual resolution"
+          git push origin "$BRANCH"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.BRANCH }}
+          title: "Sync upstream ${{ github.event.inputs.version || 'latest' }}"
+          body: |
+            ## Sync from upstream (school-platform)
+
+            This PR merges the latest changes from the base repository.
+
+            **Version:** ${{ github.event.inputs.version || 'manual sync' }}
+
+            Please review for merge conflicts in client-specific files before merging.
+          labels: upstream-sync
