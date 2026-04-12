@@ -79,7 +79,7 @@ export default function PanelDisplay({ config, schoolName, sectors }: Props) {
       </header>
 
       {/* Featured call */}
-      <main className="flex-1 flex items-center justify-center px-6 py-8">
+      <main className="flex-1 flex items-center justify-center px-6 pb-4 -mt-4">
         <FeaturedCall
           ticket={featured}
           showVisitorName={config.show_visitor_name}

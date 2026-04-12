@@ -27,16 +27,16 @@ export default function FeaturedCall({ ticket, showVisitorName, theme }: Props) 
       style={{ animation: 'panelCallIn 500ms ease-out' }}
     >
       <p
-        className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-widest uppercase"
+        className="text-4xl sm:text-5xl lg:text-7xl font-semibold tracking-widest uppercase"
         style={{ color: theme.muted }}
       >
         {ticket.sector_label}
       </p>
 
       <p
-        className="font-black leading-none"
+        className="font-black leading-none -mt-2"
         style={{
-          fontSize: 'clamp(7rem, 16vw, 14rem)',
+          fontSize: 'clamp(9rem, 20vw, 18rem)',
           color: theme.highlight,
           animation: 'panelGlow 2s ease-in-out 3',
           textShadow: `0 0 40px ${theme.highlight}40`,

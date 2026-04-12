@@ -45,7 +45,8 @@ export default function usePanelRealtime(config: PanelRealtimeConfig) {
     const { data } = await supabase
       .from('attendance_tickets')
       .select('id, ticket_number, sector_key, sector_label, visitor_name, status, called_at')
-      .in('status', ['called', 'in_service'])
+      .in('status', ['called', 'in_service', 'finished'])
+      .not('called_at', 'is', null)
       .gte('issued_at', start)
       .lte('issued_at', end)
       .order('called_at', { ascending: false });
@@ -82,26 +83,45 @@ export default function usePanelRealtime(config: PanelRealtimeConfig) {
         { event: 'UPDATE', schema: 'public', table: 'attendance_tickets' },
         (payload) => {
           const ticket = payload.new as CalledTicket;
-          if (ticket.status !== 'called') return;
           if (!matchesSectorFilter(ticket.sector_key)) return;
 
-          setFeatured((prev) => {
-            if (prev) {
-              setHistory((h) => {
-                const next = new Map(h);
-                const arr = [...(next.get(prev.sector_key) || [])];
-                arr.unshift(prev);
-                next.set(
-                  prev.sector_key,
-                  arr.slice(0, configRef.current.history_count),
-                );
-                return next;
-              });
-            }
-            return ticket;
-          });
-
-          configRef.current.onCall?.();
+          if (ticket.status === 'called') {
+            // New call: current featured goes to history, new ticket becomes featured
+            setFeatured((prev) => {
+              if (prev) {
+                setHistory((h) => {
+                  const next = new Map(h);
+                  const arr = [...(next.get(prev.sector_key) || [])];
+                  arr.unshift(prev);
+                  next.set(
+                    prev.sector_key,
+                    arr.slice(0, configRef.current.history_count),
+                  );
+                  return next;
+                });
+              }
+              return ticket;
+            });
+            configRef.current.onCall?.();
+          } else if (ticket.status === 'finished' || ticket.status === 'in_service') {
+            // If the featured ticket changed status, move it to history
+            setFeatured((prev) => {
+              if (prev && prev.id === ticket.id) {
+                setHistory((h) => {
+                  const next = new Map(h);
+                  const arr = [...(next.get(prev.sector_key) || [])];
+                  arr.unshift(prev);
+                  next.set(
+                    prev.sector_key,
+                    arr.slice(0, configRef.current.history_count),
+                  );
+                  return next;
+                });
+                return null;
+              }
+              return prev;
+            });
+          }
         },
       )
       .subscribe((status) => {
