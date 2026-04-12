@@ -361,13 +361,7 @@ export default function AppearanceSettingsPanel() {
     setPages((prev) => ({ ...prev, home: { ...prev.home, ...partial } }));
   }
 
-  function updateSegment(index: number, partial: Partial<{ image: string; description: string }>) {
-    setPages((prev) => {
-      const segments = [...prev.home.segments];
-      segments[index] = { ...segments[index], ...partial };
-      return { ...prev, home: { ...prev.home, segments } };
-    });
-  }
+
 
   // ── Scene helpers ──
   function addScene() {
@@ -614,30 +608,6 @@ export default function AppearanceSettingsPanel() {
             </div>
           </SettingsCard>
 
-          <SettingsCard collapseId="appearance.home.segments" title="Cards dos Segmentos" description="4 cards exibidos na seção de segmentos da Home. Edite a imagem e a descrição de cada um.">
-            <div className="space-y-5 pt-1">
-              {home.segments.map((seg, i) => (
-                <div key={i} className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-                  <p className="text-xs font-semibold text-brand-primary dark:text-blue-400">
-                    {['Educação Infantil', 'Fundamental I', 'Fundamental II', 'Ensino Médio'][i]}
-                  </p>
-                  <ImageField
-                    label="Imagem do card"
-                    value={seg.image}
-                    onChange={(v) => updateSegment(i, { image: v })}
-                    storageKey={`home_segment_${i}`}
-                  />
-                  <InputField
-                    label="Descrição curta"
-                    value={seg.description}
-                    onChange={(e) => updateSegment(i, { description: e.target.value })}
-                    placeholder="Ex: Desenvolvimento integral da criança"
-                    maxLength={80}
-                  />
-                </div>
-              ))}
-            </div>
-          </SettingsCard>
         </>
       )}
 

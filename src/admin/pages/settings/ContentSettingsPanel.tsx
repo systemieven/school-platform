@@ -4,7 +4,7 @@ import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import {
   Save, Loader2, Check,
-  Star, Building2, BarChart3,
+  Star, Building2, BarChart3, Layers, Image as ImageIcon,
   Home, Baby, BookOpen, BookMarked, GraduationCap,
 } from 'lucide-react';
 import IconPicker from '../../components/IconPicker';
@@ -88,10 +88,19 @@ interface SegmentData {
   horarios_title?: string;
 }
 
+interface SegmentCardItem {
+  title: string;
+  description: string;
+  image: string;
+  ages: string;
+  to: string;
+}
+
 interface ContentState {
   home_features: FeatureItem[];
   home_infrastructure: InfraItem[];
   home_stats: StatItem[];
+  home_segments: SegmentCardItem[];
   segment_educacao_infantil: SegmentData;
   segment_fundamental1: SegmentData;
   segment_fundamental2: SegmentData;
@@ -104,6 +113,7 @@ const CONTENT_KEYS: ContentKey[] = [
   'home_features',
   'home_infrastructure',
   'home_stats',
+  'home_segments',
   'segment_educacao_infantil',
   'segment_fundamental1',
   'segment_fundamental2',
@@ -114,6 +124,7 @@ const EMPTY_STATE: ContentState = {
   home_features: [],
   home_infrastructure: [],
   home_stats: [],
+  home_segments: [],
   segment_educacao_infantil: { pillars: [], activities: [], campos: [], campos_title: 'Campos de Experiências', resultados: [], resultados_title: 'Nossos Números', horarios: [], horarios_title: 'Rotina Escolar' },
   segment_fundamental1: { pillars: [], differentials: [], campos: [], campos_title: 'Projetos Interdisciplinares', resultados: [], resultados_title: 'Nossos Resultados', horarios: [], horarios_title: 'Rotina Escolar' },
   segment_fundamental2: { pillars: [], programa: [], activities: [], campos: [], campos_title: 'Atividades Extracurriculares', resultados: [], resultados_title: 'Resultados Acadêmicos', horarios: [], horarios_title: 'Horários Escolares' },
@@ -203,6 +214,12 @@ export default function ContentSettingsPanel() {
     const arr = [...state.home_stats];
     arr[idx] = { ...arr[idx], [field]: value };
     updateKey('home_stats', arr);
+  }
+
+  function updateHomeSegment(index: number, partial: Partial<SegmentCardItem>) {
+    const arr = [...state.home_segments];
+    arr[index] = { ...arr[index], ...partial };
+    updateKey('home_segments', arr);
   }
 
   function updateSegment(segKey: ContentKey, data: SegmentData) {
@@ -347,55 +364,133 @@ export default function ContentSettingsPanel() {
               updateKey('home_stats', [...state.home_stats, { value: '', label: '' }])
             } />
           </SettingsCard>
+
+          <SettingsCard collapseId="content-home-segments" title="Cards dos Segmentos" icon={Layers}
+            description="Cards exibidos na seção de segmentos da Home com imagem, título, faixa etária e link.">
+            <div className="space-y-3">
+              {state.home_segments.map((seg, i) => (
+                <ArrayItemCard key={i} index={i + 1} onRemove={() => updateKey('home_segments', removeAt(state.home_segments, i))}>
+                  <ImageField
+                    label="Imagem do card"
+                    value={seg.image}
+                    onChange={(v) => updateHomeSegment(i, { image: v })}
+                    storageKey={`home_segment_${i}`}
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <InputField
+                      label="Título"
+                      value={seg.title}
+                      onChange={(e) => updateHomeSegment(i, { title: e.target.value })}
+                      placeholder="Ex: Educação Infantil"
+                      maxLength={40}
+                    />
+                    <InputField
+                      label="Faixa etária"
+                      value={seg.ages}
+                      onChange={(e) => updateHomeSegment(i, { ages: e.target.value })}
+                      placeholder="Ex: 2 a 5 anos"
+                      maxLength={20}
+                    />
+                  </div>
+                  <InputField
+                    label="Descrição curta"
+                    value={seg.description}
+                    onChange={(e) => updateHomeSegment(i, { description: e.target.value })}
+                    placeholder="Ex: Desenvolvimento integral da criança"
+                    maxLength={80}
+                  />
+                  <InputField
+                    label="Link (rota)"
+                    value={seg.to}
+                    onChange={(e) => updateHomeSegment(i, { to: e.target.value })}
+                    placeholder="Ex: /educacao-infantil"
+                    hint="Caminho da página que o card abre ao ser clicado"
+                    maxLength={60}
+                  />
+                </ArrayItemCard>
+              ))}
+            </div>
+            <AddButton label="Adicionar segmento" onClick={() =>
+              updateKey('home_segments', [...state.home_segments, { title: '', description: '', image: '', ages: '', to: '' }])
+            } />
+          </SettingsCard>
         </>
       )}
 
       {/* ── Educacao Infantil ── */}
       {activeTab === 'infantil' && (
-        <SegmentCard
-          collapseId="content-seg-infantil"
-          title="Educacao Infantil"
-          icon={Baby}
-          segKey="segment_educacao_infantil"
-          data={state.segment_educacao_infantil}
-          onChange={(d) => updateSegment('segment_educacao_infantil', d)}
-        />
+        <>
+          <SegmentCard
+            collapseId="content-seg-infantil"
+            title="Educacao Infantil"
+            icon={Baby}
+            segKey="segment_educacao_infantil"
+            data={state.segment_educacao_infantil}
+            onChange={(d) => updateSegment('segment_educacao_infantil', d)}
+          />
+          <CamposSettingsCard
+            collapseId="content-campos-infantil"
+            data={state.segment_educacao_infantil}
+            onChange={(d) => updateSegment('segment_educacao_infantil', d)}
+          />
+        </>
       )}
 
       {/* ── Ensino Fundamental I ── */}
       {activeTab === 'fund1' && (
-        <SegmentCard
-          collapseId="content-seg-fund1"
-          title="Ensino Fundamental I"
-          icon={BookOpen}
-          segKey="segment_fundamental1"
-          data={state.segment_fundamental1}
-          onChange={(d) => updateSegment('segment_fundamental1', d)}
-        />
+        <>
+          <SegmentCard
+            collapseId="content-seg-fund1"
+            title="Ensino Fundamental I"
+            icon={BookOpen}
+            segKey="segment_fundamental1"
+            data={state.segment_fundamental1}
+            onChange={(d) => updateSegment('segment_fundamental1', d)}
+          />
+          <CamposSettingsCard
+            collapseId="content-campos-fund1"
+            data={state.segment_fundamental1}
+            onChange={(d) => updateSegment('segment_fundamental1', d)}
+          />
+        </>
       )}
 
       {/* ── Ensino Fundamental II ── */}
       {activeTab === 'fund2' && (
-        <SegmentCard
-          collapseId="content-seg-fund2"
-          title="Ensino Fundamental II"
-          icon={BookMarked}
-          segKey="segment_fundamental2"
-          data={state.segment_fundamental2}
-          onChange={(d) => updateSegment('segment_fundamental2', d)}
-        />
+        <>
+          <SegmentCard
+            collapseId="content-seg-fund2"
+            title="Ensino Fundamental II"
+            icon={BookMarked}
+            segKey="segment_fundamental2"
+            data={state.segment_fundamental2}
+            onChange={(d) => updateSegment('segment_fundamental2', d)}
+          />
+          <CamposSettingsCard
+            collapseId="content-campos-fund2"
+            data={state.segment_fundamental2}
+            onChange={(d) => updateSegment('segment_fundamental2', d)}
+          />
+        </>
       )}
 
       {/* ── Ensino Medio ── */}
       {activeTab === 'medio' && (
-        <SegmentCard
-          collapseId="content-seg-medio"
-          title="Ensino Medio"
-          icon={GraduationCap}
-          segKey="segment_ensino_medio"
-          data={state.segment_ensino_medio}
-          onChange={(d) => updateSegment('segment_ensino_medio', d)}
-        />
+        <>
+          <SegmentCard
+            collapseId="content-seg-medio"
+            title="Ensino Medio"
+            icon={GraduationCap}
+            segKey="segment_ensino_medio"
+            data={state.segment_ensino_medio}
+            onChange={(d) => updateSegment('segment_ensino_medio', d)}
+          />
+          <CamposSettingsCard
+            collapseId="content-campos-medio"
+            data={state.segment_ensino_medio}
+            onChange={(d) => updateSegment('segment_ensino_medio', d)}
+          />
+        </>
       )}
 
       {/* ── Floating save ── */}
@@ -433,7 +528,6 @@ interface SegmentCardProps {
 function SegmentCard({ collapseId, title, icon, data, onChange }: SegmentCardProps) {
   const pillars = data.pillars ?? [];
   const activities = data.activities ?? [];
-  const campos = data.campos ?? [];
   const differentials = data.differentials ?? [];
   const programa = data.programa ?? [];
   const resultados = data.resultados ?? [];
@@ -463,19 +557,6 @@ function SegmentCard({ collapseId, title, icon, data, onChange }: SegmentCardPro
   }
   function addActivity() {
     onChange({ ...data, activities: [...activities, { icon: '', title: '', desc: '' }] });
-  }
-
-  // ── Campo helpers ──
-  function updateCampo(idx: number, field: keyof CampoItem, value: string) {
-    const arr = [...campos];
-    arr[idx] = { ...arr[idx], [field]: value };
-    onChange({ ...data, campos: arr });
-  }
-  function removeCampo(idx: number) {
-    onChange({ ...data, campos: removeAt(campos, idx) });
-  }
-  function addCampo() {
-    onChange({ ...data, campos: [...campos, { img: '', title: '', desc: '' }] });
   }
 
   // ── Program / Differentials helpers ──
@@ -587,39 +668,6 @@ function SegmentCard({ collapseId, title, icon, data, onChange }: SegmentCardPro
         </>
       )}
 
-      {/* ── Campos / Seção com imagens ── */}
-      <SectionDivider />
-      <SectionLabel>Seção de Imagens</SectionLabel>
-      <InputField
-        label="Título da seção"
-        value={data.campos_title ?? ''}
-        onChange={(e) => onChange({ ...data, campos_title: e.target.value })}
-        placeholder="Ex: Campos de Experiências"
-        hint="Nome exibido como título desta seção na página pública. Cada segmento pode ter um nome diferente."
-        maxLength={60}
-      />
-      <div className="space-y-3">
-        {campos.map((c, i) => (
-          <ArrayItemCard key={i} index={i + 1} onRemove={() => removeCampo(i)}>
-            <ImageField
-              label="Imagem"
-              value={c.img}
-              onChange={(url) => updateCampo(i, 'img', url)}
-              storageKey={`content_campo_${collapseId}_${i}`}
-              hint="Recomendado: 600×800px, proporção 3:4 (retrato)"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <InputField label="Título" value={c.title}
-                onChange={(e) => updateCampo(i, 'title', e.target.value)} />
-              <InputField label="Descrição" value={c.desc}
-                onChange={(e) => updateCampo(i, 'desc', e.target.value)}
-                maxLength={120} />
-            </div>
-          </ArrayItemCard>
-        ))}
-      </div>
-      <AddButton label="Adicionar card" onClick={addCampo} />
-
       {/* ── Programa / Diferenciais ── */}
       {(hasProgram || differentials.length > 0) && (
         <>
@@ -711,6 +759,65 @@ function SegmentCard({ collapseId, title, icon, data, onChange }: SegmentCardPro
         ))}
       </div>
       <AddButton label="Adicionar turno" onClick={addHorario} />
+    </SettingsCard>
+  );
+}
+
+// ── Campos / Seção de Imagens (card separado) ────────────────────────────────
+
+interface CamposSettingsCardProps {
+  collapseId: string;
+  data: SegmentData;
+  onChange: (data: SegmentData) => void;
+}
+
+function CamposSettingsCard({ collapseId, data, onChange }: CamposSettingsCardProps) {
+  const campos = data.campos ?? [];
+
+  function updateCampo(idx: number, field: keyof CampoItem, value: string) {
+    const arr = [...campos];
+    arr[idx] = { ...arr[idx], [field]: value };
+    onChange({ ...data, campos: arr });
+  }
+  function removeCampo(idx: number) {
+    onChange({ ...data, campos: removeAt(campos, idx) });
+  }
+  function addCampo() {
+    onChange({ ...data, campos: [...campos, { img: '', title: '', desc: '' }] });
+  }
+
+  return (
+    <SettingsCard collapseId={collapseId} title="Seção de Imagens" icon={ImageIcon}
+      description="Cards com imagem, título e descrição exibidos na página pública deste segmento.">
+      <InputField
+        label="Título da seção"
+        value={data.campos_title ?? ''}
+        onChange={(e) => onChange({ ...data, campos_title: e.target.value })}
+        placeholder="Ex: Campos de Experiências"
+        hint="Nome exibido como título desta seção na página pública. Cada segmento pode ter um nome diferente."
+        maxLength={60}
+      />
+      <div className="space-y-3">
+        {campos.map((c, i) => (
+          <ArrayItemCard key={i} index={i + 1} onRemove={() => removeCampo(i)}>
+            <ImageField
+              label="Imagem"
+              value={c.img}
+              onChange={(url) => updateCampo(i, 'img', url)}
+              storageKey={`content_campo_${collapseId}_${i}`}
+              hint="Recomendado: 600×800px, proporção 3:4 (retrato)"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <InputField label="Título" value={c.title}
+                onChange={(e) => updateCampo(i, 'title', e.target.value)} />
+              <InputField label="Descrição" value={c.desc}
+                onChange={(e) => updateCampo(i, 'desc', e.target.value)}
+                maxLength={120} />
+            </div>
+          </ArrayItemCard>
+        ))}
+      </div>
+      <AddButton label="Adicionar card" onClick={addCampo} />
     </SettingsCard>
   );
 }

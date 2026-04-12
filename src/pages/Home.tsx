@@ -24,36 +24,13 @@ const ICON_MAP: Record<string, LucideIcon> = {
   GraduationCap, Heart, Lightbulb, Trophy, Building, Palette, HeartHandshake,
 };
 
-const SEGMENTS = [
-  {
-    to: '/educacao-infantil',
-    img: 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&q=80&w=1000',
-    title: 'Educação Infantil',
-    desc: 'Desenvolvimento integral da criança',
-    ages: '2 a 5 anos',
-  },
-  {
-    to: '/ensino-fundamental-1',
-    img: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=1000',
-    title: 'Fundamental I',
-    desc: 'Base sólida para o futuro',
-    ages: '1º ao 5º ano',
-  },
-  {
-    to: '/ensino-fundamental-2',
-    img: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&q=80&w=1000',
-    title: 'Fundamental II',
-    desc: 'Desenvolvimento do pensamento crítico',
-    ages: '6º ao 9º ano',
-  },
-  {
-    to: '/ensino-medio',
-    img: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=1000',
-    title: 'Ensino Médio',
-    desc: 'Preparação para o futuro',
-    ages: '1ª a 3ª série',
-  },
-];
+interface SegmentData {
+  to: string;
+  image: string;
+  title: string;
+  description: string;
+  ages: string;
+}
 
 interface FeatureData {
   icon: string;
@@ -134,10 +111,7 @@ function resolveIcon(name: string): LucideIcon {
 }
 
 export default function Home() {
-  const segmentsRef = useScrollReveal();
-  const featuresRef = useScrollReveal();
-  const infraRef = useScrollReveal();
-  const ctaRef = useScrollReveal();
+  const revealRef = useScrollReveal();
 
   const { settings: appearanceSettings } = useSettings('appearance');
   const { settings: contentSettings } = useSettings('content');
@@ -153,17 +127,10 @@ export default function Home() {
   const heroVideoUrl = (homeConfig.video_url as string) || 'https://s3.ibotcloud.com.br/colegiobatista/imagens/site/video-inicio.mp4';
   const heroScenes   = (homeConfig.scenes as HeroScene[] | undefined) ?? [];
   const heroSlideshow = (homeConfig.slideshow as HeroSlideshowConfig | undefined) ?? { default_duration: 8, order: 'sequential' as const, transition: 'crossfade' as const, transition_duration: 1200 };
-  type SegConfig = { image: string; description: string };
-  const segConfigs   = (homeConfig.segments as SegConfig[] | undefined) ?? [];
-
-  const displaySegments = SEGMENTS.map((seg, i) => ({
-    ...seg,
-    img:  segConfigs[i]?.image       || seg.img,
-    desc: segConfigs[i]?.description || seg.desc,
-  }));
+  const segments = (contentSettings.home_segments as SegmentData[] | undefined) ?? [];
 
   return (
-    <>
+    <div className="min-h-screen" ref={revealRef}>
       {/* ── Hero ── */}
       <section className="relative h-screen min-h-[600px] overflow-hidden">
         {/* Slideshow / Video Background */}
@@ -230,65 +197,71 @@ export default function Home() {
       </section>
 
       {/* ── Segments ── */}
-      <section className="relative py-24 bg-[var(--surface)] grain-overlay">
-        <div ref={segmentsRef} className="relative z-[2] container mx-auto px-4">
-          <div className="text-center mb-16" data-reveal="up">
-            <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
-              Nossos Segmentos
-            </p>
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-brand-primary">
-              Uma jornada completa
-            </h2>
-            <div className="section-divider mx-auto mt-6" />
-          </div>
+      {segments.length > 0 && (
+        <section className="relative py-24 bg-[var(--surface)] grain-overlay">
+          <div className="relative z-[2] container mx-auto px-4">
+            <div className="text-center mb-16" data-reveal="up">
+              <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
+                Nossos Segmentos
+              </p>
+              <h2 className="font-display text-4xl md:text-5xl font-bold text-brand-primary">
+                Uma jornada completa
+              </h2>
+              <div className="section-divider mx-auto mt-6" />
+            </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {displaySegments.map((seg, i) => (
-              <Link
-                key={seg.to}
-                to={seg.to}
-                className="card-3d group"
-                data-reveal="up"
-                style={{ '--delay': `${i * 0.1}s` } as React.CSSProperties}
-              >
-                <div className="card-3d-inner bg-white rounded-2xl overflow-hidden">
-                  <div className="img-zoom relative h-52">
-                    <img
-                      src={seg.img}
-                      alt={seg.title}
-                      className="w-full h-full object-cover"
-                    />
-                    {/* Gold overlay on hover */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-brand-primary/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    {/* Age badge */}
-                    <span className="absolute top-4 right-4 bg-brand-secondary text-brand-primary text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                      {seg.ages}
-                    </span>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {segments.map((seg, i) => (
+                <Link
+                  key={seg.to}
+                  to={seg.to}
+                  className="card-3d group"
+                  data-reveal="up"
+                  style={{ '--delay': `${i * 0.1}s` } as React.CSSProperties}
+                >
+                  <div className="card-3d-inner bg-white rounded-2xl overflow-hidden">
+                    <div className="img-zoom relative h-52">
+                      {seg.image && (
+                        <img
+                          src={seg.image}
+                          alt={seg.title}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                      {/* Gold overlay on hover */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-brand-primary/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      {/* Age badge */}
+                      {seg.ages && (
+                        <span className="absolute top-4 right-4 bg-brand-secondary text-brand-primary text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                          {seg.ages}
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-6 gold-line-hover">
+                      <h3 className="text-lg font-bold text-brand-primary mb-1 group-hover:text-brand-primary-dark transition-colors">
+                        {seg.title}
+                      </h3>
+                      <p className="text-gray-500 text-sm leading-relaxed">
+                        {seg.description}
+                      </p>
+                      <span className="inline-flex items-center gap-1 text-brand-secondary text-sm font-semibold mt-4 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-[-8px] group-hover:translate-x-0">
+                        Saiba mais <ArrowRight className="w-4 h-4" />
+                      </span>
+                    </div>
                   </div>
-                  <div className="p-6 gold-line-hover">
-                    <h3 className="text-lg font-bold text-brand-primary mb-1 group-hover:text-brand-primary-dark transition-colors">
-                      {seg.title}
-                    </h3>
-                    <p className="text-gray-500 text-sm leading-relaxed">
-                      {seg.desc}
-                    </p>
-                    <span className="inline-flex items-center gap-1 text-brand-secondary text-sm font-semibold mt-4 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-[-8px] group-hover:translate-x-0">
-                      Saiba mais <ArrowRight className="w-4 h-4" />
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── Features / Por que escolher ── */}
       <section className="py-24 bg-white relative overflow-hidden">
         {/* Decorative background circle */}
         <div className="absolute -right-40 -top-40 w-[500px] h-[500px] rounded-full bg-brand-primary/[0.02]" />
 
-        <div ref={featuresRef} className="relative container mx-auto px-4">
+        <div className="relative container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Diferenciais
@@ -335,7 +308,7 @@ export default function Home() {
           </div>
 
           {/* ── Infrastructure Grid ── */}
-          <div ref={infraRef} className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             {infrastructure.map((box, i) => {
               const Icon = resolveIcon(box.icon);
               return (
@@ -382,7 +355,7 @@ export default function Home() {
           <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full bg-white" />
         </div>
 
-        <div ref={ctaRef} className="relative container mx-auto px-4 text-center" data-reveal="scale">
+        <div className="relative container mx-auto px-4 text-center" data-reveal="scale">
           <p className="text-brand-secondary text-sm font-semibold tracking-[0.2em] uppercase mb-4">
             Matrícula 2026
           </p>
@@ -402,6 +375,6 @@ export default function Home() {
           </Link>
         </div>
       </section>
-    </>
+    </div>
   );
 }
