@@ -89,7 +89,7 @@ export default function PanelDisplay({ config, schoolName, sectors }: Props) {
 
       {/* History */}
       <footer className="px-6 pb-6">
-        <HistoryGrid history={history} theme={theme} sectors={sectors} />
+        <HistoryGrid history={history} theme={theme} />
       </footer>
     </div>
   );

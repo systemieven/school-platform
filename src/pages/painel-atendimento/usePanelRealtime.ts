@@ -26,7 +26,7 @@ function todayRange() {
 
 export default function usePanelRealtime(config: PanelRealtimeConfig) {
   const [featured, setFeatured] = useState<CalledTicket | null>(null);
-  const [history, setHistory] = useState<Map<string, CalledTicket[]>>(new Map());
+  const [history, setHistory] = useState<CalledTicket[]>([]);
   const [connected, setConnected] = useState(true);
   const configRef = useRef(config);
   configRef.current = config;
@@ -57,19 +57,10 @@ export default function usePanelRealtime(config: PanelRealtimeConfig) {
 
     if (tickets.length > 0) {
       setFeatured(tickets[0]);
-      const hist = new Map<string, CalledTicket[]>();
-      for (let i = 1; i < tickets.length; i++) {
-        const t = tickets[i];
-        const arr = hist.get(t.sector_key) || [];
-        if (arr.length < configRef.current.history_count) {
-          arr.push(t);
-        }
-        hist.set(t.sector_key, arr);
-      }
-      setHistory(hist);
+      setHistory(tickets.slice(1, 1 + configRef.current.history_count));
     } else {
       setFeatured(null);
-      setHistory(new Map());
+      setHistory([]);
     }
   }, [matchesSectorFilter]);
 
@@ -89,16 +80,9 @@ export default function usePanelRealtime(config: PanelRealtimeConfig) {
             // New call: current featured goes to history, new ticket becomes featured
             setFeatured((prev) => {
               if (prev) {
-                setHistory((h) => {
-                  const next = new Map(h);
-                  const arr = [...(next.get(prev.sector_key) || [])];
-                  arr.unshift(prev);
-                  next.set(
-                    prev.sector_key,
-                    arr.slice(0, configRef.current.history_count),
-                  );
-                  return next;
-                });
+                setHistory((h) =>
+                  [prev, ...h].slice(0, configRef.current.history_count),
+                );
               }
               return ticket;
             });
@@ -107,16 +91,9 @@ export default function usePanelRealtime(config: PanelRealtimeConfig) {
             // If the featured ticket changed status, move it to history
             setFeatured((prev) => {
               if (prev && prev.id === ticket.id) {
-                setHistory((h) => {
-                  const next = new Map(h);
-                  const arr = [...(next.get(prev.sector_key) || [])];
-                  arr.unshift(prev);
-                  next.set(
-                    prev.sector_key,
-                    arr.slice(0, configRef.current.history_count),
-                  );
-                  return next;
-                });
+                setHistory((h) =>
+                  [prev, ...h].slice(0, configRef.current.history_count),
+                );
                 return null;
               }
               return prev;

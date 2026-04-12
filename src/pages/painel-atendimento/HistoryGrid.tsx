@@ -2,71 +2,51 @@ import type { CalledTicket } from './usePanelRealtime';
 import type { PanelTheme } from './themes';
 
 interface Props {
-  history: Map<string, CalledTicket[]>;
+  history: CalledTicket[];
   theme: PanelTheme;
-  sectors: Array<{ key: string; label: string }>;
 }
 
-export default function HistoryGrid({ history, theme, sectors }: Props) {
-  // Only show sectors that have history entries
-  const activeSectors = sectors.filter((s) => {
-    const entries = history.get(s.key);
-    return entries && entries.length > 0;
-  });
-
-  if (activeSectors.length === 0) return null;
+export default function HistoryGrid({ history, theme }: Props) {
+  if (history.length === 0) return null;
 
   return (
     <div
-      className="grid gap-4"
+      className="grid gap-3"
       style={{
-        gridTemplateColumns: `repeat(${Math.min(activeSectors.length, 4)}, minmax(0, 1fr))`,
+        gridTemplateColumns: `repeat(${Math.min(history.length, 5)}, minmax(0, 1fr))`,
       }}
     >
-      {activeSectors.map((sector) => {
-        const entries = history.get(sector.key) || [];
-        return (
-          <div
-            key={sector.key}
-            className="rounded-xl p-4"
-            style={{ backgroundColor: theme.card }}
+      {history.map((ticket, idx) => (
+        <div
+          key={ticket.id}
+          className="rounded-xl px-4 py-3 flex flex-col items-center gap-1"
+          style={{
+            backgroundColor: theme.card,
+            opacity: 1 - idx * 0.1,
+          }}
+        >
+          <span
+            className="text-xs sm:text-sm font-semibold tracking-widest uppercase"
+            style={{ color: theme.muted }}
           >
-            <p
-              className="text-sm sm:text-base lg:text-lg font-semibold tracking-widest uppercase mb-3 pb-2 border-b"
-              style={{ color: theme.muted, borderColor: `${theme.muted}20` }}
+            {ticket.sector_label}
+          </span>
+          <span
+            className="text-2xl sm:text-3xl lg:text-4xl font-bold"
+            style={{ color: theme.text }}
+          >
+            {ticket.ticket_number}
+          </span>
+          {ticket.visitor_name && (
+            <span
+              className="text-xs sm:text-sm truncate max-w-full"
+              style={{ color: theme.muted }}
             >
-              {sector.label}
-            </p>
-            <div className="space-y-2">
-              {entries.map((ticket, idx) => (
-                <div
-                  key={ticket.id}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg"
-                  style={{
-                    opacity: 1 - idx * 0.12,
-                    backgroundColor: `${theme.accent}15`,
-                  }}
-                >
-                  <span
-                    className="text-xl sm:text-2xl lg:text-3xl font-bold"
-                    style={{ color: theme.text }}
-                  >
-                    {ticket.ticket_number}
-                  </span>
-                  {ticket.visitor_name && (
-                    <span
-                      className="text-sm sm:text-base truncate max-w-[50%]"
-                      style={{ color: theme.muted }}
-                    >
-                      {ticket.visitor_name}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+              {ticket.visitor_name}
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
