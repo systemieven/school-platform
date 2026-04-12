@@ -296,11 +296,7 @@ export default function Testimonials() {
 
   // ── Auth ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const u = data.session?.user ?? null;
-      setUser(u);
-      if (u) prefillFromUser(u);
-    });
+    // Listen for auth changes first (captures OAuth redirect callback)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         const u = session?.user ?? null;
@@ -308,6 +304,12 @@ export default function Testimonials() {
         if (u) prefillFromUser(u);
       },
     );
+    // Then check existing session
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user ?? null;
+      setUser(u);
+      if (u) prefillFromUser(u);
+    });
     return () => subscription.unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -336,7 +338,7 @@ export default function Testimonials() {
   const handleLogin = async (provider: 'google' | 'facebook') => {
     await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: window.location.href },
+      options: { redirectTo: window.location.origin },
     });
   };
 
