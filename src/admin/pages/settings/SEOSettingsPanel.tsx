@@ -30,6 +30,8 @@ const SEO_PAGES: { key: string; label: string; path: string }[] = [
   { key: 'matricula',            label: 'Matrícula',              path: '/matricula' },
   { key: 'contato',              label: 'Contato',                path: '/contato' },
   { key: 'agendar_visita',       label: 'Agendar Visita',         path: '/agendar-visita' },
+  { key: 'sobre',                label: 'Sobre',                  path: '/sobre' },
+  { key: 'estrutura',            label: 'Estrutura',              path: '/estrutura' },
   { key: 'politica_privacidade', label: 'Política de Privacidade',path: '/politica-privacidade' },
   { key: 'termos_uso',           label: 'Termos de Uso',          path: '/termos-de-uso' },
 ];
