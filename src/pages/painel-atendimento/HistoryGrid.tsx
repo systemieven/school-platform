@@ -10,6 +10,13 @@ export default function HistoryGrid({ history, theme }: Props) {
   if (history.length === 0) return null;
 
   return (
+    <div>
+      <p
+        className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-3 text-center"
+        style={{ color: theme.muted }}
+      >
+        Últimas senhas chamadas
+      </p>
     <div
       className="grid gap-3"
       style={{
@@ -47,6 +54,7 @@ export default function HistoryGrid({ history, theme }: Props) {
           )}
         </div>
       ))}
+    </div>
     </div>
   );
 }
