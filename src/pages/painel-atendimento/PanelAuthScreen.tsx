@@ -22,7 +22,7 @@ interface Props {
   onAuth: (result: AuthResult) => void;
 }
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://dinbwugbwnkrzljuocbs.supabase.co';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
 export default function PanelAuthScreen({ onAuth }: Props) {
   const [password, setPassword] = useState('');

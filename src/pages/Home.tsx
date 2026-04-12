@@ -56,30 +56,30 @@ const DEFAULT_FEATURES: FeatureData[] = [
   {
     icon: 'GraduationCap',
     title: 'Excelência Acadêmica',
-    desc: 'Educação de qualidade com resultados comprovados em vestibulares e ENEM',
-    stat: '90%+',
-    statLabel: 'aprovação em vestibulares',
+    desc: 'Educação de qualidade com resultados comprovados',
+    stat: '',
+    statLabel: '',
   },
   {
     icon: 'Heart',
-    title: 'Valores Cristãos',
+    title: 'Formação em Valores',
     desc: 'Formação integral baseada em princípios éticos e morais',
-    stat: '20+',
-    statLabel: 'anos de tradição',
+    stat: '',
+    statLabel: '',
   },
   {
     icon: 'Lightbulb',
     title: 'Metodologia Inovadora',
     desc: 'Aprendizagem ativa com tecnologia integrada ao ensino',
-    stat: '100%',
-    statLabel: 'laboratórios modernos',
+    stat: '',
+    statLabel: '',
   },
   {
     icon: 'Trophy',
     title: 'Tradição e Qualidade',
-    desc: 'Mais de 20 anos de história na educação de Caruaru',
-    stat: '920+',
-    statLabel: 'média ENEM',
+    desc: 'Anos de história e compromisso com a educação',
+    stat: '',
+    statLabel: '',
   },
 ];
 
@@ -101,11 +101,7 @@ const DEFAULT_INFRASTRUCTURE: InfraData[] = [
   },
 ];
 
-const DEFAULT_STATS: StatData[] = [
-  { value: '920+', label: 'ENEM' },
-  { value: '20+',  label: 'Anos de história' },
-  { value: '90%+', label: 'Aprovação vestibular' },
-];
+const DEFAULT_STATS: StatData[] = [];
 
 function resolveIcon(name: string): LucideIcon {
   return getLucideIcon(name) ?? ICON_MAP[name] ?? GraduationCap;

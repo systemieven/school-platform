@@ -6,8 +6,14 @@
 import { supabase } from '../../lib/supabase';
 import type { TemplateContent, TemplateButton } from '../types/admin.types';
 
-export const SUPABASE_URL = 'https://dinbwugbwnkrzljuocbs.supabase.co';
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 export const WEBHOOK_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1/uazapi-webhook`;
+
+/** Slug used as track_source for WhatsApp messages — derived from school short name */
+const TRACK_SOURCE = (import.meta.env.VITE_SCHOOL_SHORT_NAME || 'escola')
+  .toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/\s+/g, '-');
 
 // ── API Profiles ──────────────────────────────────────────────────────────────
 
@@ -394,7 +400,7 @@ export async function sendWhatsAppText(opts: SendTextOptions): Promise<SendResul
       number:       normalizePhone(opts.phone),
       text:         opts.text,
       track_id:     logId,
-      track_source: 'colegio-batista',
+      track_source: TRACK_SOURCE,
       ...(opts.delay ? { delay: opts.delay } : {}),
     });
 
@@ -474,7 +480,7 @@ export async function sendWhatsAppMedia(opts: SendMediaOptions): Promise<SendRes
       ...(opts.text ? { text: opts.text } : {}),
       ...(opts.docName ? { docName: opts.docName } : {}),
       track_id:     logId,
-      track_source: 'colegio-batista',
+      track_source: TRACK_SOURCE,
       ...(opts.delay ? { delay: opts.delay } : {}),
     });
     if (error) throw new Error(error);
@@ -582,7 +588,7 @@ export async function sendWhatsAppMenu(opts: SendMenuOptions): Promise<SendResul
       ...(opts.listButton ? { listButton: opts.listButton } : {}),
       ...(opts.imageButton ? { imageButton: opts.imageButton } : {}),
       track_id:     logId,
-      track_source: 'colegio-batista',
+      track_source: TRACK_SOURCE,
       ...(opts.delay ? { delay: opts.delay } : {}),
     });
     if (error) throw new Error(error);
@@ -644,7 +650,7 @@ export async function sendWhatsAppPix(opts: SendPixOptions): Promise<SendResult>
       pixKey:   opts.pixKey,
       ...(opts.pixName ? { pixName: opts.pixName } : {}),
       track_id:     logId,
-      track_source: 'colegio-batista',
+      track_source: TRACK_SOURCE,
       ...(opts.delay ? { delay: opts.delay } : {}),
     });
     if (error) throw new Error(error);
