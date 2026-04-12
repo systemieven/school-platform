@@ -1528,41 +1528,6 @@ export default function AttendanceSettingsPanel() {
 
         <hr className="border-gray-100 dark:border-gray-700/50" />
 
-        {/* ── Efeito da Senha ── */}
-        <div className="space-y-4">
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Efeito da senha</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            {([
-              { key: 'glow', label: 'Brilho', desc: 'Pulsação luminosa', Icon: Sparkles },
-              { key: 'slide', label: 'Deslizar', desc: 'Entrada lateral', Icon: ArrowRight },
-              { key: 'bounce', label: 'Quique', desc: 'Entrada com salto', Icon: Zap },
-              { key: 'neon', label: 'Neon', desc: 'Contorno piscante', Icon: Tv },
-            ] as const).map(({ key, label, desc, Icon }) => {
-              const active = (data.display_panel.ticket_effect ?? 'glow') === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, ticket_effect: key } }))}
-                  className={`
-                    flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
-                    ${active
-                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
-                    }
-                  `}
-                >
-                  <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
-                  <span className={`text-xs font-semibold ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{label}</span>
-                  <span className={`text-[10px] leading-tight ${active ? 'text-white/60' : 'text-gray-400'}`}>{desc}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <hr className="border-gray-100 dark:border-gray-700/50" />
-
         {/* ── Som ── */}
         <div className="space-y-4">
           <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Som</p>
@@ -1750,6 +1715,39 @@ export default function AttendanceSettingsPanel() {
                 </button>
               );
             })}
+          </div>
+
+          {/* Efeito da senha — dentro de Aparência */}
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Efeito da senha</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {([
+                { key: 'glow', label: 'Brilho', desc: 'Pulsação luminosa', Icon: Sparkles },
+                { key: 'slide', label: 'Deslizar', desc: 'Entrada lateral', Icon: ArrowRight },
+                { key: 'bounce', label: 'Quique', desc: 'Entrada com salto', Icon: Zap },
+                { key: 'neon', label: 'Neon', desc: 'Contorno piscante', Icon: Tv },
+              ] as const).map(({ key, label, desc, Icon }) => {
+                const active = (data.display_panel.ticket_effect ?? 'glow') === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, ticket_effect: key } }))}
+                    className={`
+                      flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
+                      ${active
+                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                      }
+                    `}
+                  >
+                    <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                    <span className={`text-xs font-semibold ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{label}</span>
+                    <span className={`text-[10px] leading-tight ${active ? 'text-white/60' : 'text-gray-400'}`}>{desc}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
