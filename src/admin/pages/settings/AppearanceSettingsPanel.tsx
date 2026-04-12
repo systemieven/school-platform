@@ -621,7 +621,8 @@ export default function AppearanceSettingsPanel() {
       {/* ── Segment pages ── */}
       {(activeTab === 'educacao_infantil' || activeTab === 'fundamental_1' ||
         activeTab === 'fundamental_2'    || activeTab === 'ensino_medio'   ||
-        activeTab === 'visita'           || activeTab === 'matricula') && (
+        activeTab === 'visita'           || activeTab === 'matricula'      ||
+        activeTab === 'sobre'            || activeTab === 'estrutura') && (
         <HeroFieldsBlock
           data={pages[activeTab] as HeroFields}
           pageKey={activeTab}
