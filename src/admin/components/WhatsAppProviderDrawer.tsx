@@ -28,7 +28,7 @@ import {
 
 // ── Shared style helpers ──────────────────────────────────────────────────────
 
-const inputCls = 'w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all';
+const inputCls = 'w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all';
 const selectCls = `${inputCls} appearance-none`;
 const cardCls  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60';
 const cardHead = 'bg-gray-50 dark:bg-gray-700/30 px-5 py-3.5 flex items-center gap-2';
@@ -334,7 +334,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
       <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-white dark:bg-gray-800 z-[70] flex flex-col shadow-2xl overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 flex-shrink-0 bg-gradient-to-r from-[#003876] to-[#002255]">
+        <div className="flex items-center gap-3 px-5 py-4 flex-shrink-0 bg-gradient-to-r from-brand-primary to-brand-primary-dark">
           <div className="flex-1 min-w-0">
             {editingName ? (
               <input
@@ -370,7 +370,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
               </button>
             )}
             {isDefault && (
-              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold tracking-wide uppercase text-[#ffd700] bg-white/10 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold tracking-wide uppercase text-brand-secondary bg-white/10 px-2 py-0.5 rounded-full">
                 Provedor padrão
               </span>
             )}
@@ -392,7 +392,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
           {/* ── Credentials ────────────────────────────────────────────────── */}
           <div className={cardCls}>
             <div className={cardHead}>
-              <KeyRound className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+              <KeyRound className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Credenciais da API</h3>
             </div>
             <div className={`${cardBody} space-y-4`}>
@@ -446,7 +446,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
               )}
               <button onClick={handleSaveCred} disabled={savingCred}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  savedCred ? 'bg-emerald-500 text-white' : 'bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-50'}`}>
+                  savedCred ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
                 {savingCred ? <Loader2 className="w-4 h-4 animate-spin" />
                   : savedCred ? <Check className="w-4 h-4" />
                   : <Save className="w-4 h-4" />}
@@ -461,7 +461,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
               {/* ── Connection ──────────────────────────────────────────────── */}
               <div className={cardCls}>
                 <div className={cardHead}>
-                  <Smartphone className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+                  <Smartphone className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Conexão WhatsApp</h3>
                   <span className={`ml-auto inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
                     waState === 'connected'    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'
@@ -479,7 +479,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                       : 'Desconectado'}
                   </span>
                   <button onClick={refreshWa} disabled={waLoading} title="Atualizar status"
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
                     <RefreshCw className={`w-3.5 h-3.5 ${waLoading ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
@@ -539,12 +539,12 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                     {connError && <div className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 px-3 py-2 rounded-xl">{connError}</div>}
                     <div className="flex flex-wrap gap-2">
                       <button onClick={handleConnectQr} disabled={connecting}
-                        className="inline-flex items-center gap-2 bg-[#003876] text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-[#002855] disabled:opacity-60 transition-colors">
+                        className="inline-flex items-center gap-2 bg-brand-primary text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-brand-primary-dark disabled:opacity-60 transition-colors">
                         {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4" />}
                         {connecting ? 'Gerando QR…' : 'Conectar com QR Code'}
                       </button>
                       <button onClick={() => { setConnFlow('paircode'); setConnError(''); }}
-                        className="inline-flex items-center gap-2 border border-[#003876] text-[#003876] dark:border-[#ffd700] dark:text-[#ffd700] px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-[#003876]/5 transition-colors">
+                        className="inline-flex items-center gap-2 border border-brand-primary text-brand-primary dark:border-brand-secondary dark:text-brand-secondary px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-brand-primary/5 transition-colors">
                         <Phone className="w-4 h-4" /> Conectar com número
                       </button>
                     </div>
@@ -580,7 +580,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                     )}
                     <div className="flex gap-2">
                       <button onClick={() => { setConnFlow('paircode'); stopPolling(); }}
-                        className="inline-flex items-center gap-1.5 text-xs text-[#003876] dark:text-[#ffd700] hover:underline">
+                        className="inline-flex items-center gap-1.5 text-xs text-brand-primary dark:text-brand-secondary hover:underline">
                         <Hash className="w-3.5 h-3.5" /> Usar código de pareamento
                       </button>
                       <span className="text-gray-300 dark:text-gray-600">·</span>
@@ -599,14 +599,14 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                         placeholder="5581999999999"
                         className={`${inputCls} flex-1`} />
                       <button onClick={handleConnectPhone} disabled={connecting || !phoneInput.trim()}
-                        className="inline-flex items-center gap-2 bg-[#003876] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#002855] disabled:opacity-60 transition-colors">
+                        className="inline-flex items-center gap-2 bg-brand-primary text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-brand-primary-dark disabled:opacity-60 transition-colors">
                         {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Hash className="w-4 h-4" />}
                         {connecting ? 'Gerando…' : 'Gerar código'}
                       </button>
                     </div>
                     <div className="flex gap-2">
                       <button onClick={handleConnectQr}
-                        className="inline-flex items-center gap-1.5 text-xs text-[#003876] dark:text-[#ffd700] hover:underline">
+                        className="inline-flex items-center gap-1.5 text-xs text-brand-primary dark:text-brand-secondary hover:underline">
                         <QrCode className="w-3.5 h-3.5" /> Usar QR code
                       </button>
                       <span className="text-gray-300 dark:text-gray-600">·</span>
@@ -619,7 +619,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                 {connFlow === 'paircode' && waitingCode && !pairCode && (
                   <div className="space-y-3">
                     <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 flex flex-col items-center gap-3">
-                      <Loader2 className="w-6 h-6 text-[#003876] dark:text-[#ffd700] animate-spin" />
+                      <Loader2 className="w-6 h-6 text-brand-primary dark:text-brand-secondary animate-spin" />
                       <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Gerando código de pareamento…</p>
                     </div>
                     <button onClick={handleCancelConnect} className="text-xs text-gray-400 hover:text-gray-600 hover:underline">Cancelar</button>
@@ -632,8 +632,8 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       No WhatsApp → <strong>Configurações → Dispositivos vinculados → Vincular dispositivo → Vincular com número de telefone</strong>
                     </p>
-                    <div className="bg-[#003876]/5 dark:bg-[#003876]/20 border border-[#003876]/20 dark:border-[#003876]/40 rounded-2xl p-4 flex items-center justify-center">
-                      <span className="font-mono text-3xl font-bold tracking-[0.3em] text-[#003876] dark:text-[#ffd700]">{pairCode}</span>
+                    <div className="bg-brand-primary/5 dark:bg-brand-primary/20 border border-brand-primary/20 dark:border-brand-primary/40 rounded-2xl p-4 flex items-center justify-center">
+                      <span className="font-mono text-3xl font-bold tracking-[0.3em] text-brand-primary dark:text-brand-secondary">{pairCode}</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 animate-pulse">
                       <Loader2 className="w-3 h-3 animate-spin" /> Aguardando pareamento…
@@ -653,7 +653,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                       </div>
                     </div>
                     <button onClick={() => { setConnFlow('idle'); setConnError(''); }}
-                      className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline">Tentar novamente</button>
+                      className="text-xs text-brand-primary dark:text-brand-secondary hover:underline">Tentar novamente</button>
                   </div>
                 )}
                 </div>
@@ -671,7 +671,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
               {/* ── Webhook ──────────────────────────────────────────────────── */}
               <div className={cardCls}>
                 <div className={cardHead}>
-                  <Link className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+                  <Link className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Webhook de Status de Entrega</h3>
                   {isRegistered && (
                     <span className="ml-auto text-[10px] font-semibold tracking-wide uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -699,13 +699,13 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                       </button>
                     </div>
                     <button onClick={handleGenerateSecret} disabled={savingSecret}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] disabled:opacity-50 transition-colors whitespace-nowrap">
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-brand-primary hover:text-brand-primary dark:hover:border-brand-secondary dark:hover:text-brand-secondary disabled:opacity-50 transition-colors whitespace-nowrap">
                       {savingSecret ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shuffle className="w-3.5 h-3.5" />} Gerar
                     </button>
                     {webhookSecret && (
                       <button onClick={handleSaveSecret} disabled={savingSecret}
                         className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                          savedSecret ? 'bg-emerald-500 text-white' : 'bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-50'}`}>
+                          savedSecret ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
                         {savingSecret ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : savedSecret ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
                         {savedSecret ? 'Salva!' : 'Salvar'}
                       </button>
@@ -742,11 +742,11 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                             );
                             setRegResult(null);
                           }}
-                          className="mt-0.5 w-4 h-4 rounded accent-[#003876] dark:accent-[#ffd700] flex-shrink-0"
+                          className="mt-0.5 w-4 h-4 rounded accent-brand-primary dark:accent-brand-secondary flex-shrink-0"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] transition-colors">
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-brand-primary dark:group-hover:text-brand-secondary transition-colors">
                               {ev.label}
                             </span>
                             {ev.recommended && (
@@ -773,7 +773,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                 </div>
 
                 <button onClick={handleRegister} disabled={registering || !webhookSecret || selectedEvents.length === 0}
-                  className="inline-flex items-center gap-2 border border-[#003876] text-[#003876] dark:border-[#ffd700] dark:text-[#ffd700] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#003876]/5 dark:hover:bg-[#ffd700]/5 disabled:opacity-50 transition-colors">
+                  className="inline-flex items-center gap-2 border border-brand-primary text-brand-primary dark:border-brand-secondary dark:text-brand-secondary px-4 py-2 rounded-xl text-sm font-medium hover:bg-brand-primary/5 dark:hover:bg-brand-secondary/5 disabled:opacity-50 transition-colors">
                   {registering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
                   {registering ? 'Registrando…' : 'Registrar na API'}
                 </button>
@@ -892,7 +892,7 @@ function WaProfileSection() {
       {cropSrc && <ImageCropModal src={cropSrc} onSave={handleCropSave} onClose={() => setCropSrc(null)} />}
       <div className={cardCls}>
         <div className={cardHead}>
-          <UserCircle2 className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+          <UserCircle2 className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Perfil WhatsApp</h3>
         </div>
         <div className={`${cardBody} space-y-5`}>
@@ -913,7 +913,7 @@ function WaProfileSection() {
             <input type="file" accept="image/*" ref={fileRef} onChange={handleFileChange} className="hidden" />
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => fileRef.current?.click()} disabled={savingPhoto}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-50 transition-colors">
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50 transition-colors">
                 <Camera className="w-3.5 h-3.5" />{savingPhoto ? 'Enviando…' : 'Trocar foto'}
               </button>
               {instanceData?.profilePicUrl && (
@@ -942,7 +942,7 @@ function WaProfileSection() {
               className={`${inputCls} flex-1`} />
             <button onClick={handleSaveName} disabled={savingName || !profileName.trim()}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                nameResult?.ok ? 'bg-emerald-500 text-white' : 'bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-50'}`}>
+                nameResult?.ok ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
               {savingName ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : nameResult?.ok ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
               {savingName ? 'Salvando…' : nameResult?.ok ? 'Salvo!' : 'Salvar'}
             </button>
@@ -996,11 +996,11 @@ function WaPrivacySection() {
   return (
     <div className={cardCls}>
       <div className={cardHead}>
-        <Lock className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+        <Lock className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Privacidade</h3>
         {loading && <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin ml-1" />}
         <button onClick={fetchPrivacy} disabled={loading} title="Recarregar"
-          className="ml-auto p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
+          className="ml-auto p-1.5 rounded-lg text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
@@ -1025,7 +1025,7 @@ function WaPrivacySection() {
           )}
           <button onClick={handleSave} disabled={saving}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-              result?.ok ? 'bg-emerald-500 text-white' : 'bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-50'}`}>
+              result?.ok ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : result?.ok ? <Check className="w-4 h-4" /> : null}
             {saving ? 'Salvando…' : result?.ok ? 'Salvo!' : 'Salvar privacidade'}
           </button>
@@ -1067,7 +1067,7 @@ function WaPresenceSection() {
   return (
     <div className={cardCls}>
       <div className={cardHead}>
-        <Radio className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+        <Radio className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Status de presença</h3>
         {saving && <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin ml-1" />}
       </div>

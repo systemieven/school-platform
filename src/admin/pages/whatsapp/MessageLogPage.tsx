@@ -196,7 +196,7 @@ function DetailDrawer({ log, onClose, onRetry }: {
   const footer = log.status === 'failed' ? (
     <button
       onClick={() => onRetry(log)}
-      className="w-full inline-flex items-center justify-center gap-2 bg-[#003876] text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors"
+      className="w-full inline-flex items-center justify-center gap-2 bg-brand-primary text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-brand-primary-dark transition-colors"
     >
       <RotateCcw className="w-4 h-4" />
       Tentar novamente
@@ -402,7 +402,7 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
       {!embedded ? (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+            <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
               <Send className="w-8 h-8" />
               Histórico de Mensagens
             </h1>
@@ -444,8 +444,8 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
                 onClick={() => setFilterDate(active && key !== 'custom' ? 'all' : key)}
                 className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
                   active
-                    ? 'bg-[#003876] text-white shadow-sm shadow-[#003876]/20 dark:bg-[#ffd700] dark:text-[#003876]'
-                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700]'
+                    ? 'bg-brand-primary text-white shadow-sm shadow-brand-primary/20 dark:bg-brand-secondary dark:text-brand-primary'
+                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-primary hover:text-brand-primary dark:hover:border-brand-secondary dark:hover:text-brand-secondary'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -516,7 +516,7 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
       {/* Delivery rate */}
       {sentCount > 0 && (
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 mb-6 flex items-center gap-4">
-          <TrendingUp className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" />
+          <TrendingUp className="w-5 h-5 text-brand-primary dark:text-brand-secondary" />
           <div className="flex-1">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Taxa de entrega</p>
             <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
@@ -541,8 +541,8 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
               onClick={() => setFilterStatus(v)}
               className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
                 filterStatus === v
-                  ? 'bg-[#003876] text-white'
-                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:text-white'
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-primary hover:text-brand-primary dark:hover:text-white'
               }`}
             >
               {l}
@@ -568,7 +568,7 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
       {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
         </div>
       ) : logs.length === 0 ? (
         <div className="text-center py-20">
@@ -649,7 +649,7 @@ export default function MessageLogPage({ embedded }: { embedded?: boolean } = {}
                           <button
                             onClick={() => handleRetry(log)}
                             disabled={retrying === log.id}
-                            className="inline-flex items-center gap-1 text-xs text-[#003876] dark:text-[#ffd700] hover:opacity-80 disabled:opacity-50 transition-opacity"
+                            className="inline-flex items-center gap-1 text-xs text-brand-primary dark:text-brand-secondary hover:opacity-80 disabled:opacity-50 transition-opacity"
                             title="Tentar novamente"
                           >
                             {retrying === log.id

@@ -44,10 +44,10 @@ export function exportPDF(rows: Record<string, unknown>[], columns: ExportColumn
 <title>${escHtml(title)}</title>
 <style>
   body { font-family: Arial, sans-serif; font-size: 11px; color: #111; }
-  h1 { font-size: 15px; color: #003876; margin-bottom: 4px; }
+  h1 { font-size: 15px; color: var(--brand-primary); margin-bottom: 4px; }
   p.meta { font-size: 10px; color: #888; margin-bottom: 12px; }
   table { width: 100%; border-collapse: collapse; }
-  th { background: #003876; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
+  th { background: var(--brand-primary); color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
   td { padding: 5px 8px; border-bottom: 1px solid #eee; font-size: 10px; }
   tr:nth-child(even) td { background: #f5f7ff; }
   @media print { @page { margin: 15mm; } }

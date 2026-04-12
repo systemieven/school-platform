@@ -30,7 +30,7 @@ function PortalNav({ onClose }: { onClose?: () => void }) {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#ffd700] flex items-center justify-center text-[#003876] font-bold text-sm">CB</div>
+          <div className="w-9 h-9 rounded-xl bg-brand-secondary flex items-center justify-center text-brand-primary font-bold text-sm">CB</div>
           <div>
             <p className="text-white font-bold text-sm leading-tight">Colégio Batista</p>
             <p className="text-white/50 text-xs">Portal do Aluno</p>
@@ -41,7 +41,7 @@ function PortalNav({ onClose }: { onClose?: () => void }) {
       {/* Student info */}
       {student && (
         <div className="px-5 py-3 border-b border-white/10">
-          <div className="w-8 h-8 rounded-full bg-[#ffd700]/20 flex items-center justify-center text-[#ffd700] font-bold text-sm mb-1.5">
+          <div className="w-8 h-8 rounded-full bg-brand-secondary/20 flex items-center justify-center text-brand-secondary font-bold text-sm mb-1.5">
             {student.full_name.charAt(0).toUpperCase()}
           </div>
           <p className="text-white text-xs font-medium truncate">{student.full_name}</p>
@@ -57,7 +57,7 @@ function PortalNav({ onClose }: { onClose?: () => void }) {
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-[#ffd700] text-[#003876]'
+                  ? 'bg-brand-secondary text-brand-primary'
                   : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`
             }>
@@ -85,7 +85,7 @@ export default function PortalLayout() {
     <StudentProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex w-60 bg-[#003876] dark:bg-gray-800 flex-col fixed inset-y-0 left-0 z-30">
+        <aside className="hidden md:flex w-60 bg-brand-primary dark:bg-gray-800 flex-col fixed inset-y-0 left-0 z-30">
           <PortalNav />
         </aside>
 
@@ -93,7 +93,7 @@ export default function PortalLayout() {
         {mobileOpen && (
           <div className="md:hidden fixed inset-0 z-40" onClick={() => setMobileOpen(false)}>
             <div className="absolute inset-0 bg-black/50" />
-            <aside className="absolute left-0 top-0 bottom-0 w-64 bg-[#003876] flex flex-col"
+            <aside className="absolute left-0 top-0 bottom-0 w-64 bg-brand-primary flex flex-col"
               onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-end p-3">
                 <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded-lg text-white/70 hover:bg-white/10">
@@ -108,9 +108,9 @@ export default function PortalLayout() {
         {/* Main content */}
         <div className="flex-1 md:ml-60 flex flex-col min-h-screen">
           {/* Mobile topbar */}
-          <header className="md:hidden flex items-center justify-between px-4 py-3 bg-[#003876] text-white sticky top-0 z-20">
+          <header className="md:hidden flex items-center justify-between px-4 py-3 bg-brand-primary text-white sticky top-0 z-20">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-[#ffd700] flex items-center justify-center text-[#003876] font-bold text-xs">CB</div>
+              <div className="w-7 h-7 rounded-lg bg-brand-secondary flex items-center justify-center text-brand-primary font-bold text-xs">CB</div>
               <span className="font-semibold text-sm">Portal do Aluno</span>
             </div>
             <button onClick={() => setMobileOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10">

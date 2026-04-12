@@ -182,7 +182,7 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
                 </p>
                 <button
                   onClick={onClose}
-                  className="mt-6 px-5 py-2.5 bg-[#003876] text-white rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors"
+                  className="mt-6 px-5 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-medium hover:bg-brand-primary-dark transition-colors"
                 >
                   Fechar
                 </button>
@@ -198,7 +198,7 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
 
                 {loadingTemplates ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+                    <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
                   </div>
                 ) : templates.length === 0 ? (
                   <div className="text-center py-8 text-gray-400 dark:text-gray-500">
@@ -236,7 +236,7 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
                 {/* Free-text button */}
                 <button
                   onClick={() => { setSelected(null); setMessage(''); setStep('compose'); }}
-                  className="w-full py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-[#003876] dark:hover:text-white border border-dashed border-gray-200 dark:border-gray-600 hover:border-[#003876] dark:hover:border-gray-400 rounded-xl transition-colors"
+                  className="w-full py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-brand-primary dark:hover:text-white border border-dashed border-gray-200 dark:border-gray-600 hover:border-brand-primary dark:hover:border-gray-400 rounded-xl transition-colors"
                 >
                   Escrever mensagem livre
                 </button>
@@ -252,7 +252,7 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
                     <span>Template: <strong>{selected.name}</strong></span>
                     <button
                       onClick={() => setStep('pick')}
-                      className="ml-auto text-[#003876] dark:text-[#ffd700] hover:underline"
+                      className="ml-auto text-brand-primary dark:text-brand-secondary hover:underline"
                     >
                       Trocar
                     </button>
@@ -268,7 +268,7 @@ export default function SendWhatsAppModal({ module, phone, recipientName, record
                     onClick={() => setShowPreview((p) => !p)}
                     className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors ${
                       showPreview
-                        ? 'bg-[#003876] text-white'
+                        ? 'bg-brand-primary text-white'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200'
                     }`}
                   >

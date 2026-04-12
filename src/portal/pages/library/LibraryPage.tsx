@@ -80,7 +80,7 @@ function ResourceCard({ r }: { r: Resource }) {
           {/* External link */}
           {r.external_url && r.resource_subtype !== 'youtube' && (
             <a href={r.external_url} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#003876]/10 dark:bg-[#ffd700]/10 text-[#003876] dark:text-[#ffd700] rounded-lg text-xs font-medium hover:bg-[#003876]/20 transition-colors">
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary rounded-lg text-xs font-medium hover:bg-brand-primary/20 transition-colors">
               <ExternalLink className="w-3 h-3" /> Abrir
             </a>
           )}
@@ -146,25 +146,25 @@ export default function PortalLibraryPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-        <Library className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" /> Biblioteca Virtual
+        <Library className="w-5 h-5 text-brand-primary dark:text-brand-secondary" /> Biblioteca Virtual
       </h1>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por título ou disciplina..."
-          className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]" />
+          className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary" />
       </div>
 
       {types.length > 1 && (
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setTypeFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === 'all' ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === 'all' ? 'bg-brand-primary text-white dark:bg-brand-secondary dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
             Todos
           </button>
           {types.map((t) => (
             <button key={t} onClick={() => setTypeFilter(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? 'bg-brand-primary text-white dark:bg-brand-secondary dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
               {TYPE_LABELS[t] ?? t}
             </button>
           ))}
@@ -172,7 +172,7 @@ export default function PortalLibraryPage() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-[#003876] dark:text-[#ffd700]" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-brand-primary dark:text-brand-secondary" /></div>
       ) : !filtered.length ? (
         <div className="text-center py-12 text-gray-400">
           <Library className="w-8 h-8 mx-auto mb-2 opacity-30" />

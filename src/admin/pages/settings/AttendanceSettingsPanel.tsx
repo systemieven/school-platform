@@ -210,10 +210,10 @@ const THEME_PRESETS: Array<{
   text: string;
   muted: string;
 }> = [
-  { key: 'dark-blue',  label: 'Azul escuro',    bg: '#0a1628', card: '#111d33', accent: '#003876', highlight: '#ffd700', text: '#ffffff', muted: '#94a3b8' },
+  { key: 'dark-blue',  label: 'Azul escuro',    bg: '#0a1628', card: '#111d33', accent: 'var(--brand-primary)', highlight: 'var(--brand-secondary)', text: '#ffffff', muted: '#94a3b8' },
   { key: 'dark-green', label: 'Verde escuro',   bg: '#0a1a0a', card: '#112211', accent: '#166534', highlight: '#86efac', text: '#ffffff', muted: '#94a3b8' },
-  { key: 'dark-gold',  label: 'Dourado escuro', bg: '#1a1400', card: '#221c05', accent: '#92700c', highlight: '#ffd700', text: '#ffffff', muted: '#b0a47a' },
-  { key: 'light',      label: 'Claro',          bg: '#f8fafc', card: '#ffffff', accent: '#003876', highlight: '#ffd700', text: '#1e293b', muted: '#64748b' },
+  { key: 'dark-gold',  label: 'Dourado escuro', bg: '#1a1400', card: '#221c05', accent: '#92700c', highlight: 'var(--brand-secondary)', text: '#ffffff', muted: '#b0a47a' },
+  { key: 'light',      label: 'Claro',          bg: '#f8fafc', card: '#ffffff', accent: 'var(--brand-primary)', highlight: 'var(--brand-secondary)', text: '#1e293b', muted: '#64748b' },
 ];
 
 const SOUND_PRESETS: Array<{
@@ -420,7 +420,7 @@ export default function AttendanceSettingsPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+        <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
       </div>
     );
   }
@@ -462,20 +462,20 @@ export default function AttendanceSettingsPanel() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</label>
-                  <span className="font-display text-xl font-bold text-[#003876] dark:text-white tabular-nums">
+                  <span className="font-display text-xl font-bold text-brand-primary dark:text-white tabular-nums">
                     {clamped}<span className="text-xs font-normal text-gray-400 ml-0.5">{suffix}</span>
                   </span>
                 </div>
                 <div className="space-y-2">
                   <div className="relative h-6 flex items-center">
                     <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
-                    <div className="absolute h-2 rounded-full bg-gradient-to-r from-[#003876] to-blue-500 pointer-events-none" style={{ width: `${pct}%` }} />
+                    <div className="absolute h-2 rounded-full bg-gradient-to-r from-brand-primary to-blue-500 pointer-events-none" style={{ width: `${pct}%` }} />
                     <input type="range" min={MIN} max={MAX} step={1} value={clamped} onChange={(e) => onChange(parseInt(e.target.value) || MIN)} className={SLIDER_CLS} />
                   </div>
                   <div className="flex justify-between text-[10px] text-gray-400 px-0.5">
                     {Array.from({ length: MAX - MIN + 1 }).map((_, i) => {
                       const tick = MIN + i;
-                      return <span key={tick} className={`tabular-nums ${tick === clamped ? 'text-[#003876] dark:text-[#ffd700] font-semibold' : ''}`}>{tick}</span>;
+                      return <span key={tick} className={`tabular-nums ${tick === clamped ? 'text-brand-primary dark:text-brand-secondary font-semibold' : ''}`}>{tick}</span>;
                     })}
                   </div>
                 </div>
@@ -493,19 +493,19 @@ export default function AttendanceSettingsPanel() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</label>
-                  <span className="font-display text-xl font-bold text-[#003876] dark:text-white tabular-nums">
+                  <span className="font-display text-xl font-bold text-brand-primary dark:text-white tabular-nums">
                     {clamped}<span className="text-xs font-normal text-gray-400 ml-0.5">min</span>
                   </span>
                 </div>
                 <div className="space-y-2">
                   <div className="relative h-6 flex items-center">
                     <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
-                    <div className="absolute h-2 rounded-full bg-gradient-to-r from-[#003876] to-blue-500 pointer-events-none" style={{ width: `${pct}%` }} />
+                    <div className="absolute h-2 rounded-full bg-gradient-to-r from-brand-primary to-blue-500 pointer-events-none" style={{ width: `${pct}%` }} />
                     <input type="range" min={MIN} max={MAX} step={5} value={clamped} onChange={(e) => onChange(parseInt(e.target.value) || 0)} className={SLIDER_CLS} />
                   </div>
                   <div className="flex justify-between text-[10px] text-gray-400 px-0.5">
                     {ticks.map((tick) => (
-                      <span key={tick} className={`tabular-nums ${tick === clamped ? 'text-[#003876] dark:text-[#ffd700] font-semibold' : ''}`}>{tick}</span>
+                      <span key={tick} className={`tabular-nums ${tick === clamped ? 'text-brand-primary dark:text-brand-secondary font-semibold' : ''}`}>{tick}</span>
                     ))}
                   </div>
                 </div>
@@ -528,12 +528,12 @@ export default function AttendanceSettingsPanel() {
                   ${disabled
                     ? 'bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 opacity-60 cursor-not-allowed'
                     : active
-                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                   }
                 `}
               >
-                <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${disabled ? 'text-gray-400' : active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${disabled ? 'text-gray-400' : active ? 'text-brand-secondary' : 'text-gray-400'}`} />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold ${disabled ? 'text-gray-400' : active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{lbl}</p>
                   <p className={`text-[11px] mt-0.5 leading-tight ${disabled ? 'text-gray-400' : active ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>{desc}</p>
@@ -545,7 +545,7 @@ export default function AttendanceSettingsPanel() {
           return (
             <div className="space-y-4">
               {/* ── Regras de data ── */}
-              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Regras de data</p>
+              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Regras de data</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                 <div className="space-y-3">
                   <ToggleBtn active={data.eligibility_rules.future} disabled={anyActive} onClick={() => toggleRule('future')} icon={CalendarPlus} label="Datas futuras" desc="Agendamentos de amanha em diante." />
@@ -569,7 +569,7 @@ export default function AttendanceSettingsPanel() {
               <hr className="border-gray-100 dark:border-gray-700/50" />
 
               {/* ── Prioridade ── */}
-              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Prioridade</p>
+              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Prioridade</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                 <ToggleBtn active={data.priority_queue.enabled} onClick={() => setData((prev) => ({ ...prev, priority_queue: { ...prev.priority_queue, enabled: !prev.priority_queue.enabled } }))} icon={CalendarClock} label="Prioridade por agendamento" desc="Agendados no horario sao chamados antes dos demais." />
                 {data.priority_queue.enabled && (
@@ -594,7 +594,7 @@ export default function AttendanceSettingsPanel() {
           <label
             className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
               data.sector_visibility_mode === 'all'
-                ? 'border-[#003876] dark:border-[#ffd700] bg-[#003876]/5 dark:bg-[#ffd700]/5'
+                ? 'border-brand-primary dark:border-brand-secondary bg-brand-primary/5 dark:bg-brand-secondary/5'
                 : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
             }`}
           >
@@ -603,7 +603,7 @@ export default function AttendanceSettingsPanel() {
               name="sector_visibility"
               checked={data.sector_visibility_mode === 'all'}
               onChange={() => setData((prev) => ({ ...prev, sector_visibility_mode: 'all' }))}
-              className="mt-0.5 accent-[#003876]"
+              className="mt-0.5 accent-brand-primary"
             />
             <div>
               <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Todos os setores</p>
@@ -615,7 +615,7 @@ export default function AttendanceSettingsPanel() {
           <label
             className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
               data.sector_visibility_mode === 'restricted'
-                ? 'border-[#003876] dark:border-[#ffd700] bg-[#003876]/5 dark:bg-[#ffd700]/5'
+                ? 'border-brand-primary dark:border-brand-secondary bg-brand-primary/5 dark:bg-brand-secondary/5'
                 : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
             }`}
           >
@@ -624,7 +624,7 @@ export default function AttendanceSettingsPanel() {
               name="sector_visibility"
               checked={data.sector_visibility_mode === 'restricted'}
               onChange={() => setData((prev) => ({ ...prev, sector_visibility_mode: 'restricted' }))}
-              className="mt-0.5 accent-[#003876]"
+              className="mt-0.5 accent-brand-primary"
             />
             <div>
               <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Restrito ao setor</p>
@@ -640,9 +640,9 @@ export default function AttendanceSettingsPanel() {
       <SettingsCard collapseId="attendance.ticketFormat" title="Formato de Senha" icon={Hash} description="Personalize o formato do número exibido na senha emitida.">
         {/* ── Prévia ── */}
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Prévia</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60 mb-3">Prévia</p>
           <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
-            <span className="font-display text-2xl font-bold text-[#003876] dark:text-white">{ticketPreview()}</span>
+            <span className="font-display text-2xl font-bold text-brand-primary dark:text-white">{ticketPreview()}</span>
           </div>
         </div>
 
@@ -650,7 +650,7 @@ export default function AttendanceSettingsPanel() {
 
         {/* ── Prefixo ── */}
         <div className="space-y-4">
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Prefixo</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Prefixo</p>
         <div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {([
@@ -672,12 +672,12 @@ export default function AttendanceSettingsPanel() {
                   className={`
                     flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
                     ${active
-                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                     }
                   `}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-brand-secondary' : 'text-gray-400'}`} />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{label}</p>
                     <p className={`text-[11px] mt-0.5 leading-tight ${active ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>{desc}</p>
@@ -703,7 +703,7 @@ export default function AttendanceSettingsPanel() {
                 }))
               }
               placeholder="Ex: A"
-              className="w-32 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+              className="w-32 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
             />
           </div>
         )}
@@ -713,11 +713,11 @@ export default function AttendanceSettingsPanel() {
 
         {/* ── Numeração ── */}
         <div className="space-y-4">
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Numeração</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Numeração</p>
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Dígitos</label>
-            <span className="font-display text-xl font-bold text-[#003876] dark:text-white tabular-nums">
+            <span className="font-display text-xl font-bold text-brand-primary dark:text-white tabular-nums">
               {data.ticket_format.digits}
             </span>
           </div>
@@ -731,7 +731,7 @@ export default function AttendanceSettingsPanel() {
                 <div className="relative h-6 flex items-center">
                   <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
                   <div
-                    className="absolute h-2 rounded-full bg-gradient-to-r from-[#003876] to-blue-500 pointer-events-none"
+                    className="absolute h-2 rounded-full bg-gradient-to-r from-brand-primary to-blue-500 pointer-events-none"
                     style={{ width: `${pct}%` }}
                   />
                   <input
@@ -768,7 +768,7 @@ export default function AttendanceSettingsPanel() {
                     return (
                       <span
                         key={tick}
-                        className={`tabular-nums ${current ? 'text-[#003876] dark:text-[#ffd700] font-semibold' : ''}`}
+                        className={`tabular-nums ${current ? 'text-brand-primary dark:text-brand-secondary font-semibold' : ''}`}
                       >
                         {tick}
                       </span>
@@ -792,12 +792,12 @@ export default function AttendanceSettingsPanel() {
             className={`
               w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
               ${data.ticket_format.per_sector_counter
-                ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
               }
             `}
           >
-            <Hash className={`w-4 h-4 shrink-0 mt-0.5 ${data.ticket_format.per_sector_counter ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+            <Hash className={`w-4 h-4 shrink-0 mt-0.5 ${data.ticket_format.per_sector_counter ? 'text-brand-secondary' : 'text-gray-400'}`} />
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-semibold ${data.ticket_format.per_sector_counter ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
                 Contador separado por setor
@@ -825,12 +825,12 @@ export default function AttendanceSettingsPanel() {
             className={`
               w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
               ${!data.ticket_format.daily_reset
-                ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
               }
             `}
           >
-            <InfinityIcon className={`w-4 h-4 shrink-0 mt-0.5 ${!data.ticket_format.daily_reset ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+            <InfinityIcon className={`w-4 h-4 shrink-0 mt-0.5 ${!data.ticket_format.daily_reset ? 'text-brand-secondary' : 'text-gray-400'}`} />
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-semibold ${!data.ticket_format.daily_reset ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
                 Numeração contínua
@@ -895,13 +895,13 @@ export default function AttendanceSettingsPanel() {
             className={`
               flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
               ${data.sound.enabled
-                ? 'bg-[#ffd700] text-[#003876] border-[#ffd700] shadow-md shadow-[#ffd700]/25'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                ? 'bg-brand-secondary text-brand-primary border-brand-secondary shadow-md shadow-brand-secondary/25'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
               }
             `}
           >
-            <Volume2 className={`w-6 h-6 ${data.sound.enabled ? 'text-[#003876]' : 'text-gray-400'}`} />
-            <span className={`text-xs font-semibold ${data.sound.enabled ? 'text-[#003876]' : 'text-gray-800 dark:text-gray-100'}`}>
+            <Volume2 className={`w-6 h-6 ${data.sound.enabled ? 'text-brand-primary' : 'text-gray-400'}`} />
+            <span className={`text-xs font-semibold ${data.sound.enabled ? 'text-brand-primary' : 'text-gray-800 dark:text-gray-100'}`}>
               {data.sound.enabled ? 'Ativado' : 'Desativado'}
             </span>
           </button>
@@ -917,12 +917,12 @@ export default function AttendanceSettingsPanel() {
                 className={`
                   flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
                   ${active
-                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                   }
                 `}
               >
-                <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <Icon className={`w-6 h-6 ${active ? 'text-brand-secondary' : 'text-gray-400'}`} />
                 <span className={`text-xs font-semibold ${
                   active ? 'text-white' : 'text-gray-800 dark:text-gray-100'
                 }`}>{label}</span>
@@ -935,7 +935,7 @@ export default function AttendanceSettingsPanel() {
       {/* 4. Tela do cliente */}
       <SettingsCard collapseId="attendance.clientScreen" title="Tela do Cliente" icon={Monitor} description="Controle o que é exibido na página pública após a senha ser gerada. Clique para habilitar/desabilitar cada item.">
         {/* ── Campos visíveis ── */}
-        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Campos visíveis</p>
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Campos visíveis</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {([
             { key: 'show_last_called',   label: 'Última senha chamada', desc: 'Exibe a última senha chamada em outro setor.', icon: History         },
@@ -960,12 +960,12 @@ export default function AttendanceSettingsPanel() {
                 className={`
                   flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
                   ${active
-                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                   }
                 `}
               >
-                <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-brand-secondary' : 'text-gray-400'}`} />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold ${
                     active ? 'text-white' : 'text-gray-800 dark:text-gray-100'
@@ -982,7 +982,7 @@ export default function AttendanceSettingsPanel() {
         {data.client_screen_fields.show_instructions && (<>
           <hr className="border-gray-100 dark:border-gray-700/50" />
           <div>
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Instruções</p>
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60 mb-3">Instruções</p>
             <textarea
               value={data.client_screen_fields.instructions_text}
               onChange={(e) =>
@@ -992,7 +992,7 @@ export default function AttendanceSettingsPanel() {
                 }))
               }
               rows={3}
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
             />
           </div>
         </>)}
@@ -1001,7 +1001,7 @@ export default function AttendanceSettingsPanel() {
       {/* 5. Feedback */}
       <SettingsCard collapseId="attendance.feedback" title="Feedback Pós-Atendimento" icon={Star} description="Coleta de avaliação do cliente após a finalização do atendimento.">
         {/* ── Ativação ── */}
-        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Ativação</p>
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Ativação</p>
         <div className="sm:w-1/2">
           <button
             type="button"
@@ -1014,12 +1014,12 @@ export default function AttendanceSettingsPanel() {
             className={`
               w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
               ${data.feedback.enabled
-                ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
               }
             `}
           >
-            <ThumbsUp className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+            <ThumbsUp className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.enabled ? 'text-brand-secondary' : 'text-gray-400'}`} />
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-semibold ${data.feedback.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
                 Habilitar feedback pós-atendimento
@@ -1036,7 +1036,7 @@ export default function AttendanceSettingsPanel() {
             <hr className="border-gray-100 dark:border-gray-700/50" />
 
             {/* ── Configuração ── */}
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Configuração</p>
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Configuração</p>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
                 Texto exibido ao cliente
@@ -1051,7 +1051,7 @@ export default function AttendanceSettingsPanel() {
                   }))
                 }
                 placeholder="Como foi seu atendimento?"
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
               />
               <p className="mt-1 text-[11px] text-gray-400">
                 Aparece logo acima da escala de avaliação na tela do cliente.
@@ -1069,7 +1069,7 @@ export default function AttendanceSettingsPanel() {
                       feedback: { ...prev.feedback, scale: e.target.value as AttendanceFeedbackConfig['scale'] },
                     }))
                   }
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
                 >
                   <option value="stars">Estrelas</option>
                   <option value="numeric">Numérica</option>
@@ -1088,7 +1088,7 @@ export default function AttendanceSettingsPanel() {
                       feedback: { ...prev.feedback, max: Math.max(3, Math.min(10, parseInt(e.target.value) || 5)) },
                     }))
                   }
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
                 />
               </div>
             </div>
@@ -1096,7 +1096,7 @@ export default function AttendanceSettingsPanel() {
             <hr className="border-gray-100 dark:border-gray-700/50" />
 
             {/* ── Campos adicionais ── */}
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Campos adicionais</p>
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Campos adicionais</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* Campo livre para comentários — campo adicional no formulário do cliente */}
               <button
@@ -1110,12 +1110,12 @@ export default function AttendanceSettingsPanel() {
                 className={`
                   flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
                   ${data.feedback.allow_comments
-                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                   }
                 `}
               >
-                <MessageCircle className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.allow_comments ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <MessageCircle className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.allow_comments ? 'text-brand-secondary' : 'text-gray-400'}`} />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold ${data.feedback.allow_comments ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
                     Campo livre para comentários
@@ -1138,12 +1138,12 @@ export default function AttendanceSettingsPanel() {
                 className={`
                   flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
                   ${data.feedback.custom_questions_enabled
-                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                   }
                 `}
               >
-                <ListChecks className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.custom_questions_enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <ListChecks className={`w-4 h-4 shrink-0 mt-0.5 ${data.feedback.custom_questions_enabled ? 'text-brand-secondary' : 'text-gray-400'}`} />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold ${data.feedback.custom_questions_enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
                     Perguntas personalizadas
@@ -1160,7 +1160,7 @@ export default function AttendanceSettingsPanel() {
               <hr className="border-gray-100 dark:border-gray-700/50" />
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Perguntas personalizadas</p>
+                  <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Perguntas personalizadas</p>
                   <button
                     type="button"
                     onClick={() =>
@@ -1175,7 +1175,7 @@ export default function AttendanceSettingsPanel() {
                         },
                       }))
                     }
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 hover:text-[#003876] hover:border-[#003876] transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-xs text-gray-500 hover:text-brand-primary hover:border-brand-primary transition-colors"
                   >
                     <Plus className="w-3 h-3" />
                     Adicionar
@@ -1238,7 +1238,7 @@ export default function AttendanceSettingsPanel() {
                                 const value = e.target.value;
                                 updateQuestion((cur) => ({ ...cur, label: value }));
                               }}
-                              className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+                              className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
                             />
                             <button
                               type="button"
@@ -1270,11 +1270,11 @@ export default function AttendanceSettingsPanel() {
                                   title={label}
                                   className={`flex flex-col items-center justify-center gap-1 px-1.5 py-2 rounded-lg border transition-all ${
                                     active
-                                      ? 'bg-[#003876] text-white border-[#003876] shadow-md'
-                                      : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:text-[#003876] hover:border-[#003876]'
+                                      ? 'bg-brand-primary text-white border-brand-primary shadow-md'
+                                      : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:text-brand-primary hover:border-brand-primary'
                                   }`}
                                 >
-                                  <Icon className={`w-3.5 h-3.5 ${active && value === 'rating' ? 'fill-[#ffd700] text-[#ffd700]' : ''}`} />
+                                  <Icon className={`w-3.5 h-3.5 ${active && value === 'rating' ? 'fill-brand-secondary text-brand-secondary' : ''}`} />
                                   <span className="text-[10px] font-medium leading-none">{label}</span>
                                 </button>
                               );
@@ -1293,8 +1293,8 @@ export default function AttendanceSettingsPanel() {
                                     onClick={() => updateQuestion((cur) => ({ ...cur, type: 'rating', max: n }))}
                                     className={`px-2.5 py-1 text-[11px] font-semibold border-r border-gray-200 dark:border-gray-600 last:border-r-0 transition-colors ${
                                       (q.max ?? 5) === n
-                                        ? 'bg-[#003876] text-white'
-                                        : 'text-gray-500 hover:text-[#003876]'
+                                        ? 'bg-brand-primary text-white'
+                                        : 'text-gray-500 hover:text-brand-primary'
                                     }`}
                                   >
                                     {n}
@@ -1321,7 +1321,7 @@ export default function AttendanceSettingsPanel() {
                                         });
                                       }}
                                       placeholder={`Opção ${optIdx + 1}`}
-                                      className="flex-1 min-w-0 px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                      className="flex-1 min-w-0 px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/20"
                                     />
                                     <button
                                       type="button"
@@ -1346,7 +1346,7 @@ export default function AttendanceSettingsPanel() {
                                     if (cur.options.length >= 8) return cur;
                                     return { ...cur, options: [...cur.options, `Opção ${cur.options.length + 1}`] };
                                   })}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-[#003876] hover:bg-[#003876]/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-brand-primary hover:bg-brand-primary/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                 >
                                   <Plus className="w-3 h-3" />
                                   Adicionar opção ({q.options.length}/8)
@@ -1366,7 +1366,7 @@ export default function AttendanceSettingsPanel() {
                                     const v = parseInt(e.target.value || '0', 10);
                                     updateQuestion((cur) => (cur.type === 'scale' ? { ...cur, min: v } : cur));
                                   }}
-                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/20"
                                 />
                               </div>
                               <div>
@@ -1378,7 +1378,7 @@ export default function AttendanceSettingsPanel() {
                                     const v = parseInt(e.target.value || '0', 10);
                                     updateQuestion((cur) => (cur.type === 'scale' ? { ...cur, max: v } : cur));
                                   }}
-                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/20"
                                 />
                               </div>
                               <div>
@@ -1391,7 +1391,7 @@ export default function AttendanceSettingsPanel() {
                                     updateQuestion((cur) => (cur.type === 'scale' ? { ...cur, min_label: v } : cur));
                                   }}
                                   placeholder="Ex: Ruim"
-                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/20"
                                 />
                               </div>
                               <div>
@@ -1404,7 +1404,7 @@ export default function AttendanceSettingsPanel() {
                                     updateQuestion((cur) => (cur.type === 'scale' ? { ...cur, max_label: v } : cur));
                                   }}
                                   placeholder="Ex: Excelente"
-                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-[#003876] focus:ring-1 focus:ring-[#003876]/20"
+                                  className="w-full px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/20"
                                 />
                               </div>
                             </div>
@@ -1440,7 +1440,7 @@ export default function AttendanceSettingsPanel() {
       <SettingsCard collapseId="attendance.displayPanel" title="Painel de Chamadas" icon={Tv} description="Configure o painel público exibido na TV da recepção.">
         {/* ── Acesso ── */}
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Acesso</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60 mb-3">Acesso</p>
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Senha de acesso ao painel</label>
             <div className="relative max-w-xs">
@@ -1449,7 +1449,7 @@ export default function AttendanceSettingsPanel() {
                 value={data.display_panel.password}
                 onChange={(e) => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, password: e.target.value } }))}
                 placeholder="Defina uma senha simples"
-                className="w-full px-3 py-2.5 pr-10 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+                className="w-full px-3 py-2.5 pr-10 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
               />
               <button
                 type="button"
@@ -1466,7 +1466,7 @@ export default function AttendanceSettingsPanel() {
 
         {/* ── Exibição ── */}
         <div className="space-y-4">
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Exibição</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Exibição</p>
           <div className="space-y-3 sm:w-1/2">
             {/* Toggle histórico */}
             <button
@@ -1483,12 +1483,12 @@ export default function AttendanceSettingsPanel() {
               className={`
                 w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
                 ${data.display_panel.show_history
-                  ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                  ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                 }
               `}
             >
-              <History className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_history ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+              <History className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_history ? 'text-brand-secondary' : 'text-gray-400'}`} />
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold ${data.display_panel.show_history ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
                   Exibir últimas senhas chamadas
@@ -1507,12 +1507,12 @@ export default function AttendanceSettingsPanel() {
                 className={`
                   w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
                   ${data.display_panel.show_visitor_name
-                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                   }
                 `}
               >
-                <Eye className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_visitor_name ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <Eye className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_visitor_name ? 'text-brand-secondary' : 'text-gray-400'}`} />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold ${data.display_panel.show_visitor_name ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
                     Exibir nome do visitante
@@ -1530,7 +1530,7 @@ export default function AttendanceSettingsPanel() {
 
         {/* ── Som ── */}
         <div className="space-y-4">
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Som</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Som</p>
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Som de alerta</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -1547,12 +1547,12 @@ export default function AttendanceSettingsPanel() {
                   className={`
                     flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
                     ${active
-                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                     }
                   `}
                 >
-                  <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                  <Icon className={`w-6 h-6 ${active ? 'text-brand-secondary' : 'text-gray-400'}`} />
                   <span className={`text-xs font-semibold ${
                     active ? 'text-white' : 'text-gray-800 dark:text-gray-100'
                   }`}>{label}</span>
@@ -1581,12 +1581,12 @@ export default function AttendanceSettingsPanel() {
                     className={`
                       flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all duration-200
                       ${active
-                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                        ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                       }
                     `}
                   >
-                    <span className={`text-lg font-bold ${active ? 'text-[#ffd700]' : 'text-gray-400'}`}>{label}</span>
+                    <span className={`text-lg font-bold ${active ? 'text-brand-secondary' : 'text-gray-400'}`}>{label}</span>
                     <span className={`text-[10px] font-medium ${active ? 'text-white/70' : 'text-gray-500'}`}>{desc}</span>
                   </button>
                 );
@@ -1606,12 +1606,12 @@ export default function AttendanceSettingsPanel() {
                     className={`
                       flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all duration-200
                       ${active
-                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                        ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                       }
                     `}
                   >
-                    <span className={`text-lg font-bold ${active ? 'text-[#ffd700]' : 'text-gray-400'}`}>{n}</span>
+                    <span className={`text-lg font-bold ${active ? 'text-brand-secondary' : 'text-gray-400'}`}>{n}</span>
                   </button>
                 );
               })}
@@ -1624,7 +1624,7 @@ export default function AttendanceSettingsPanel() {
         {sectors.length > 0 && (<>
           <hr className="border-gray-100 dark:border-gray-700/50" />
           <div className="space-y-3">
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Setores</p>
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Setores</p>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
               Setores exibidos no painel
               <span className="ml-1 text-gray-400/80 font-normal">(vazio = todos)</span>
@@ -1651,14 +1651,14 @@ export default function AttendanceSettingsPanel() {
                     className={`
                       flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
                       ${active
-                        ? 'bg-[#ffd700] text-[#003876] border-[#ffd700] shadow-md shadow-[#ffd700]/25'
-                        : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[#ffd700]/40 hover:text-gray-600'
+                        ? 'bg-brand-secondary text-brand-primary border-brand-secondary shadow-md shadow-brand-secondary/25'
+                        : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-brand-secondary/40 hover:text-gray-600'
                       }
                     `}
                   >
-                    <SectorIcon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#003876]' : 'text-gray-400'}`} />
+                    <SectorIcon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-brand-primary' : 'text-gray-400'}`} />
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold truncate ${active ? 'text-[#003876]' : 'text-gray-400 dark:text-gray-500'}`}>{label}</p>
+                      <p className={`text-sm font-semibold truncate ${active ? 'text-brand-primary' : 'text-gray-400 dark:text-gray-500'}`}>{label}</p>
                     </div>
                   </button>
                 );
@@ -1671,7 +1671,7 @@ export default function AttendanceSettingsPanel() {
 
         {/* ── Aparência ── */}
         <div className="space-y-3">
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Aparência</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Aparência</p>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Tema visual</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {THEME_PRESETS.map(({ key, label, bg, card, highlight, text, muted }) => {
@@ -1683,8 +1683,8 @@ export default function AttendanceSettingsPanel() {
                   onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, theme: key } }))}
                   className={`rounded-xl border-2 overflow-hidden transition-all duration-200 ${
                     active
-                      ? 'border-[#ffd700] shadow-md shadow-[#ffd700]/25 ring-2 ring-[#ffd700]/30'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-[#ffd700]/40'
+                      ? 'border-brand-secondary shadow-md shadow-brand-secondary/25 ring-2 ring-brand-secondary/30'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-brand-secondary/40'
                   }`}
                 >
                   {/* Mini panel mockup */}
@@ -1708,7 +1708,7 @@ export default function AttendanceSettingsPanel() {
                     </div>
                   </div>
                   <div className={`px-2 py-1.5 text-center text-[10px] font-semibold transition-colors ${
-                    active ? 'bg-[#003876] text-white' : 'bg-gray-50 dark:bg-gray-800 text-gray-500'
+                    active ? 'bg-brand-primary text-white' : 'bg-gray-50 dark:bg-gray-800 text-gray-500'
                   }`}>
                     {label}
                   </div>
@@ -1736,12 +1736,12 @@ export default function AttendanceSettingsPanel() {
                     className={`
                       flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
                       ${active
-                        ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                        ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                       }
                     `}
                   >
-                    <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                    <Icon className={`w-6 h-6 ${active ? 'text-brand-secondary' : 'text-gray-400'}`} />
                     <span className={`text-xs font-semibold ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{label}</span>
                     <span className={`text-[10px] leading-tight ${active ? 'text-white/60' : 'text-gray-400'}`}>{desc}</span>
                   </button>
@@ -1755,7 +1755,7 @@ export default function AttendanceSettingsPanel() {
 
         {/* ── Link direto ── */}
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Link de acesso</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60 mb-3">Link de acesso</p>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Link direto para o painel</label>
           <div className="flex items-center gap-2 max-w-md">
             <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">
@@ -1772,7 +1772,7 @@ export default function AttendanceSettingsPanel() {
               className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 panelLinkCopied
                   ? 'bg-emerald-500 text-white'
-                  : 'bg-[#003876] text-white hover:bg-[#002855]'
+                  : 'bg-brand-primary text-white hover:bg-brand-primary-dark'
               }`}
             >
               {panelLinkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -1790,12 +1790,12 @@ export default function AttendanceSettingsPanel() {
           className={`
             w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
             ${data.transfer.enabled
-              ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+              ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
             }
           `}
         >
-          <ArrowRightLeft className={`w-4 h-4 shrink-0 mt-0.5 ${data.transfer.enabled ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+          <ArrowRightLeft className={`w-4 h-4 shrink-0 mt-0.5 ${data.transfer.enabled ? 'text-brand-secondary' : 'text-gray-400'}`} />
           <div className="flex-1 min-w-0">
             <p className={`text-sm font-semibold ${data.transfer.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>Habilitar transferências</p>
             <p className={`text-[11px] mt-0.5 leading-tight ${data.transfer.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>Quando desabilitado, as ações de transferência não são exibidas para o atendente.</p>
@@ -1822,7 +1822,7 @@ export default function AttendanceSettingsPanel() {
                       updated[idx] = e.target.value;
                       setData((prev) => ({ ...prev, transfer: { ...prev.transfer, quick_reasons: updated } }));
                     }}
-                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700]"
+                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-brand-primary dark:focus:border-brand-secondary"
                   />
                   <button
                     type="button"
@@ -1847,7 +1847,7 @@ export default function AttendanceSettingsPanel() {
                   transfer: { ...prev.transfer, quick_reasons: [...prev.transfer.quick_reasons, ''] },
                 }));
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#003876] dark:text-[#ffd700] border border-[#003876]/20 dark:border-[#ffd700]/20 rounded-lg hover:bg-[#003876]/5 dark:hover:bg-[#ffd700]/5 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-primary dark:text-brand-secondary border border-brand-primary/20 dark:border-brand-secondary/20 rounded-lg hover:bg-brand-primary/5 dark:hover:bg-brand-secondary/5 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               Adicionar justificativa
@@ -1866,7 +1866,7 @@ export default function AttendanceSettingsPanel() {
           className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
               ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-              : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50'
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
           }`}
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}

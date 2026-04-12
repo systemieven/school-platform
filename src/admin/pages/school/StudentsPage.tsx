@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import type { Student, SchoolClass, SchoolSegment, StudentStatus } from '../../types/admin.types';
 import { STUDENT_STATUS_LABELS, SHIFT_LABELS, type Shift } from '../../types/admin.types';
 import {
@@ -50,6 +51,7 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
     };
     const { data, error: dbErr } = await supabase.from('students').update(patch).eq('id', student.id).select().single();
     if (dbErr) { setError(dbErr.message); setSaving(false); return; }
+    logAudit({ action: 'update', module: 'students', recordId: student.id, description: `Aluno "${patch.full_name}" atualizado`, oldData: { full_name: student.full_name, status: student.status }, newData: patch });
     onSaved(data as Student);
   }
 
@@ -60,7 +62,7 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
           <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Edit3 className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+            <Edit3 className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
             Editar Aluno
           </h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl">
@@ -88,7 +90,7 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
                 value={(form as Record<string, string>)[key]}
                 onChange={(e) => set(key, e.target.value)}
                 placeholder={placeholder}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20"
               />
             </div>
           ))}
@@ -106,7 +108,7 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
                   type={type}
                   value={(form as Record<string, string>)[key]}
                   onChange={(e) => set(key, e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20"
                 />
               </div>
             ))}
@@ -118,7 +120,7 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
               <select
                 value={form.class_id}
                 onChange={(e) => set('class_id', e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary"
               >
                 <option value="">Sem turma</option>
                 {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -129,7 +131,7 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
               <select
                 value={form.status}
                 onChange={(e) => set('status', e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary"
               >
                 {Object.entries(STUDENT_STATUS_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -154,7 +156,7 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 inline-flex items-center justify-center gap-2 bg-[#003876] text-white py-2.5 rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors disabled:opacity-60"
+            className="flex-1 inline-flex items-center justify-center gap-2 bg-brand-primary text-white py-2.5 rounded-xl text-sm font-medium hover:bg-brand-primary-dark transition-colors disabled:opacity-60"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Salvar
@@ -276,7 +278,7 @@ export default function StudentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <Users className="w-8 h-8" />
             Alunos
           </h1>
@@ -353,7 +355,7 @@ export default function StudentsPage() {
       {/* Student list */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+          <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
         </div>
       ) : visibleStudents.length === 0 ? (
         <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
@@ -376,8 +378,8 @@ export default function StudentsPage() {
                   className="w-full flex items-center gap-4 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                 >
                   {/* Avatar placeholder */}
-                  <div className="w-10 h-10 rounded-full bg-[#003876]/10 dark:bg-[#003876]/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-[#003876] dark:text-[#ffd700]">
+                  <div className="w-10 h-10 rounded-full bg-brand-primary/10 dark:bg-brand-primary/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-brand-primary dark:text-brand-secondary">
                       {s.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}
                     </span>
                   </div>
@@ -402,7 +404,7 @@ export default function StudentsPage() {
 
                   <button
                     onClick={(e) => { e.stopPropagation(); setEditStudent(s); }}
-                    className="p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                    className="p-1.5 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
                     title="Editar aluno"
                   >
                     <Edit3 className="w-3.5 h-3.5" />

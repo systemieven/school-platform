@@ -47,7 +47,7 @@ export default function DashboardPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center py-16">
-      <Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" />
+      <Loader2 className="w-6 h-6 animate-spin text-brand-primary dark:text-brand-secondary" />
     </div>
   );
 
@@ -118,11 +118,11 @@ export default function DashboardPage() {
 
       {/* Library shortcut */}
       <Link to="/portal/biblioteca"
-        className="flex items-center justify-between p-4 bg-[#003876]/5 dark:bg-[#ffd700]/5 border border-[#003876]/10 dark:border-[#ffd700]/10 rounded-xl hover:bg-[#003876]/10 dark:hover:bg-[#ffd700]/10 transition-colors">
+        className="flex items-center justify-between p-4 bg-brand-primary/5 dark:bg-brand-secondary/5 border border-brand-primary/10 dark:border-brand-secondary/10 rounded-xl hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10 transition-colors">
         <div className="flex items-center gap-3">
-          <Library className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" />
+          <Library className="w-5 h-5 text-brand-primary dark:text-brand-secondary" />
           <div>
-            <p className="text-sm font-semibold text-[#003876] dark:text-[#ffd700]">Biblioteca Virtual</p>
+            <p className="text-sm font-semibold text-brand-primary dark:text-brand-secondary">Biblioteca Virtual</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Materiais e recursos de estudo</p>
           </div>
         </div>
@@ -140,10 +140,10 @@ function Section({ title, icon, linkTo, linkLabel, empty, emptyMsg, children }: 
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-gray-700">
         <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
-          <span className="text-[#003876] dark:text-[#ffd700]">{icon}</span>
+          <span className="text-brand-primary dark:text-brand-secondary">{icon}</span>
           {title}
         </div>
-        <Link to={linkTo} className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-0.5">
+        <Link to={linkTo} className="text-xs text-brand-primary dark:text-brand-secondary hover:underline flex items-center gap-0.5">
           {linkLabel} <ChevronRight className="w-3 h-3" />
         </Link>
       </div>

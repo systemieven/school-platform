@@ -8,7 +8,7 @@ export default function StudentProtectedRoute({ children }: { children: React.Re
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="w-8 h-8 text-[#003876] dark:text-[#ffd700] animate-spin" />
+        <Loader2 className="w-8 h-8 text-brand-primary dark:text-brand-secondary animate-spin" />
       </div>
     );
   }

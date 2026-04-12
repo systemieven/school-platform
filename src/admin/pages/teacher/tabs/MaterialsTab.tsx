@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../../lib/supabase';
+import { logAudit } from '../../../../lib/audit';
 import type { ClassMaterial, SchoolClass } from '../../../types/admin.types';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
 import { Loader2, Plus, Pencil, Trash2, ExternalLink, FileText, X, Save, EyeOff } from 'lucide-react';
@@ -35,6 +36,7 @@ function MaterialDrawer({
       ? await supabase.from('class_materials').update(payload).eq('id', material.id).select('*').single()
       : await supabase.from('class_materials').insert(payload).select('*').single();
     if (err) { setError(err.message); setSaving(false); return; }
+    logAudit({ action: material ? 'update' : 'create', module: 'teacher-area', recordId: (data as ClassMaterial).id, description: `Material "${form.title}" ${material ? 'atualizado' : 'criado'}`, newData: payload });
     onSaved(data as ClassMaterial);
   }
 
@@ -58,17 +60,17 @@ function MaterialDrawer({
             <div key={key}>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{label}</label>
               <input value={f(key)} onChange={(e) => sf(key, e.target.value)} placeholder={placeholder}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none" />
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none" />
             </div>
           ))}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Descrição</label>
             <textarea value={form.description} onChange={(e) => sf('description', e.target.value)} rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none resize-none" />
+              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none resize-none" />
           </div>
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <button type="button" onClick={() => setForm((p) => ({ ...p, is_visible: !p.is_visible }))}
-              className={`w-10 h-6 rounded-full transition-colors ${form.is_visible ? 'bg-[#003876]' : 'bg-gray-300 dark:bg-gray-600'}`}>
+              className={`w-10 h-6 rounded-full transition-colors ${form.is_visible ? 'bg-brand-primary' : 'bg-gray-300 dark:bg-gray-600'}`}>
               <span className={`block w-4 h-4 bg-white rounded-full shadow mx-1 transition-transform ${form.is_visible ? 'translate-x-4' : ''}`} />
             </button>
             <span className="text-sm text-gray-700 dark:text-gray-300">Visível para alunos</span>
@@ -76,7 +78,7 @@ function MaterialDrawer({
         </div>
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700">
           <button onClick={save} disabled={saving}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
@@ -103,18 +105,19 @@ export default function MaterialsTab({ cls }: { cls: SchoolClass }) {
 
   async function remove(id: string) {
     await supabase.from('class_materials').delete().eq('id', id);
+    logAudit({ action: 'delete', module: 'teacher-area', recordId: id, description: 'Material excluído' });
     setItems((p) => p.filter((m) => m.id !== id));
   }
 
   const canEdit = (m: ClassMaterial) => m.created_by === profile?.id || hasRole('super_admin', 'admin', 'coordinator');
 
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-brand-primary dark:text-brand-secondary" /></div>;
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
         <button onClick={() => { setDrawer(null); setShowDrawer(true); }}
-          className="flex items-center gap-2 px-4 py-2 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl transition-colors">
+          className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl transition-colors">
           <Plus className="w-4 h-4" /> Novo Material
         </button>
       </div>
@@ -129,8 +132,8 @@ export default function MaterialsTab({ cls }: { cls: SchoolClass }) {
           {items.map((m) => (
             <div key={m.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 flex items-start justify-between gap-4 shadow-sm">
               <div className="flex items-start gap-3 flex-1 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-[#003876]/10 dark:bg-[#ffd700]/10 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+                <div className="w-9 h-9 rounded-lg bg-brand-primary/10 dark:bg-brand-secondary/10 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -141,7 +144,7 @@ export default function MaterialsTab({ cls }: { cls: SchoolClass }) {
                   {m.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{m.description}</p>}
                   {m.external_url && (
                     <a href={m.external_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-[#003876] dark:text-[#ffd700] hover:underline mt-1">
+                      className="inline-flex items-center gap-1 text-xs text-brand-primary dark:text-brand-secondary hover:underline mt-1">
                       <ExternalLink className="w-3 h-3" /> Abrir link
                     </a>
                   )}
@@ -150,7 +153,7 @@ export default function MaterialsTab({ cls }: { cls: SchoolClass }) {
               {canEdit(m) && (
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button onClick={() => { setDrawer(m); setShowDrawer(true); }}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={() => remove(m.id)}

@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { usePermissions, type ModuleInfo } from '../../contexts/PermissionsContext';
 import { ROLE_LABELS } from '../../types/admin.types';
 import type { Role, Profile } from '../../types/admin.types';
 import {
   Shield, Loader2, Save, Check, X, Users, Info, ToggleLeft, ToggleRight, Puzzle,
-  Search, ChevronDown,
+  Search, ChevronDown, Eye,
 } from 'lucide-react';
 
 // ── Constants ──
@@ -95,7 +96,7 @@ function UserSearchSelect({ users, selectedUserId, onSelect }: {
         <button
           type="button"
           onClick={() => { setOpen(!open); setSearch(''); }}
-          className="w-full flex items-center justify-between gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm transition-colors hover:border-gray-300 dark:hover:border-gray-500 focus:border-[#003876] outline-none"
+          className="w-full flex items-center justify-between gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm transition-colors hover:border-gray-300 dark:hover:border-gray-500 focus:border-brand-primary outline-none"
         >
           <span className={selected ? 'text-gray-800 dark:text-gray-200 truncate' : 'text-gray-400'}>
             {selected ? `${selected.full_name || 'Sem nome'} — ${ROLE_LABELS[selected.role]}` : 'Selecione um usuário...'}
@@ -115,7 +116,7 @@ function UserSearchSelect({ users, selectedUserId, onSelect }: {
                   placeholder="Buscar por nome..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]"
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 outline-none focus:border-brand-primary dark:focus:border-brand-secondary"
                 />
               </div>
             </div>
@@ -143,12 +144,12 @@ function UserSearchSelect({ users, selectedUserId, onSelect }: {
                     onClick={() => { onSelect(u.id); setOpen(false); }}
                     className={`w-full flex items-center gap-3 px-4 py-2 text-left text-sm transition-colors ${
                       u.id === selectedUserId
-                        ? 'bg-[#003876]/5 dark:bg-[#ffd700]/5 text-[#003876] dark:text-[#ffd700]'
+                        ? 'bg-brand-primary/5 dark:bg-brand-secondary/5 text-brand-primary dark:text-brand-secondary'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                   >
-                    <div className="w-7 h-7 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-bold text-[#003876] dark:text-[#ffd700]">
+                    <div className="w-7 h-7 bg-brand-primary/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] font-bold text-brand-primary dark:text-brand-secondary">
                         {u.full_name?.charAt(0)?.toUpperCase() || 'U'}
                       </span>
                     </div>
@@ -188,6 +189,12 @@ export default function PermissionsPage() {
   const [userOverrides, setUserOverrides] = useState<UserOverrideRow[]>([]);
   const [overridesDirty, setOverridesDirty] = useState(false);
 
+  // Effective permissions preview state
+  const [showEffective, setShowEffective] = useState(false);
+  const [effectivePerms, setEffectivePerms] = useState<{ module_key: string; can_view: boolean; can_create: boolean; can_edit: boolean; can_delete: boolean }[]>([]);
+  const [effectiveLoading, setEffectiveLoading] = useState(false);
+  const [selectedUserRolePerms, setSelectedUserRolePerms] = useState<RolePermsRow[]>([]);
+
   // Modules tab state (all modules, including inactive)
   const [allModules, setAllModules] = useState<(ModuleInfo & { is_active: boolean })[]>([]);
   const [modulesLoading, setModulesLoading] = useState(false);
@@ -226,7 +233,12 @@ export default function PermissionsPage() {
   // ── Fetch user overrides ──
 
   const fetchUserOverrides = useCallback(async () => {
-    if (!selectedUserId) { setUserOverrides([]); return; }
+    if (!selectedUserId) {
+      setUserOverrides([]);
+      setShowEffective(false);
+      setEffectivePerms([]);
+      return;
+    }
     const { data } = await supabase
       .from('user_permission_overrides')
       .select('*')
@@ -236,6 +248,27 @@ export default function PermissionsPage() {
   }, [selectedUserId]);
 
   useEffect(() => { fetchUserOverrides(); }, [fetchUserOverrides]);
+
+  // ── Fetch effective permissions for selected user ──
+
+  const fetchEffectivePerms = useCallback(async () => {
+    if (!selectedUserId || !showEffective) return;
+    setEffectiveLoading(true);
+
+    const selectedUser = users.find((u) => u.id === selectedUserId);
+    const [effRes, roleRes] = await Promise.all([
+      supabase.rpc('get_effective_permissions', { p_user_id: selectedUserId }),
+      selectedUser
+        ? supabase.from('role_permissions').select('*').eq('role', selectedUser.role)
+        : Promise.resolve({ data: [] as RolePermsRow[], error: null }),
+    ]);
+
+    if (!effRes.error && effRes.data) setEffectivePerms(effRes.data);
+    if (!roleRes.error && roleRes.data) setSelectedUserRolePerms(roleRes.data as RolePermsRow[]);
+    setEffectiveLoading(false);
+  }, [selectedUserId, showEffective, users]);
+
+  useEffect(() => { fetchEffectivePerms(); }, [fetchEffectivePerms]);
 
   // ── Fetch all modules (including inactive) ──
 
@@ -296,6 +329,7 @@ export default function PermissionsPage() {
         .update({ is_active: mod.is_active })
         .eq('key', mod.key);
     }
+    logAudit({ action: 'update', module: 'permissions', description: 'Estados dos módulos atualizados' });
     setSaving(false);
     setModulesDirty(false);
     refreshPerms();
@@ -332,6 +366,7 @@ export default function PermissionsPage() {
           { onConflict: 'role,module_key' },
         );
     }
+    logAudit({ action: 'update', module: 'permissions', description: `Permissões do role "${rolePerms[0]?.role}" atualizadas` });
     setSaving(false);
     setDirty(false);
     setSaved(true);
@@ -401,6 +436,7 @@ export default function PermissionsPage() {
         );
     }
 
+    logAudit({ action: 'update', module: 'permissions', recordId: selectedUserId, description: `Overrides de permissão do usuário atualizados` });
     setSaving(false);
     setOverridesDirty(false);
     refreshPerms();
@@ -428,8 +464,8 @@ export default function PermissionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#003876] rounded-xl flex items-center justify-center">
-            <Shield className="w-5 h-5 text-[#ffd700]" />
+          <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center">
+            <Shield className="w-5 h-5 text-brand-secondary" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-800 dark:text-white">Permissões</h1>
@@ -512,7 +548,7 @@ export default function PermissionsPage() {
           {/* Permissions grid */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+              <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
             </div>
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden">
@@ -579,7 +615,7 @@ export default function PermissionsPage() {
               <button
                 onClick={saveRolePerms}
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-3 bg-[#003876] text-white rounded-xl shadow-lg shadow-[#003876]/30 hover:bg-[#002855] transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-3 bg-brand-primary text-white rounded-xl shadow-lg shadow-brand-primary/30 hover:bg-brand-primary-dark transition-all disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Salvar Permissões
@@ -663,12 +699,91 @@ export default function PermissionsPage() {
                 })}
               </div>
 
+              {/* Effective permissions preview toggle */}
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowEffective((prev) => !prev)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    showEffective
+                      ? 'bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <Eye className="w-4 h-4" />
+                  {showEffective ? 'Ocultar' : 'Visualizar'} Permissões Efetivas
+                </button>
+              </div>
+
+              {/* Effective permissions grid (read-only) */}
+              {showEffective && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-start gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/40">
+                    <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      Resultado final das permissões do cargo <strong>{ROLE_LABELS[users.find((u) => u.id === selectedUserId)?.role || 'user']}</strong> combinadas
+                      com os overrides individuais. Células destacadas em{' '}
+                      <span className="inline-block w-2 h-2 rounded-sm bg-amber-400 align-middle mx-0.5" /> amarelo indicam que um override alterou o valor do cargo.
+                    </p>
+                  </div>
+
+                  {effectiveLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden">
+                      {/* Header */}
+                      <div className="grid grid-cols-[1fr_repeat(4,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
+                        <span className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">Módulo</span>
+                        {ACTIONS.map((a) => (
+                          <span key={a} className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 text-center">
+                            {ACTION_LABELS[a]}
+                          </span>
+                        ))}
+                      </div>
+
+                      {modules.map((mod) => {
+                        const eff = effectivePerms.find((p) => p.module_key === mod.key);
+                        const rolePerm = selectedUserRolePerms.find((p) => p.module_key === mod.key);
+                        return (
+                          <div
+                            key={mod.key}
+                            className="grid grid-cols-[1fr_repeat(4,80px)] px-5 py-3 border-b border-gray-50 dark:border-gray-800"
+                          >
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{mod.label}</span>
+                            {ACTIONS.map((action) => {
+                              const effVal = eff?.[action] ?? false;
+                              const roleVal = rolePerm?.[action] ?? false;
+                              const isOverridden = effVal !== roleVal;
+                              return (
+                                <div key={action} className="flex items-center justify-center">
+                                  <div
+                                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                                      effVal
+                                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                                        : 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400'
+                                    } ${isOverridden ? 'ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-gray-800' : ''}`}
+                                    title={isOverridden ? 'Alterado por override' : 'Herdado do cargo'}
+                                  >
+                                    {effVal ? <Check className="w-4 h-4" /> : <X className="w-3.5 h-3.5" />}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {overridesDirty && (
                 <div className="fixed bottom-6 right-6 z-50">
                   <button
                     onClick={saveUserOverrides}
                     disabled={saving}
-                    className="flex items-center gap-2 px-5 py-3 bg-[#003876] text-white rounded-xl shadow-lg shadow-[#003876]/30 hover:bg-[#002855] transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-5 py-3 bg-brand-primary text-white rounded-xl shadow-lg shadow-brand-primary/30 hover:bg-brand-primary-dark transition-all disabled:opacity-50"
                   >
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Salvar Overrides
@@ -694,7 +809,7 @@ export default function PermissionsPage() {
 
           {modulesLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+              <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
             </div>
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden">
@@ -761,7 +876,7 @@ export default function PermissionsPage() {
               <button
                 onClick={saveModuleStates}
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-3 bg-[#003876] text-white rounded-xl shadow-lg shadow-[#003876]/30 hover:bg-[#002855] transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-3 bg-brand-primary text-white rounded-xl shadow-lg shadow-brand-primary/30 hover:bg-brand-primary-dark transition-all disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Salvar Módulos

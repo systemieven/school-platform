@@ -3,7 +3,7 @@
  *
  * Padrão visual extraído de "Editar motivo" (SettingsPage > Reason Drawer):
  *
- *  ┌─ header  bg-gradient from-[#003876] to-[#002255] ─────┐
+ *  ┌─ header  bg-gradient from-brand-primary to-brand-primary-dark ─────┐
  *  │  [ícone] título + badge opcional      [extra] [fechar] │
  *  ├───────────────────────────────────────────────────────│
  *  │  body  bg-gray-50  overflow-y-auto  space-y-3          │
@@ -108,7 +108,7 @@ export function Drawer({
         className={`fixed right-0 top-0 h-full ${width} max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col`}
       >
         {/* Cabeçalho azul */}
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
               {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}

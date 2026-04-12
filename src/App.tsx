@@ -24,7 +24,7 @@ const PortalRoutes = lazy(() => import('./portal/routes'));
 function AdminFallback() {
   return (
     <div className="h-screen flex items-center justify-center bg-gray-50">
-      <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+      <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
     </div>
   );
 }

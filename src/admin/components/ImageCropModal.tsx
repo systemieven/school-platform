@@ -204,7 +204,7 @@ export default function ImageCropModal({ src, onSave, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
           <h3 className="font-display text-base font-bold text-gray-800 dark:text-white flex items-center gap-2">
-            <Crop className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+            <Crop className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
             Ajustar foto de perfil
           </h3>
           <button onClick={onClose}
@@ -267,7 +267,7 @@ export default function ImageCropModal({ src, onSave, onClose }: Props) {
           <div className="flex items-center gap-3 w-full px-2">
             <button
               onClick={() => applyZoom(-0.1)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
@@ -284,12 +284,12 @@ export default function ImageCropModal({ src, onSave, onClose }: Props) {
                 setOx((prev) => clamp(prev, 0, z, natW, natH).x);
                 setOy((prev) => clamp(0, prev, z, natW, natH).y);
               }}
-              className="flex-1 accent-[#003876] dark:accent-[#ffd700]"
+              className="flex-1 accent-brand-primary dark:accent-brand-secondary"
             />
 
             <button
               onClick={() => applyZoom(0.1)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
@@ -307,7 +307,7 @@ export default function ImageCropModal({ src, onSave, onClose }: Props) {
             Cancelar
           </button>
           <button onClick={handleSave}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#003876] text-white hover:bg-[#002855] transition-colors">
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-brand-primary text-white hover:bg-brand-primary-dark transition-colors">
             <Check className="w-4 h-4" /> Usar esta foto
           </button>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { useRealtimeRows } from '../../hooks/useRealtimeRows';
 import type { ContactRequest, ContactStatus } from '../../types/admin.types';
@@ -118,7 +119,10 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
     if (!newStatus) return;
     setSaving(true);
     const { error } = await supabase.from('contact_requests').update({ status: newStatus }).eq('id', contact!.id);
-    if (!error) onUpdate(contact!.id, { status: newStatus });
+    if (!error) {
+      logAudit({ action: 'status_change', module: 'contacts', recordId: contact!.id, description: `Status do contato ${contact!.name} alterado para ${newStatus}`, oldData: { status: contact!.status }, newData: { status: newStatus } });
+      onUpdate(contact!.id, { status: newStatus });
+    }
     setSaving(false);
     setNewStatus('');
   }
@@ -127,6 +131,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
     setSaving(true);
     const { error } = await supabase.from('contact_requests').update({ internal_notes: notes }).eq('id', contact!.id);
     if (!error) {
+      logAudit({ action: 'update', module: 'contacts', recordId: contact!.id, description: `Notas internas atualizadas no contato ${contact!.name}` });
       onUpdate(contact!.id, { internal_notes: notes });
       await supabase.from('contact_history').insert({
         contact_id: contact!.id, event_type: 'note', description: 'Notas internas atualizadas', created_by: profile?.id || null,
@@ -153,7 +158,10 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
     setSaving(true);
     const newVal = !contact!.is_lead;
     const { error } = await supabase.from('contact_requests').update({ is_lead: newVal }).eq('id', contact!.id);
-    if (!error) onUpdate(contact!.id, { is_lead: newVal });
+    if (!error) {
+      logAudit({ action: 'update', module: 'contacts', recordId: contact!.id, description: `Contato ${contact!.name} ${newVal ? 'marcado' : 'desmarcado'} como lead` });
+      onUpdate(contact!.id, { is_lead: newVal });
+    }
     setSaving(false);
   }
 
@@ -180,6 +188,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
     }).select('id').single();
 
     if (!error && data) {
+      logAudit({ action: 'create', module: 'contacts', recordId: contact!.id, description: `Contato ${contact!.name} convertido em pré-matrícula`, newData: { enrollment_id: data.id } });
       await supabase.from('contact_requests').update({
         status: 'converted',
         converted_to_enrollment_id: data.id,
@@ -213,6 +222,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
     }).select('id').single();
 
     if (!error && data) {
+      logAudit({ action: 'create', module: 'contacts', recordId: contact!.id, description: `Visita agendada a partir do contato ${contact!.name}`, newData: { appointment_id: data.id } });
       await supabase.from('contact_requests').update({
         converted_to_appointment_id: data.id,
       }).eq('id', contact!.id);
@@ -231,8 +241,8 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <Phone className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+            <div className="w-9 h-9 bg-brand-primary/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Phone className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{contact.name}</p>
@@ -241,7 +251,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                   <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {s.label}
                 </span>
                 {contact.is_lead && (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-[#ffd700]/20 text-yellow-700 dark:text-yellow-400">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-brand-secondary/20 text-yellow-700 dark:text-yellow-400">
                     <Star className="w-3 h-3" /> Lead
                   </span>
                 )}
@@ -261,7 +271,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
               onClick={() => setTab(key)}
               className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium border-b-2 transition-all ${
                 tab === key
-                  ? 'border-[#003876] dark:border-[#ffd700] text-[#003876] dark:text-[#ffd700]'
+                  ? 'border-brand-primary dark:border-brand-secondary text-brand-primary dark:text-brand-secondary'
                   : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
               }`}
             >
@@ -335,8 +345,8 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                 disabled={saving}
                 className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium transition-colors ${
                   contact.is_lead
-                    ? 'bg-[#ffd700]/20 text-yellow-700 dark:text-yellow-400 border border-[#ffd700]/30'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-[#ffd700]'
+                    ? 'bg-brand-secondary/20 text-yellow-700 dark:text-yellow-400 border border-brand-secondary/30'
+                    : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-brand-secondary'
                 }`}
               >
                 <Star className={`w-3.5 h-3.5 ${contact.is_lead ? 'fill-current' : ''}`} />
@@ -348,9 +358,9 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Próximo contato</label>
                 <div className="flex gap-2">
                   <input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none" />
+                    className="flex-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none" />
                   <button onClick={saveNextDate} disabled={saving || nextDate === (contact.next_contact_date || '')}
-                    className="px-3 py-2 bg-[#003876] text-white rounded-xl text-xs disabled:opacity-40 hover:bg-[#002855] transition-colors">
+                    className="px-3 py-2 bg-brand-primary text-white rounded-xl text-xs disabled:opacity-40 hover:bg-brand-primary-dark transition-colors">
                     {saving ? '...' : 'Salvar'}
                   </button>
                 </div>
@@ -361,7 +371,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Responsável</label>
                 <div className="relative">
                   <select value={assignedTo} onChange={(e) => saveAssignedTo(e.target.value)}
-                    className="w-full px-3 py-2 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none appearance-none">
+                    className="w-full px-3 py-2 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none appearance-none">
                     <option value="">Ninguém atribuído</option>
                     {adminProfiles.map((p) => (
                       <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
@@ -375,10 +385,10 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Notas internas</label>
                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Notas visíveis apenas para a equipe..."
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none resize-none" />
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none resize-none" />
                 <div className="flex justify-end mt-2">
                   <button onClick={saveNotes} disabled={saving || notes === (contact.internal_notes || '')}
-                    className="text-xs px-3 py-1.5 bg-[#003876] text-white rounded-lg disabled:opacity-40 hover:bg-[#002855] transition-colors">
+                    className="text-xs px-3 py-1.5 bg-brand-primary text-white rounded-lg disabled:opacity-40 hover:bg-brand-primary-dark transition-colors">
                     {saving ? 'Salvando...' : 'Salvar notas'}
                   </button>
                 </div>
@@ -390,7 +400,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as ContactStatus)}
-                      className="w-full px-3 py-2.5 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none appearance-none">
+                      className="w-full px-3 py-2.5 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none appearance-none">
                       <option value="">Selecionar status...</option>
                       {(Object.entries(STATUS_CONFIG) as [ContactStatus, typeof STATUS_CONFIG[ContactStatus]][])
                         .filter(([k]) => k !== contact.status)
@@ -399,7 +409,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
                   <button onClick={changeStatus} disabled={!newStatus || saving}
-                    className="px-4 py-2 bg-[#003876] text-white rounded-xl text-sm disabled:opacity-40 hover:bg-[#002855] transition-colors">
+                    className="px-4 py-2 bg-brand-primary text-white rounded-xl text-sm disabled:opacity-40 hover:bg-brand-primary-dark transition-colors">
                     {saving ? '...' : 'OK'}
                   </button>
                 </div>
@@ -414,7 +424,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
 
                 {!contact.converted_to_enrollment_id && (
                   <button onClick={convertToEnrollment} disabled={converting === 'enrollment'}
-                    className="w-full flex items-center justify-center gap-2 py-2 border border-[#003876]/20 dark:border-[#ffd700]/20 text-[#003876] dark:text-[#ffd700] hover:bg-[#003876]/5 dark:hover:bg-[#ffd700]/5 rounded-xl text-xs font-medium transition-colors disabled:opacity-40">
+                    className="w-full flex items-center justify-center gap-2 py-2 border border-brand-primary/20 dark:border-brand-secondary/20 text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/5 dark:hover:bg-brand-secondary/5 rounded-xl text-xs font-medium transition-colors disabled:opacity-40">
                     <GraduationCap className="w-3.5 h-3.5" />
                     {converting === 'enrollment' ? 'Convertendo...' : 'Converter em Pré-Matrícula'}
                   </button>
@@ -535,14 +545,14 @@ export default function ContactsPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <MessageSquare className="w-8 h-8" />
             Contatos
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie as solicitações de contato.</p>
         </div>
         <button onClick={fetchData}
-          className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-[#003876] dark:hover:text-white border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-brand-primary dark:hover:text-white border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -550,14 +560,14 @@ export default function ContactsPage() {
       {/* Status pills */}
       <div className="flex flex-wrap gap-2 mb-4">
         <button onClick={() => setStatusFilter('all')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${statusFilter === 'all' ? 'bg-[#003876] text-white shadow-md' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-[#003876]'}`}>
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${statusFilter === 'all' ? 'bg-brand-primary text-white shadow-md' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-brand-primary'}`}>
           Todos <span className="opacity-70">{counts.all}</span>
         </button>
         {activeStatuses.map((k) => {
           const sc = STATUS_CONFIG[k];
           return (
             <button key={k} onClick={() => setStatusFilter(k)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${statusFilter === k ? 'bg-[#003876] text-white shadow-md' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-[#003876]'}`}>
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${statusFilter === k ? 'bg-brand-primary text-white shadow-md' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-brand-primary'}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
               {sc.label}
               <span className="opacity-70">{counts[k]}</span>
@@ -571,26 +581,26 @@ export default function ContactsPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input type="text" placeholder="Buscar por nome, telefone ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm" />
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm" />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"><X className="w-4 h-4" /></button>}
         </div>
         <div className="relative">
           <select value={reasonFilter} onChange={(e) => setReasonFilter(e.target.value)}
-            className="pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none text-sm appearance-none">
+            className="pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none text-sm appearance-none">
             <option value="all">Todos os motivos</option>
             {reasons.map((r) => <option key={r} value={r}>{REASON_LABELS[r] || r}</option>)}
           </select>
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>
         <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="Data inicial"
-          className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none text-sm" />
+          className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none text-sm" />
         <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="Data final"
-          className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none text-sm" />
+          className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none text-sm" />
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-[#003876] animate-spin" /></div>
+        <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-brand-primary animate-spin" /></div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20">
           <MessageSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -623,7 +633,7 @@ export default function ContactsPage() {
                           <div>
                             <div className="flex items-center gap-1.5">
                               <p className="font-medium text-gray-800 dark:text-gray-200">{c.name}</p>
-                              {c.is_lead && <Star className="w-3 h-3 text-[#ffd700] fill-[#ffd700]" />}
+                              {c.is_lead && <Star className="w-3 h-3 text-brand-secondary fill-brand-secondary" />}
                             </div>
                             <p className="text-xs text-gray-400">{c.phone}</p>
                           </div>

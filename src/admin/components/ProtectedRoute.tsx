@@ -21,7 +21,7 @@ export default function ProtectedRoute({ children, roles }: Props) {
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
       </div>
     );
   }

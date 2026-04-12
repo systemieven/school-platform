@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { useRealtimeRows } from '../../hooks/useRealtimeRows';
 import type { Enrollment, EnrollmentStatus } from '../../types/admin.types';
@@ -96,7 +97,10 @@ function DocsChecklistTab({ enrollment, onUpdate }: { enrollment: Enrollment; on
   const saveChecklist = async () => {
     setSaving(true);
     const { error } = await supabase.from('enrollments').update({ docs_checklist: checklist }).eq('id', enrollment.id);
-    if (!error) onUpdate(enrollment.id, { docs_checklist: checklist });
+    if (!error) {
+      logAudit({ action: 'update', module: 'enrollments', recordId: enrollment.id, description: `Checklist de documentos atualizado para matrícula de ${enrollment.guardian_name}`, newData: checklist });
+      onUpdate(enrollment.id, { docs_checklist: checklist });
+    }
     setSaving(false);
   };
 
@@ -109,13 +113,13 @@ function DocsChecklistTab({ enrollment, onUpdate }: { enrollment: Enrollment; on
       <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Documentos recebidos</span>
-          <span className="text-xs font-bold text-[#003876] dark:text-[#ffd700]">
+          <span className="text-xs font-bold text-brand-primary dark:text-brand-secondary">
             {receivedCount}/{requiredDocs.length}
           </span>
         </div>
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div
-            className="bg-[#003876] dark:bg-[#ffd700] h-2 rounded-full transition-all duration-300"
+            className="bg-brand-primary dark:bg-brand-secondary h-2 rounded-full transition-all duration-300"
             style={{ width: requiredDocs.length ? `${(receivedCount / requiredDocs.length) * 100}%` : '0%' }}
           />
         </div>
@@ -154,7 +158,7 @@ function DocsChecklistTab({ enrollment, onUpdate }: { enrollment: Enrollment; on
         <button
           onClick={saveChecklist}
           disabled={saving}
-          className="w-full py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+          className="w-full py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
         >
           <Save className="w-4 h-4" />
           {saving ? 'Salvando...' : 'Salvar checklist'}
@@ -257,7 +261,7 @@ function TagsManager({ enrollment, onUpdate }: { enrollment: Enrollment; onUpdat
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5">
         {(enrollment.tags || []).map((tag) => (
-          <span key={tag} className="inline-flex items-center gap-1 bg-[#003876]/10 dark:bg-[#ffd700]/10 text-[#003876] dark:text-[#ffd700] text-xs font-medium px-2.5 py-1 rounded-full">
+          <span key={tag} className="inline-flex items-center gap-1 bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary text-xs font-medium px-2.5 py-1 rounded-full">
             {tag}
             <button onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">
               <X className="w-3 h-3" />
@@ -271,12 +275,12 @@ function TagsManager({ enrollment, onUpdate }: { enrollment: Enrollment; onUpdat
           onChange={(e) => setNewTag(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addTag()}
           placeholder="Nova tag..."
-          className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none"
+          className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary outline-none"
         />
         <button
           onClick={addTag}
           disabled={saving || !newTag.trim()}
-          className="px-3 py-1.5 text-xs bg-[#003876] text-white rounded-lg disabled:opacity-40 hover:bg-[#002855] transition-colors"
+          className="px-3 py-1.5 text-xs bg-brand-primary text-white rounded-lg disabled:opacity-40 hover:bg-brand-primary-dark transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
         </button>
@@ -341,6 +345,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
     if (Object.keys(patch).length > 0) {
       const { error } = await supabase.from('enrollments').update(patch).eq('id', enr!.id);
       if (!error) {
+        logAudit({ action: 'update', module: 'enrollments', recordId: enr!.id, description: `Dados da matrícula editados: ${Object.keys(patch).join(', ')}`, newData: patch });
         onUpdate(enr!.id, patch as Partial<Enrollment>);
         await supabase.from('enrollment_history').insert({
           enrollment_id: enr!.id, event_type: 'data_edit',
@@ -354,7 +359,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
 
   const ef = (key: string) => editData[key] ?? '';
   const setEf = (key: string, val: string) => setEditData((prev) => ({ ...prev, [key]: val }));
-  const editFieldClass = 'w-full px-2 py-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none';
+  const editFieldClass = 'w-full px-2 py-1 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none';
 
   async function changeStatus() {
     if (!newStatus || !enr) return;
@@ -373,6 +378,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
     }
     const { error } = await supabase.from('enrollments').update(patch).eq('id', enr.id);
     if (!error) {
+      logAudit({ action: 'status_change', module: 'enrollments', recordId: enr.id, description: `Status da matrícula de ${enr.student_name || enr.guardian_name} alterado para ${newStatus}`, oldData: { status: enr.status }, newData: { status: newStatus } });
       if (newStatus === 'confirmed') {
         const { data: numData } = await supabase.rpc('generate_enrollment_number');
         const enrollNum = (numData as string) || `${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
@@ -400,6 +406,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
     setSaving(true);
     const { error } = await supabase.from('enrollments').update({ internal_notes: notes }).eq('id', enr.id);
     if (!error) {
+      logAudit({ action: 'update', module: 'enrollments', recordId: enr.id, description: `Notas internas atualizadas na matrícula de ${enr.student_name || enr.guardian_name}` });
       onUpdate(enr.id, { internal_notes: notes });
       await supabase.from('enrollment_history').insert({
         enrollment_id: enr.id,
@@ -433,6 +440,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
     });
 
     if (!error) {
+      logAudit({ action: 'create', module: 'enrollments', recordId: enr.id, description: `Agendamento criado a partir da matrícula: ${reason}` });
       await supabase.from('enrollment_history').insert({
         enrollment_id: enr.id,
         event_type: 'appointment_created',
@@ -455,8 +463,8 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <GraduationCap className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" />
+            <div className="w-10 h-10 bg-brand-primary/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <GraduationCap className="w-5 h-5 text-brand-primary dark:text-brand-secondary" />
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{enr.student_name}</p>
@@ -488,7 +496,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
               onClick={() => setTab(key)}
               className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium border-b-2 transition-all ${
                 tab === key
-                  ? 'border-[#003876] dark:border-[#ffd700] text-[#003876] dark:text-[#ffd700]'
+                  ? 'border-brand-primary dark:border-brand-secondary text-brand-primary dark:text-brand-secondary'
                   : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
               }`}
             >
@@ -547,7 +555,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                       onClick={() => setSection(key)}
                       className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
                         section === key
-                          ? 'bg-white dark:bg-gray-700 text-[#003876] dark:text-white shadow-sm'
+                          ? 'bg-white dark:bg-gray-700 text-brand-primary dark:text-white shadow-sm'
                           : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                       }`}
                     >
@@ -556,7 +564,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                   ))}
                 </div>
                 {!editing ? (
-                  <button onClick={startEditing} className="ml-2 p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Editar dados">
+                  <button onClick={startEditing} className="ml-2 p-1.5 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Editar dados">
                     <Edit3 className="w-4 h-4" />
                   </button>
                 ) : (
@@ -683,13 +691,13 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   placeholder="Notas visíveis apenas para a equipe..."
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none resize-none"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none resize-none"
                 />
                 <div className="flex justify-end mt-2">
                   <button
                     onClick={saveNotes}
                     disabled={saving || notes === (enr.internal_notes || '')}
-                    className="text-xs px-3 py-1.5 bg-[#003876] text-white rounded-lg disabled:opacity-40 hover:bg-[#002855] transition-colors"
+                    className="text-xs px-3 py-1.5 bg-brand-primary text-white rounded-lg disabled:opacity-40 hover:bg-brand-primary-dark transition-colors"
                   >
                     {saving ? 'Salvando...' : 'Salvar notas'}
                   </button>
@@ -703,7 +711,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                   <select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value as EnrollmentStatus)}
-                    className="w-full px-3 py-2.5 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none appearance-none"
+                    className="w-full px-3 py-2.5 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none appearance-none"
                   >
                     <option value="">Selecione o novo status...</option>
                     {PIPELINE.filter((p) => p.key !== enr.status).map((p) => (
@@ -727,7 +735,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                   <button
                     onClick={changeStatus}
                     disabled={saving || (newStatus === 'archived' && !archiveReason.trim())}
-                    className="mt-2 w-full py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-40"
+                    className="mt-2 w-full py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-40"
                   >
                     {saving ? 'Salvando...' : `Mover para "${PIPELINE.find((p) => p.key === newStatus)?.label}"`}
                   </button>
@@ -874,7 +882,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
   const set = (key: string, value: unknown) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const fieldClass = (err?: string) =>
-    `w-full px-3 py-2 text-sm rounded-xl border ${err ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20' : 'border-gray-200 dark:border-gray-700 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-[#003876]/20'} bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:ring-2 outline-none`;
+    `w-full px-3 py-2 text-sm rounded-xl border ${err ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20' : 'border-gray-200 dark:border-gray-700 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-brand-primary/20'} bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:ring-2 outline-none`;
   const labelClass = 'block text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1';
 
   const setCPF = (key: string, raw: string) => {
@@ -966,6 +974,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
     const { error } = await supabase.from('enrollments').insert(payload);
     setSaving(false);
     if (!error) {
+      logAudit({ action: 'create', module: 'enrollments', description: `Nova pré-matrícula criada para ${form.student_name || form.guardian_name}`, newData: form as unknown as Record<string, unknown> });
       onCreated();
       onClose();
     }
@@ -976,7 +985,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
       <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50" onClick={onClose} />
       <aside className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white flex-shrink-0">
           <h2 className="font-semibold text-sm flex items-center gap-2">
             <Plus className="w-4 h-4" /> Nova Pré-Matrícula
           </h2>
@@ -1140,7 +1149,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
             type="submit"
             form="enrollment-form"
             disabled={saving}
-            className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             {saving ? 'Criando...' : 'Criar Pré-Matrícula'}
@@ -1209,7 +1218,7 @@ export default function EnrollmentsPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <GraduationCap className="w-8 h-8" />
             Pré-Matrículas
           </h1>
@@ -1218,14 +1227,14 @@ export default function EnrollmentsPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 text-sm bg-[#003876] text-white px-4 py-2.5 rounded-xl hover:bg-[#002855] transition-colors font-medium shadow-sm"
+            className="inline-flex items-center gap-2 text-sm bg-brand-primary text-white px-4 py-2.5 rounded-xl hover:bg-brand-primary-dark transition-colors font-medium shadow-sm"
           >
             <Plus className="w-4 h-4" />
             Nova Matrícula
           </button>
           <button
             onClick={fetchData}
-            className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-[#003876] dark:hover:text-white border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-brand-primary dark:hover:text-white border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -1237,7 +1246,7 @@ export default function EnrollmentsPage() {
         <button
           onClick={() => setStatusFilter('all')}
           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-            statusFilter === 'all' ? 'bg-[#003876] text-white shadow-md' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-[#003876]'
+            statusFilter === 'all' ? 'bg-brand-primary text-white shadow-md' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-brand-primary'
           }`}
         >
           Todos <span className="opacity-70">{counts.all}</span>
@@ -1249,8 +1258,8 @@ export default function EnrollmentsPage() {
               onClick={() => setStatusFilter(p.key)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                 statusFilter === p.key
-                  ? 'bg-[#003876] text-white shadow-md'
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-[#003876]'
+                  ? 'bg-brand-primary text-white shadow-md'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-brand-primary'
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
@@ -1270,7 +1279,7 @@ export default function EnrollmentsPage() {
             placeholder="Buscar por nome ou telefone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm"
           />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"><X className="w-4 h-4" /></button>}
         </div>
@@ -1278,7 +1287,7 @@ export default function EnrollmentsPage() {
           <select
             value={segmentFilter}
             onChange={(e) => setSegmentFilter(e.target.value)}
-            className="pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm appearance-none"
+            className="pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm appearance-none"
           >
             <option value="all">Todos os segmentos</option>
             {SEGMENT_OPTIONS.map((s) => (
@@ -1292,7 +1301,7 @@ export default function EnrollmentsPage() {
       {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20">

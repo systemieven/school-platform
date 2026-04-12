@@ -83,14 +83,14 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
 
   return (
     <aside
-      className={`fixed top-0 left-0 h-screen bg-[#003876] text-white flex flex-col z-40 transition-all duration-300 ${
+      className={`fixed top-0 left-0 h-screen bg-brand-primary text-white flex flex-col z-40 transition-all duration-300 ${
         collapsed ? 'w-[72px]' : 'w-64'
       }`}
     >
       {/* Brand */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-white/10 flex-shrink-0">
-        <div className="w-9 h-9 bg-[#ffd700] rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-[#003876] font-bold text-sm">CB</span>
+        <div className="w-9 h-9 bg-brand-secondary rounded-lg flex items-center justify-center flex-shrink-0">
+          <span className="text-brand-primary font-bold text-sm">CB</span>
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
@@ -129,7 +129,7 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                           isActive
-                            ? 'bg-[#ffd700] text-[#003876] shadow-lg shadow-[#ffd700]/20'
+                            ? 'bg-brand-secondary text-brand-primary shadow-lg shadow-brand-secondary/20'
                             : 'text-white/70 hover:text-white hover:bg-white/10'
                         } ${collapsed ? 'justify-center' : ''}`
                       }

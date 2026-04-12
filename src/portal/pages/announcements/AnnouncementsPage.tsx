@@ -27,11 +27,11 @@ export default function PortalAnnouncementsPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-        <Megaphone className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" /> Comunicados
+        <Megaphone className="w-5 h-5 text-brand-primary dark:text-brand-secondary" /> Comunicados
       </h1>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-[#003876] dark:text-[#ffd700]" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-brand-primary dark:text-brand-secondary" /></div>
       ) : !items.length ? (
         <div className="text-center py-12 text-gray-400">
           <Megaphone className="w-8 h-8 mx-auto mb-2 opacity-30" />

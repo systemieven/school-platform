@@ -23,7 +23,7 @@ export default function Header() {
   const address = formatAddress(settings.address) || 'Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE';
 
   return (
-    <header className="bg-[#003876] text-white">
+    <header className="bg-brand-primary text-white">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-2 text-sm">
           <div className="hidden md:flex items-center space-x-6">

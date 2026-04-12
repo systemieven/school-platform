@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import type { SchoolSegment, SchoolClass, Shift } from '../../types/admin.types';
 import { SHIFT_LABELS } from '../../types/admin.types';
 import {
@@ -116,8 +117,10 @@ export default function SegmentsPage() {
 
     if (editSegId === 'new') {
       await supabase.from('school_segments').insert(payload);
+      logAudit({ action: 'create', module: 'segments', description: `Segmento "${payload.name}" criado`, newData: payload });
     } else {
       await supabase.from('school_segments').update(payload).eq('id', editSegId);
+      logAudit({ action: 'update', module: 'segments', recordId: editSegId!, description: `Segmento "${payload.name}" atualizado`, newData: payload });
     }
     setEditSegId(null);
     setSavingSeg(false);
@@ -126,6 +129,7 @@ export default function SegmentsPage() {
 
   async function deleteSegment(id: string) {
     await supabase.from('school_segments').delete().eq('id', id);
+    logAudit({ action: 'delete', module: 'segments', recordId: id, description: 'Segmento excluído' });
     await fetchAll();
   }
 
@@ -161,8 +165,10 @@ export default function SegmentsPage() {
 
     if (editClassId === 'new') {
       await supabase.from('school_classes').insert(payload);
+      logAudit({ action: 'create', module: 'segments', description: `Turma "${payload.name}" criada`, newData: payload as Record<string, unknown> });
     } else {
       await supabase.from('school_classes').update(payload).eq('id', editClassId);
+      logAudit({ action: 'update', module: 'segments', recordId: editClassId!, description: `Turma "${payload.name}" atualizada`, newData: payload as Record<string, unknown> });
     }
     setEditClassId(null);
     setEditClassSegId(null);
@@ -172,13 +178,14 @@ export default function SegmentsPage() {
 
   async function deleteClass(id: string) {
     await supabase.from('school_classes').delete().eq('id', id);
+    logAudit({ action: 'delete', module: 'segments', recordId: id, description: 'Turma excluída' });
     await fetchAll();
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
       </div>
     );
   }
@@ -188,7 +195,7 @@ export default function SegmentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <GraduationCap className="w-8 h-8" />
             Segmentos e Turmas
           </h1>
@@ -196,7 +203,7 @@ export default function SegmentsPage() {
         </div>
         <button
           onClick={startNewSegment}
-          className="flex items-center gap-2 px-4 py-2 bg-[#003876] text-white rounded-xl text-sm font-medium hover:bg-[#002a5c] transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl text-sm font-medium hover:bg-[#002a5c] transition-colors"
         >
           <Plus className="w-4 h-4" /> Novo Segmento
         </button>
@@ -237,7 +244,7 @@ export default function SegmentsPage() {
                 <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => startEditSegment(seg)}
-                    className="p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     title="Editar segmento"
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -267,7 +274,7 @@ export default function SegmentsPage() {
                   {classes.length === 0 && (
                     <div className="text-center py-6 text-gray-400 text-xs">
                       Nenhuma turma cadastrada.{' '}
-                      <button onClick={() => startNewClass(seg.id)} className="text-[#003876] dark:text-[#ffd700] hover:underline">
+                      <button onClick={() => startNewClass(seg.id)} className="text-brand-primary dark:text-brand-secondary hover:underline">
                         Adicionar turma
                       </button>
                     </div>
@@ -289,7 +296,7 @@ export default function SegmentsPage() {
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => startEditClass(cls)}
-                          className="p-1.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          className="p-1.5 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
@@ -312,7 +319,7 @@ export default function SegmentsPage() {
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
             <GraduationCap className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
             <p className="text-gray-400 dark:text-gray-500 text-sm">Nenhum segmento cadastrado.</p>
-            <button onClick={startNewSegment} className="mt-3 text-sm text-[#003876] dark:text-[#ffd700] hover:underline">
+            <button onClick={startNewSegment} className="mt-3 text-sm text-brand-primary dark:text-brand-secondary hover:underline">
               Cadastrar primeiro segmento
             </button>
           </div>
@@ -350,7 +357,7 @@ export default function SegmentsPage() {
 }
 
 // ── Shared input styles ───────────────────────────────────────────────────────
-const inputCls = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm transition-all';
+const inputCls = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm transition-all';
 const labelCls = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5';
 
 // ── Segment Drawer ────────────────────────────────────────────────────────────
@@ -369,7 +376,7 @@ function SegmentDrawer({ isNew, form, onChange, onSave, onCancel, saving, staffP
       <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40" onClick={onCancel} />
       <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white flex-shrink-0">
           <div className="flex items-center gap-2">
             <GraduationCap className="w-4 h-4" />
             <h2 className="font-semibold text-sm">{isNew ? 'Novo Segmento' : 'Editar Segmento'}</h2>
@@ -444,7 +451,7 @@ function SegmentDrawer({ isNew, form, onChange, onSave, onCancel, saving, staffP
                       }}
                       className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
                         active
-                          ? 'bg-[#003876] text-white'
+                          ? 'bg-brand-primary text-white'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
                     >
@@ -465,7 +472,7 @@ function SegmentDrawer({ isNew, form, onChange, onSave, onCancel, saving, staffP
           <button
             type="button" onClick={onSave}
             disabled={!form.name || saving}
-            className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando…</> : 'Salvar'}
           </button>
@@ -492,7 +499,7 @@ function ClassDrawer({ isNew, segmentName, form, onChange, onSave, onCancel, sav
       <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40" onClick={onCancel} />
       <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white flex-shrink-0">
           <div className="flex items-center gap-2">
             <BookOpen className="w-4 h-4" />
             <div>
@@ -578,7 +585,7 @@ function ClassDrawer({ isNew, segmentName, form, onChange, onSave, onCancel, sav
                       }}
                       className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
                         active
-                          ? 'bg-[#003876] text-white'
+                          ? 'bg-brand-primary text-white'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
                     >
@@ -599,7 +606,7 @@ function ClassDrawer({ isNew, segmentName, form, onChange, onSave, onCancel, sav
           <button
             type="button" onClick={onSave}
             disabled={!form.name || saving}
-            className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando…</> : 'Salvar'}
           </button>

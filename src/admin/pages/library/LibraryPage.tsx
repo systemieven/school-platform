@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import type {
   LibraryResource, ResourceType, ResourceSubtype, LibraryTargetType,
   SchoolSegment, SchoolClass,
@@ -184,6 +185,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
     if (err || !data) { setError(err?.message ?? 'Erro ao salvar.'); setSaving(false); return; }
 
     const saved = data as LibraryResource;
+    logAudit({ action: resource ? 'update' : 'create', module: 'library', recordId: saved.id, description: `Recurso "${saved.title}" ${resource ? 'atualizado' : 'criado'}`, newData: payload });
 
     // Upload file if provided
     if (file && needsUpload(form.resource_subtype)) {
@@ -198,7 +200,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
     onSaved(saved);
   }
 
-  const inp = `w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none`;
+  const inp = `w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none`;
   const youtubeId = form.resource_subtype === 'youtube' && form.external_url
     ? getYouTubeId(form.external_url) : null;
 
@@ -208,7 +210,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
         onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-[#003876] dark:bg-gray-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-brand-primary dark:bg-gray-800">
           <h2 className="font-semibold text-white flex items-center gap-2"><BookOpen className="w-4 h-4" />{resource ? 'Editar Recurso' : 'Novo Recurso'}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20 text-white"><X className="w-4 h-4" /></button>
         </div>
@@ -227,7 +229,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                     <button key={t} type="button" onClick={() => setType(t)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                         form.resource_type === t
-                          ? 'border-[#003876] bg-[#003876] text-white dark:border-[#ffd700] dark:bg-[#ffd700] dark:text-gray-900'
+                          ? 'border-brand-primary bg-brand-primary text-white dark:border-brand-secondary dark:bg-brand-secondary dark:text-gray-900'
                           : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'
                       }`}>
                       <Icon className="w-3.5 h-3.5" /> {RESOURCE_TYPE_LABELS[t]}
@@ -246,7 +248,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                       onClick={() => { setForm((p) => ({ ...p, resource_subtype: value })); setFile(null); }}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                         form.resource_subtype === value
-                          ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                          ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
                           : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
                       }`}>
                       <Icon className="w-3.5 h-3.5" /> {label}
@@ -291,7 +293,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                   onClick={() => fileRef.current?.click()}
                   className={`relative flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
                     dragOver
-                      ? 'border-[#003876] bg-[#003876]/5 dark:border-[#ffd700] dark:bg-[#ffd700]/5'
+                      ? 'border-brand-primary bg-brand-primary/5 dark:border-brand-secondary dark:bg-brand-secondary/5'
                       : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}>
                   <Upload className="w-6 h-6 text-gray-400" />
@@ -315,13 +317,13 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                 </div>
                 {uploading && (
                   <div className="mt-2 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-                    <div className="bg-[#003876] dark:bg-[#ffd700] h-1.5 rounded-full transition-all"
+                    <div className="bg-brand-primary dark:bg-brand-secondary h-1.5 rounded-full transition-all"
                       style={{ width: `${uploadPct}%` }} />
                   </div>
                 )}
                 {!file && resource?.file_url && form.resource_subtype === 'pdf' && (
                   <a href={resource.file_url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-2 text-xs text-[#003876] dark:text-[#ffd700] hover:underline">
+                    className="inline-flex items-center gap-1.5 mt-2 text-xs text-brand-primary dark:text-brand-secondary hover:underline">
                     <ExternalLink className="w-3 h-3" /> Ver arquivo atual
                   </a>
                 )}
@@ -363,7 +365,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                   onClick={() => setForm((p) => ({ ...p, target_type: value, target_ids: [] }))}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     form.target_type === value
-                      ? 'border-[#003876] bg-[#003876] text-white dark:border-[#ffd700] dark:bg-[#ffd700] dark:text-gray-900'
+                      ? 'border-brand-primary bg-brand-primary text-white dark:border-brand-secondary dark:bg-brand-secondary dark:text-gray-900'
                       : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
                   }`}>
                   <Icon className="w-3.5 h-3.5" /> {label}
@@ -377,7 +379,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                   <button key={s.id} type="button" onClick={() => toggleTargetId(s.id)}
                     className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_ids.includes(s.id)
-                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
                     }`}>{s.name}</button>
                 ))}
@@ -390,7 +392,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                   <button key={c.id} type="button" onClick={() => toggleTargetId(c.id)}
                     className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_ids.includes(c.id)
-                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
                     }`}>{c.name} {c.year}</button>
                 ))}
@@ -403,7 +405,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                   <button key={s.id} type="button" onClick={() => toggleTargetId(s.id)}
                     className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_ids.includes(s.id)
-                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
                     }`}>{s.full_name}</button>
                 ))}
@@ -423,7 +425,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
 
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700">
           <button onClick={save} disabled={saving || uploading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
             {(saving || uploading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {uploading ? 'Enviando arquivo...' : saving ? 'Salvando...' : 'Salvar'}
           </button>
@@ -475,6 +477,7 @@ export default function LibraryPage() {
       if (path) await supabase.storage.from(STORAGE_BUCKET).remove([path]);
     }
     await supabase.from('library_resources').delete().eq('id', r.id);
+    logAudit({ action: 'delete', module: 'library', recordId: r.id, description: `Recurso "${r.title}" excluído` });
     setItems((p) => p.filter((x) => x.id !== r.id));
   }
 
@@ -494,7 +497,7 @@ export default function LibraryPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-3">
-            <Library className="w-7 h-7 text-[#003876] dark:text-[#ffd700]" />
+            <Library className="w-7 h-7 text-brand-primary dark:text-brand-secondary" />
             Biblioteca Virtual
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -503,7 +506,7 @@ export default function LibraryPage() {
         </div>
         {hasRole('super_admin', 'admin', 'coordinator', 'teacher') && (
           <button onClick={() => { setEditing(null); setShowDrawer(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl transition-colors">
+            className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl transition-colors">
             <Plus className="w-4 h-4" /> Novo Recurso
           </button>
         )}
@@ -515,18 +518,18 @@ export default function LibraryPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por título ou disciplina..."
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]" />
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary" />
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <button onClick={() => setTypeFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === 'all' ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === 'all' ? 'bg-brand-primary text-white dark:bg-brand-secondary dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>
             Todos
           </button>
           {TYPES.map((t) => {
             const Icon = TYPE_ICON[t];
             return (
               <button key={t} onClick={() => setTypeFilter(t)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? 'bg-brand-primary text-white dark:bg-brand-secondary dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>
                 <Icon className="w-3 h-3" /> {RESOURCE_TYPE_LABELS[t]}
               </button>
             );
@@ -537,7 +540,7 @@ export default function LibraryPage() {
       {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" />
+          <Loader2 className="w-6 h-6 animate-spin text-brand-primary dark:text-brand-secondary" />
         </div>
       ) : !filtered.length ? (
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
@@ -591,7 +594,7 @@ export default function LibraryPage() {
                   {canEdit(r) && (
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button onClick={() => { setEditing(r); setShowDrawer(true); }}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => remove(r)}
@@ -609,7 +612,7 @@ export default function LibraryPage() {
                 {/* Link / file action */}
                 {(r.external_url || r.file_url) && !ytId && (
                   <a href={r.file_url ?? r.external_url!} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-[#003876] dark:text-[#ffd700] hover:underline font-medium mt-auto">
+                    className="inline-flex items-center gap-1.5 text-xs text-brand-primary dark:text-brand-secondary hover:underline font-medium mt-auto">
                     <ExternalLink className="w-3 h-3" />
                     {r.resource_subtype === 'pdf' ? 'Abrir PDF'
                       : r.resource_subtype === 'image' ? 'Ver imagem'

@@ -96,12 +96,12 @@ export default function PortalEventsPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-        <CalendarDays className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" /> Eventos
+        <CalendarDays className="w-5 h-5 text-brand-primary dark:text-brand-secondary" /> Eventos
       </h1>
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-5 h-5 animate-spin text-[#003876] dark:text-[#ffd700]" />
+          <Loader2 className="w-5 h-5 animate-spin text-brand-primary dark:text-brand-secondary" />
         </div>
       ) : items.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
@@ -124,7 +124,7 @@ export default function PortalEventsPage() {
                       className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                       <div className="flex">
                         {/* Date accent */}
-                        <div className="w-14 flex-shrink-0 bg-[#003876] dark:bg-[#003876]/80 flex flex-col items-center justify-center py-4 text-white">
+                        <div className="w-14 flex-shrink-0 bg-brand-primary dark:bg-brand-primary/80 flex flex-col items-center justify-center py-4 text-white">
                           <p className="text-xl font-bold leading-none">
                             {new Date(ev.event_date + 'T12:00:00').getDate().toString().padStart(2, '0')}
                           </p>

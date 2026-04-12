@@ -46,15 +46,15 @@ export default function PortalLoginPage() {
     setLoading(false);
   }
 
-  const inp = `w-full px-4 py-3 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none transition-colors`;
+  const inp = `w-full px-4 py-3 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none transition-colors`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#003876] to-[#002255] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-primary to-[#002255] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-[#ffd700] flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <BookOpen className="w-8 h-8 text-[#003876]" />
+          <div className="w-16 h-16 rounded-2xl bg-brand-secondary flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <BookOpen className="w-8 h-8 text-brand-primary" />
           </div>
           <h1 className="text-2xl font-bold text-white">Colégio Batista</h1>
           <p className="text-white/60 text-sm mt-1">Portal do Aluno</p>
@@ -96,7 +96,7 @@ export default function PortalLoginPage() {
                 </div>
               </div>
               <button type="submit" disabled={loading}
-                className="w-full py-3 bg-[#003876] hover:bg-[#002855] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-3 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 {loading ? 'Entrando...' : 'Entrar'}
               </button>
@@ -135,7 +135,7 @@ export default function PortalLoginPage() {
                   placeholder="Repita a senha" className={inp} />
               </div>
               <button type="submit" disabled={loading}
-                className="w-full py-3 bg-[#003876] hover:bg-[#002855] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-3 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 {loading ? 'Ativando...' : 'Ativar acesso'}
               </button>

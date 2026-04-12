@@ -24,12 +24,12 @@ export default function ProfilePage() {
     setTimeout(() => setSaved(false), 3000);
   }
 
-  const inp = `w-full px-4 py-3 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none`;
+  const inp = `w-full px-4 py-3 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none`;
 
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-        <User className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" /> Perfil
+        <User className="w-5 h-5 text-brand-primary dark:text-brand-secondary" /> Perfil
       </h1>
 
       {/* Personal data */}
@@ -84,7 +84,7 @@ export default function ProfilePage() {
             className={`w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-xl transition-colors ${
               saved
                 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                : 'bg-[#003876] hover:bg-[#002855] text-white disabled:opacity-60'
+                : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-60'
             }`}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
             {saving ? 'Salvando...' : saved ? 'Senha alterada!' : 'Alterar senha'}

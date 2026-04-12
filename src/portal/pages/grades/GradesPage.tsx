@@ -43,7 +43,7 @@ export default function GradesPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-          <Star className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" /> Notas
+          <Star className="w-5 h-5 text-brand-primary dark:text-brand-secondary" /> Notas
         </h1>
       </div>
 
@@ -51,7 +51,7 @@ export default function GradesPage() {
         <div className="flex flex-wrap gap-2">
           {periods.map((p) => (
             <button key={p} onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${period === p ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${period === p ? 'bg-brand-primary text-white dark:bg-brand-secondary dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
               {p}
             </button>
           ))}
@@ -59,7 +59,7 @@ export default function GradesPage() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-[#003876] dark:text-[#ffd700]" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-brand-primary dark:text-brand-secondary" /></div>
       ) : !filtered.length ? (
         <div className="text-center py-12 text-gray-400">
           <Star className="w-8 h-8 mx-auto mb-2 opacity-30" />

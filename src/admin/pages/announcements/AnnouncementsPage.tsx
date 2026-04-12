@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import type {
   Announcement, AnnouncementTarget, SchoolClass, SchoolSegment,
 } from '../../types/admin.types';
@@ -89,7 +90,7 @@ function CampaignMessagesPanel({ folderId }: { folderId: string }) {
           <button key={s} onClick={() => changeFilter(s)}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
               statusFilter === s
-                ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900'
+                ? 'bg-brand-primary text-white dark:bg-brand-secondary dark:text-gray-900'
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
             {s === '' ? 'Todas' : MSG_STATUS_CONFIG[s]?.label ?? s}
           </button>
@@ -99,7 +100,7 @@ function CampaignMessagesPanel({ folderId }: { folderId: string }) {
 
       {loading ? (
         <div className="flex justify-center py-4">
-          <Loader2 className="w-4 h-4 animate-spin text-[#003876] dark:text-[#ffd700]" />
+          <Loader2 className="w-4 h-4 animate-spin text-brand-primary dark:text-brand-secondary" />
         </div>
       ) : messages.length === 0 ? (
         <p className="text-xs text-center text-gray-400 py-3">Nenhuma mensagem encontrada.</p>
@@ -207,7 +208,7 @@ function CampaignsTab() {
       {/* Campaign list */}
       {loading && campaigns.length === 0 ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="w-5 h-5 animate-spin text-[#003876] dark:text-[#ffd700]" />
+          <Loader2 className="w-5 h-5 animate-spin text-brand-primary dark:text-brand-secondary" />
         </div>
       ) : campaigns.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
@@ -272,7 +273,7 @@ function CampaignsTab() {
                     {/* Expand messages */}
                     <button onClick={() => setExpanded((p) => p === c.folder_id ? null : c.folder_id)}
                       title="Ver mensagens"
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                       {isExp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </button>
                   </div>
@@ -458,6 +459,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
 
     if (err) { setError(err.message); setSaving(false); return; }
     const saved = data as Announcement;
+    logAudit({ action: announcement ? 'update' : 'create', module: 'announcements', recordId: saved.id, description: `Comunicado "${saved.title}" ${announcement ? 'atualizado' : 'criado'}`, newData: payload as Record<string, unknown> });
 
     // Create mass campaign when publishing with WhatsApp
     if (isPublishing && form.send_whatsapp && !announcement?.is_published) {
@@ -499,13 +501,13 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
     onSaved(saved);
   }
 
-  const cls = `w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none`;
+  const cls = `w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none`;
 
   return (
     <div className="fixed inset-0 bg-black/40 z-40 flex justify-end" onClick={onClose}>
       <div className="w-full max-w-lg bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-[#003876] to-[#002255] text-white">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white">
           <h2 className="font-semibold text-sm flex items-center gap-2"><Megaphone className="w-4 h-4" />{announcement ? 'Editar Comunicado' : 'Novo Comunicado'}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20"><X className="w-4 h-4" /></button>
         </div>
@@ -538,7 +540,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                     onClick={() => setForm((p) => ({ ...p, target_type: t, target_ids: [], target_roles: [] }))}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_type === t
-                        ? 'border-[#003876] bg-[#003876] text-white dark:border-[#ffd700] dark:bg-[#ffd700] dark:text-gray-900'
+                        ? 'border-brand-primary bg-brand-primary text-white dark:border-brand-secondary dark:bg-brand-secondary dark:text-gray-900'
                         : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'}`}>
                     <Icon className="w-3.5 h-3.5" /> {ANNOUNCEMENT_TARGET_LABELS[t]}
                   </button>
@@ -552,7 +554,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                   <button key={s.id} type="button" onClick={() => toggleTargetId(s.id)}
                     className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_ids.includes(s.id)
-                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
                     {s.name}
                   </button>
@@ -566,7 +568,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                   <button key={c.id} type="button" onClick={() => toggleTargetId(c.id)}
                     className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_ids.includes(c.id)
-                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
                     {c.name}
                   </button>
@@ -580,7 +582,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                   <button key={r.value} type="button" onClick={() => toggleRole(r.value)}
                     className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
                       form.target_roles.includes(r.value)
-                        ? 'border-[#003876] bg-[#003876]/10 text-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/10 dark:text-[#ffd700]'
+                        ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
                     {r.label}
                   </button>
@@ -658,7 +660,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
             Salvar rascunho
           </button>
           <button onClick={() => save(true)} disabled={saving || form.is_published}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
             {saving && waStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {form.is_published ? 'Já publicado' : 'Publicar'}
           </button>
@@ -702,6 +704,7 @@ export default function AnnouncementsPage() {
   async function remove(id: string) {
     if (!confirm('Excluir este comunicado?')) return;
     await supabase.from('announcements').delete().eq('id', id);
+    logAudit({ action: 'delete', module: 'announcements', recordId: id, description: 'Comunicado excluído' });
     setItems((p) => p.filter((a) => a.id !== id));
   }
 
@@ -710,7 +713,10 @@ export default function AnnouncementsPage() {
       .from('announcements')
       .update({ is_published: !ann.is_published, updated_at: new Date().toISOString() })
       .eq('id', ann.id).select('*').single();
-    if (data) setItems((p) => p.map((x) => x.id === ann.id ? { ...x, is_published: !ann.is_published } : x));
+    if (data) {
+      logAudit({ action: 'update', module: 'announcements', recordId: ann.id, description: `Comunicado "${ann.title}" ${ann.is_published ? 'despublicado' : 'publicado'}` });
+      setItems((p) => p.map((x) => x.id === ann.id ? { ...x, is_published: !ann.is_published } : x));
+    }
   }
 
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-BR', {
@@ -728,11 +734,11 @@ export default function AnnouncementsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-          <Megaphone className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" /> Comunicados
+          <Megaphone className="w-5 h-5 text-brand-primary dark:text-brand-secondary" /> Comunicados
         </h1>
         {canManage && mainTab === 'announcements' && (
           <button onClick={() => { setEditing(null); setShowDrawer(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#003876] hover:bg-[#002255] text-white text-sm font-semibold rounded-xl transition-colors">
+            className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors">
             <Plus className="w-4 h-4" /> Novo Comunicado
           </button>
         )}
@@ -747,7 +753,7 @@ export default function AnnouncementsPage() {
           <button key={key} onClick={() => setMainTab(key)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               mainTab === key
-                ? 'border-[#003876] dark:border-[#ffd700] text-[#003876] dark:text-[#ffd700]'
+                ? 'border-brand-primary dark:border-brand-secondary text-brand-primary dark:text-brand-secondary'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
             <Icon className="w-3.5 h-3.5" /> {label}
           </button>
@@ -766,7 +772,7 @@ export default function AnnouncementsPage() {
               <button key={f} onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   filter === f
-                    ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900'
+                    ? 'bg-brand-primary text-white dark:bg-brand-secondary dark:text-gray-900'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
                 {f === 'all' ? 'Todos' : f === 'published' ? 'Publicados' : 'Rascunhos'}
                 <span className="ml-1 text-xs opacity-70">
@@ -778,7 +784,7 @@ export default function AnnouncementsPage() {
 
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" />
+              <Loader2 className="w-6 h-6 animate-spin text-brand-primary dark:text-brand-secondary" />
             </div>
           ) : !filtered.length ? (
             <div className="text-center py-16 text-gray-400 dark:text-gray-500">
@@ -806,7 +812,7 @@ export default function AnnouncementsPage() {
                           ) : (
                             <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded-full text-xs font-medium">Rascunho</span>
                           )}
-                          <span className="flex items-center gap-1 px-2 py-0.5 bg-[#003876]/10 dark:bg-[#ffd700]/10 text-[#003876] dark:text-[#ffd700] rounded-full text-xs">
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary rounded-full text-xs">
                             <TargetIcon className="w-3 h-3" /> {ANNOUNCEMENT_TARGET_LABELS[a.target_type]}
                           </span>
                           {a.send_whatsapp && (
@@ -845,7 +851,7 @@ export default function AnnouncementsPage() {
                             </button>
                           )}
                           <button onClick={() => { setEditing(a); setShowDrawer(true); }}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           {canManage && (

@@ -1,5 +1,6 @@
 import { createContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { supabase } from '../../lib/supabase';
+import { logAudit } from '../../lib/audit';
 import type { Session, User } from '@supabase/supabase-js';
 import type { Profile, Role } from '../types/admin.types';
 
@@ -106,8 +107,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       handleSession(session);
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Fire-and-forget: audit login after sign-in (profile name fetched inside log_audit RPC)
+        logAudit({ action: 'login', module: 'auth', description: 'Login realizado' });
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -130,6 +135,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    logAudit({ action: 'logout', module: 'auth', description: `Logout realizado: ${state.profile?.full_name ?? 'usuário'}` });
     await supabase.auth.signOut();
     setState({ session: null, user: null, profile: null, loading: false, error: null });
   };

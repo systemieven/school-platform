@@ -28,7 +28,7 @@ function Slider({ value, min, max, step = 1, onChange, formatLabel, zeroLabel }:
         {/* Track background */}
         <div className="w-full h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
           <div
-            className="h-full bg-[#003876] dark:bg-[#ffd700] rounded-full transition-all duration-150"
+            className="h-full bg-brand-primary dark:bg-brand-secondary rounded-full transition-all duration-150"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -44,12 +44,12 @@ function Slider({ value, min, max, step = 1, onChange, formatLabel, zeroLabel }:
         />
         {/* Thumb */}
         <div
-          className="absolute w-5 h-5 rounded-full bg-white border-2 border-[#003876] dark:border-[#ffd700] shadow-md pointer-events-none transition-all duration-150"
+          className="absolute w-5 h-5 rounded-full bg-white border-2 border-brand-primary dark:border-brand-secondary shadow-md pointer-events-none transition-all duration-150"
           style={{ left: `calc(${pct}% - ${pct * 0.16}px)` }}
         />
       </div>
       {/* Value badge */}
-      <span className="text-xs font-semibold text-[#003876] dark:text-[#ffd700] bg-[#003876]/10 dark:bg-[#ffd700]/10 px-2.5 py-1 rounded-xl min-w-[52px] text-center tabular-nums whitespace-nowrap">
+      <span className="text-xs font-semibold text-brand-primary dark:text-brand-secondary bg-brand-primary/10 dark:bg-brand-secondary/10 px-2.5 py-1 rounded-xl min-w-[52px] text-center tabular-nums whitespace-nowrap">
         {label}
       </span>
     </div>
@@ -134,7 +134,7 @@ export default function SecuritySettingsPanel() {
       {/* Complexity */}
       <SettingsCard collapseId="security.complexity" title="Critérios de Complexidade" icon={Lock}>
         {/* ── Tamanho mínimo ── */}
-        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Tamanho mínimo</p>
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Tamanho mínimo</p>
         <div>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
             Mínimo de caracteres
@@ -151,7 +151,7 @@ export default function SecuritySettingsPanel() {
         <hr className="border-gray-100 dark:border-gray-700/50" />
 
         {/* ── Requisitos ── */}
-        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Requisitos</p>
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Requisitos</p>
         <div className="space-y-3">
           {(
             [
@@ -172,7 +172,7 @@ export default function SecuritySettingsPanel() {
 
         {/* ── Pré-visualização ── */}
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-2">
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60 mb-2">
             Pré-visualização
           </p>
           <PasswordCriteriaChecker password="" policy={policy} />
@@ -223,7 +223,7 @@ export default function SecuritySettingsPanel() {
           className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
               ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-              : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50'
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
           }`}
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}

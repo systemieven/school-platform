@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import { sendWhatsAppTemplate } from '../../lib/whatsapp-api';
@@ -70,7 +71,7 @@ function daysSince(dateStr: string): number {
 const STAGE_COLORS = [
   '#6366f1', '#3b82f6', '#0ea5e9', '#14b8a6', '#22c55e',
   '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6',
-  '#64748b', '#003876',
+  '#64748b', 'var(--brand-primary)',
 ];
 
 function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
@@ -95,6 +96,7 @@ function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved:
   async function saveEdit(stage: LeadStage) {
     setSaving(true);
     await supabase.from('lead_stages').update({ label: editLabel, color: editColor }).eq('id', stage.id);
+    logAudit({ action: 'update', module: 'kanban', recordId: stage.id, description: `Etapa "${editLabel}" atualizada`, oldData: { label: stage.label, color: stage.color }, newData: { label: editLabel, color: editColor } });
     setStages((prev) => prev.map((s) => s.id === stage.id ? { ...s, label: editLabel, color: editColor } : s));
     setEditId(null);
     setSaving(false);
@@ -121,6 +123,7 @@ function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved:
     const { count } = await supabase.from('leads').select('id', { count: 'exact', head: true }).eq('stage', stage.name);
     if ((count ?? 0) > 0) { setError(`A etapa "${stage.label}" tem leads. Mova-os antes de excluir.`); return; }
     await supabase.from('lead_stages').delete().eq('id', stage.id);
+    logAudit({ action: 'delete', module: 'kanban', recordId: stage.id, description: `Etapa "${stage.label}" excluída` });
     setStages((prev) => prev.filter((s) => s.id !== stage.id));
   }
 
@@ -135,6 +138,7 @@ function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved:
       is_active: true,
     }).select().single();
     if (dbErr) { setError(dbErr.message); return; }
+    logAudit({ action: 'create', module: 'kanban', recordId: (data as LeadStage).id, description: `Etapa "${newLabel.trim()}" criada`, newData: data as Record<string, unknown> });
     setStages((prev) => [...prev, data as LeadStage]);
     setNewLabel(''); setNewName(''); setNewColor(STAGE_COLORS[0]);
     setError('');
@@ -147,7 +151,7 @@ function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved:
         <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
             <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Settings className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" />
+              <Settings className="w-5 h-5 text-brand-primary dark:text-brand-secondary" />
               Gerenciar Etapas
             </h3>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl">
@@ -157,7 +161,7 @@ function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved:
 
           <div className="overflow-y-auto flex-1 p-5 space-y-2">
             {loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#003876]" /></div>
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-brand-primary" /></div>
             ) : stages.map((stage, i) => (
               <div
                 key={stage.id}
@@ -184,7 +188,7 @@ function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved:
                         />
                       ))}
                     </div>
-                    <button onClick={() => saveEdit(stage)} disabled={saving} className="text-[#003876] dark:text-[#ffd700] hover:opacity-70">
+                    <button onClick={() => saveEdit(stage)} disabled={saving} className="text-brand-primary dark:text-brand-secondary hover:opacity-70">
                       {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     </button>
                     <button onClick={() => setEditId(null)} className="text-gray-400 hover:text-gray-600">
@@ -206,7 +210,7 @@ function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved:
                     <button onClick={() => moveStage(i, 1)} disabled={i === stages.length - 1} className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
                       <ChevronDown className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => { setEditId(stage.id); setEditLabel(stage.label); setEditColor(stage.color); }} className="p-1 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700]">
+                    <button onClick={() => { setEditId(stage.id); setEditLabel(stage.label); setEditColor(stage.color); }} className="p-1 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary">
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={() => toggleActive(stage)} className={`p-1 ${stage.is_active ? 'text-emerald-500' : 'text-gray-400'} hover:opacity-70`} title={stage.is_active ? 'Desativar' : 'Ativar'}>
@@ -257,7 +261,7 @@ function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved:
               {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
               <button
                 onClick={addStage}
-                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-[#003876] text-white rounded-lg hover:bg-[#002855] transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-brand-primary text-white rounded-lg hover:bg-brand-primary-dark transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Adicionar etapa
@@ -268,7 +272,7 @@ function ManageStagesModal({ onClose, onSaved }: { onClose: () => void; onSaved:
           <div className="px-5 pb-5 flex-shrink-0">
             <button
               onClick={() => { onSaved(); onClose(); }}
-              className="w-full py-2.5 bg-[#003876] text-white rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors"
+              className="w-full py-2.5 bg-brand-primary text-white rounded-xl text-sm font-medium hover:bg-brand-primary-dark transition-colors"
             >
               Concluir
             </button>
@@ -301,6 +305,7 @@ function NewLeadModal({ stages, onClose, onCreated }: {
       assigned_to: profile?.id,
     });
     if (dbErr) { setError(dbErr.message); setSaving(false); return; }
+    logAudit({ action: 'create', module: 'kanban', description: `Lead "${form.name}" criado`, newData: form as Record<string, unknown> });
     onCreated();
   };
 
@@ -310,7 +315,7 @@ function NewLeadModal({ stages, onClose, onCreated }: {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />Novo Lead</h3>
+            <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />Novo Lead</h3>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl">
               <X className="w-5 h-5 text-gray-400" />
             </button>
@@ -329,7 +334,7 @@ function NewLeadModal({ stages, onClose, onCreated }: {
                   value={(form as Record<string, unknown>)[key] as string || ''}
                   onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
                   placeholder={placeholder}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20"
                 />
               </div>
             ))}
@@ -341,7 +346,7 @@ function NewLeadModal({ stages, onClose, onCreated }: {
                   <select
                     value={form.stage}
                     onChange={(e) => setForm((p) => ({ ...p, stage: e.target.value }))}
-                    className="w-full appearance-none px-3 py-2 pr-8 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]"
+                    className="w-full appearance-none px-3 py-2 pr-8 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary"
                   >
                     {stages.map((s) => <option key={s.name} value={s.name}>{s.label}</option>)}
                   </select>
@@ -354,7 +359,7 @@ function NewLeadModal({ stages, onClose, onCreated }: {
                   <select
                     value={form.priority}
                     onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value as Priority }))}
-                    className="w-full appearance-none px-3 py-2 pr-8 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]"
+                    className="w-full appearance-none px-3 py-2 pr-8 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary"
                   >
                     {(Object.entries(PRIORITY_CONFIG) as [Priority, typeof PRIORITY_CONFIG[Priority]][]).map(([k, v]) => (
                       <option key={k} value={k}>{v.label}</option>
@@ -379,7 +384,7 @@ function NewLeadModal({ stages, onClose, onCreated }: {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 inline-flex items-center justify-center gap-2 bg-[#003876] text-white py-2.5 rounded-xl text-sm font-medium hover:bg-[#002855] transition-colors disabled:opacity-60"
+              className="flex-1 inline-flex items-center justify-center gap-2 bg-brand-primary text-white py-2.5 rounded-xl text-sm font-medium hover:bg-brand-primary-dark transition-colors disabled:opacity-60"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Criar lead
@@ -474,6 +479,7 @@ function LeadDetailModal({ lead, stages, onClose, onUpdated }: {
       segment: lead.segment_interest, origin: 'referral', status: 'new', first_school: false,
     }).select('id').single();
     if (!error && data) {
+      logAudit({ action: 'create', module: 'kanban', recordId: lead.id, description: `Lead "${lead.name}" convertido para pré-matrícula`, newData: { enrollment_id: data.id } });
       await supabase.from('leads').update({ stage: 'enrollment_confirmed' }).eq('id', lead.id);
       await supabase.from('lead_activities').insert({
         lead_id: lead.id, type: 'conversion', description: 'Convertido para pré-matrícula', performed_by: profile?.id,
@@ -494,7 +500,7 @@ function LeadDetailModal({ lead, stages, onClose, onUpdated }: {
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
             <div>
-              <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />{lead.name}</h3>
+              <h3 className="font-display font-bold text-gray-900 dark:text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />{lead.name}</h3>
               <div className="flex items-center gap-2 mt-1">
                 <div className={`flex items-center gap-1 text-[10px] font-medium ${p.color}`}>
                   <div className={`w-1.5 h-1.5 rounded-full ${p.dot}`} /> {p.label}
@@ -515,7 +521,7 @@ function LeadDetailModal({ lead, stages, onClose, onUpdated }: {
           <div className="flex border-b border-gray-100 dark:border-gray-700 px-5">
             {([['info', 'Informações'], ['activity', 'Atividade']] as const).map(([k, l]) => (
               <button key={k} onClick={() => setTab(k)} className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                tab === k ? 'border-[#003876] text-[#003876] dark:text-[#ffd700] dark:border-[#ffd700]' : 'border-transparent text-gray-500 hover:text-gray-700'
+                tab === k ? 'border-brand-primary text-brand-primary dark:text-brand-secondary dark:border-brand-secondary' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}>{l}</button>
             ))}
           </div>
@@ -551,13 +557,13 @@ function LeadDetailModal({ lead, stages, onClose, onUpdated }: {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => setEditing(false)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600">Cancelar</button>
-                      <button onClick={saveEdits} disabled={savingEdit} className="text-xs px-3 py-1.5 rounded-lg bg-[#003876] text-white">
+                      <button onClick={saveEdits} disabled={savingEdit} className="text-xs px-3 py-1.5 rounded-lg bg-brand-primary text-white">
                         {savingEdit ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Salvar'}
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-xs text-[#003876] dark:text-[#ffd700] hover:underline">
+                  <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-xs text-brand-primary dark:text-brand-secondary hover:underline">
                     <Edit3 className="w-3 h-3" /> Editar dados
                   </button>
                 )}
@@ -571,7 +577,7 @@ function LeadDetailModal({ lead, stages, onClose, onUpdated }: {
                     <input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)}
                       className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm" />
                     <button onClick={saveNextDate} disabled={savingDate}
-                      className="px-3 py-2 rounded-xl bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] disabled:opacity-60">
+                      className="px-3 py-2 rounded-xl bg-brand-primary text-white text-xs font-medium hover:bg-brand-primary-dark disabled:opacity-60">
                       {savingDate ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Salvar'}
                     </button>
                   </div>
@@ -590,17 +596,17 @@ function LeadDetailModal({ lead, stages, onClose, onUpdated }: {
                 {/* Add note */}
                 <div className="flex gap-2">
                   <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Adicionar nota..."
-                    className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876]"
+                    className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-brand-primary"
                     onKeyDown={(e) => e.key === 'Enter' && addNote()} />
                   <button onClick={addNote} disabled={savingNote || !note.trim()}
-                    className="px-3 py-2 rounded-xl bg-[#003876] text-white text-xs font-medium disabled:opacity-60">
+                    className="px-3 py-2 rounded-xl bg-brand-primary text-white text-xs font-medium disabled:opacity-60">
                     {savingNote ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-4 h-4" />}
                   </button>
                 </div>
 
                 {/* Activity list */}
                 {loadingAct ? (
-                  <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-[#003876] animate-spin" /></div>
+                  <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-brand-primary animate-spin" /></div>
                 ) : activities.length === 0 ? (
                   <p className="text-center text-sm text-gray-400 py-6">Nenhuma atividade registrada</p>
                 ) : (
@@ -648,7 +654,7 @@ function LeadCard({
       draggable
       onDragStart={(e) => onDragStart(e, lead)}
       onClick={() => onClick(lead)}
-      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-[#003876]/20 dark:hover:border-[#ffd700]/20 transition-all group select-none"
+      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-brand-primary/20 dark:hover:border-brand-secondary/20 transition-all group select-none"
     >
       {/* Priority + source */}
       <div className="flex items-center gap-2 mb-2">
@@ -657,14 +663,14 @@ function LeadCard({
           {p.label}
         </div>
         {lead.segment_interest && (
-          <span className="text-[10px] bg-[#003876]/10 dark:bg-[#003876]/20 text-[#003876] dark:text-[#ffd700] px-2 py-0.5 rounded-full font-medium ml-auto">
+          <span className="text-[10px] bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-secondary px-2 py-0.5 rounded-full font-medium ml-auto">
             {lead.segment_interest}
           </span>
         )}
       </div>
 
       {/* Name */}
-      <p className="font-semibold text-sm text-gray-800 dark:text-white leading-tight mb-1 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] transition-colors">
+      <p className="font-semibold text-sm text-gray-800 dark:text-white leading-tight mb-1 group-hover:text-brand-primary dark:group-hover:text-brand-secondary transition-colors">
         {lead.name}
       </p>
 
@@ -818,6 +824,8 @@ export default function KanbanPage() {
     // Persist
     await supabase.from('leads').update({ stage: stageName }).eq('id', leadId);
 
+    logAudit({ action: 'move', module: 'kanban', recordId: leadId, description: `Lead "${lead.name}" movido de "${fromStage}" para "${stageName}"`, oldData: { stage: fromStage }, newData: { stage: stageName } });
+
     // Log activity
     await supabase.from('lead_activities').insert({
       lead_id:      leadId,
@@ -908,7 +916,7 @@ export default function KanbanPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <Kanban className="w-8 h-8" />
             Kanban de Leads
           </h1>
@@ -926,7 +934,7 @@ export default function KanbanPage() {
           </button>
           <button
             onClick={() => setNewModal(true)}
-            className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#002855] hover:shadow-lg transition-all"
+            className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand-primary-dark hover:shadow-lg transition-all"
           >
             <Plus className="w-4 h-4" />
             Novo Lead
@@ -937,7 +945,7 @@ export default function KanbanPage() {
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[
-          { label: 'Total', value: total, icon: User, color: 'text-[#003876] dark:text-white', bg: 'bg-[#003876]/5 dark:bg-white/5' },
+          { label: 'Total', value: total, icon: User, color: 'text-brand-primary dark:text-white', bg: 'bg-brand-primary/5 dark:bg-white/5' },
           { label: 'Alta/Urgente', value: urgent, icon: Flag, color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20' },
           { label: 'Taxa de conversão', value: `${convRate}%`, icon: TrendingUp, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
@@ -959,8 +967,8 @@ export default function KanbanPage() {
             onClick={() => setFilterPriority(v)}
             className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
               filterPriority === v
-                ? 'bg-[#003876] text-white'
-                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876]'
+                ? 'bg-brand-primary text-white'
+                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-primary hover:text-brand-primary'
             }`}
           >
             {l}
@@ -971,7 +979,7 @@ export default function KanbanPage() {
       {/* Board */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
         </div>
       ) : (
         <div className="flex-1 overflow-x-auto pb-4">

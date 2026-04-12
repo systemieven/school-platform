@@ -77,8 +77,8 @@ export default function PanelAuthScreen({ onAuth }: Props) {
         className="w-full max-w-sm space-y-5 bg-[#111d33] rounded-2xl p-8 shadow-2xl"
       >
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-full bg-[#003876] flex items-center justify-center mx-auto">
-            <Lock className="w-7 h-7 text-[#ffd700]" />
+          <div className="w-14 h-14 rounded-full bg-brand-primary flex items-center justify-center mx-auto">
+            <Lock className="w-7 h-7 text-brand-secondary" />
           </div>
           <h1 className="text-xl font-bold text-white">Painel de Chamadas</h1>
           <p className="text-sm text-gray-400">Insira a senha para acessar o painel</p>
@@ -90,7 +90,7 @@ export default function PanelAuthScreen({ onAuth }: Props) {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Senha do painel"
           autoFocus
-          className="w-full px-4 py-3 rounded-xl bg-[#0a1628] border border-gray-600 text-white text-center text-lg tracking-widest placeholder:text-gray-500 outline-none focus:border-[#ffd700] focus:ring-2 focus:ring-[#ffd700]/20 transition-all"
+          className="w-full px-4 py-3 rounded-xl bg-[#0a1628] border border-gray-600 text-white text-center text-lg tracking-widest placeholder:text-gray-500 outline-none focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 transition-all"
         />
 
         {error && (
@@ -100,7 +100,7 @@ export default function PanelAuthScreen({ onAuth }: Props) {
         <button
           type="submit"
           disabled={loading || !password.trim()}
-          className="w-full py-3 rounded-xl bg-[#003876] text-white font-semibold text-sm hover:bg-[#002855] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-xl bg-brand-primary text-white font-semibold text-sm hover:bg-brand-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
         >
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />

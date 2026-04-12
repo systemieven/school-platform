@@ -238,23 +238,23 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
             <div className={`
               w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300
               ${n < current
-                ? 'bg-[#ffd700] text-[#003876]'
+                ? 'bg-brand-secondary text-brand-primary'
                 : n === current
-                  ? 'bg-[#003876] text-white ring-4 ring-[#003876]/20'
+                  ? 'bg-brand-primary text-white ring-4 ring-brand-primary/20'
                   : 'bg-gray-100 text-gray-400'
               }
             `}>
               {n < current ? <CheckCircle className="w-4 h-4" /> : n}
             </div>
             <span className={`text-xs font-medium hidden sm:block ${
-              n <= current ? 'text-[#003876]' : 'text-gray-400'
+              n <= current ? 'text-brand-primary' : 'text-gray-400'
             }`}>
               {label}
             </span>
           </div>
           {i < steps.length - 1 && (
             <div className={`w-8 sm:w-12 h-[2px] rounded-full transition-colors duration-300 ${
-              n < current ? 'bg-[#ffd700]' : 'bg-gray-200'
+              n < current ? 'bg-brand-secondary' : 'bg-gray-200'
             }`} />
           )}
         </div>
@@ -264,7 +264,7 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
 }
 
 const inputCls =
-  'w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#003876] focus:border-transparent placeholder-gray-400';
+  'w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent placeholder-gray-400';
 
 const inputClsError =
   'w-full pl-11 pr-4 py-3.5 rounded-xl border border-red-300 bg-red-50 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent';
@@ -812,7 +812,7 @@ export default function AgendarVisita() {
             alt="Colégio Batista"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/85 to-[#002855]/75" />
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/85 to-brand-primary-dark/75" />
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
@@ -820,7 +820,7 @@ export default function AgendarVisita() {
         <div ref={heroRef} className="relative z-[5] container mx-auto px-4 h-full flex items-center">
           <div className="max-w-3xl">
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
-              <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
+              <span className="w-2 h-2 bg-brand-secondary rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">
                 {heroBadge}
               </span>
@@ -830,11 +830,11 @@ export default function AgendarVisita() {
               {(() => {
                 if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
                 const parts = heroTitle.split(heroHL);
-                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+                return <>{parts[0]}<span className="italic text-brand-secondary">{heroHL}</span>{parts[1]}</>;
               })()}
             </h1>
 
-            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
+            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-brand-secondary to-brand-secondary-light rounded-full mb-8" />
 
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
               {heroSubtitle}
@@ -852,14 +852,14 @@ export default function AgendarVisita() {
 
               {/* ── Sidebar — Resumo ── */}
               <aside className="hidden lg:block">
-                <div className="sticky top-28 bg-white rounded-2xl border border-gray-100 shadow-lg shadow-[#003876]/5 p-6 space-y-5">
+                <div className="sticky top-28 bg-white rounded-2xl border border-gray-100 shadow-lg shadow-brand-primary/5 p-6 space-y-5">
                   {/* Header */}
                   <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-                    <div className="w-10 h-10 bg-[#003876] rounded-xl flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center shrink-0">
                       <CalendarDays className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="font-display font-bold text-[#003876] text-sm">{schoolName}</p>
+                      <p className="font-display font-bold text-brand-primary text-sm">{schoolName}</p>
                       <p className="text-gray-400 text-xs">Visita Presencial</p>
                     </div>
                   </div>
@@ -869,13 +869,13 @@ export default function AgendarVisita() {
                     {/* Duração: só aparece após o contato escolher o motivo,
                         já que o tempo varia conforme o tipo de visita. */}
                     {reason && (
-                      <span className="inline-flex items-center gap-1.5 bg-[#ffd700] text-[#003876] font-semibold px-3 py-1.5 rounded-lg">
-                        <Clock className="w-3 h-3 text-[#003876]" />
+                      <span className="inline-flex items-center gap-1.5 bg-brand-secondary text-brand-primary font-semibold px-3 py-1.5 rounded-lg">
+                        <Clock className="w-3 h-3 text-brand-primary" />
                         {selectedReasonConfig.duration_minutes} min
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1.5 bg-[#ffd700] text-[#003876] font-semibold px-3 py-1.5 rounded-lg">
-                      <MapPin className="w-3 h-3 text-[#003876]" />
+                    <span className="inline-flex items-center gap-1.5 bg-brand-secondary text-brand-primary font-semibold px-3 py-1.5 rounded-lg">
+                      <MapPin className="w-3 h-3 text-brand-primary" />
                       Presencial
                     </span>
                   </div>
@@ -900,7 +900,7 @@ export default function AgendarVisita() {
                   {step >= 1 && name && (
                     <div className="pt-4 border-t border-gray-100 space-y-3 text-sm">
                       <div className="flex items-start gap-2.5">
-                        <User className="w-4 h-4 text-[#003876] mt-0.5 shrink-0" />
+                        <User className="w-4 h-4 text-brand-primary mt-0.5 shrink-0" />
                         <div>
                           <p className="font-medium text-gray-800 leading-snug">{name}</p>
                           <p className="text-gray-400 text-xs">{phone}</p>
@@ -908,13 +908,13 @@ export default function AgendarVisita() {
                       </div>
                       {reasonLabel && (
                         <div className="flex items-start gap-2.5">
-                          <FileText className="w-4 h-4 text-[#003876] mt-0.5 shrink-0" />
+                          <FileText className="w-4 h-4 text-brand-primary mt-0.5 shrink-0" />
                           <p className="text-gray-600 leading-snug">{reasonLabel}</p>
                         </div>
                       )}
                       {companions.length > 0 && (
                         <div className="flex items-start gap-2.5">
-                          <Users className="w-4 h-4 text-[#003876] mt-0.5 shrink-0" />
+                          <Users className="w-4 h-4 text-brand-primary mt-0.5 shrink-0" />
                           <p className="text-gray-600 leading-snug">
                             +{companions.filter((c) => c.trim()).length} acompanhante{companions.filter((c) => c.trim()).length > 1 ? 's' : ''}
                           </p>
@@ -926,14 +926,14 @@ export default function AgendarVisita() {
                   {step >= 2 && selectedDate && (
                     <div className="pt-4 border-t border-gray-100 space-y-3 text-sm">
                       <div className="flex items-start gap-2.5">
-                        <CalendarDays className="w-4 h-4 text-[#ffd700] mt-0.5 shrink-0" />
+                        <CalendarDays className="w-4 h-4 text-brand-secondary mt-0.5 shrink-0" />
                         <p className="font-medium text-gray-800 leading-snug">
                           {formatDateLong(selectedDate)}
                         </p>
                       </div>
                       {selectedTime && (
                         <div className="flex items-start gap-2.5">
-                          <Clock className="w-4 h-4 text-[#ffd700] mt-0.5 shrink-0" />
+                          <Clock className="w-4 h-4 text-brand-secondary mt-0.5 shrink-0" />
                           <p className="font-medium text-gray-800 leading-snug">
                             {formatTimeRange(selectedTime, selectedReasonConfig.duration_minutes)}
                           </p>
@@ -945,7 +945,7 @@ export default function AgendarVisita() {
               </aside>
 
               {/* ── Main ── */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-[#003876]/5 overflow-hidden">
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-brand-primary/5 overflow-hidden">
 
                 {/* Step indicator inside card */}
                 <div className="px-6 md:px-10 pt-8 pb-6 border-b border-gray-100">
@@ -955,7 +955,7 @@ export default function AgendarVisita() {
                 {/* ═══════════ STEP 1: Dados pessoais ═══════════ */}
                 {step === 1 && (
                   <div className="p-6 md:p-10">
-                    <h2 className="font-display text-2xl font-bold text-[#003876] mb-2">
+                    <h2 className="font-display text-2xl font-bold text-brand-primary mb-2">
                       {editMode ? 'Alterar agendamento' : 'Seus dados'}
                     </h2>
                     <p className="text-gray-400 text-sm mb-8">
@@ -1032,23 +1032,23 @@ export default function AgendarVisita() {
                       )}
 
                       {showExistingBanner && existingAppt && (
-                        <div className="bg-[#ffd700]/10 border border-[#ffd700]/40 rounded-xl p-5 space-y-4">
+                        <div className="bg-brand-secondary/10 border border-brand-secondary/40 rounded-xl p-5 space-y-4">
                           <div className="flex items-start gap-3">
                             <AlertTriangle className="w-5 h-5 text-[#b8860b] shrink-0 mt-0.5" />
                             <div>
-                              <p className="font-bold text-[#003876] text-sm mb-1">
+                              <p className="font-bold text-brand-primary text-sm mb-1">
                                 Você já possui um agendamento
                               </p>
                               <p className="text-gray-600 text-sm leading-relaxed">
                                 Encontramos uma visita marcada para{' '}
-                                <strong className="text-[#003876]">
+                                <strong className="text-brand-primary">
                                   {(() => {
                                     const [y, m, d] = existingAppt.appointment_date.split('-').map(Number);
                                     return `${d} de ${MONTH_NAMES[m - 1]} de ${y}`;
                                   })()}
                                 </strong>{' '}
                                 às{' '}
-                                <strong className="text-[#003876]">
+                                <strong className="text-brand-primary">
                                   {existingAppt.appointment_time.slice(0, 5)}
                                 </strong>{' '}
                                 — {VISIT_REASONS.find((r) => r.key === existingAppt.visit_reason)?.label ?? existingAppt.visit_reason}
@@ -1065,7 +1065,7 @@ export default function AgendarVisita() {
                             <button
                               type="button"
                               onClick={enterEditMode}
-                              className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#002855] transition-all duration-200"
+                              className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-brand-primary-dark transition-all duration-200"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                               Alterar agendamento
@@ -1073,7 +1073,7 @@ export default function AgendarVisita() {
                             <button
                               type="button"
                               onClick={dismissBanner}
-                              className="inline-flex items-center gap-2 text-gray-500 px-5 py-2.5 rounded-lg font-medium text-sm hover:text-[#003876] hover:bg-white border border-gray-200 transition-all duration-200"
+                              className="inline-flex items-center gap-2 text-gray-500 px-5 py-2.5 rounded-lg font-medium text-sm hover:text-brand-primary hover:bg-white border border-gray-200 transition-all duration-200"
                             >
                               Criar novo agendamento
                             </button>
@@ -1083,9 +1083,9 @@ export default function AgendarVisita() {
 
                       {/* Badge de edição */}
                       {editMode && (
-                        <div className="flex items-center gap-2 bg-[#003876]/5 border border-[#003876]/20 rounded-xl px-4 py-3 text-sm">
-                          <Edit3 className="w-4 h-4 text-[#003876] shrink-0" />
-                          <p className="text-[#003876] font-medium">
+                        <div className="flex items-center gap-2 bg-brand-primary/5 border border-brand-primary/20 rounded-xl px-4 py-3 text-sm">
+                          <Edit3 className="w-4 h-4 text-brand-primary shrink-0" />
+                          <p className="text-brand-primary font-medium">
                             Modo de edição — altere os campos desejados e confirme no próximo passo.
                           </p>
                         </div>
@@ -1105,13 +1105,13 @@ export default function AgendarVisita() {
                               className={`
                                 flex items-center gap-3 px-4 py-3.5 rounded-xl border text-left text-sm transition-all duration-200
                                 ${reason === key
-                                  ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876]/30 hover:text-[#003876]'
+                                  ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                                  : 'bg-white text-gray-600 border-gray-200 hover:border-brand-primary/30 hover:text-brand-primary'
                                 }
                               `}
                             >
                               <Icon className={`w-4 h-4 shrink-0 ${
-                                reason === key ? 'text-[#ffd700]' : 'text-gray-400'
+                                reason === key ? 'text-brand-secondary' : 'text-gray-400'
                               }`} />
                               {label}
                             </button>
@@ -1153,7 +1153,7 @@ export default function AgendarVisita() {
                           <button
                             type="button"
                             onClick={addCompanion}
-                            className="inline-flex items-center gap-2 text-sm text-[#003876] font-medium hover:text-[#ffd700] transition-colors mt-1"
+                            className="inline-flex items-center gap-2 text-sm text-brand-primary font-medium hover:text-brand-secondary transition-colors mt-1"
                           >
                             <Plus className="w-4 h-4" />
                             Adicionar acompanhante
@@ -1167,7 +1167,7 @@ export default function AgendarVisita() {
                       <button
                         type="button"
                         onClick={goToStep2}
-                        className="inline-flex items-center gap-2 bg-[#003876] text-white px-8 py-4 rounded-xl font-bold text-sm hover:bg-[#002855] transition-all duration-300 hover:shadow-lg hover:shadow-[#003876]/25"
+                        className="inline-flex items-center gap-2 bg-brand-primary text-white px-8 py-4 rounded-xl font-bold text-sm hover:bg-brand-primary-dark transition-all duration-300 hover:shadow-lg hover:shadow-brand-primary/25"
                       >
                         Escolher horário
                         <ArrowRight className="w-4 h-4" />
@@ -1179,7 +1179,7 @@ export default function AgendarVisita() {
                 {/* ═══════════ STEP 2: Data e horário ═══════════ */}
                 {step === 2 && (
                   <div className="p-6 md:p-10">
-                    <h2 className="font-display text-2xl font-bold text-[#003876] mb-2">
+                    <h2 className="font-display text-2xl font-bold text-brand-primary mb-2">
                       {editMode ? 'Nova data e horário' : 'Data e horário'}
                     </h2>
                     <p className="text-gray-400 text-sm mb-8">
@@ -1199,17 +1199,17 @@ export default function AgendarVisita() {
                             type="button"
                             onClick={prevMonth}
                             disabled={!canGoPrevMonth}
-                            className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+                            className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:border-brand-primary hover:text-brand-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
                           >
                             <ChevronLeft className="w-4 h-4" />
                           </button>
-                          <h3 className="font-display text-lg font-bold text-[#003876]">
+                          <h3 className="font-display text-lg font-bold text-brand-primary">
                             {MONTH_NAMES[currentMonth.month]} {currentMonth.year}
                           </h3>
                           <button
                             type="button"
                             onClick={nextMonth}
-                            className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-all duration-200"
+                            className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:border-brand-primary hover:text-brand-primary transition-all duration-200"
                           >
                             <ChevronRight className="w-4 h-4" />
                           </button>
@@ -1244,16 +1244,16 @@ export default function AgendarVisita() {
                                   ${disabled
                                     ? 'text-gray-200 cursor-not-allowed'
                                     : selected
-                                      ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/25'
+                                      ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/25'
                                       : today
-                                        ? 'bg-[#ffd700]/10 text-[#003876] font-bold ring-1 ring-[#ffd700]/40 hover:bg-[#003876] hover:text-white'
-                                        : 'text-gray-700 hover:bg-[#003876]/5 hover:text-[#003876]'
+                                        ? 'bg-brand-secondary/10 text-brand-primary font-bold ring-1 ring-brand-secondary/40 hover:bg-brand-primary hover:text-white'
+                                        : 'text-gray-700 hover:bg-brand-primary/5 hover:text-brand-primary'
                                   }
                                 `}
                               >
                                 {day.getDate()}
                                 {today && !selected && (
-                                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#ffd700]" />
+                                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand-secondary" />
                                 )}
                                 {holiday && !today && !selected && (
                                   <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-red-400" />
@@ -1290,8 +1290,8 @@ export default function AgendarVisita() {
                                       ${!isAvailable
                                         ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed line-through'
                                         : isSelected
-                                          ? 'border-[#003876] bg-[#003876] text-white shadow-md shadow-[#003876]/25'
-                                          : 'border-gray-200 bg-white text-[#003876] hover:border-[#003876] hover:bg-[#003876]/5'
+                                          ? 'border-brand-primary bg-brand-primary text-white shadow-md shadow-brand-primary/25'
+                                          : 'border-gray-200 bg-white text-brand-primary hover:border-brand-primary hover:bg-brand-primary/5'
                                       }
                                     `}
                                   >
@@ -1321,7 +1321,7 @@ export default function AgendarVisita() {
                       <button
                         type="button"
                         onClick={() => setStep(1)}
-                        className="inline-flex items-center gap-2 text-gray-500 hover:text-[#003876] font-medium text-sm transition-colors"
+                        className="inline-flex items-center gap-2 text-gray-500 hover:text-brand-primary font-medium text-sm transition-colors"
                       >
                         <ArrowLeft className="w-4 h-4" />
                         Voltar
@@ -1330,7 +1330,7 @@ export default function AgendarVisita() {
                         type="button"
                         onClick={handleSubmit}
                         disabled={!selectedDate || !selectedTime || submitting || !legalConsent}
-                        className="inline-flex items-center gap-2 bg-[#ffd700] text-[#003876] px-8 py-4 rounded-xl font-bold text-sm transition-all duration-300 hover:bg-white hover:shadow-lg hover:shadow-[#ffd700]/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#ffd700] disabled:hover:shadow-none"
+                        className="inline-flex items-center gap-2 bg-brand-secondary text-brand-primary px-8 py-4 rounded-xl font-bold text-sm transition-all duration-300 hover:bg-white hover:shadow-lg hover:shadow-brand-secondary/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-secondary disabled:hover:shadow-none"
                       >
                         {submitting ? (
                           <><Loader2 className="w-4 h-4 animate-spin" /> {editMode ? 'Atualizando...' : 'Agendando...'}</>
@@ -1353,7 +1353,7 @@ export default function AgendarVisita() {
                       <div className="w-20 h-20 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-8 rotate-3">
                         <CheckCircle className="w-10 h-10 text-green-500" />
                       </div>
-                      <h2 className="font-display text-3xl font-bold text-[#003876] mb-3">
+                      <h2 className="font-display text-3xl font-bold text-brand-primary mb-3">
                         {editMode ? 'Agendamento atualizado!' : 'Visita agendada!'}
                       </h2>
                       <p className="text-gray-500 text-sm leading-relaxed mb-10">
@@ -1366,43 +1366,43 @@ export default function AgendarVisita() {
                       {/* Summary card */}
                       <div className="bg-[var(--surface)] rounded-2xl p-6 text-left space-y-4 mb-10 border border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-[#003876] rounded-lg flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 bg-brand-primary rounded-lg flex items-center justify-center shrink-0">
                             <CalendarDays className="w-4 h-4 text-white" />
                           </div>
                           <div>
                             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Data e horário</p>
-                            <p className="font-bold text-[#003876] text-sm">
+                            <p className="font-bold text-brand-primary text-sm">
                               {selectedDate && formatDateLong(selectedDate)} · {selectedTime && formatTimeRange(selectedTime, selectedReasonConfig.duration_minutes)}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-[#003876] rounded-lg flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 bg-brand-primary rounded-lg flex items-center justify-center shrink-0">
                             <FileText className="w-4 h-4 text-white" />
                           </div>
                           <div>
                             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Motivo</p>
-                            <p className="font-bold text-[#003876] text-sm">{reasonLabel}</p>
+                            <p className="font-bold text-brand-primary text-sm">{reasonLabel}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-[#003876] rounded-lg flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 bg-brand-primary rounded-lg flex items-center justify-center shrink-0">
                             <Users className="w-4 h-4 text-white" />
                           </div>
                           <div>
                             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Visitantes</p>
-                            <p className="font-bold text-[#003876] text-sm">
+                            <p className="font-bold text-brand-primary text-sm">
                               {1 + companions.filter((c) => c.trim()).length} pessoa{companions.filter((c) => c.trim()).length > 0 ? 's' : ''}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-[#003876] rounded-lg flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 bg-brand-primary rounded-lg flex items-center justify-center shrink-0">
                             <MapPin className="w-4 h-4 text-white" />
                           </div>
                           <div>
                             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Local</p>
-                            <p className="font-bold text-[#003876] text-sm">
+                            <p className="font-bold text-brand-primary text-sm">
                               Rua Marcílio Dias, 99 – São Francisco, Caruaru/PE
                             </p>
                           </div>
@@ -1411,7 +1411,7 @@ export default function AgendarVisita() {
 
                       <Link
                         to="/"
-                        className="inline-flex items-center gap-2 bg-[#003876] text-white px-8 py-4 rounded-xl font-bold text-sm hover:bg-[#002855] transition-all duration-300 hover:shadow-lg hover:shadow-[#003876]/25"
+                        className="inline-flex items-center gap-2 bg-brand-primary text-white px-8 py-4 rounded-xl font-bold text-sm hover:bg-brand-primary-dark transition-all duration-300 hover:shadow-lg hover:shadow-brand-primary/25"
                       >
                         Voltar ao início
                         <ArrowRight className="w-4 h-4" />

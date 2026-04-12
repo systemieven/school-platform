@@ -181,7 +181,7 @@ export default function HeroSlideshow({ scenes, config: rawConfig, fallbackVideo
         <video autoPlay loop muted playsInline className="hero-video w-full h-full object-cover">
           <source src={fallbackVideoUrl} type="video/mp4" />
         </video>
-        <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/80 to-[#002855]/70" />
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
       </div>
     );
   }
@@ -254,7 +254,7 @@ function SlideshowEngine({ scenes, config }: { scenes: HeroScene[]; config: Hero
         >
           <SceneMedia scene={prevScene} active={false} />
           {prevScene.blue_mask && (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/80 to-[#002855]/70" />
+            <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
           )}
         </div>
       )}
@@ -278,7 +278,7 @@ function SlideshowEngine({ scenes, config }: { scenes: HeroScene[]; config: Hero
         >
           <SceneMedia scene={currentScene} active={true} />
           {currentScene.blue_mask && (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/80 to-[#002855]/70" />
+            <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
           )}
         </div>
       )}

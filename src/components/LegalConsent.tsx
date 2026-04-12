@@ -28,10 +28,10 @@ export default function LegalConsent({ checked, onChange, variant = 'default' }:
           className={[
             'w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200',
             checked
-              ? 'bg-[#003876] border-[#003876]'
+              ? 'bg-brand-primary border-brand-primary'
               : isDark
                 ? 'bg-white/10 border-white/30 group-hover:border-white/50'
-                : 'bg-white border-gray-300 group-hover:border-[#003876]/50',
+                : 'bg-white border-gray-300 group-hover:border-brand-primary/50',
           ].join(' ')}
         >
           {checked && (
@@ -48,8 +48,8 @@ export default function LegalConsent({ checked, onChange, variant = 'default' }:
           target="_blank"
           className={`font-semibold underline underline-offset-2 transition-colors ${
             isDark
-              ? 'text-[#ffd700] hover:text-[#ffe44d]'
-              : 'text-[#003876] hover:text-[#ffd700]'
+              ? 'text-brand-secondary hover:text-brand-secondary-light'
+              : 'text-brand-primary hover:text-brand-secondary'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -61,8 +61,8 @@ export default function LegalConsent({ checked, onChange, variant = 'default' }:
           target="_blank"
           className={`font-semibold underline underline-offset-2 transition-colors ${
             isDark
-              ? 'text-[#ffd700] hover:text-[#ffe44d]'
-              : 'text-[#003876] hover:text-[#ffd700]'
+              ? 'text-brand-secondary hover:text-brand-secondary-light'
+              : 'text-brand-primary hover:text-brand-secondary'
           }`}
           onClick={(e) => e.stopPropagation()}
         >

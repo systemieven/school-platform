@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../../lib/supabase';
+import { logAudit } from '../../../../lib/audit';
 import type { Grade, Activity, SchoolClass } from '../../../types/admin.types';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
 import { Loader2, Star, Plus, Trash2, X, Save, ChevronDown } from 'lucide-react';
@@ -21,7 +22,7 @@ function GradeCell({ value, onSave }: { value: number | null; onSave: (v: number
     <input autoFocus type="number" min="0" max="10" step="0.1" value={val}
       onChange={(e) => setVal(e.target.value)}
       onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && commit()}
-      className="w-14 px-1.5 py-1 text-xs text-center rounded border border-[#003876] dark:border-[#ffd700] bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 outline-none" />
+      className="w-14 px-1.5 py-1 text-xs text-center rounded border border-brand-primary dark:border-brand-secondary bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 outline-none" />
   );
 
   return (
@@ -53,6 +54,7 @@ function ManualGradeDrawer({ classId, students, subject, period, onClose, onSave
       notes: form.notes || null, updated_at: new Date().toISOString(),
     }).select('*, student:students(full_name, enrollment_number)').single();
     if (err) { setError(err.message); setSaving(false); return; }
+    logAudit({ action: 'create', module: 'teacher-area', recordId: (data as Grade).id, description: `Nota manual registrada: ${form.score}`, newData: { student_id: form.student_id, score: form.score, subject } });
     onSaved(data as Grade);
   }
 
@@ -69,7 +71,7 @@ function ManualGradeDrawer({ classId, students, subject, period, onClose, onSave
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Aluno *</label>
             <div className="relative">
               <select value={form.student_id} onChange={(e) => setForm((p) => ({ ...p, student_id: e.target.value }))}
-                className="w-full appearance-none px-3 py-2 pr-8 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]">
+                className="w-full appearance-none px-3 py-2 pr-8 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary">
                 <option value="">Selecione...</option>
                 {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
               </select>
@@ -80,17 +82,17 @@ function ManualGradeDrawer({ classId, students, subject, period, onClose, onSave
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nota *</label>
             <input type="number" min="0" max="10" step="0.1" value={form.score}
               onChange={(e) => setForm((p) => ({ ...p, score: e.target.value }))} placeholder="0.0 a 10.0"
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]" />
+              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Observações</label>
             <textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} rows={2}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] resize-none" />
+              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary resize-none" />
           </div>
         </div>
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700">
           <button onClick={save} disabled={saving}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Salvando...' : 'Salvar Nota'}
           </button>
@@ -161,10 +163,11 @@ export default function GradesTab({ cls }: { cls: SchoolClass }) {
 
   async function deleteGrade(id: string) {
     await supabase.from('grades').delete().eq('id', id);
+    logAudit({ action: 'delete', module: 'teacher-area', recordId: id, description: 'Nota excluída' });
     setGrades((p) => p.filter((g) => g.id !== id));
   }
 
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-brand-primary dark:text-brand-secondary" /></div>;
 
   return (
     <div className="space-y-4">
@@ -172,7 +175,7 @@ export default function GradesTab({ cls }: { cls: SchoolClass }) {
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
           <select value={period} onChange={(e) => setPeriod(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]">
+            className="appearance-none pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary">
             {PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -180,7 +183,7 @@ export default function GradesTab({ cls }: { cls: SchoolClass }) {
         {subjects.length > 0 && (
           <div className="relative">
             <select value={subject} onChange={(e) => setSubject(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]">
+              className="appearance-none pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary">
               <option value="">Todas as disciplinas</option>
               {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -188,7 +191,7 @@ export default function GradesTab({ cls }: { cls: SchoolClass }) {
           </div>
         )}
         <button onClick={() => setShowManual(true)}
-          className="ml-auto flex items-center gap-2 px-4 py-2 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl transition-colors">
+          className="ml-auto flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl transition-colors">
           <Plus className="w-4 h-4" /> Nota Manual
         </button>
       </div>

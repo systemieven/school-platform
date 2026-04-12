@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import type {
   SchoolEvent, EventTargetType, SchoolClass, SchoolSegment,
 } from '../../types/admin.types';
@@ -105,17 +106,18 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
     }
 
     if (dbErr || !data) { setError(dbErr?.message ?? 'Erro ao salvar.'); setSaving(false); return; }
+    logAudit({ action: event ? 'update' : 'create', module: 'events', recordId: data.id, description: `Evento "${payload.title}" ${event ? 'atualizado' : 'criado'}`, newData: payload });
     onSaved(data, sendWA);
   }
 
-  const inp = 'w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]';
+  const inp = 'w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary';
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-lg h-full bg-white dark:bg-gray-800 shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-[#003876] to-[#002255] text-white">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white">
           <h2 className="font-semibold text-sm flex items-center gap-2"><CalendarDays className="w-4 h-4" />{event ? 'Editar Evento' : 'Novo Evento'}</h2>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-white/20 transition-colors">
             <X className="w-4 h-4" />
@@ -168,7 +170,7 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
                 return (
                   <button key={t} type="button" onClick={() => { setTargetType(t); setTargetIds([]); setTargetRoles([]); }}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                      active ? 'border-[#003876] bg-[#003876]/10 dark:border-[#ffd700] dark:bg-[#ffd700]/10 text-[#003876] dark:text-[#ffd700]'
+                      active ? 'border-brand-primary bg-brand-primary/10 dark:border-brand-secondary dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary'
                              : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'}`}>
                     <Icon className="w-3.5 h-3.5" />
                     {EVENT_TARGET_LABELS[t]}
@@ -183,7 +185,7 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
                   <button key={s.id} type="button" onClick={() => setTargetIds((p) => toggleId(p, s.id))}
                     className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
                       targetIds.includes(s.id)
-                        ? 'border-[#003876] bg-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/20 text-white dark:text-[#ffd700]'
+                        ? 'border-brand-primary bg-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/20 text-white dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400'}`}>
                     {s.name}
                   </button>
@@ -197,7 +199,7 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
                   <button key={c.id} type="button" onClick={() => setTargetIds((p) => toggleId(p, c.id))}
                     className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
                       targetIds.includes(c.id)
-                        ? 'border-[#003876] bg-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/20 text-white dark:text-[#ffd700]'
+                        ? 'border-brand-primary bg-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/20 text-white dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400'}`}>
                     {c.name}
                   </button>
@@ -211,7 +213,7 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
                   <button key={r.value} type="button" onClick={() => setTargetRoles((p) => toggleId(p, r.value))}
                     className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
                       targetRoles.includes(r.value)
-                        ? 'border-[#003876] bg-[#003876] dark:border-[#ffd700] dark:bg-[#ffd700]/20 text-white dark:text-[#ffd700]'
+                        ? 'border-brand-primary bg-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/20 text-white dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400'}`}>
                     {r.label}
                   </button>
@@ -240,7 +242,7 @@ function EventDrawer({ event, segments, classes, onClose, onSaved }: DrawerProps
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700">
           <button onClick={save} disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl bg-[#003876] hover:bg-[#002255] text-white disabled:opacity-60 transition-colors">
+            className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-60 transition-colors">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Salvando...' : 'Salvar evento'}
           </button>
@@ -305,13 +307,13 @@ function CalendarStrip({ month, events, selected, onSelectDate, onPrev, onNext }
           return (
             <button key={i} onClick={() => onSelectDate(d)}
               className={`relative flex flex-col items-center justify-center h-8 rounded-lg text-xs font-medium transition-colors ${
-                isSel ? 'bg-[#003876] dark:bg-[#ffd700] text-white dark:text-gray-900'
-                : isT  ? 'bg-[#003876]/10 dark:bg-[#ffd700]/10 text-[#003876] dark:text-[#ffd700] font-bold'
+                isSel ? 'bg-brand-primary dark:bg-brand-secondary text-white dark:text-gray-900'
+                : isT  ? 'bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary font-bold'
                        : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}>
               {d.getDate()}
               {hasEv && !isSel && (
-                <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-[#003876] dark:bg-[#ffd700]" />
+                <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-brand-primary dark:bg-brand-secondary" />
               )}
             </button>
           );
@@ -360,6 +362,7 @@ export default function EventsPage() {
   async function remove(ev: SchoolEvent) {
     if (!confirm(`Excluir o evento "${ev.title}"?`)) return;
     await supabase.from('school_events').delete().eq('id', ev.id);
+    logAudit({ action: 'delete', module: 'events', recordId: ev.id, description: `Evento "${ev.title}" excluído` });
     setEvents((p) => p.filter((e) => e.id !== ev.id));
   }
 
@@ -368,7 +371,10 @@ export default function EventsPage() {
       .update({ is_published: !ev.is_published })
       .eq('id', ev.id)
       .select('*, creator:profiles!created_by(full_name)').single();
-    if (data) setEvents((p) => p.map((e) => e.id === ev.id ? data as SchoolEvent : e));
+    if (data) {
+      logAudit({ action: 'update', module: 'events', recordId: ev.id, description: `Evento "${ev.title}" ${ev.is_published ? 'despublicado' : 'publicado'}` });
+      setEvents((p) => p.map((e) => e.id === ev.id ? data as SchoolEvent : e));
+    }
   }
 
   function handleSaved(saved: SchoolEvent, openWACampaign?: boolean) {
@@ -413,18 +419,18 @@ export default function EventsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-          <CalendarDays className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" /> Eventos
+          <CalendarDays className="w-5 h-5 text-brand-primary dark:text-brand-secondary" /> Eventos
         </h1>
         {canEdit && (
           <button onClick={() => setDrawerEvent(null)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#003876] hover:bg-[#002255] text-white text-sm font-semibold rounded-xl transition-colors">
+            className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors">
             <Plus className="w-4 h-4" /> Novo Evento
           </button>
         )}
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-[#003876] dark:text-[#ffd700]" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-brand-primary dark:text-brand-secondary" /></div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5">
           {/* Calendar */}
@@ -439,7 +445,7 @@ export default function EventsPage() {
             />
             {selectedDate && (
               <button onClick={() => setSelectedDate(null)}
-                className="w-full text-xs text-center text-[#003876] dark:text-[#ffd700] hover:underline">
+                className="w-full text-xs text-center text-brand-primary dark:text-brand-secondary hover:underline">
                 Limpar filtro de data
               </button>
             )}
@@ -452,7 +458,7 @@ export default function EventsPage() {
               {(['upcoming','all','past'] as const).map((f) => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    filter === f ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900'
+                    filter === f ? 'bg-brand-primary text-white dark:bg-brand-secondary dark:text-gray-900'
                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
                   {f === 'upcoming' ? 'Próximos' : f === 'past' ? 'Passados' : 'Todos'}
                 </button>
@@ -481,7 +487,7 @@ export default function EventsPage() {
                           <div className="flex items-start justify-between gap-3">
                             {/* Date block */}
                             <div className="flex-shrink-0 w-12 text-center">
-                              <p className="text-lg font-bold text-[#003876] dark:text-[#ffd700] leading-none">
+                              <p className="text-lg font-bold text-brand-primary dark:text-brand-secondary leading-none">
                                 {new Date(ev.event_date + 'T12:00:00').getDate().toString().padStart(2,'0')}
                               </p>
                               <p className="text-xs text-gray-400 uppercase">

@@ -149,7 +149,7 @@ function inputCls(hasIcon: boolean, error?: string) {
     hasIcon ? 'pl-10' : 'pl-3',
     error
       ? 'border-red-400 focus:ring-red-300 bg-red-50'
-      : 'border-gray-200 focus:ring-[#003876] bg-white',
+      : 'border-gray-200 focus:ring-brand-primary bg-white',
     'focus:outline-none focus:ring-2 focus:border-transparent',
   ].join(' ');
 }
@@ -217,7 +217,7 @@ function AddressBlock({
           onChange={(e) => onCEPChange(e.target.value)}
         />
         <span className="absolute right-3 top-1/2 -translate-y-1/2">
-          {isLoading && <Loader2 className="w-4 h-4 text-[#003876] animate-spin" />}
+          {isLoading && <Loader2 className="w-4 h-4 text-brand-primary animate-spin" />}
           {!isLoading && cepOk === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
           {!isLoading && cepOk === false && <XCircle className="w-4 h-4 text-red-500" />}
         </span>
@@ -319,11 +319,11 @@ function CPFParentField({
   return (
     <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm font-semibold text-[#003876]">{label}</span>
+        <span className="text-sm font-semibold text-brand-primary">{label}</span>
         <button
           type="button"
           onClick={onUsarResponsavel}
-          className="inline-flex items-center gap-1.5 text-xs text-[#003876] border border-[#003876]/30 bg-white px-3 py-1 rounded-full hover:bg-[#003876] hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs text-brand-primary border border-brand-primary/30 bg-white px-3 py-1 rounded-full hover:bg-brand-primary hover:text-white transition-colors"
         >
           <Copy className="w-3 h-3" /> Usar dados do responsável
         </button>
@@ -765,7 +765,7 @@ export default function Matricula() {
             alt="Matrícula Colégio Batista"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/80 to-[#002855]/70" />
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
@@ -773,7 +773,7 @@ export default function Matricula() {
         <div className="relative z-[5] container mx-auto px-4 h-full flex items-center">
           <div className="max-w-3xl">
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
-              <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
+              <span className="w-2 h-2 bg-brand-secondary rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">
                 {heroBadge}
               </span>
@@ -782,10 +782,10 @@ export default function Matricula() {
               {(() => {
                 if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
                 const parts = heroTitle.split(heroHL);
-                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+                return <>{parts[0]}<span className="italic text-brand-secondary">{heroHL}</span>{parts[1]}</>;
               })()}
             </h1>
-            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
+            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-brand-secondary to-brand-secondary-light rounded-full mb-8" />
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
               {heroSubtitle}
             </p>
@@ -802,13 +802,13 @@ export default function Matricula() {
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
 
               {/* Cabeçalho */}
-              <div className="bg-[#003876] px-8 py-7">
-                <p className="text-xs font-bold tracking-[0.2em] uppercase text-[#ffd700] mb-2">
+              <div className="bg-brand-primary px-8 py-7">
+                <p className="text-xs font-bold tracking-[0.2em] uppercase text-brand-secondary mb-2">
                   Antes de começar
                 </p>
                 <h2 className="font-display text-2xl md:text-3xl font-bold text-white leading-tight">
                   Confirme que você é o{' '}
-                  <span className="italic text-[#ffd700]">responsável legal</span>
+                  <span className="italic text-brand-secondary">responsável legal</span>
                 </h2>
                 <p className="text-white/70 text-sm mt-2 leading-relaxed">
                   A inscrição só pode ser realizada por um responsável legal do candidato.
@@ -822,10 +822,10 @@ export default function Matricula() {
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 bg-[#003876]/10 rounded-lg flex items-center justify-center">
-                        <FileText className="w-4 h-4 text-[#003876]" />
+                      <div className="w-8 h-8 bg-brand-primary/10 rounded-lg flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-brand-primary" />
                       </div>
-                      <h3 className="font-bold text-[#003876] text-sm">Dados necessários</h3>
+                      <h3 className="font-bold text-brand-primary text-sm">Dados necessários</h3>
                     </div>
                     <ul className="space-y-2.5">
                       {[
@@ -836,8 +836,8 @@ export default function Matricula() {
                         { label: 'Histórico escolar', sub: 'Série atual ou última série cursada' },
                       ].map(({ label, sub }) => (
                         <li key={label} className="flex items-start gap-2.5">
-                          <span className="mt-0.5 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
-                            <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
+                          <span className="mt-0.5 w-5 h-5 rounded-full bg-brand-secondary/20 flex items-center justify-center shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-brand-secondary" />
                           </span>
                           <div>
                             <p className="text-sm font-medium text-gray-800">{label}</p>
@@ -850,10 +850,10 @@ export default function Matricula() {
 
                   <div>
                     <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 bg-[#003876]/10 rounded-lg flex items-center justify-center">
-                        <Upload className="w-4 h-4 text-[#003876]" />
+                      <div className="w-8 h-8 bg-brand-primary/10 rounded-lg flex items-center justify-center">
+                        <Upload className="w-4 h-4 text-brand-primary" />
                       </div>
-                      <h3 className="font-bold text-[#003876] text-sm">Documentos necessários</h3>
+                      <h3 className="font-bold text-brand-primary text-sm">Documentos necessários</h3>
                     </div>
                     <ul className="space-y-2.5">
                       {(requiredDocsList.length > 0
@@ -865,8 +865,8 @@ export default function Matricula() {
                           ]
                       ).map(({ label, sub }) => (
                         <li key={label} className="flex items-start gap-2.5">
-                          <span className="mt-0.5 w-5 h-5 rounded-full bg-[#ffd700]/20 flex items-center justify-center shrink-0">
-                            <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
+                          <span className="mt-0.5 w-5 h-5 rounded-full bg-brand-secondary/20 flex items-center justify-center shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-brand-secondary" />
                           </span>
                           <div>
                             <p className="text-sm font-medium text-gray-800">{label}</p>
@@ -876,7 +876,7 @@ export default function Matricula() {
                       ))}
                     </ul>
                     <p className="mt-4 text-xs text-gray-400 flex items-center gap-1.5 pl-0.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-[#ffd700] shrink-0" />
+                      <AlertCircle className="w-3.5 h-3.5 text-brand-secondary shrink-0" />
                       Formatos aceitos: JPG, PNG, PDF — máx. 5 MB por arquivo
                     </p>
                   </div>
@@ -898,8 +898,8 @@ export default function Matricula() {
                       <div className={[
                         'w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200',
                         termsChecked
-                          ? 'bg-[#003876] border-[#003876]'
-                          : 'bg-white border-gray-300 group-hover:border-[#003876]/50',
+                          ? 'bg-brand-primary border-brand-primary'
+                          : 'bg-white border-gray-300 group-hover:border-brand-primary/50',
                       ].join(' ')}>
                         {termsChecked && (
                           <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -909,7 +909,7 @@ export default function Matricula() {
                       </div>
                     </div>
                     <p className="text-sm text-gray-700 leading-relaxed">
-                      Declaro que sou o <strong className="text-[#003876]">responsável legal</strong> do candidato,
+                      Declaro que sou o <strong className="text-brand-primary">responsável legal</strong> do candidato,
                       que as informações prestadas são verdadeiras e que tenho em mãos os documentos
                       listados acima para anexar ao formulário.
                     </p>
@@ -924,7 +924,7 @@ export default function Matricula() {
                     className={[
                       'w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-base transition-all duration-300',
                       termsChecked && legalConsent
-                        ? 'bg-[#ffd700] text-[#003876] hover:bg-[#ffe44d] hover:shadow-lg hover:shadow-[#ffd700]/30 active:scale-[0.99]'
+                        ? 'bg-brand-secondary text-brand-primary hover:bg-brand-secondary-light hover:shadow-lg hover:shadow-brand-secondary/30 active:scale-[0.99]'
                         : 'bg-gray-100 text-gray-400 cursor-not-allowed',
                     ].join(' ')}
                   >
@@ -947,7 +947,7 @@ export default function Matricula() {
                 onClick={() => { if (i < activeTab) setActiveTab(i); }}
                 className={[
                   'flex-1 py-4 text-sm font-medium transition-all relative',
-                  activeTab === i ? 'text-[#003876] bg-white' :
+                  activeTab === i ? 'text-brand-primary bg-white' :
                   i < activeTab ? 'text-gray-400 hover:text-gray-600 cursor-pointer' :
                   'text-gray-300 cursor-default',
                 ].join(' ')}
@@ -955,7 +955,7 @@ export default function Matricula() {
                 <span className="flex items-center justify-center gap-2">
                   <span className={[
                     'w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold',
-                    activeTab === i ? 'bg-[#003876] text-white' :
+                    activeTab === i ? 'bg-brand-primary text-white' :
                     i < activeTab ? 'bg-green-500 text-white' :
                     'bg-gray-200 text-gray-400',
                   ].join(' ')}>
@@ -963,7 +963,7 @@ export default function Matricula() {
                   </span>
                   <span className="hidden sm:inline">{tab}</span>
                 </span>
-                <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${activeTab === i ? 'bg-[#003876]' : 'bg-transparent'}`} />
+                <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${activeTab === i ? 'bg-brand-primary' : 'bg-transparent'}`} />
               </button>
             ))}
           </div>
@@ -972,7 +972,7 @@ export default function Matricula() {
 
             {/* ── Tab 0: Responsável ── */}
             <div className={activeTab === 0 ? 'block' : 'hidden'}>
-              <h2 className="text-lg font-bold text-[#003876] mb-6 pb-2 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-brand-primary mb-6 pb-2 border-b border-gray-100">
                 Dados do Responsável
               </h2>
               <div className="space-y-5">
@@ -1033,7 +1033,7 @@ export default function Matricula() {
                 </Field>
 
                 <div className="pt-2">
-                  <p className="text-sm font-semibold text-[#003876] mb-3">Endereço</p>
+                  <p className="text-sm font-semibold text-brand-primary mb-3">Endereço</p>
                   <AddressBlock
                     end={formData.enderecoResponsavel}
                     endKey="enderecoResponsavel"
@@ -1049,7 +1049,7 @@ export default function Matricula() {
 
             {/* ── Tab 1: Aluno ── */}
             <div className={activeTab === 1 ? 'block' : 'hidden'}>
-              <h2 className="text-lg font-bold text-[#003876] mb-6 pb-2 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-brand-primary mb-6 pb-2 border-b border-gray-100">
                 Dados do Aluno
               </h2>
               <div className="space-y-5">
@@ -1092,7 +1092,7 @@ export default function Matricula() {
 
                 {/* ── Dados Educacionais ── */}
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
-                  <p className="text-sm font-semibold text-[#003876]">Dados Educacionais</p>
+                  <p className="text-sm font-semibold text-brand-primary">Dados Educacionais</p>
 
                   {/* Toggle primeira escola */}
                   <div className="flex items-center justify-between">
@@ -1119,7 +1119,7 @@ export default function Matricula() {
                       }}
                       className={[
                         'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
-                        formData.primeiraEscola ? 'bg-[#003876]' : 'bg-gray-200',
+                        formData.primeiraEscola ? 'bg-brand-primary' : 'bg-gray-200',
                       ].join(' ')}
                       role="switch"
                       aria-checked={formData.primeiraEscola}
@@ -1181,11 +1181,11 @@ export default function Matricula() {
 
                 <div className="pt-2">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-semibold text-[#003876]">Endereço do Aluno</p>
+                    <p className="text-sm font-semibold text-brand-primary">Endereço do Aluno</p>
                     <button
                       type="button"
                       onClick={usarEnderecoResponsavel}
-                      className="inline-flex items-center gap-1.5 text-xs text-[#003876] border border-[#003876]/30 bg-white px-3 py-1 rounded-full hover:bg-[#003876] hover:text-white transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs text-brand-primary border border-brand-primary/30 bg-white px-3 py-1 rounded-full hover:bg-brand-primary hover:text-white transition-colors"
                     >
                       <Copy className="w-3 h-3" /> Usar endereço do responsável
                     </button>
@@ -1203,7 +1203,7 @@ export default function Matricula() {
 
                 {requireParentsData && (
                 <div className="pt-4">
-                  <p className="text-sm font-semibold text-[#003876] mb-3">Dados dos Pais</p>
+                  <p className="text-sm font-semibold text-brand-primary mb-3">Dados dos Pais</p>
                   <div className="space-y-4">
                     <CPFParentField
                       parent="mae"
@@ -1247,14 +1247,14 @@ export default function Matricula() {
 
             {/* ── Tab 2: Documentação ── */}
             <div className={activeTab === 2 ? 'block' : 'hidden'}>
-              <h2 className="text-lg font-bold text-[#003876] mb-6 pb-2 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-brand-primary mb-6 pb-2 border-b border-gray-100">
                 Documentação
               </h2>
               <div className="space-y-6">
                 {requiredDocsList.length > 0 && (
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-[#003876] mt-0.5 shrink-0" />
-                  <div className="text-sm text-[#003876]">
+                  <AlertCircle className="w-5 h-5 text-brand-primary mt-0.5 shrink-0" />
+                  <div className="text-sm text-brand-primary">
                     <p className="font-semibold mb-2">Documentos necessários:</p>
                     <ul className="list-disc list-inside space-y-1 text-gray-600">
                       {requiredDocsList.map((doc) => (
@@ -1267,10 +1267,10 @@ export default function Matricula() {
 
                 <label className={[
                   'block border-2 border-dashed rounded-xl p-8 text-center transition-colors',
-                  compressing ? 'opacity-60 cursor-wait border-gray-200' : 'cursor-pointer hover:border-[#003876]/40 hover:bg-gray-50 border-gray-200',
+                  compressing ? 'opacity-60 cursor-wait border-gray-200' : 'cursor-pointer hover:border-brand-primary/40 hover:bg-gray-50 border-gray-200',
                 ].join(' ')}>
                   {compressing
-                    ? <Loader2 className="mx-auto h-10 w-10 text-[#003876] animate-spin mb-3" />
+                    ? <Loader2 className="mx-auto h-10 w-10 text-brand-primary animate-spin mb-3" />
                     : <Upload className="mx-auto h-10 w-10 text-gray-300 mb-3" />}
                   <p className="text-sm font-medium text-gray-600 mb-1">
                     {compressing ? 'Compactando imagens...' : 'Clique ou arraste arquivos aqui'}
@@ -1342,20 +1342,20 @@ export default function Matricula() {
             {/* Navigation */}
             <div className="mt-8 flex justify-between items-center pt-6 border-t border-gray-100">
               {activeTab > 0 ? (
-                <button type="button" onClick={() => setActiveTab((t) => t - 1)} className="text-sm text-gray-500 hover:text-[#003876] transition-colors font-medium">
+                <button type="button" onClick={() => setActiveTab((t) => t - 1)} className="text-sm text-gray-500 hover:text-brand-primary transition-colors font-medium">
                   ← Voltar
                 </button>
               ) : <span />}
 
               {activeTab < tabs.length - 1 ? (
-                <button type="button" onClick={handleNext} className="bg-[#003876] text-white px-8 py-3 rounded-xl font-semibold hover:bg-[#002855] transition-colors">
+                <button type="button" onClick={handleNext} className="bg-brand-primary text-white px-8 py-3 rounded-xl font-semibold hover:bg-brand-primary-dark transition-colors">
                   Próximo →
                 </button>
               ) : (
                 <button
                   type="submit"
                   disabled={submitting || submitResult === 'success'}
-                  className="bg-[#ffd700] text-[#003876] px-8 py-3 rounded-xl font-bold hover:bg-[#ffe44d] transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="bg-brand-secondary text-brand-primary px-8 py-3 rounded-xl font-bold hover:bg-brand-secondary-light transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {submitting ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>

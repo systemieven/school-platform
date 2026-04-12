@@ -47,7 +47,7 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
         >
           {sidebarCollapsed ? (
@@ -92,7 +92,7 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
         <div className="relative">
           <button
             onClick={() => setPanelOpen((v) => !v)}
-            className="relative w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="relative w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             title="Notificações"
           >
             <Bell className="w-5 h-5" />
@@ -123,12 +123,12 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
             >
               {/* Avatar with accent ring */}
               <div className="flex-shrink-0">
-                <div className="w-[52px] h-[52px] rounded-full p-[3px] bg-[#ffd700]">
-                  <div className="w-full h-full rounded-full overflow-hidden bg-[#003876]/10 dark:bg-white/10 flex items-center justify-center">
+                <div className="w-[52px] h-[52px] rounded-full p-[3px] bg-brand-secondary">
+                  <div className="w-full h-full rounded-full overflow-hidden bg-brand-primary/10 dark:bg-white/10 flex items-center justify-center">
                     {profile.avatar_url ? (
                       <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-sm font-bold text-[#003876] dark:text-[#ffd700]">
+                      <span className="text-sm font-bold text-brand-primary dark:text-brand-secondary">
                         {profile.full_name?.charAt(0)?.toUpperCase() || 'U'}
                       </span>
                     )}
@@ -205,7 +205,7 @@ function Breadcrumb() {
       {segments.map((seg, i) => (
         <span key={seg} className="flex items-center gap-2">
           <span className="text-gray-300 dark:text-gray-600">/</span>
-          <span className={i === segments.length - 1 ? 'text-[#003876] dark:text-[#ffd700] font-medium' : 'text-gray-400'}>
+          <span className={i === segments.length - 1 ? 'text-brand-primary dark:text-brand-secondary font-medium' : 'text-gray-400'}>
             {LABELS[seg] || seg}
           </span>
         </span>

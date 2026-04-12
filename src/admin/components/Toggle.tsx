@@ -21,7 +21,7 @@ export interface ToggleProps {
   description?: string;
   /** Disabled state */
   disabled?: boolean;
-  /** Override the ON color (default: bg-[#003876] dark:bg-[#ffd700]) */
+  /** Override the ON color (default: bg-brand-primary dark:bg-brand-secondary) */
   onColor?: string;
 }
 
@@ -33,7 +33,7 @@ export function Toggle({
   disabled = false,
   onColor,
 }: ToggleProps) {
-  const trackOn  = onColor ?? 'bg-[#003876] dark:bg-[#ffd700]';
+  const trackOn  = onColor ?? 'bg-brand-primary dark:bg-brand-secondary';
   const trackOff = 'bg-gray-300 dark:bg-gray-600';
 
   return (
@@ -45,7 +45,7 @@ export function Toggle({
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className={`relative flex-shrink-0 w-12 h-6 rounded-full transition-colors duration-300
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50
           ${checked ? trackOn : trackOff}`}
       >
         <span
@@ -55,7 +55,7 @@ export function Toggle({
         >
           {checked && (
             <Check
-              className="w-3 h-3 text-[#003876] dark:text-[#003876]"
+              className="w-3 h-3 text-brand-primary dark:text-brand-primary"
               strokeWidth={3}
             />
           )}

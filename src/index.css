@@ -16,12 +16,20 @@
 }
 
 :root {
-  --primary: #003876;
-  --primary-dark: #002855;
-  --secondary: #ffd700;
-  --secondary-light: #ffe44d;
-  --surface: #f8f7f4;
-  --surface-warm: #f3f1ec;
+  /* Brand colors — injected dynamically by BrandingProvider when available */
+  --brand-primary: #003876;
+  --brand-primary-dark: #002855;
+  --brand-secondary: #ffd700;
+  --brand-secondary-light: #ffe44d;
+  --brand-surface: #f8f7f4;
+  --brand-surface-warm: #f3f1ec;
+  /* RGB channels — Tailwind opacity modifier support */
+  --brand-primary-rgb: 0 56 118;
+  --brand-primary-dark-rgb: 0 40 85;
+  --brand-secondary-rgb: 255 215 0;
+  --brand-secondary-light-rgb: 255 228 77;
+  --brand-surface-rgb: 248 247 244;
+  --brand-surface-warm-rgb: 243 241 236;
 }
 
 @layer base {
@@ -38,18 +46,18 @@
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-[#003876] ring-offset-2;
+    @apply outline-none ring-2 ring-[var(--brand-primary)] ring-offset-2;
   }
 }
 
 @layer components {
   .nav-link {
-    @apply text-[#003876] hover:text-[#ffd700] transition-colors relative;
+    @apply text-[var(--brand-primary)] hover:text-[var(--brand-secondary)] transition-colors relative;
   }
 
   .nav-link::after {
     content: '';
-    @apply absolute left-0 bottom-[-4px] h-0.5 w-0 bg-[#ffd700] transition-all duration-300;
+    @apply absolute left-0 bottom-[-4px] h-0.5 w-0 bg-[var(--brand-secondary)] transition-all duration-300;
   }
 
   .nav-link:hover::after {
@@ -57,15 +65,15 @@
   }
 
   .btn-primary {
-    @apply bg-[#ffd700] text-[#003876] px-6 py-2 rounded-full font-semibold transition-all duration-300 hover:bg-[#003876] hover:text-[#ffd700] hover:shadow-[0_0_20px_rgba(255,215,0,0.3)] transform hover:scale-105;
+    @apply bg-[var(--brand-secondary)] text-[var(--brand-primary)] px-6 py-2 rounded-full font-semibold transition-all duration-300 hover:bg-[var(--brand-primary)] hover:text-[var(--brand-secondary)] hover:shadow-[0_0_20px_rgba(255,215,0,0.3)] transform hover:scale-105;
   }
 
   .btn-hero {
-    @apply relative overflow-hidden bg-[#ffd700] text-[#003876] px-8 py-4 rounded-full font-semibold transition-all duration-500 flex items-center gap-2 hover:bg-white hover:text-[#003876] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] active:scale-95 active:shadow-inner;
+    @apply relative overflow-hidden bg-[var(--brand-secondary)] text-[var(--brand-primary)] px-8 py-4 rounded-full font-semibold transition-all duration-500 flex items-center gap-2 hover:bg-white hover:text-[var(--brand-primary)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] active:scale-95 active:shadow-inner;
   }
 
   .btn-hero-outline {
-    @apply relative overflow-hidden border-2 border-white text-white px-8 py-4 rounded-full font-semibold transition-all duration-500 flex items-center gap-2 hover:bg-white hover:text-[#003876] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] active:scale-95 active:shadow-inner;
+    @apply relative overflow-hidden border-2 border-white text-white px-8 py-4 rounded-full font-semibold transition-all duration-500 flex items-center gap-2 hover:bg-white hover:text-[var(--brand-primary)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] active:scale-95 active:shadow-inner;
   }
 
   .feature-card {
@@ -73,7 +81,7 @@
   }
 
   .feature-icon {
-    @apply w-16 h-16 bg-[#003876] rounded-full flex items-center justify-center mx-auto mb-6 transform transition-transform hover:scale-110;
+    @apply w-16 h-16 bg-[var(--brand-primary)] rounded-full flex items-center justify-center mx-auto mb-6 transform transition-transform hover:scale-110;
   }
 
   .segment-card {
@@ -217,7 +225,7 @@
   left: 0;
   height: 3px;
   width: 0;
-  background: linear-gradient(90deg, #ffd700, #ffe44d);
+  background: linear-gradient(90deg, var(--brand-secondary), var(--brand-secondary-light));
   border-radius: 2px;
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -228,7 +236,7 @@
 
 /* ── Stat Counter Style ── */
 .stat-number {
-  background: linear-gradient(135deg, #003876, #004a9e);
+  background: linear-gradient(135deg, var(--brand-primary), #004a9e);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -238,7 +246,7 @@
 .section-divider {
   width: 60px;
   height: 3px;
-  background: linear-gradient(90deg, #ffd700, #ffe44d);
+  background: linear-gradient(90deg, var(--brand-secondary), var(--brand-secondary-light));
   border-radius: 2px;
 }
 

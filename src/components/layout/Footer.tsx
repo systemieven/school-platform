@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Phone, MapPin, Clock, Instagram } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
+import { useBranding } from '../../contexts/BrandingContext';
 
 // ── Business hours helpers ────────────────────────────────────────────────────
 interface BHInterval { start: string; end: string }
@@ -11,12 +12,6 @@ function fmtTime(t: string): string {
   return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
 }
 
-/**
- * Extrai os intervalos de funcionamento do dia da semana a partir do raw
- * `general.business_hours`. Retorna [] se o dia estiver fechado, se o config
- * não existir ou se nenhum intervalo válido estiver definido. NÃO aplica
- * fallback hardcoded — preferimos não exibir nada a exibir informação errada.
- */
 function getBusinessIntervalsForWeekday(rawBH: unknown, weekday: number): BHInterval[] {
   if (!rawBH) return [];
   let bh: Record<string, BHDay>;
@@ -39,10 +34,6 @@ function getBusinessIntervalsForWeekday(rawBH: unknown, weekday: number): BHInte
   return [];
 }
 
-/**
- * Constrói linhas legíveis agrupando dias consecutivos com o mesmo conjunto
- * de intervalos. Retorna [] quando não há nada configurado.
- */
 function buildBusinessHoursLines(raw: unknown): string[] {
   const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   const openDays: { idx: number; name: string; intervals: BHInterval[]; signature: string }[] = [];
@@ -161,23 +152,82 @@ function formatAddress(raw: unknown): { line1: string; line2: string } {
   return { line1: s.slice(0, idx), line2: s.slice(idx + 3) };
 }
 
+// ── Footer config types & defaults ──
+
+interface FooterColumn {
+  title: string;
+  links: Array<{ label: string; route: string }>;
+}
+
+interface FooterConfig {
+  columns: FooterColumn[];
+  legal_links: Array<{ label: string; route: string }>;
+  copyright_text: string;
+  show_cnpj: boolean;
+}
+
+const DEFAULT_FOOTER: FooterConfig = {
+  columns: [
+    {
+      title: 'Links Rápidos',
+      links: [
+        { label: 'Portal do Aluno', route: '/portal-aluno' },
+        { label: 'Biblioteca Virtual', route: '/biblioteca-virtual' },
+        { label: 'Área do Professor', route: '/area-professor' },
+      ],
+    },
+    {
+      title: 'Segmentos',
+      links: [
+        { label: 'Educação Infantil', route: '/educacao-infantil' },
+        { label: 'Ensino Fundamental I', route: '/ensino-fundamental-1' },
+        { label: 'Ensino Fundamental II', route: '/ensino-fundamental-2' },
+        { label: 'Ensino Médio', route: '/ensino-medio' },
+      ],
+    },
+  ],
+  legal_links: [
+    { label: 'Política de Privacidade', route: '/politica-privacidade' },
+    { label: 'Termos de Uso', route: '/termos-de-uso' },
+  ],
+  copyright_text: 'Todos os direitos reservados.',
+  show_cnpj: true,
+};
+
+function parseFooter(raw: unknown): FooterConfig {
+  const obj = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    columns: Array.isArray(obj.columns) ? (obj.columns as FooterColumn[]) : DEFAULT_FOOTER.columns,
+    legal_links: Array.isArray(obj.legal_links) ? (obj.legal_links as FooterConfig['legal_links']) : DEFAULT_FOOTER.legal_links,
+    copyright_text: (obj.copyright_text as string) || DEFAULT_FOOTER.copyright_text,
+    show_cnpj: typeof obj.show_cnpj === 'boolean' ? obj.show_cnpj : DEFAULT_FOOTER.show_cnpj,
+  };
+}
+
+// ── Component ──
+
 export default function Footer() {
-  const { settings } = useSettings('general');
+  const { settings: generalSettings } = useSettings('general');
+  const { settings: navSettings } = useSettings('navigation');
+  const { identity } = useBranding();
 
-  const schoolName = (settings.school_name as string) || 'Colégio Batista em Caruaru';
-  const cnpj       = (settings.cnpj        as string) || '01.873.279/0002-61';
-  const phone      = (settings.phone       as string) || '(81) 3721-4787';
+  const footerConfig = parseFooter(navSettings.footer);
 
-  const { line1: addrLine1, line2: addrLine2 } = formatAddress(settings.address)
+  const schoolName = identity.school_name || (generalSettings.school_name as string) || 'Colégio Batista em Caruaru';
+  const cnpj       = identity.cnpj || (generalSettings.cnpj as string) || '01.873.279/0002-61';
+  const phone      = (generalSettings.phone as string) || '(81) 3721-4787';
+
+  const { line1: addrLine1, line2: addrLine2 } = formatAddress(generalSettings.address)
     || formatAddress('Rua Marcílio Dias, 99 - São Francisco, Caruaru/PE');
 
-  const socialNetworks = parseSocialNetworks(settings.social_networks);
-  const businessHoursLines = buildBusinessHoursLines(settings.business_hours);
+  const socialNetworks = parseSocialNetworks(generalSettings.social_networks);
+  const businessHoursLines = buildBusinessHoursLines(generalSettings.business_hours);
 
   return (
-    <footer className="bg-[#003876] text-white py-16">
+    <footer className="bg-brand-primary text-white py-16">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-12">
+          {/* Contact column — always first */}
           <div>
             <h3 className="text-xl font-semibold mb-4">Contato</h3>
             <ul className="space-y-2">
@@ -207,23 +257,24 @@ export default function Footer() {
               </div>
             )}
           </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-4">Links Rápidos</h3>
-            <ul className="space-y-2">
-              <li><Link to="/portal-aluno" className="hover:text-[#ffd700] transition-colors">Portal do Aluno</Link></li>
-              <li><Link to="/biblioteca-virtual" className="hover:text-[#ffd700] transition-colors">Biblioteca Virtual</Link></li>
-              <li><Link to="/area-professor" className="hover:text-[#ffd700] transition-colors">Área do Professor</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-4">Segmentos</h3>
-            <ul className="space-y-2">
-              <li><Link to="/educacao-infantil" className="hover:text-[#ffd700] transition-colors">Educação Infantil</Link></li>
-              <li><Link to="/ensino-fundamental-1" className="hover:text-[#ffd700] transition-colors">Ensino Fundamental I</Link></li>
-              <li><Link to="/ensino-fundamental-2" className="hover:text-[#ffd700] transition-colors">Ensino Fundamental II</Link></li>
-              <li><Link to="/ensino-medio" className="hover:text-[#ffd700] transition-colors">Ensino Médio</Link></li>
-            </ul>
-          </div>
+
+          {/* Dynamic columns from settings */}
+          {footerConfig.columns.map((col) => (
+            <div key={col.title}>
+              <h3 className="text-xl font-semibold mb-4">{col.title}</h3>
+              <ul className="space-y-2">
+                {col.links.map((link) => (
+                  <li key={link.route}>
+                    <Link to={link.route} className="hover:text-brand-secondary transition-colors">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+
+          {/* Social networks column */}
           {socialNetworks.length > 0 && (
             <div>
               <h3 className="text-xl font-semibold mb-4">Redes Sociais</h3>
@@ -235,7 +286,7 @@ export default function Footer() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={entry.network}
-                    className="hover:text-[#ffd700] transition-colors"
+                    className="hover:text-brand-secondary transition-colors"
                   >
                     <SocialIcon network={entry.network} size={24} />
                   </a>
@@ -244,14 +295,23 @@ export default function Footer() {
             </div>
           )}
         </div>
+
+        {/* Bottom bar */}
         <div className="border-t border-white/10 mt-12 pt-8 text-center text-sm opacity-80">
-          <p>&copy; {new Date().getFullYear()} {schoolName}. Todos os direitos reservados.</p>
-          <p className="mt-1">CNPJ: {cnpj}</p>
-          <div className="mt-3 flex items-center justify-center gap-4">
-            <Link to="/politica-privacidade" className="hover:text-[#ffd700] transition-colors">Política de Privacidade</Link>
-            <span className="text-white/30">|</span>
-            <Link to="/termos-de-uso" className="hover:text-[#ffd700] transition-colors">Termos de Uso</Link>
-          </div>
+          <p>&copy; {new Date().getFullYear()} {schoolName}. {footerConfig.copyright_text}</p>
+          {footerConfig.show_cnpj && <p className="mt-1">CNPJ: {cnpj}</p>}
+          {footerConfig.legal_links.length > 0 && (
+            <div className="mt-3 flex items-center justify-center gap-4">
+              {footerConfig.legal_links.map((link, idx) => (
+                <span key={link.route} className="contents">
+                  {idx > 0 && <span className="text-white/30">|</span>}
+                  <Link to={link.route} className="hover:text-brand-secondary transition-colors">
+                    {link.label}
+                  </Link>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </footer>

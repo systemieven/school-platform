@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import type { Profile, Role } from '../../types/admin.types';
 import { ROLE_LABELS, ROLES } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
@@ -20,7 +21,7 @@ const ROLE_COLORS: Record<string, string> = {
   user:        'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
 };
 
-const inputCls = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm transition-all';
+const inputCls = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm transition-all';
 const labelCls = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5';
 
 // ── Phone mask ────────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ function TempPasswordModal({ profile, tempPassword, waStatus, sendError, mode = 
       <div className="fixed inset-0 flex items-center justify-center z-[61] p-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#003876] to-[#002255] px-5 py-4 flex items-center justify-between">
+          <div className="bg-gradient-to-r from-brand-primary to-brand-primary-dark px-5 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2 text-white">
               <KeyRound className="w-4 h-4" />
               <span className="font-semibold text-sm">{mode === 'reset' ? 'Senha Redefinida' : 'Usuário Criado'}</span>
@@ -123,7 +124,7 @@ function TempPasswordModal({ profile, tempPassword, waStatus, sendError, mode = 
               </>
             )}
 
-            <button onClick={onClose} className="w-full py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors">
+            <button onClick={onClose} className="w-full py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors">
               Concluir
             </button>
           </div>
@@ -196,6 +197,8 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
 
     const profile = data.profile as Profile;
     const tempPassword = data.temp_password as string;
+
+    logAudit({ action: 'create', module: 'users', recordId: profile.id, description: `Usuário ${profile.full_name} criado com role ${form.role}`, newData: { full_name: profile.full_name, email: form.email, role: form.role } });
 
     // Save module permission overrides (appointments + attendance)
     const attEnabled = form.attendance_enabled;
@@ -294,7 +297,7 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
       <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40" onClick={onClose} />
       <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white flex-shrink-0">
           <div className="flex items-center gap-2">
               <UserPlus className="w-4 h-4" />
               <h2 className="font-semibold text-sm">Novo Usuário</h2>
@@ -391,8 +394,8 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
                       }
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                         active
-                          ? 'bg-[#003876] border-[#003876] text-white shadow-sm'
-                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 dark:hover:border-[#ffd700]/40'
+                          ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-brand-primary/40 dark:hover:border-brand-secondary/40'
                       }`}
                     >
                       {s.label}
@@ -409,7 +412,7 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
           <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             Cancelar
           </button>
-          <button type="submit" form="create-user-form" disabled={saving} className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+          <button type="submit" form="create-user-form" disabled={saving} className="flex-1 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Aguarde…</> : 'Criar Usuário'}
           </button>
         </div>
@@ -478,6 +481,13 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
       .eq('id', user.id);
     if (err) { setSaving(false); setError(err.message); return; }
 
+    const roleChanged = form.role !== user.role;
+    if (roleChanged) {
+      logAudit({ action: 'role_change', module: 'users', recordId: user.id, description: `Role do usuário ${user.full_name} alterado de ${user.role} para ${form.role}`, oldData: { role: user.role }, newData: { role: form.role } });
+    } else {
+      logAudit({ action: 'update', module: 'users', recordId: user.id, description: `Dados do usuário ${user.full_name} atualizados`, oldData: { full_name: user.full_name, role: user.role, is_active: user.is_active }, newData: { full_name: form.full_name, role: form.role, is_active: form.is_active } });
+    }
+
     // Update attendance/appointment permission overrides
     await supabase
       .from('user_permission_overrides')
@@ -518,6 +528,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
       setConfirmDelete(false);
       return;
     }
+    logAudit({ action: 'delete', module: 'users', recordId: user.id, description: `Usuário ${user.full_name} excluído`, oldData: { full_name: user.full_name, role: user.role, email: user.email } });
     onDeleted(user.id);
     onClose();
   }
@@ -630,8 +641,8 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center">
-              <Pencil className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+            <div className="w-9 h-9 bg-brand-primary/10 dark:bg-white/10 rounded-full flex items-center justify-center">
+              <Pencil className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
             </div>
             <div>
               <p className="font-semibold text-gray-900 dark:text-white text-sm">{user.full_name || '—'}</p>
@@ -722,8 +733,8 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
                       }
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                         active
-                          ? 'bg-[#003876] border-[#003876] text-white shadow-sm'
-                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 dark:hover:border-[#ffd700]/40'
+                          ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-brand-primary/40 dark:hover:border-brand-secondary/40'
                       }`}
                     >
                       {s.label}
@@ -811,7 +822,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
             <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               Cancelar
             </button>
-            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
               {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando…</> : 'Salvar'}
             </button>
           </div>
@@ -868,7 +879,7 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <Users className="w-8 h-8" />
             Usuários
           </h1>
@@ -876,7 +887,7 @@ export default function UsersPage() {
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 bg-[#003876] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#002855] transition-colors"
+          className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand-primary-dark transition-colors"
         >
           <Plus className="w-4 h-4" />
           Novo Usuário
@@ -891,14 +902,14 @@ export default function UsersPage() {
           placeholder="Buscar por nome..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all text-sm"
+          className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all text-sm"
         />
       </div>
 
       {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
@@ -927,8 +938,8 @@ export default function UsersPage() {
                   >
                     <td className="py-3 px-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-[#003876] dark:text-[#ffd700]">
+                        <div className="w-9 h-9 bg-brand-primary/10 dark:bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-brand-primary dark:text-brand-secondary">
                             {p.full_name?.charAt(0)?.toUpperCase() || 'U'}
                           </span>
                         </div>
@@ -936,7 +947,7 @@ export default function UsersPage() {
                           <p className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
                             {p.full_name || '—'}
                             {p.id === currentUser?.id && (
-                              <span className="text-[9px] font-semibold uppercase tracking-wide bg-[#003876]/10 dark:bg-white/10 text-[#003876] dark:text-[#ffd700] px-1.5 py-0.5 rounded-full">Você</span>
+                              <span className="text-[9px] font-semibold uppercase tracking-wide bg-brand-primary/10 dark:bg-white/10 text-brand-primary dark:text-brand-secondary px-1.5 py-0.5 rounded-full">Você</span>
                             )}
                           </p>
                           <p className="text-xs text-gray-400">{p.id.slice(0, 8)}…</p>

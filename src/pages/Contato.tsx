@@ -143,7 +143,7 @@ function inputCls(error?: string) {
     'focus:outline-none focus:ring-2 focus:border-transparent',
     error
       ? 'border-red-400 bg-red-50 focus:ring-red-300'
-      : 'border-gray-200 bg-white focus:ring-[#003876]',
+      : 'border-gray-200 bg-white focus:ring-brand-primary',
   ].join(' ');
 }
 
@@ -194,8 +194,8 @@ function ToggleGroup<T extends string>({
             className={[
               'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all duration-200',
               value === opt.value
-                ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876]/40 hover:text-[#003876]',
+                ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-brand-primary/40 hover:text-brand-primary',
             ].join(' ')}
           >
             {opt.icon}
@@ -360,7 +360,7 @@ export default function Contato() {
             alt="Colégio Batista"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/95 via-[#003876]/80 to-[#002855]/70" />
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
@@ -368,17 +368,17 @@ export default function Contato() {
         <div className="relative z-[5] container mx-auto px-4 h-full flex items-center">
           <div className="max-w-3xl">
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
-              <span className="w-2 h-2 bg-[#ffd700] rounded-full animate-pulse" />
+              <span className="w-2 h-2 bg-brand-secondary rounded-full animate-pulse" />
               <span className="text-white/90 text-sm font-medium tracking-wide">{heroBadge}</span>
             </div>
             <h1 className="hero-text-1 font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
               {(() => {
                 if (!heroHL || !heroTitle.includes(heroHL)) return heroTitle;
                 const parts = heroTitle.split(heroHL);
-                return <>{parts[0]}<span className="italic text-[#ffd700]">{heroHL}</span>{parts[1]}</>;
+                return <>{parts[0]}<span className="italic text-brand-secondary">{heroHL}</span>{parts[1]}</>;
               })()}
             </h1>
-            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
+            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-brand-secondary to-brand-secondary-light rounded-full mb-8" />
             <p className="hero-text-2 text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
               {heroSubtitle}
             </p>
@@ -394,8 +394,8 @@ export default function Contato() {
             {/* ── Info sidebar ── */}
             <aside className="lg:col-span-2 space-y-6" ref={infoRef}>
               <div data-reveal="up">
-                <p className="text-xs font-bold tracking-[0.2em] uppercase text-[#ffd700] mb-2">Informações</p>
-                <h2 className="font-display text-3xl font-bold text-[#003876] mb-1">Estamos aqui</h2>
+                <p className="text-xs font-bold tracking-[0.2em] uppercase text-brand-secondary mb-2">Informações</p>
+                <h2 className="font-display text-3xl font-bold text-brand-primary mb-1">Estamos aqui</h2>
                 <div className="section-divider mt-3 mb-6" />
               </div>
 
@@ -424,11 +424,11 @@ export default function Contato() {
                   data-reveal="up"
                   style={{ '--delay': `${0.1 + i * 0.1}s` } as React.CSSProperties}
                 >
-                  <div className="w-11 h-11 bg-[#003876] rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-[#003876]/20">
+                  <div className="w-11 h-11 bg-brand-primary rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-brand-primary/20">
                     <Icon className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="font-semibold text-[#003876] text-sm mb-0.5">{title}</p>
+                    <p className="font-semibold text-brand-primary text-sm mb-0.5">{title}</p>
                     {lines.map((l) => <p key={l} className="text-gray-600 text-sm">{l}</p>)}
                   </div>
                 </div>
@@ -436,7 +436,7 @@ export default function Contato() {
 
               {/* WhatsApp CTA */}
               <div
-                className="mt-2 p-5 bg-[#003876] rounded-2xl text-white"
+                className="mt-2 p-5 bg-brand-primary rounded-2xl text-white"
                 data-reveal="up"
                 style={{ '--delay': '0.4s' } as React.CSSProperties}
               >
@@ -446,7 +446,7 @@ export default function Contato() {
                   href="https://wa.me/5581991398203?text=Olá, vim do site e queria mais informações"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group inline-flex items-center gap-2 bg-[#ffd700] text-[#003876] px-5 py-2.5 rounded-full font-semibold text-sm hover:bg-[#ffe44d] transition-all duration-300"
+                  className="group inline-flex items-center gap-2 bg-brand-secondary text-brand-primary px-5 py-2.5 rounded-full font-semibold text-sm hover:bg-brand-secondary-light transition-all duration-300"
                 >
                   Chamar no WhatsApp
                   <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
@@ -457,7 +457,7 @@ export default function Contato() {
             {/* ── Form ── */}
             <div className="lg:col-span-3" ref={formRef}>
               <div
-                className="bg-white rounded-2xl shadow-xl shadow-[#003876]/5 p-8 border border-gray-100"
+                className="bg-white rounded-2xl shadow-xl shadow-brand-primary/5 p-8 border border-gray-100"
                 data-reveal="up"
               >
                 {submitResult === 'success' ? (
@@ -467,7 +467,7 @@ export default function Contato() {
                         <CheckCircle2 className="w-10 h-10 text-green-500" />
                       </div>
                     </div>
-                    <h3 className="font-display text-2xl font-bold text-[#003876] mb-3">Mensagem enviada!</h3>
+                    <h3 className="font-display text-2xl font-bold text-brand-primary mb-3">Mensagem enviada!</h3>
                     <p className="text-gray-500 max-w-sm mx-auto">
                       Recebemos seu contato e retornaremos em breve no horário indicado.
                     </p>
@@ -477,7 +477,7 @@ export default function Contato() {
 
                     {/* Dados pessoais */}
                     <div>
-                      <h3 className="font-display text-lg font-bold text-[#003876] mb-4 pb-2 border-b border-gray-100">
+                      <h3 className="font-display text-lg font-bold text-brand-primary mb-4 pb-2 border-b border-gray-100">
                         Dados pessoais
                       </h3>
                       <div className="space-y-4">
@@ -558,12 +558,12 @@ export default function Contato() {
                                 className={[
                                   'flex items-center gap-2.5 px-4 py-3 rounded-xl border text-left text-sm transition-all duration-200',
                                   form.contactReason === value
-                                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                                    : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876]/40 hover:text-[#003876]',
+                                    ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-brand-primary/40 hover:text-brand-primary',
                                 ].join(' ')}
                               >
                                 <Icon className={`w-4 h-4 shrink-0 ${
-                                  form.contactReason === value ? 'text-[#ffd700]' : 'text-gray-400'
+                                  form.contactReason === value ? 'text-brand-secondary' : 'text-gray-400'
                                 }`} />
                                 {label}
                               </button>
@@ -576,7 +576,7 @@ export default function Contato() {
                     {/* Qualificação — só exibe se motivo é matrícula ou conhecer estrutura */}
                     {(form.contactReason === 'matricula' || form.contactReason === 'conhecer_estrutura') && (
                     <div>
-                      <h3 className="font-display text-lg font-bold text-[#003876] mb-4 pb-2 border-b border-gray-100">
+                      <h3 className="font-display text-lg font-bold text-brand-primary mb-4 pb-2 border-b border-gray-100">
                         Sobre sua família
                       </h3>
                       <div className="space-y-5">
@@ -595,8 +595,8 @@ export default function Contato() {
                                 className={[
                                   'flex flex-col items-start px-4 py-3 rounded-xl border text-left transition-all duration-200',
                                   form.segmentInterest === seg.value
-                                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                                    : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876]/40 hover:text-[#003876]',
+                                    ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-brand-primary/40 hover:text-brand-primary',
                                 ].join(' ')}
                               >
                                 <span className="font-semibold text-sm">{seg.label}</span>
@@ -645,7 +645,7 @@ export default function Contato() {
                             onClick={() => set('wantsVisit', !form.wantsVisit)}
                             className={[
                               'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
-                              form.wantsVisit ? 'bg-[#003876]' : 'bg-gray-200',
+                              form.wantsVisit ? 'bg-brand-primary' : 'bg-gray-200',
                             ].join(' ')}
                             role="switch"
                             aria-checked={form.wantsVisit}
@@ -685,7 +685,7 @@ export default function Contato() {
                             'w-full pl-10 pr-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none transition-colors',
                             errors.message
                               ? 'border-red-400 bg-red-50 focus:ring-red-300'
-                              : 'border-gray-200 bg-white focus:ring-[#003876]',
+                              : 'border-gray-200 bg-white focus:ring-brand-primary',
                           ].join(' ')}
                           value={form.message}
                           onChange={(e) => set('message', e.target.value)}
@@ -717,7 +717,7 @@ export default function Contato() {
                       <button
                         type="submit"
                         disabled={submitting || !legalConsent}
-                        className="inline-flex items-center gap-2 bg-[#ffd700] text-[#003876] px-8 py-4 rounded-xl font-bold text-sm transition-all duration-300 hover:bg-white hover:shadow-lg hover:shadow-[#ffd700]/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#ffd700] disabled:hover:shadow-none"
+                        className="inline-flex items-center gap-2 bg-brand-secondary text-brand-primary px-8 py-4 rounded-xl font-bold text-sm transition-all duration-300 hover:bg-white hover:shadow-lg hover:shadow-brand-secondary/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-secondary disabled:hover:shadow-none"
                       >
                         {submitting
                           ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>

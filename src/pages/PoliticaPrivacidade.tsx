@@ -114,12 +114,12 @@ function renderMarkdown(text: string) {
   return text.split('\n').map((line, i) => {
     const formatted = line
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#003876] underline hover:text-[#ffd700]">$1</a>');
+      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-brand-primary underline hover:text-brand-secondary">$1</a>');
     if (line.startsWith('•')) {
       return (
         <li
           key={i}
-          className="ml-4 pl-2 relative before:content-[''] before:absolute before:left-[-12px] before:top-[10px] before:w-1.5 before:h-1.5 before:rounded-full before:bg-[#ffd700]"
+          className="ml-4 pl-2 relative before:content-[''] before:absolute before:left-[-12px] before:top-[10px] before:w-1.5 before:h-1.5 before:rounded-full before:bg-brand-secondary"
           dangerouslySetInnerHTML={{ __html: formatted.replace('• ', '') }}
         />
       );
@@ -137,20 +137,20 @@ export default function PoliticaPrivacidade() {
 
       {/* ── Hero ── */}
       <section className="relative h-[40vh] min-h-[300px] overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#003876] via-[#003876] to-[#002855]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-primary via-brand-primary to-brand-primary-dark" />
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
 
         <div className="relative z-[5] container mx-auto px-4 h-full flex items-center">
           <div className="max-w-3xl">
             <div className="hero-badge inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
-              <Shield className="w-3.5 h-3.5 text-[#ffd700]" />
+              <Shield className="w-3.5 h-3.5 text-brand-secondary" />
               <span className="text-white/90 text-sm font-medium tracking-wide">LGPD</span>
             </div>
             <h1 className="hero-text-1 font-display text-4xl md:text-6xl lg:text-7xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
               Política de{' '}
-              <span className="italic text-[#ffd700]">Privacidade</span>
+              <span className="italic text-brand-secondary">Privacidade</span>
             </h1>
-            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-[#ffd700] to-[#ffe44d] rounded-full mb-8" />
+            <div className="hero-accent-line h-[3px] bg-gradient-to-r from-brand-secondary to-brand-secondary-light rounded-full mb-8" />
             <p className="hero-text-2 text-base md:text-lg text-white/70">
               Última atualização: {LAST_UPDATE}
             </p>
@@ -164,7 +164,7 @@ export default function PoliticaPrivacidade() {
           <div className="max-w-3xl mx-auto">
 
             <div
-              className="bg-white rounded-2xl shadow-lg shadow-[#003876]/5 border border-gray-100 p-8 md:p-12"
+              className="bg-white rounded-2xl shadow-lg shadow-brand-primary/5 border border-gray-100 p-8 md:p-12"
               data-reveal="up"
             >
               <p className="text-gray-600 text-sm leading-relaxed mb-10 pb-8 border-b border-gray-100">
@@ -177,7 +177,7 @@ export default function PoliticaPrivacidade() {
               <div className="space-y-10">
                 {SECTIONS.map(({ title, content }) => (
                   <div key={title}>
-                    <h2 className="font-display text-xl font-bold text-[#003876] mb-4">
+                    <h2 className="font-display text-xl font-bold text-brand-primary mb-4">
                       {title}
                     </h2>
                     <div className="text-gray-600 text-sm leading-relaxed space-y-1">
@@ -195,7 +195,7 @@ export default function PoliticaPrivacidade() {
               </p>
               <Link
                 to="/contato"
-                className="inline-flex items-center gap-2 bg-[#003876] text-white px-8 py-4 rounded-full font-bold text-sm hover:bg-[#002855] transition-all duration-300 hover:shadow-lg hover:shadow-[#003876]/25"
+                className="inline-flex items-center gap-2 bg-brand-primary text-white px-8 py-4 rounded-full font-bold text-sm hover:bg-brand-primary-dark transition-all duration-300 hover:shadow-lg hover:shadow-brand-primary/25"
               >
                 Fale conosco
                 <ArrowRight className="w-4 h-4" />

@@ -85,7 +85,7 @@ const BibliotecaVirtual = () => {
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-[#003876] mb-4">Biblioteca Virtual</h1>
+          <h1 className="text-4xl font-bold text-brand-primary mb-4">Biblioteca Virtual</h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
             Explore nossa vasta coleção de livros digitais. Conhecimento ao seu alcance, 
             a qualquer hora e em qualquer lugar.
@@ -99,7 +99,7 @@ const BibliotecaVirtual = () => {
               <input
                 type="text"
                 placeholder="Buscar por título ou autor..."
-                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#003876] focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -116,8 +116,8 @@ const BibliotecaVirtual = () => {
               onClick={() => setSelectedCategory(category.id === selectedCategory ? "" : category.id)}
               className={`p-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 ${
                 category.id === selectedCategory
-                  ? "bg-[#003876] text-white shadow-lg transform scale-105"
-                  : "bg-white text-[#003876] hover:bg-[#003876] hover:text-white shadow hover:shadow-lg"
+                  ? "bg-brand-primary text-white shadow-lg transform scale-105"
+                  : "bg-white text-brand-primary hover:bg-brand-primary hover:text-white shadow hover:shadow-lg"
               }`}
             >
               {category.icon}
@@ -128,7 +128,7 @@ const BibliotecaVirtual = () => {
 
         {/* Top Rated Books */}
         <div className="mb-16">
-          <h2 className="text-2xl font-bold text-[#003876] mb-8">Livros Mais Populares</h2>
+          <h2 className="text-2xl font-bold text-brand-primary mb-8">Livros Mais Populares</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredBooks
               .sort((a, b) => b.downloads - a.downloads)
@@ -148,14 +148,14 @@ const BibliotecaVirtual = () => {
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                      <button className="w-full bg-[#ffd700] text-[#003876] py-2 rounded-lg font-semibold flex items-center justify-center gap-2">
+                      <button className="w-full bg-brand-secondary text-brand-primary py-2 rounded-lg font-semibold flex items-center justify-center gap-2">
                         <Download className="w-5 h-5" />
                         Download
                       </button>
                     </div>
                   </div>
                   <div className="p-4">
-                    <h3 className="font-semibold text-lg mb-2 group-hover:text-[#003876] transition-colors">
+                    <h3 className="font-semibold text-lg mb-2 group-hover:text-brand-primary transition-colors">
                       {book.title}
                     </h3>
                     <p className="text-gray-600 text-sm mb-2">{book.author}</p>
@@ -175,7 +175,7 @@ const BibliotecaVirtual = () => {
 
         {/* All Books */}
         <div>
-          <h2 className="text-2xl font-bold text-[#003876] mb-8">Todos os Livros</h2>
+          <h2 className="text-2xl font-bold text-brand-primary mb-8">Todos os Livros</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredBooks.map(book => (
               <a
@@ -192,14 +192,14 @@ const BibliotecaVirtual = () => {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                    <button className="w-full bg-[#ffd700] text-[#003876] py-2 rounded-lg font-semibold flex items-center justify-center gap-2">
+                    <button className="w-full bg-brand-secondary text-brand-primary py-2 rounded-lg font-semibold flex items-center justify-center gap-2">
                       <Download className="w-5 h-5" />
                       Download
                     </button>
                   </div>
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold text-lg mb-2 group-hover:text-[#003876] transition-colors">
+                  <h3 className="font-semibold text-lg mb-2 group-hover:text-brand-primary transition-colors">
                     {book.title}
                   </h3>
                   <p className="text-gray-600 text-sm mb-2">{book.author}</p>

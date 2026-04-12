@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../../lib/supabase';
+import { logAudit } from '../../../../lib/audit';
 import type { Activity, ActivityType, ActivityStatus, SchoolClass } from '../../../types/admin.types';
 import { ACTIVITY_TYPE_LABELS, ACTIVITY_STATUS_LABELS } from '../../../types/admin.types';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
@@ -47,10 +48,11 @@ function ActivityDrawer({
       ? await supabase.from('activities').update(payload).eq('id', activity.id).select('*').single()
       : await supabase.from('activities').insert(payload).select('*').single();
     if (err) { setError(err.message); setSaving(false); return; }
+    logAudit({ action: activity ? 'update' : 'create', module: 'teacher-area', recordId: (data as Activity).id, description: `Atividade "${form.title}" ${activity ? 'atualizada' : 'criada'}`, newData: payload });
     onSaved(data as Activity);
   }
 
-  const cls = `w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none`;
+  const cls = `w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none`;
 
   return (
     <div className="fixed inset-0 bg-black/40 z-40 flex justify-end" onClick={onClose}>
@@ -97,12 +99,12 @@ function ActivityDrawer({
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Descrição</label>
             <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none resize-none" />
+              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none resize-none" />
           </div>
         </div>
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700">
           <button onClick={save} disabled={saving}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
@@ -129,6 +131,7 @@ export default function ActivitiesTab({ cls }: { cls: SchoolClass }) {
 
   async function remove(id: string) {
     await supabase.from('activities').delete().eq('id', id);
+    logAudit({ action: 'delete', module: 'teacher-area', recordId: id, description: 'Atividade excluída' });
     setItems((p) => p.filter((a) => a.id !== id));
   }
 
@@ -136,13 +139,13 @@ export default function ActivitiesTab({ cls }: { cls: SchoolClass }) {
 
   const fmtDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-brand-primary dark:text-brand-secondary" /></div>;
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
         <button onClick={() => { setEditing(null); setShowDrawer(true); }}
-          className="flex items-center gap-2 px-4 py-2 bg-[#003876] hover:bg-[#002855] text-white text-sm font-medium rounded-xl transition-colors">
+          className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl transition-colors">
           <Plus className="w-4 h-4" /> Nova Atividade
         </button>
       </div>
@@ -163,7 +166,7 @@ export default function ActivitiesTab({ cls }: { cls: SchoolClass }) {
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[a.status]}`}>
                       {ACTIVITY_STATUS_LABELS[a.status]}
                     </span>
-                    <span className="px-2 py-0.5 bg-[#003876]/10 dark:bg-[#ffd700]/10 text-[#003876] dark:text-[#ffd700] rounded-full text-xs">
+                    <span className="px-2 py-0.5 bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary rounded-full text-xs">
                       {ACTIVITY_TYPE_LABELS[a.type]}
                     </span>
                   </div>
@@ -181,7 +184,7 @@ export default function ActivitiesTab({ cls }: { cls: SchoolClass }) {
                 {canEdit(a) && (
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button onClick={() => { setEditing(a); setShowDrawer(true); }}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={() => remove(a.id)}

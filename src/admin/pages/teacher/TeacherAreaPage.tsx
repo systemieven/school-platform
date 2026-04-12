@@ -69,7 +69,7 @@ export default function TeacherAreaPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[300px]">
-      <div className="w-6 h-6 border-2 border-[#003876] dark:border-[#ffd700] border-t-transparent rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-brand-primary dark:border-brand-secondary border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
@@ -79,7 +79,7 @@ export default function TeacherAreaPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-3">
-            <BookOpen className="w-7 h-7 text-[#003876] dark:text-[#ffd700]" />
+            <BookOpen className="w-7 h-7 text-brand-primary dark:text-brand-secondary" />
             Área do Professor
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -95,7 +95,7 @@ export default function TeacherAreaPage() {
             <select
               value={selectedId}
               onChange={(e) => { setSelectedId(e.target.value); setTab('overview'); }}
-              className="appearance-none pl-4 pr-10 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm outline-none focus:border-[#003876] dark:focus:border-[#ffd700] min-w-[220px]"
+              className="appearance-none pl-4 pr-10 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm outline-none focus:border-brand-primary dark:focus:border-brand-secondary min-w-[220px]"
             >
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -126,9 +126,9 @@ export default function TeacherAreaPage() {
         <div className="space-y-5">
           {/* Class info badge */}
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 bg-[#003876]/5 dark:bg-[#ffd700]/5 border border-[#003876]/10 dark:border-[#ffd700]/10 rounded-xl px-4 py-2">
-              <BookOpen className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
-              <span className="text-sm font-semibold text-[#003876] dark:text-[#ffd700]">{selectedClass.name}</span>
+            <div className="flex items-center gap-2 bg-brand-primary/5 dark:bg-brand-secondary/5 border border-brand-primary/10 dark:border-brand-secondary/10 rounded-xl px-4 py-2">
+              <BookOpen className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
+              <span className="text-sm font-semibold text-brand-primary dark:text-brand-secondary">{selectedClass.name}</span>
               {selectedClass.shift && (
                 <span className="text-xs text-gray-500 dark:text-gray-400">· {SHIFT_LABELS[selectedClass.shift]}</span>
               )}
@@ -147,7 +147,7 @@ export default function TeacherAreaPage() {
                   onClick={() => setTab(key)}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     tab === key
-                      ? 'border-[#003876] dark:border-[#ffd700] text-[#003876] dark:text-[#ffd700]'
+                      ? 'border-brand-primary dark:border-brand-secondary text-brand-primary dark:text-brand-secondary'
                       : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                   }`}
                 >

@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AdminAuthProvider } from './contexts/AdminAuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ModuleGuard from './components/ModuleGuard';
 import AdminLayout from './AdminLayout';
 import LoginPage from './pages/login/LoginPage';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange';
@@ -37,7 +38,7 @@ export default function AdminRoutes() {
           }
         />
 
-        {/* All protected admin routes share the AdminLayout */}
+        {/* All protected admin routes share the AdminLayout (which provides PermissionsProvider) */}
         <Route
           element={
             <ProtectedRoute>
@@ -45,87 +46,30 @@ export default function AdminRoutes() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<DashboardPage />} />
+          <Route index element={<ModuleGuard moduleKey="dashboard"><DashboardPage /></ModuleGuard>} />
 
-          <Route path="agendamentos" element={<AppointmentsPage />} />
-          <Route path="matriculas"   element={<EnrollmentsPage />} />
-          <Route path="contatos"     element={<ContactsPage />} />
-          <Route path="atendimentos" element={<AttendancePage />} />
-          <Route path="historico-atendimentos" element={<AttendanceHistoryPage />} />
+          <Route path="agendamentos" element={<ModuleGuard moduleKey="appointments"><AppointmentsPage /></ModuleGuard>} />
+          <Route path="matriculas"   element={<ModuleGuard moduleKey="enrollments"><EnrollmentsPage /></ModuleGuard>} />
+          <Route path="contatos"     element={<ModuleGuard moduleKey="contacts"><ContactsPage /></ModuleGuard>} />
+          <Route path="atendimentos" element={<ModuleGuard moduleKey="attendance"><AttendancePage /></ModuleGuard>} />
+          <Route path="historico-atendimentos" element={<ModuleGuard moduleKey="attendance"><AttendanceHistoryPage /></ModuleGuard>} />
 
-          {/* Leads */}
-          <Route path="leads/kanban" element={<KanbanPage />} />
-
-          <Route path="relatorios" element={<ReportsPage />} />
+          <Route path="leads/kanban" element={<ModuleGuard moduleKey="kanban"><KanbanPage /></ModuleGuard>} />
+          <Route path="relatorios"   element={<ModuleGuard moduleKey="reports"><ReportsPage /></ModuleGuard>} />
 
           {/* School */}
-          <Route path="segmentos" element={<SegmentsPage />} />
-          <Route path="alunos"    element={<StudentsPage />} />
-          <Route
-            path="area-professor"
-            element={
-              <ProtectedRoute roles={['super_admin', 'admin', 'coordinator', 'teacher']}>
-                <TeacherAreaPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="biblioteca"
-            element={
-              <ProtectedRoute roles={['super_admin', 'admin', 'coordinator', 'teacher']}>
-                <LibraryPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="comunicados"
-            element={
-              <ProtectedRoute roles={['super_admin', 'admin', 'coordinator', 'teacher']}>
-                <AnnouncementsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="eventos"
-            element={
-              <ProtectedRoute roles={['super_admin', 'admin', 'coordinator', 'teacher']}>
-                <EventsPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="segmentos"      element={<ModuleGuard moduleKey="segments"><SegmentsPage /></ModuleGuard>} />
+          <Route path="alunos"         element={<ModuleGuard moduleKey="students"><StudentsPage /></ModuleGuard>} />
+          <Route path="area-professor" element={<ModuleGuard moduleKey="teacher-area"><TeacherAreaPage /></ModuleGuard>} />
+          <Route path="biblioteca"     element={<ModuleGuard moduleKey="library"><LibraryPage /></ModuleGuard>} />
+          <Route path="comunicados"    element={<ModuleGuard moduleKey="announcements"><AnnouncementsPage /></ModuleGuard>} />
+          <Route path="eventos"        element={<ModuleGuard moduleKey="events"><EventsPage /></ModuleGuard>} />
 
-          <Route
-            path="auditoria"
-            element={
-              <ProtectedRoute roles={['super_admin', 'admin']}>
-                <AuditLogsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="permissoes"
-            element={
-              <ProtectedRoute roles={['super_admin', 'admin']}>
-                <PermissionsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="usuarios"
-            element={
-              <ProtectedRoute roles={['super_admin', 'admin']}>
-                <UsersPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="configuracoes"
-            element={
-              <ProtectedRoute roles={['super_admin', 'admin']}>
-                <SettingsPage />
-              </ProtectedRoute>
-            }
-          />
+          {/* System */}
+          <Route path="auditoria"      element={<ModuleGuard moduleKey="audit"><AuditLogsPage /></ModuleGuard>} />
+          <Route path="permissoes"     element={<ModuleGuard moduleKey="permissions"><PermissionsPage /></ModuleGuard>} />
+          <Route path="usuarios"       element={<ModuleGuard moduleKey="users"><UsersPage /></ModuleGuard>} />
+          <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><SettingsPage /></ModuleGuard>} />
         </Route>
       </Routes>
     </AdminAuthProvider>

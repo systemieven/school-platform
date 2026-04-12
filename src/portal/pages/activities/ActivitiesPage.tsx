@@ -39,21 +39,21 @@ export default function ActivitiesPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-[#003876] dark:text-[#ffd700]" /> Atividades
+          <ClipboardList className="w-5 h-5 text-brand-primary dark:text-brand-secondary" /> Atividades
         </h1>
       </div>
 
       <div className="flex gap-2">
         {(['pending', 'all', 'past'] as const).map((f) => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === f ? 'bg-[#003876] text-white dark:bg-[#ffd700] dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === f ? 'bg-brand-primary text-white dark:bg-brand-secondary dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
             {f === 'pending' ? 'Pendentes' : f === 'all' ? 'Todas' : 'Passadas'}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-[#003876] dark:text-[#ffd700]" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-brand-primary dark:text-brand-secondary" /></div>
       ) : !filtered.length ? (
         <div className="text-center py-12 text-gray-400">
           <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -69,7 +69,7 @@ export default function ActivitiesPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{a.title}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <span className="px-2 py-0.5 bg-[#003876]/10 dark:bg-[#ffd700]/10 text-[#003876] dark:text-[#ffd700] rounded-full text-xs">
+                      <span className="px-2 py-0.5 bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary rounded-full text-xs">
                         {TYPE_LABELS[a.type] ?? a.type}
                       </span>
                       {a.subject && <span className="text-xs text-gray-500 dark:text-gray-400">{a.subject}</span>}

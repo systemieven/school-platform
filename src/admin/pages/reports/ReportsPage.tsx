@@ -318,7 +318,7 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <BarChart2 className="w-8 h-8" />
             Relatórios
           </h1>
@@ -332,9 +332,9 @@ export default function ReportsPage() {
           <button
             key={p.key}
             onClick={() => applyPreset(p)}
-            className="text-left bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 hover:border-[#003876]/30 dark:hover:border-[#ffd700]/30 hover:shadow-md transition-all group"
+            className="text-left bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 hover:border-brand-primary/30 dark:hover:border-brand-secondary/30 hover:shadow-md transition-all group"
           >
-            <p className="text-sm font-bold text-[#003876] dark:text-[#ffd700] group-hover:underline">{p.label}</p>
+            <p className="text-sm font-bold text-brand-primary dark:text-brand-secondary group-hover:underline">{p.label}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{p.description}</p>
           </button>
         ))}
@@ -348,7 +348,7 @@ export default function ReportsPage() {
             onClick={() => switchModule(key)}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
               module === key
-                ? 'bg-[#003876] text-white shadow-sm'
+                ? 'bg-brand-primary text-white shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
@@ -372,7 +372,7 @@ export default function ReportsPage() {
                   onClick={() => setFilters((f) => ({ ...f, date: o.key }))}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     filters.date === o.key
-                      ? 'bg-white dark:bg-gray-600 text-[#003876] dark:text-white shadow-sm'
+                      ? 'bg-white dark:bg-gray-600 text-brand-primary dark:text-white shadow-sm'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
                   }`}
                 >
@@ -460,13 +460,13 @@ export default function ReportsPage() {
               <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-20 p-3 min-w-[180px]">
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Colunas visíveis</p>
                 {cols.map((col, i) => (
-                  <label key={col.key} className="flex items-center gap-2 py-1 cursor-pointer hover:text-[#003876] dark:hover:text-[#ffd700]">
+                  <label key={col.key} className="flex items-center gap-2 py-1 cursor-pointer hover:text-brand-primary dark:hover:text-brand-secondary">
                     <button
                       onClick={() => setCols((prev) => prev.map((c, j) => j === i ? { ...c, visible: !c.visible } : c))}
                       className="flex-shrink-0"
                     >
                       {col.visible
-                        ? <CheckSquare className="w-3.5 h-3.5 text-[#003876] dark:text-[#ffd700]" />
+                        ? <CheckSquare className="w-3.5 h-3.5 text-brand-primary dark:text-brand-secondary" />
                         : <Square className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />}
                     </button>
                     <span className="text-xs text-gray-700 dark:text-gray-300">{col.label}</span>
@@ -509,7 +509,7 @@ export default function ReportsPage() {
           {loading ? 'Carregando…' : `${visibleRows.length} registro${visibleRows.length !== 1 ? 's' : ''}`}
         </p>
         {filters.search && (
-          <p className="text-xs text-[#003876] dark:text-[#ffd700]">
+          <p className="text-xs text-brand-primary dark:text-brand-secondary">
             Filtrado por "{filters.search}"
           </p>
         )}
@@ -519,7 +519,7 @@ export default function ReportsPage() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+            <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
           </div>
         ) : visibleRows.length === 0 ? (
           <div className="text-center py-16">
@@ -535,7 +535,7 @@ export default function ReportsPage() {
                     <th
                       key={col.key}
                       className={`text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap ${
-                        col.sortable ? 'cursor-pointer hover:text-[#003876] dark:hover:text-[#ffd700] select-none' : ''
+                        col.sortable ? 'cursor-pointer hover:text-brand-primary dark:hover:text-brand-secondary select-none' : ''
                       }`}
                       onClick={() => col.sortable && toggleSort(col.key)}
                     >

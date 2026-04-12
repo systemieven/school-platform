@@ -115,7 +115,7 @@ function TicketCard({ ticket, now, onRecall, onStart, onFinish, onAbandon, onTra
       <div className="flex items-start justify-between px-4 pt-4">
         <div>
           <p className="text-[10px] font-semibold tracking-[0.12em] uppercase text-gray-400">Senha</p>
-          <p className="font-display text-3xl font-bold text-[#003876] dark:text-white leading-none mt-1">
+          <p className="font-display text-3xl font-bold text-brand-primary dark:text-white leading-none mt-1">
             {ticket.ticket_number}
           </p>
         </div>
@@ -163,7 +163,7 @@ function TicketCard({ ticket, now, onRecall, onStart, onFinish, onAbandon, onTra
           )
         )}
         {timerLabel && (
-          <p className="text-[11px] font-medium text-[#003876] dark:text-blue-300 flex items-center gap-1.5 pt-1">
+          <p className="text-[11px] font-medium text-brand-primary dark:text-blue-300 flex items-center gap-1.5 pt-1">
             <Hourglass className="w-3 h-3 flex-shrink-0" />
             {timerLabel}
           </p>
@@ -206,7 +206,7 @@ function TicketCard({ ticket, now, onRecall, onStart, onFinish, onAbandon, onTra
               disabled={busy}
               onClick={(e) => { e.stopPropagation(); onRecall?.(ticket); }}
               title="Chamar novamente"
-              className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-[#003876] hover:border-[#003876]/40 disabled:opacity-50 transition-colors"
+              className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-brand-primary hover:border-brand-primary/40 disabled:opacity-50 transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
@@ -323,7 +323,7 @@ function TransferDrawer({ ticket, sectors, quickReasons, onConfirm, onClose, bus
             type="button"
             disabled={!canConfirm || busy}
             onClick={() => onConfirm(sectorKey, selectedLabel, reason.trim())}
-            className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002255] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
             Confirmar Transferência
@@ -337,7 +337,7 @@ function TransferDrawer({ ticket, sectors, quickReasons, onConfirm, onClose, bus
           <DrawerCard title="Senha" icon={Ticket}>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="font-display text-2xl font-bold text-[#003876] dark:text-white">{ticket.ticket_number}</span>
+                <span className="font-display text-2xl font-bold text-brand-primary dark:text-white">{ticket.ticket_number}</span>
               </div>
               <p className="text-sm text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
@@ -360,7 +360,7 @@ function TransferDrawer({ ticket, sectors, quickReasons, onConfirm, onClose, bus
               <select
                 value={sectorKey}
                 onChange={(e) => setSectorKey(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] appearance-none pr-9"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-brand-primary appearance-none pr-9"
               >
                 <option value="">Selecione o setor...</option>
                 {available.map((s) => (
@@ -382,7 +382,7 @@ function TransferDrawer({ ticket, sectors, quickReasons, onConfirm, onClose, bus
                       key={idx}
                       type="button"
                       onClick={() => setReason((prev) => prev ? `${prev}. ${qr}` : qr)}
-                      className="px-2.5 py-1.5 text-[11px] rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#003876]/40 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      className="px-2.5 py-1.5 text-[11px] rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-brand-primary/40 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
                       {qr}
                     </button>
@@ -396,7 +396,7 @@ function TransferDrawer({ ticket, sectors, quickReasons, onConfirm, onClose, bus
                 onChange={(e) => setReason(e.target.value)}
                 rows={4}
                 placeholder="Descreva o motivo da transferência..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-[#003876] resize-none"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-brand-primary resize-none"
               />
             </div>
           </DrawerCard>
@@ -689,7 +689,7 @@ export default function AttendancePage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <Ticket className="w-8 h-8" />
             Atendimentos
           </h1>
@@ -721,7 +721,7 @@ export default function AttendancePage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800/40 px-4 py-3">
           <p className="text-[10px] font-semibold tracking-[0.12em] uppercase text-gray-400">Ativas</p>
-          <p className="font-display text-2xl font-bold text-[#003876] dark:text-white mt-1">{counts.active}</p>
+          <p className="font-display text-2xl font-bold text-brand-primary dark:text-white mt-1">{counts.active}</p>
         </div>
         <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800/40 px-4 py-3">
           <p className="text-[10px] font-semibold tracking-[0.12em] uppercase text-gray-400">Aguardando</p>
@@ -746,14 +746,14 @@ export default function AttendancePage() {
             placeholder="Buscar por senha, nome ou telefone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#003876]/30"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
           />
         </div>
         {sectors.length > 0 && (
           <select
             value={sectorFilter}
             onChange={(e) => setSectorFilter(e.target.value)}
-            className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#003876]/30"
+            className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
           >
             <option value="all">Todos os setores</option>
             {sectors.map(([key, label]) => (
@@ -774,7 +774,7 @@ export default function AttendancePage() {
         </div>
       ) : loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-[#003876]" />
+          <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
         </div>
       ) : filtered.filter((t) => ACTIVE_STATUSES.includes(t.status)).length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 py-16 text-center">
@@ -791,7 +791,7 @@ export default function AttendancePage() {
               <button
                 disabled={busyId !== null}
                 onClick={handleCallNext}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#003876] text-white text-xs font-semibold hover:bg-[#002255] disabled:opacity-50 transition-colors mb-1"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-dark disabled:opacity-50 transition-colors mb-1"
               >
                 <PhoneCall className="w-4 h-4" />
                 Chamar Próximo — {waitingTickets[0].ticket_number}

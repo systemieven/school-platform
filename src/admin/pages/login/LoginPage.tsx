@@ -24,15 +24,15 @@ export default function LoginPage() {
   const busy = authLoading || submitting;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#003876] via-[#002855] to-[#001a3d] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-primary via-brand-primary-dark to-[#001a3d] px-4">
       {/* Grain overlay */}
       <div className="grain-overlay fixed inset-0 pointer-events-none" />
 
       <div className="relative w-full max-w-md">
         {/* Logo / branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#ffd700] rounded-2xl mb-4 shadow-lg shadow-[#ffd700]/20">
-            <Lock className="w-8 h-8 text-[#003876]" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-secondary rounded-2xl mb-4 shadow-lg shadow-brand-secondary/20">
+            <Lock className="w-8 h-8 text-brand-primary" />
           </div>
           <h1 className="font-display text-3xl font-bold text-white">Painel Administrativo</h1>
           <p className="text-white/60 mt-2 text-sm">Colégio Batista em Caruaru</p>
@@ -40,7 +40,7 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-xl font-bold text-[#003876] mb-6 text-center">Entrar</h2>
+          <h2 className="text-xl font-bold text-brand-primary mb-6 text-center">Entrar</h2>
 
           {authError && (
             <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
@@ -62,7 +62,7 @@ export default function LoginPage() {
                   placeholder="seu@email.com"
                   required
                   autoComplete="email"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all text-sm"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all text-sm"
                 />
               </div>
             </div>
@@ -79,7 +79,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
-                  className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 outline-none transition-all text-sm"
+                  className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all text-sm"
                 />
                 <button
                   type="button"
@@ -95,7 +95,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={busy || !email || !password}
-              className="w-full py-3.5 bg-[#003876] text-white font-semibold rounded-xl transition-all duration-300 hover:bg-[#002855] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-brand-primary text-white font-semibold rounded-xl transition-all duration-300 hover:bg-brand-primary-dark hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {busy ? (
                 <>

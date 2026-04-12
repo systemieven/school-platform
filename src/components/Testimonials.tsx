@@ -114,7 +114,7 @@ function StarRow({ rating, className = '' }: { rating: number; className?: strin
         <Star
           key={i}
           className={`w-3.5 h-3.5 ${
-            i < rating ? 'fill-[#ffd700] text-[#ffd700]' : 'text-white/10'
+            i < rating ? 'fill-brand-secondary text-brand-secondary' : 'text-white/10'
           }`}
         />
       ))}
@@ -185,7 +185,7 @@ function Avatar({
         <img
           src={url}
           alt={name}
-          className={`${sizeMap[size].split(' ').slice(0, 2).join(' ')} rounded-full object-cover ring-2 ring-[#ffd700]/30`}
+          className={`${sizeMap[size].split(' ').slice(0, 2).join(' ')} rounded-full object-cover ring-2 ring-brand-secondary/30`}
         />
         {badge}
       </div>
@@ -194,7 +194,7 @@ function Avatar({
   return (
     <div className="relative shrink-0">
       <div
-        className={`${sizeMap[size]} rounded-full bg-gradient-to-br from-[#003876] to-[#002855] flex items-center justify-center ring-2 ring-[#ffd700]/30`}
+        className={`${sizeMap[size]} rounded-full bg-gradient-to-br from-brand-primary to-brand-primary-dark flex items-center justify-center ring-2 ring-brand-secondary/30`}
       >
         <span className="text-white font-bold">{initials}</span>
       </div>
@@ -216,7 +216,7 @@ function Field({ label, children, error }: { label: string; children: React.Reac
 }
 
 const inputCls =
-  'w-full bg-white/[0.07] border border-white/[0.12] rounded-xl px-4 py-3 text-white placeholder-white/25 text-sm focus:outline-none focus:border-[#ffd700]/50 focus:bg-white/[0.1] transition-all duration-300';
+  'w-full bg-white/[0.07] border border-white/[0.12] rounded-xl px-4 py-3 text-white placeholder-white/25 text-sm focus:outline-none focus:border-brand-secondary/50 focus:bg-white/[0.1] transition-all duration-300';
 
 function GoogleIcon() {
   return (
@@ -398,7 +398,7 @@ export default function Testimonials() {
       />
 
       {/* ── Fundo navy com decoração sutil ── */}
-      <div className="bg-[#003876] pt-36 pb-20 relative">
+      <div className="bg-brand-primary pt-36 pb-20 relative">
 
         {/* Background: radial gradients instead of circles */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -410,14 +410,14 @@ export default function Testimonials() {
 
           {/* ── Cabeçalho ── */}
           <div className="text-center mb-20" data-reveal="up">
-            <p className="text-[11px] font-semibold tracking-[0.25em] uppercase text-[#ffd700]/80 mb-4">
+            <p className="text-[11px] font-semibold tracking-[0.25em] uppercase text-brand-secondary/80 mb-4">
               O que dizem os pais
             </p>
             <h2 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
               Histórias que nos{' '}
-              <span className="italic text-[#ffd700]">Inspiram</span>
+              <span className="italic text-brand-secondary">Inspiram</span>
             </h2>
-            <div className="h-[2px] w-12 bg-gradient-to-r from-[#ffd700] to-[#ffd700]/0 mx-auto mt-8" />
+            <div className="h-[2px] w-12 bg-gradient-to-r from-brand-secondary to-brand-secondary/0 mx-auto mt-8" />
           </div>
 
           {/* ── Carousel ── */}
@@ -444,11 +444,11 @@ export default function Testimonials() {
                     style={{ '--delay': `${i * 0.12}s` } as React.CSSProperties}
                   >
                     {/* Gold accent — top edge */}
-                    <div className={`absolute top-0 inset-x-8 h-[2px] rounded-full bg-gradient-to-r from-transparent ${isCenter ? 'via-[#ffd700]/60' : 'via-[#ffd700]/25'} to-transparent`} />
+                    <div className={`absolute top-0 inset-x-8 h-[2px] rounded-full bg-gradient-to-r from-transparent ${isCenter ? 'via-brand-secondary/60' : 'via-brand-secondary/25'} to-transparent`} />
 
                     {/* Decorative quote mark */}
                     <span
-                      className="font-display text-[5rem] md:text-[6rem] leading-[0.6] text-[#ffd700]/[0.12] select-none pointer-events-none -ml-1 mb-1"
+                      className="font-display text-[5rem] md:text-[6rem] leading-[0.6] text-brand-secondary/[0.12] select-none pointer-events-none -ml-1 mb-1"
                       aria-hidden="true"
                     >
                       &ldquo;
@@ -485,14 +485,14 @@ export default function Testimonials() {
                 <button
                   onClick={goPrev}
                   aria-label="Depoimento anterior"
-                  className="absolute -left-4 lg:-left-7 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/[0.06] hover:bg-[#ffd700] border border-white/[0.1] hover:border-[#ffd700] text-white hover:text-[#003876] rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md"
+                  className="absolute -left-4 lg:-left-7 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/[0.06] hover:bg-brand-secondary border border-white/[0.1] hover:border-brand-secondary text-white hover:text-brand-primary rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   onClick={goNext}
                   aria-label="Próximo depoimento"
-                  className="absolute -right-4 lg:-right-7 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/[0.06] hover:bg-[#ffd700] border border-white/[0.1] hover:border-[#ffd700] text-white hover:text-[#003876] rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md"
+                  className="absolute -right-4 lg:-right-7 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/[0.06] hover:bg-brand-secondary border border-white/[0.1] hover:border-brand-secondary text-white hover:text-brand-primary rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -510,7 +510,7 @@ export default function Testimonials() {
                   aria-label={`Ir para depoimento ${i + 1}`}
                   className={`rounded-full transition-all duration-300 ${
                     i === activeIndex
-                      ? 'w-8 h-2 bg-[#ffd700]'
+                      ? 'w-8 h-2 bg-brand-secondary'
                       : 'w-2 h-2 bg-white/20 hover:bg-white/40'
                   }`}
                 />
@@ -520,7 +520,7 @@ export default function Testimonials() {
 
           {/* ── Separador gradiente ── */}
           <div className="max-w-[240px] mx-auto my-20">
-            <div className="h-px bg-gradient-to-r from-transparent via-[#ffd700]/30 to-transparent" />
+            <div className="h-px bg-gradient-to-r from-transparent via-brand-secondary/30 to-transparent" />
           </div>
 
           {/* ── Área de envio ── */}
@@ -529,15 +529,15 @@ export default function Testimonials() {
             {submitted ? (
               /* ── Sucesso ── */
               <div className="text-center py-8">
-                <div className="w-20 h-20 bg-[#ffd700]/10 rounded-2xl flex items-center justify-center mx-auto mb-8 rotate-3">
-                  <CheckCircle className="w-10 h-10 text-[#ffd700]" />
+                <div className="w-20 h-20 bg-brand-secondary/10 rounded-2xl flex items-center justify-center mx-auto mb-8 rotate-3">
+                  <CheckCircle className="w-10 h-10 text-brand-secondary" />
                 </div>
                 <h3 className="font-display text-3xl font-bold text-white mb-4">
                   Depoimento enviado!
                 </h3>
                 <p className="text-white/50 text-sm leading-relaxed max-w-sm mx-auto">
                   Obrigado por compartilhar sua experiência,{' '}
-                  <span className="text-[#ffd700]">{name.split(' ')[0]}</span>.
+                  <span className="text-brand-secondary">{name.split(' ')[0]}</span>.
                   Nossa equipe vai revisar e publicar em breve.
                 </p>
               </div>
@@ -547,7 +547,7 @@ export default function Testimonials() {
               <div className="text-center">
                 <h3 className="font-display text-3xl md:text-4xl font-bold text-white mb-3">
                   Compartilhe sua{' '}
-                  <span className="italic text-[#ffd700]">história</span>
+                  <span className="italic text-brand-secondary">história</span>
                 </h3>
                 <p className="text-white/40 mb-12 text-sm leading-relaxed max-w-md mx-auto">
                   Faça login com sua conta social para deixar seu depoimento.
@@ -583,13 +583,13 @@ export default function Testimonials() {
                 <div className="text-center mb-10">
                   <h3 className="font-display text-3xl md:text-4xl font-bold text-white mb-3">
                     Compartilhe sua{' '}
-                    <span className="italic text-[#ffd700]">história</span>
+                    <span className="italic text-brand-secondary">história</span>
                   </h3>
                 </div>
 
                 {/* Aviso de revisão */}
-                <div className="flex items-start gap-3 bg-[#ffd700]/[0.06] border border-[#ffd700]/[0.12] rounded-xl px-5 py-4 mb-8">
-                  <Info className="w-4 h-4 text-[#ffd700]/70 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 bg-brand-secondary/[0.06] border border-brand-secondary/[0.12] rounded-xl px-5 py-4 mb-8">
+                  <Info className="w-4 h-4 text-brand-secondary/70 shrink-0 mt-0.5" />
                   <p className="text-white/50 text-sm leading-relaxed">
                     Seu depoimento será revisado pela nossa equipe antes de ser publicado.
                     Seu e-mail não será exibido publicamente.
@@ -620,7 +620,7 @@ export default function Testimonials() {
                     </div>
                     <button
                       onClick={() => supabase.auth.signOut()}
-                      className="text-xs text-white/30 hover:text-[#ffd700]/70 transition-colors whitespace-nowrap border border-white/[0.08] rounded-full px-3 py-1.5 hover:border-[#ffd700]/20"
+                      className="text-xs text-white/30 hover:text-brand-secondary/70 transition-colors whitespace-nowrap border border-white/[0.08] rounded-full px-3 py-1.5 hover:border-brand-secondary/20"
                     >
                       Trocar conta
                     </button>
@@ -656,11 +656,11 @@ export default function Testimonials() {
                       onChange={(e) => setStudentGrade(e.target.value)}
                       className={`${inputCls} appearance-none cursor-pointer`}
                     >
-                      <option value="" disabled className="bg-[#003876]">
+                      <option value="" disabled className="bg-brand-primary">
                         Selecione a série…
                       </option>
                       {GRADES.map((g) => (
-                        <option key={g} value={g} className="bg-[#003876]">
+                        <option key={g} value={g} className="bg-brand-primary">
                           {g}
                         </option>
                       ))}
@@ -683,7 +683,7 @@ export default function Testimonials() {
                           <Star
                             className={`w-8 h-8 transition-colors duration-200 ${
                               i < (hoverRating || rating)
-                                ? 'fill-[#ffd700] text-[#ffd700]'
+                                ? 'fill-brand-secondary text-brand-secondary'
                                 : 'text-white/[0.08] hover:text-white/[0.15]'
                             }`}
                           />
@@ -719,7 +719,7 @@ export default function Testimonials() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={submitting || !isValid}
-                    className="w-full inline-flex items-center justify-center gap-2.5 bg-[#ffd700] text-[#003876] px-8 py-4 rounded-full font-bold transition-all duration-300 hover:bg-white hover:shadow-[0_8px_40px_rgba(255,215,0,0.25)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#ffd700] disabled:hover:shadow-none disabled:hover:translate-y-0"
+                    className="w-full inline-flex items-center justify-center gap-2.5 bg-brand-secondary text-brand-primary px-8 py-4 rounded-full font-bold transition-all duration-300 hover:bg-white hover:shadow-[0_8px_40px_rgba(255,215,0,0.25)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-brand-secondary disabled:hover:shadow-none disabled:hover:translate-y-0"
                   >
                     {submitting ? (
                       'Enviando…'

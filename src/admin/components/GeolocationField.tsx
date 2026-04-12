@@ -233,7 +233,7 @@ export default function GeolocationField({ value, savedValue: _savedValue, addre
         type="button"
         onClick={handleGeocode}
         disabled={geocoding}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#003876] text-white text-xs font-semibold hover:bg-[#002255] disabled:opacity-50 transition-colors"
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-dark disabled:opacity-50 transition-colors"
       >
         {geocoding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Crosshair className="w-3.5 h-3.5" />}
         {geocoding ? 'Capturando…' : 'Capturar coordenadas do endereço'}
@@ -264,7 +264,7 @@ export default function GeolocationField({ value, savedValue: _savedValue, addre
               update({ latitude: e.target.value === '' ? null : parseFloat(e.target.value) })
             }
             placeholder="-8.2831"
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
           />
         </div>
         <div>
@@ -277,7 +277,7 @@ export default function GeolocationField({ value, savedValue: _savedValue, addre
               update({ longitude: e.target.value === '' ? null : parseFloat(e.target.value) })
             }
             placeholder="-35.9758"
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
           />
         </div>
       </div>
@@ -286,7 +286,7 @@ export default function GeolocationField({ value, savedValue: _savedValue, addre
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Raio permitido (metros)</label>
-          <span className="text-xs font-semibold text-[#003876] dark:text-blue-300">{current.radius_m}m</span>
+          <span className="text-xs font-semibold text-brand-primary dark:text-blue-300">{current.radius_m}m</span>
         </div>
         <input
           type="range"
@@ -295,7 +295,7 @@ export default function GeolocationField({ value, savedValue: _savedValue, addre
           step={10}
           value={current.radius_m}
           onChange={(e) => update({ radius_m: parseInt(e.target.value) })}
-          className="w-full accent-[#003876]"
+          className="w-full accent-brand-primary"
         />
       </div>
 

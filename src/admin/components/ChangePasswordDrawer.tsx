@@ -43,7 +43,7 @@ function PasswordInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="w-full pl-9 pr-10 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#003876]/30 focus:border-[#003876] dark:focus:border-[#ffd700] transition-colors disabled:opacity-50"
+        className="w-full pl-9 pr-10 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary dark:focus:border-brand-secondary transition-colors disabled:opacity-50"
       />
       <button
         type="button"
@@ -156,7 +156,7 @@ export default function ChangePasswordDrawer({ open, onClose }: Props) {
           <button
             onClick={handleSave}
             disabled={saving || !canSubmit || saved}
-            className="flex-1 py-2.5 rounded-xl bg-[#003876] hover:bg-[#002255] text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving ? (
               <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Salvando…</>

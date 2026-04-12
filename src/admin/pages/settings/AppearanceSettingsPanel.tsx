@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import imageCompression from 'browser-image-compression';
+import { useEffect, useState } from 'react';
 import {
-  Loader2, Save, Check, Link2, Upload, AlertCircle, ExternalLink,
+  Loader2, Save, Check,
   Home, Baby, BookOpen, BookMarked, GraduationCap, MessageSquare,
   CalendarCheck, ClipboardList, Plus, Trash2, GripVertical,
   Image as ImageIcon, Video, Eye, EyeOff, Clock, Shuffle, ListOrdered,
@@ -9,6 +8,11 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { SettingsCard } from '../../components/SettingsCard';
+import ImageField from '../../components/ImageField';
+import {
+  InputField, TextareaField, SectionLabel, SectionDivider,
+  INPUT_CLS, LABEL_CLS,
+} from '../../components/FormField';
 
 import {
   DndContext,
@@ -138,180 +142,9 @@ const SUB_TABS: { key: PageKey; label: string; icon: React.ComponentType<{ class
   { key: 'matricula',        label: 'Matrícula',  icon: ClipboardList },
 ];
 
-// ── Shared style constants ────────────────────────────────────────────────────
-
-const inputCls     = 'w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003876]/30 focus:border-[#003876] bg-white dark:bg-gray-800 dark:border-gray-700';
-const textareaCls  = `${inputCls} resize-none`;
-const labelCls     = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5';
-
-// ── ImageField — dual-mode URL / Upload ───────────────────────────────────────
-
-interface ImageFieldProps {
-  label: string;
-  value: string;
-  onChange: (url: string) => void;
-  storageKey: string;   // used as filename prefix in the bucket
-  hint?: string;
-}
-
-function ImageField({ label, value, onChange, storageKey, hint }: ImageFieldProps) {
-  const [mode, setMode]           = useState<'url' | 'upload'>('url');
-  const [uploading, setUploading] = useState(false);
-  const [uploadErr, setUploadErr] = useState<string | null>(null);
-  const [dragOver, setDragOver]   = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  async function handleFile(file: File) {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowed.includes(file.type)) {
-      setUploadErr('Formato não suportado. Use JPG, PNG ou WebP.');
-      return;
-    }
-    setUploading(true);
-    setUploadErr(null);
-    try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 2,
-        maxWidthOrHeight: 2400,
-        useWebWorker: true,
-      });
-      const ext  = file.name.split('.').pop() ?? 'jpg';
-      const path = `${storageKey}_${Date.now()}.${ext}`;
-      const { error } = await supabase.storage
-        .from('site-images')
-        .upload(path, compressed, { contentType: file.type, upsert: true });
-      if (error) throw error;
-      const { data } = supabase.storage.from('site-images').getPublicUrl(path);
-      onChange(data.publicUrl);
-    } catch {
-      setUploadErr('Erro ao enviar a imagem. Verifique sua conexão e tente novamente.');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      {/* Label + mode toggle */}
-      <div className="flex items-center justify-between">
-        <label className={labelCls + ' mb-0'}>{label}</label>
-        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 gap-0.5">
-          {(['url', 'upload'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => { setMode(m); setUploadErr(null); }}
-              className={[
-                'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200',
-                mode === m
-                  ? 'bg-[#003876] text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
-              ].join(' ')}
-            >
-              {m === 'url'
-                ? <><Link2 className="w-3 h-3" /> Link</>
-                : <><Upload className="w-3 h-3" /> Upload</>}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
-
-      {/* URL mode */}
-      {mode === 'url' && (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="https://..."
-          className={inputCls}
-        />
-      )}
-
-      {/* Upload mode */}
-      {mode === 'upload' && (
-        <label
-          className={[
-            'flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 text-center transition-all',
-            uploading
-              ? 'border-gray-200 bg-gray-50 dark:bg-gray-800/40 cursor-wait opacity-70'
-              : dragOver
-              ? 'border-[#003876] bg-[#003876]/5 cursor-pointer'
-              : 'border-gray-200 dark:border-gray-700 hover:border-[#003876]/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 cursor-pointer',
-          ].join(' ')}
-          onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const file = e.dataTransfer.files[0];
-            if (file && !uploading) handleFile(file);
-          }}
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="w-7 h-7 text-[#003876] animate-spin" />
-              <span className="text-sm text-gray-500">Comprimindo e enviando…</span>
-            </>
-          ) : (
-            <>
-              <Upload className="w-7 h-7 text-gray-300" />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Clique ou arraste uma imagem
-              </span>
-              <span className="text-xs text-gray-400">
-                JPG, PNG ou WebP · máx. 10 MB · recomendado proporção 16:9
-              </span>
-            </>
-          )}
-          <input
-            ref={fileRef}
-            type="file"
-            className="sr-only"
-            accept="image/jpeg,image/png,image/webp"
-            disabled={uploading}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
-              e.target.value = '';
-            }}
-          />
-        </label>
-      )}
-
-      {/* Upload error */}
-      {uploadErr && (
-        <p className="text-xs text-red-500 flex items-center gap-1.5">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {uploadErr}
-        </p>
-      )}
-
-      {/* Preview — always shown when value exists */}
-      {value && (
-        <div className="relative rounded-xl overflow-hidden h-28 bg-gray-100 dark:bg-gray-800 group">
-          <img
-            src={value}
-            alt="preview"
-            className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-          <a
-            href={value}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="absolute top-2 right-2 bg-black/50 text-white rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-            title="Abrir imagem em nova aba"
-          >
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
-      )}
-    </div>
-  );
-}
+// Style aliases from shared FormField
+const inputCls  = INPUT_CLS;
+const labelCls  = LABEL_CLS;
 
 // ── Sortable Scene Card ──────────────────────────────────────────────────────
 
@@ -344,7 +177,7 @@ function SortableSceneCard({
               onClick={() => onUpdate({ media_type: t, media_url: '' })}
               className={[
                 'flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200',
-                scene.media_type === t ? 'bg-[#003876] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700',
+                scene.media_type === t ? 'bg-brand-primary text-white shadow-sm' : 'text-gray-500 hover:text-gray-700',
               ].join(' ')}
             >
               {t === 'image' ? <><ImageIcon className="w-3 h-3" /> Imagem</> : <><Video className="w-3 h-3" /> Vídeo</>}
@@ -362,7 +195,7 @@ function SortableSceneCard({
           className={[
             'p-1.5 rounded-lg text-xs transition-all',
             scene.blue_mask
-              ? 'bg-[#003876]/10 text-[#003876] dark:bg-[#003876]/30 dark:text-blue-300'
+              ? 'bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/30 dark:text-blue-300'
               : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100',
           ].join(' ')}
         >
@@ -419,7 +252,7 @@ function SortableSceneCard({
       {scene.media_url && scene.media_type === 'image' && (
         <div className="mx-4 mb-4 rounded-lg overflow-hidden h-20 bg-gray-100 dark:bg-gray-800 relative group">
           <img src={scene.media_url} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          {scene.blue_mask && <div className="absolute inset-0 bg-gradient-to-br from-[#003876]/60 via-[#003876]/40 to-[#002855]/30" />}
+          {scene.blue_mask && <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/60 via-brand-primary/40 to-brand-primary-dark/30" />}
         </div>
       )}
     </div>
@@ -442,32 +275,28 @@ function HeroFieldsBlock({
   return (
     <SettingsCard collapseId={`appearance.${pageKey}.hero`} title="Hero da Página">
       {/* ── Textos ── */}
-      <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Textos</p>
-      <div>
-        <label className={labelCls}>Badge</label>
-        <input type="text" value={data.badge} onChange={(e) => set('badge', e.target.value)} placeholder="Ex: Matrículas 2026 abertas" className={inputCls} />
-      </div>
+      <SectionLabel>Textos</SectionLabel>
+      <InputField label="Badge" value={data.badge}
+        onChange={(e) => set('badge', e.target.value)}
+        placeholder="Ex: Matrículas 2026 abertas" maxLength={40} />
 
-      <div>
-        <label className={labelCls}>Título</label>
-        <input type="text" value={data.title} onChange={(e) => set('title', e.target.value)} placeholder="Ex: Educação que Transforma Vidas" className={inputCls} />
-      </div>
+      <InputField label="Título" value={data.title}
+        onChange={(e) => set('title', e.target.value)}
+        placeholder="Ex: Educação que Transforma Vidas" maxLength={80} />
 
-      <div>
-        <label className={labelCls}>Palavra em Destaque <span className="font-normal text-gray-400">(itálico dourado)</span></label>
-        <p className="text-xs text-gray-400 mb-1.5">Deve ser exatamente como está escrita no Título acima.</p>
-        <input type="text" value={data.highlight} onChange={(e) => set('highlight', e.target.value)} placeholder="Ex: Transforma" className={inputCls} />
-      </div>
+      <InputField label="Palavra em Destaque" value={data.highlight}
+        onChange={(e) => set('highlight', e.target.value)}
+        placeholder="Ex: Transforma"
+        hint="Deve ser exatamente como escrita no Título acima. Será exibida em itálico dourado." />
 
-      <div>
-        <label className={labelCls}>Subtítulo</label>
-        <textarea rows={3} value={data.subtitle} onChange={(e) => set('subtitle', e.target.value)} placeholder="Descrição exibida abaixo do título" className={textareaCls} />
-      </div>
+      <TextareaField label="Subtítulo" rows={3} value={data.subtitle}
+        onChange={(e) => set('subtitle', e.target.value)}
+        placeholder="Descrição exibida abaixo do título" maxLength={160} />
 
-      <hr className="border-gray-100 dark:border-gray-700/50" />
+      <SectionDivider />
 
       {/* ── Mídia ── */}
-      <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Mídia</p>
+      <SectionLabel>Mídia</SectionLabel>
       <ImageField
         label="Imagem de Fundo"
         value={data.image}
@@ -584,7 +413,7 @@ export default function AppearanceSettingsPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+        <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
       </div>
     );
   }
@@ -604,8 +433,8 @@ export default function AppearanceSettingsPanel() {
             className={[
               'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
               activeTab === key
-                ? 'bg-[#ffd700] text-[#003876] shadow-md shadow-[#ffd700]/20'
-                : 'text-[#003876] dark:text-[#ffd700] hover:bg-[#003876]/10 dark:hover:bg-[#ffd700]/10',
+                ? 'bg-brand-secondary text-brand-primary shadow-md shadow-brand-secondary/20'
+                : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
             ].join(' ')}
           >
             <Icon className="w-3.5 h-3.5" />
@@ -619,43 +448,38 @@ export default function AppearanceSettingsPanel() {
         <>
           <SettingsCard collapseId="appearance.home.hero" title="Hero da Página" icon={Layers}>
             {/* ── Textos ── */}
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Textos</p>
-            <div>
-              <label className={labelCls}>Badge</label>
-              <input type="text" value={home.badge} onChange={(e) => updateHome({ badge: e.target.value })} placeholder="Ex: Matrículas 2026 abertas" className={inputCls} />
-            </div>
+            <SectionLabel>Textos</SectionLabel>
+            <InputField label="Badge" value={home.badge}
+              onChange={(e) => updateHome({ badge: e.target.value })}
+              placeholder="Ex: Matrículas 2026 abertas" maxLength={40} />
 
-            <div>
-              <label className={labelCls}>Título</label>
-              <input type="text" value={home.title} onChange={(e) => updateHome({ title: e.target.value })} placeholder="Ex: Educação que Transforma Vidas" className={inputCls} />
-            </div>
+            <InputField label="Título" value={home.title}
+              onChange={(e) => updateHome({ title: e.target.value })}
+              placeholder="Ex: Educação que Transforma Vidas" maxLength={80} />
 
-            <div>
-              <label className={labelCls}>Palavra em Destaque <span className="font-normal text-gray-400">(itálico dourado)</span></label>
-              <p className="text-xs text-gray-400 mb-1.5">Deve ser exatamente como está escrita no Título acima.</p>
-              <input type="text" value={home.highlight} onChange={(e) => updateHome({ highlight: e.target.value })} placeholder="Ex: Transforma" className={inputCls} />
-            </div>
+            <InputField label="Palavra em Destaque" value={home.highlight}
+              onChange={(e) => updateHome({ highlight: e.target.value })}
+              placeholder="Ex: Transforma"
+              hint="Deve ser exatamente como escrita no Título acima. Será exibida em itálico dourado." />
 
-            <div>
-              <label className={labelCls}>Subtítulo</label>
-              <textarea rows={3} value={home.subtitle} onChange={(e) => updateHome({ subtitle: e.target.value })} placeholder="Descrição exibida abaixo do título" className={textareaCls} />
-            </div>
+            <TextareaField label="Subtítulo" rows={3} value={home.subtitle}
+              onChange={(e) => updateHome({ subtitle: e.target.value })}
+              placeholder="Descrição exibida abaixo do título" maxLength={160} />
 
-            <hr className="border-gray-100 dark:border-gray-700/50" />
+            <SectionDivider />
 
             {/* ── Mídia ── */}
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Mídia</p>
-            <div>
-              <label className={labelCls}>URL do Vídeo de Fundo (fallback)</label>
-              <p className="text-xs text-gray-400 mb-1.5">Usado quando nenhuma cena estiver configurada no slideshow abaixo.</p>
-              <input type="text" value={home.video_url} onChange={(e) => updateHome({ video_url: e.target.value })} placeholder="https://..." className={inputCls} />
-            </div>
+            <SectionLabel>Mídia</SectionLabel>
+            <InputField label="URL do Vídeo de Fundo (fallback)" value={home.video_url}
+              onChange={(e) => updateHome({ video_url: e.target.value })}
+              placeholder="https://..."
+              hint="Usado quando nenhuma cena estiver configurada no slideshow abaixo." />
           </SettingsCard>
 
           {/* ── Slideshow ── */}
           <SettingsCard collapseId="appearance.home.slideshow" title="Slideshow da Hero" icon={Play} description="Configure cenas com imagens ou vídeos para exibição em sequência na hero.">
             {/* ── Configurações ── */}
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Configurações</p>
+            <SectionLabel>Configurações</SectionLabel>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-900/30 rounded-xl">
               <div>
                 <label className={labelCls}>Duração padrão (s)</label>
@@ -694,7 +518,7 @@ export default function AppearanceSettingsPanel() {
                       onClick={() => updateSlideshow({ order: v })}
                       className={[
                         'flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-200',
-                        (home.slideshow ?? DEFAULT_SLIDESHOW).order === v ? 'bg-[#003876] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700',
+                        (home.slideshow ?? DEFAULT_SLIDESHOW).order === v ? 'bg-brand-primary text-white shadow-sm' : 'text-gray-500 hover:text-gray-700',
                       ].join(' ')}
                     >
                       <I className="w-3.5 h-3.5" /> {tip}
@@ -716,11 +540,11 @@ export default function AppearanceSettingsPanel() {
               </div>
             </div>
 
-            <hr className="border-gray-100 dark:border-gray-700/50" />
+            <SectionDivider />
 
             {/* ── Transição ── */}
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60 mb-3">Transição</p>
+              <SectionLabel>Transição</SectionLabel>
               <div className="grid grid-cols-5 gap-2">
                 {TRANSITION_OPTIONS.map((opt) => (
                   <button
@@ -730,13 +554,13 @@ export default function AppearanceSettingsPanel() {
                     className={[
                       'flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all duration-200 text-center',
                       (home.slideshow ?? DEFAULT_SLIDESHOW).transition === opt.value
-                        ? 'border-[#003876] bg-[#003876]/5 shadow-md shadow-[#003876]/10'
+                        ? 'border-brand-primary bg-brand-primary/5 shadow-md shadow-brand-primary/10'
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300',
                     ].join(' ')}
                   >
                     <div className={[
                       'w-8 h-8 rounded-lg flex items-center justify-center',
-                      (home.slideshow ?? DEFAULT_SLIDESHOW).transition === opt.value ? 'bg-[#003876] text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500',
+                      (home.slideshow ?? DEFAULT_SLIDESHOW).transition === opt.value ? 'bg-brand-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500',
                     ].join(' ')}>
                       {opt.value === 'crossfade' && <Layers className="w-4 h-4" />}
                       {opt.value === 'slide' && <Play className="w-4 h-4" />}
@@ -744,7 +568,7 @@ export default function AppearanceSettingsPanel() {
                       {opt.value === 'blur' && <Eye className="w-4 h-4" />}
                       {opt.value === 'flip' && <Video className="w-4 h-4" />}
                     </div>
-                    <span className={`text-xs font-medium ${(home.slideshow ?? DEFAULT_SLIDESHOW).transition === opt.value ? 'text-[#003876]' : 'text-gray-600 dark:text-gray-400'}`}>
+                    <span className={`text-xs font-medium ${(home.slideshow ?? DEFAULT_SLIDESHOW).transition === opt.value ? 'text-brand-primary' : 'text-gray-600 dark:text-gray-400'}`}>
                       {opt.label}
                     </span>
                     <span className="text-[10px] text-gray-400 leading-tight">{opt.desc}</span>
@@ -753,14 +577,14 @@ export default function AppearanceSettingsPanel() {
               </div>
             </div>
 
-            <hr className="border-gray-100 dark:border-gray-700/50" />
+            <SectionDivider />
 
             {/* ── Cenas ── */}
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Cenas</p>
+              <SectionLabel>Cenas</SectionLabel>
               <div className="flex items-center justify-between">
                 <label className={labelCls + ' mb-0'}>Cenas ({(home.scenes ?? []).length})</label>
-                <button type="button" onClick={addScene} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-[#003876] hover:bg-[#002855] transition-colors shadow-sm">
+                <button type="button" onClick={addScene} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-brand-primary hover:bg-brand-primary-dark transition-colors shadow-sm">
                   <Plus className="w-3.5 h-3.5" /> Adicionar cena
                 </button>
               </div>
@@ -794,7 +618,7 @@ export default function AppearanceSettingsPanel() {
             <div className="space-y-5 pt-1">
               {home.segments.map((seg, i) => (
                 <div key={i} className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-                  <p className="text-xs font-semibold text-[#003876] dark:text-blue-400">
+                  <p className="text-xs font-semibold text-brand-primary dark:text-blue-400">
                     {['Educação Infantil', 'Fundamental I', 'Fundamental II', 'Ensino Médio'][i]}
                   </p>
                   <ImageField
@@ -803,16 +627,13 @@ export default function AppearanceSettingsPanel() {
                     onChange={(v) => updateSegment(i, { image: v })}
                     storageKey={`home_segment_${i}`}
                   />
-                  <div>
-                    <label className={labelCls}>Descrição curta</label>
-                    <input
-                      type="text"
-                      value={seg.description}
-                      onChange={(e) => updateSegment(i, { description: e.target.value })}
-                      placeholder="Ex: Desenvolvimento integral da criança"
-                      className={inputCls}
-                    />
-                  </div>
+                  <InputField
+                    label="Descrição curta"
+                    value={seg.description}
+                    onChange={(e) => updateSegment(i, { description: e.target.value })}
+                    placeholder="Ex: Desenvolvimento integral da criança"
+                    maxLength={80}
+                  />
                 </div>
               ))}
             </div>
@@ -854,7 +675,7 @@ export default function AppearanceSettingsPanel() {
             'inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300',
             saved
               ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-              : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50',
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50',
           ].join(' ')}
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}

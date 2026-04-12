@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../../lib/supabase';
+import { logAudit } from '../../../../lib/audit';
 import type { Attendance, AttendanceStatus, SchoolClass } from '../../../types/admin.types';
 import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_COLORS } from '../../../types/admin.types';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
@@ -56,19 +57,20 @@ export default function AttendanceTab({ cls }: { cls: SchoolClass }) {
       date, status: r.status, updated_at: new Date().toISOString(),
     }));
     await supabase.from('attendance').upsert(upserts, { onConflict: 'student_id,class_id,date' });
+    logAudit({ action: 'update', module: 'teacher-area', description: `Chamada registrada para ${date} com ${upserts.length} aluno(s)`, newData: { date, total: upserts.length } });
     setSaving(false); setSaved(true);
   }
 
   const presentCount = rows.filter((r) => r.status === 'present' || r.status === 'late').length;
 
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-brand-primary dark:text-brand-secondary" /></div>;
 
   return (
     <div className="space-y-4">
       {/* Header controls */}
       <div className="flex items-center gap-3 flex-wrap">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-          className="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700]" />
+          className="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary" />
 
         <div className="flex items-center gap-2 ml-auto flex-wrap">
           <span className="text-xs text-gray-500 dark:text-gray-400">{presentCount}/{rows.length} presentes</span>
@@ -94,7 +96,7 @@ export default function AttendanceTab({ cls }: { cls: SchoolClass }) {
           {rows.map((r) => (
             <div key={r.studentId} className="flex items-center justify-between px-4 py-3 gap-4">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-[#003876]/10 dark:bg-[#ffd700]/10 flex items-center justify-center text-xs font-bold text-[#003876] dark:text-[#ffd700] flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-brand-primary/10 dark:bg-brand-secondary/10 flex items-center justify-center text-xs font-bold text-brand-primary dark:text-brand-secondary flex-shrink-0">
                   {r.fullName.charAt(0).toUpperCase()}
                 </div>
                 <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{r.fullName}</span>
@@ -123,7 +125,7 @@ export default function AttendanceTab({ cls }: { cls: SchoolClass }) {
             className={`flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-xl transition-colors ${
               saved
                 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default'
-                : 'bg-[#003876] hover:bg-[#002855] text-white disabled:opacity-50'
+                : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'
             }`}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
             {saving ? 'Salvando...' : saved ? 'Chamada salva' : 'Salvar chamada'}

@@ -120,7 +120,7 @@ export function SettingsCard({
             type="button"
             onClick={toggle}
             aria-expanded={!isCollapsed}
-            className="flex-1 min-w-0 flex items-center gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/40"
+            className="flex-1 min-w-0 flex items-center gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
           >
             {headInner}
             <ChevronDown
@@ -181,7 +181,7 @@ export function CollapsibleSection({
           type="button"
           onClick={toggle}
           aria-expanded={!collapsed}
-          className="flex-1 min-w-0 flex items-center gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/40"
+          className="flex-1 min-w-0 flex items-center gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
         >
           <div className="min-w-0 flex-1">{head}</div>
           <ChevronDown

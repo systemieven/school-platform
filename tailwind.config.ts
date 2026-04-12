@@ -14,6 +14,14 @@ export default {
     },
     extend: {
       colors: {
+        brand: {
+          primary: "rgb(var(--brand-primary-rgb) / <alpha-value>)",
+          "primary-dark": "rgb(var(--brand-primary-dark-rgb) / <alpha-value>)",
+          secondary: "rgb(var(--brand-secondary-rgb) / <alpha-value>)",
+          "secondary-light": "rgb(var(--brand-secondary-light-rgb) / <alpha-value>)",
+          surface: "rgb(var(--brand-surface-rgb) / <alpha-value>)",
+          "surface-warm": "rgb(var(--brand-surface-warm-rgb) / <alpha-value>)",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

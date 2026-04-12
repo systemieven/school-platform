@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
-import AppearanceSettingsPanel from './AppearanceSettingsPanel';
 import AttendanceSettingsPanel from './AttendanceSettingsPanel';
 import GeolocationField from '../../components/GeolocationField';
 import { SettingsCard } from '../../components/SettingsCard';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import { getProviders, setDefaultProvider, registerWebhook, WEBHOOK_FUNCTION_BASE } from '../../lib/whatsapp-api';
 import type { WhatsAppProvider } from '../../lib/whatsapp-api';
 import { useWhatsAppStatus } from '../../contexts/WhatsAppStatusContext';
@@ -23,8 +23,10 @@ import {
   Users, User, FileText, Trash2,
   CalendarX2, Clock, Timer, ChevronDown, ChevronUp,
   Shield, CheckCircle2, TriangleAlert, Share2, Ticket, Instagram,
+  RotateCcw, Download,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
+import SiteSettingsPanel, { type SiteTab, SITE_SUB_TABS } from './SiteSettingsPanel';
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
 interface TabDef {
@@ -94,12 +96,12 @@ const TABS: TabDef[] = [
     description: 'Configure alertas automáticos e templates de comunicação.',
   },
   {
-    key: 'appearance',
-    label: 'Aparência',
-    shortLabel: 'Aparência',
+    key: 'site',
+    label: 'Site',
+    shortLabel: 'Site',
     icon: Palette,
-    categories: ['appearance'],
-    description: 'Personalize textos do site, banners e elementos visuais.',
+    categories: ['appearance', 'branding', 'navigation', 'content'],
+    description: 'Aparência, marca, navegação e conteúdo do site público.',
   },
   {
     key: 'security',
@@ -170,9 +172,15 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState(TABS[0].key);
+  const [siteSubTab, setSiteSubTab] = useState<SiteTab>('appearance');
   const [tabsCollapsed, setTabsCollapsed] = useState(() => {
     try { return localStorage.getItem(TABS_STORAGE_KEY) === 'true'; } catch { return false; }
   });
+
+  const [presetBusy, setPresetBusy] = useState(false);
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [showRestorePreset, setShowRestorePreset] = useState(false);
+  const [presetName, setPresetName] = useState('');
 
   const toggleTabs = () => {
     setTabsCollapsed((prev) => {
@@ -181,6 +189,51 @@ export default function SettingsPage() {
       return next;
     });
   };
+
+  // ── Preset handlers ─────────────────────────────────────────────────────
+  async function handleRestorePreset() {
+    setPresetBusy(true);
+    try {
+      const { data: preset } = await supabase
+        .from('site_presets')
+        .select('preset_data')
+        .eq('is_default', true)
+        .single();
+      if (!preset?.preset_data) { setShowRestorePreset(false); return; }
+      const pd = preset.preset_data as Record<string, unknown>;
+      const upserts = Object.entries(pd).map(([compositeKey, value]) => {
+        const dotIdx = compositeKey.indexOf('.');
+        return {
+          category: compositeKey.slice(0, dotIdx),
+          key: compositeKey.slice(dotIdx + 1),
+          value: value as Record<string, unknown>,
+        };
+      });
+      await supabase.from('system_settings').upsert(upserts, { onConflict: 'category,key' });
+      logAudit({ action: 'update', module: 'settings.preset', description: 'Preset padrão restaurado' });
+      window.location.reload();
+    } catch { /* silently fail */ }
+    finally { setPresetBusy(false); setShowRestorePreset(false); }
+  }
+
+  async function handleSavePreset() {
+    if (!presetName.trim()) return;
+    setPresetBusy(true);
+    try {
+      const { data: rows } = await supabase
+        .from('system_settings')
+        .select('category, key, value')
+        .in('category', ['appearance', 'branding', 'navigation', 'content']);
+      if (!rows) { setShowSavePreset(false); return; }
+      const pd: Record<string, unknown> = {};
+      for (const r of rows) pd[`${r.category}.${r.key}`] = r.value;
+      await supabase.from('site_presets').insert({ name: presetName.trim(), preset_data: pd });
+      logAudit({ action: 'create', module: 'settings.preset', description: `Preset salvo: ${presetName.trim()}` });
+      setPresetName('');
+      setShowSavePreset(false);
+    } catch { /* silently fail */ }
+    finally { setPresetBusy(false); }
+  }
 
   useEffect(() => {
     fetchSettings();
@@ -244,6 +297,7 @@ export default function SettingsPage() {
     if (updates.length > 0) {
       await Promise.all(updates);
       await fetchSettings();
+      logAudit({ action: 'update', module: 'settings', description: `Configurações gerais atualizadas (${updates.length} campo(s))` });
     }
 
     setSaving(false);
@@ -252,7 +306,7 @@ export default function SettingsPage() {
   }
 
   // Tabs with their own custom panel never depend on the generic settings array
-  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional', 'attendance'];
+  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance'];
 
   // Tabs that have settings in the DB OR have a custom panel
   const availableTabs = TABS.filter(
@@ -271,7 +325,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
       </div>
     );
   }
@@ -283,7 +337,7 @@ export default function SettingsPage() {
       {/* ── Page header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <Settings className="w-8 h-8" />
             Configurações
           </h1>
@@ -316,7 +370,7 @@ export default function SettingsPage() {
             {/* Collapse toggle */}
             <button
               onClick={toggleTabs}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700"
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700"
               title={tabsCollapsed ? 'Expandir abas' : 'Recolher abas'}
             >
               {tabsCollapsed ? (
@@ -347,14 +401,14 @@ export default function SettingsPage() {
                       relative w-full flex items-center rounded-xl text-sm font-medium transition-all duration-200
                       ${tabsCollapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2.5'}
                       ${isActive
-                        ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/15'
+                        ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/15'
                         : isEmpty
                           ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-[#003876] dark:hover:text-white'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-brand-primary dark:hover:text-white'
                       }
                     `}
                   >
-                    <TabIcon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-[#ffd700]' : ''}`} />
+                    <TabIcon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-brand-secondary' : ''}`} />
 
                     {!tabsCollapsed && (
                       <>
@@ -385,22 +439,66 @@ export default function SettingsPage() {
             {/* Tab title bar */}
             <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 bg-[#003876]/10 dark:bg-[#003876]/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <currentTab.icon className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
+                <div className="w-9 h-9 bg-brand-primary/10 dark:bg-brand-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <currentTab.icon className="w-[18px] h-[18px] text-brand-primary dark:text-brand-secondary" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="font-display text-base font-bold text-[#003876] dark:text-white truncate">
+                  <h2 className="font-display text-base font-bold text-brand-primary dark:text-white truncate">
                     {currentTab.label}
                   </h2>
                   <p className="text-xs text-gray-400 mt-0.5 truncate hidden sm:block">{currentTab.description}</p>
                 </div>
               </div>
 
-              {/* Save button removed from header — generic tabs now use floating save below */}
+              {/* Site sub-tabs + preset buttons */}
+              {activeTab === 'site' && (
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex flex-wrap gap-1.5">
+                    {SITE_SUB_TABS.map(({ key, label, icon: Icon }) => (
+                      <button
+                        key={key}
+                        onClick={() => setSiteSubTab(key)}
+                        className={[
+                          'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
+                          siteSubTab === key
+                            ? 'bg-brand-primary text-brand-secondary shadow-md shadow-brand-primary/20'
+                            : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
+                        ].join(' ')}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="w-px h-5 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
+                  <div className="flex gap-1 hidden sm:flex">
+                    <button
+                      onClick={() => { setPresetName(''); setShowSavePreset(true); }}
+                      disabled={presetBusy}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg text-gray-500 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors disabled:opacity-50"
+                      title="Salvar preset"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Salvar
+                    </button>
+                    <button
+                      onClick={() => setShowRestorePreset(true)}
+                      disabled={presetBusy}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg text-gray-500 hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
+                      title="Restaurar padrão"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Restaurar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'institutional', 'security', 'attendance', 'notifications'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
@@ -411,8 +509,8 @@ export default function SettingsPage() {
                 <EnrollmentSettingsPanel />
               ) : activeTab === 'contact' ? (
                 <ContactSettingsPanel />
-              ) : activeTab === 'appearance' ? (
-                <AppearanceSettingsPanel />
+              ) : activeTab === 'site' ? (
+                <SiteSettingsPanel activeTab={siteSubTab} />
               ) : activeTab === 'security' ? (
                 <SecuritySettingsPanel />
               ) : activeTab === 'institutional' ? (
@@ -449,7 +547,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Floating save — generic tabs (notifications, etc.) */}
-          {!['whatsapp', 'visits', 'enrollment', 'contact', 'appearance', 'security', 'institutional', 'attendance'].includes(activeTab) && (
+          {!['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance'].includes(activeTab) && (
             <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
               tabHasChanges || saving || saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
             }`}>
@@ -459,7 +557,7 @@ export default function SettingsPage() {
                 className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
                   saved
                     ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-                    : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50'
+                    : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
                 }`}
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
@@ -469,6 +567,135 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* ═══════════════════════════════════ Modal: Salvar Preset */}
+      {showSavePreset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-[90vw] max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-brand-primary to-brand-primary-dark px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Download className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Salvar Preset</h3>
+                  <p className="text-xs text-white/70 mt-0.5">Crie um ponto de restauração</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 rounded-xl p-4">
+                <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                  <strong>O que é um preset?</strong> Um preset salva uma cópia completa das
+                  configurações atuais do site — incluindo <strong>Aparência</strong>, <strong>Marca</strong>, <strong>Navegação</strong> e <strong>Conteúdo</strong>.
+                  Se algo der errado após uma edição, você pode restaurar o preset para voltar exatamente ao estado salvo.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  Nome do preset
+                </label>
+                <input
+                  type="text"
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  placeholder="Ex: Antes da reformulação visual"
+                  autoFocus
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && presetName.trim()) handleSavePreset();
+                    if (e.key === 'Escape') setShowSavePreset(false);
+                  }}
+                />
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">
+                  Escolha um nome descritivo para identificar facilmente este preset depois.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowSavePreset(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSavePreset}
+                disabled={!presetName.trim() || presetBusy}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-brand-primary hover:bg-brand-primary-dark rounded-xl shadow-md shadow-brand-primary/20 transition-all disabled:opacity-50"
+              >
+                {presetBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {presetBusy ? 'Salvando…' : 'Salvar Preset'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════ Modal: Restaurar Preset */}
+      {showRestorePreset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-[90vw] max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <RotateCcw className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Restaurar Padrão</h3>
+                  <p className="text-xs text-white/80 mt-0.5">Reverter para as configurações originais</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-xl p-4">
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  <strong>Atenção:</strong> Esta ação vai substituir <strong>todas</strong> as configurações
+                  atuais de <strong>Aparência</strong>, <strong>Marca</strong>, <strong>Navegação</strong> e <strong>Conteúdo</strong> pelas
+                  configurações originais salvas no preset padrão.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                <TriangleAlert className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">As alterações não salvas serão perdidas</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Recomendamos salvar um preset antes de restaurar, caso queira voltar ao estado atual.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowRestorePreset(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleRestorePreset}
+                disabled={presetBusy}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-md shadow-amber-500/20 transition-all disabled:opacity-50"
+              >
+                {presetBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                {presetBusy ? 'Restaurando…' : 'Restaurar Padrão'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -556,8 +783,8 @@ function AddressField({
       bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
       placeholder:text-gray-400 dark:placeholder:text-gray-500
       ${changed
-        ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 dark:bg-amber-900/10 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20'
-        : 'border-gray-200 dark:border-gray-600 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 dark:focus:ring-[#ffd700]/20'
+        ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 dark:bg-amber-900/10 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20'
+        : 'border-gray-200 dark:border-gray-600 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 dark:focus:ring-brand-secondary/20'
       }`;
   };
 
@@ -585,7 +812,7 @@ function AddressField({
             onClick={() => lookupCep(addr.cep)}
             disabled={cepLoading || addr.cep.replace(/\D/g,'').length !== 8}
             title="Consultar CEP"
-            className="flex-shrink-0 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:border-[#003876] dark:hover:border-[#ffd700] transition-colors disabled:opacity-40"
+            className="flex-shrink-0 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:border-brand-primary dark:hover:border-brand-secondary transition-colors disabled:opacity-40"
           >
             {cepLoading
               ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -825,8 +1052,8 @@ function BusinessHoursField({ value, savedValue, onChange }: {
                 onClick={() => updateDay(idx, { open: !isOpen })}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all duration-200 ${
                   isOpen
-                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-[#003876]/40 hover:text-[#003876]'
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-brand-primary/40 hover:text-brand-primary'
                 }`}
               >
                 {isOpen && <Check className="w-3 h-3" />}
@@ -846,7 +1073,7 @@ function BusinessHoursField({ value, savedValue, onChange }: {
           <div key={idx} className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-[#003876] dark:text-[#ffd700]">
+                <span className="text-sm font-semibold text-brand-primary dark:text-brand-secondary">
                   {WEEKDAYS_BH[idx]}
                 </span>
                 <span className="text-[10px] text-gray-400">
@@ -857,7 +1084,7 @@ function BusinessHoursField({ value, savedValue, onChange }: {
                 <button
                   type="button"
                   onClick={() => addInterval(idx)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#003876] text-white text-[11px] font-semibold hover:bg-[#002855] transition-all"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-primary text-white text-[11px] font-semibold hover:bg-brand-primary-dark transition-all"
                 >
                   <Plus className="w-3 h-3" />
                   Adicionar
@@ -1022,7 +1249,7 @@ function SocialNetworksField({ value, savedValue, onChange }: {
 
   // Shared form markup (used for both add and edit)
   const networkForm = (isEdit: boolean) => (
-    <div className="p-4 rounded-xl border border-[#003876]/20 bg-[#003876]/5 dark:bg-[#003876]/10 space-y-3">
+    <div className="p-4 rounded-xl border border-brand-primary/20 bg-brand-primary/5 dark:bg-brand-primary/10 space-y-3">
       {/* Network selector */}
       <div className="grid grid-cols-4 gap-2">
         {ALL_NETWORKS.map((key) => {
@@ -1035,7 +1262,7 @@ function SocialNetworksField({ value, savedValue, onChange }: {
               onClick={() => setDraft((d) => ({ ...d, network: key }))}
               className={`flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl border text-[11px] font-medium transition-all ${
                 selected
-                  ? 'border-[#003876] bg-[#003876] text-white shadow-md'
+                  ? 'border-brand-primary bg-brand-primary text-white shadow-md'
                   : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
@@ -1061,7 +1288,7 @@ function SocialNetworksField({ value, savedValue, onChange }: {
           value={draft.handle}
           onChange={(e) => setDraft((d) => ({ ...d, handle: e.target.value }))}
           placeholder={NETWORK_CONFIGS[draft.network].placeholder}
-          className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+          className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20"
         />
       </div>
 
@@ -1076,7 +1303,7 @@ function SocialNetworksField({ value, savedValue, onChange }: {
             value={draft.message}
             onChange={(e) => setDraft((d) => ({ ...d, message: e.target.value }))}
             placeholder="Olá, vim do site e gostaria de saber mais informações"
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20"
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20"
           />
         </div>
       )}
@@ -1093,7 +1320,7 @@ function SocialNetworksField({ value, savedValue, onChange }: {
           type="button"
           onClick={isEdit ? submitEdit : submitAdd}
           disabled={!draft.handle.trim()}
-          className="px-4 py-2 rounded-xl text-xs font-medium bg-[#003876] text-white hover:bg-[#002855] disabled:opacity-40 transition-colors"
+          className="px-4 py-2 rounded-xl text-xs font-medium bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-40 transition-colors"
         >
           {isEdit ? 'Salvar alterações' : 'Adicionar'}
         </button>
@@ -1112,7 +1339,7 @@ function SocialNetworksField({ value, savedValue, onChange }: {
           <div
             key={entry.id}
             onClick={() => openEdit(entry)}
-            className="group flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 cursor-pointer hover:border-[#003876]/30 dark:hover:border-[#ffd700]/30 hover:bg-gray-100/80 dark:hover:bg-gray-900/60 transition-all"
+            className="group flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 cursor-pointer hover:border-brand-primary/30 dark:hover:border-brand-secondary/30 hover:bg-gray-100/80 dark:hover:bg-gray-900/60 transition-all"
           >
             <NetworkBadge network={entry.network} />
             <div className="flex-1 min-w-0">
@@ -1144,7 +1371,7 @@ function SocialNetworksField({ value, savedValue, onChange }: {
           <button
             type="button"
             onClick={() => { setDraft({ network: 'instagram', handle: '', message: '' }); setAdding(true); }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] hover:border-[#003876] dark:hover:border-[#ffd700] transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:border-brand-primary dark:hover:border-brand-secondary transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             Adicionar rede social
@@ -1388,7 +1615,7 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
           className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
               ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-              : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50'
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
           }`}
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
@@ -1423,8 +1650,8 @@ function WhatsAppSettingsPanel() {
             className={[
               'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
               sub === key
-                ? 'bg-[#ffd700] text-[#003876] shadow-md shadow-[#ffd700]/20'
-                : 'text-[#003876] dark:text-[#ffd700] hover:bg-[#003876]/10 dark:hover:bg-[#ffd700]/10',
+                ? 'bg-brand-secondary text-brand-primary shadow-md shadow-brand-secondary/20'
+                : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
             ].join(' ')}
           >
             <Icon className="w-3.5 h-3.5" />
@@ -1516,14 +1743,14 @@ function WhatsAppProvidersPanel() {
                     <div className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot}`} />
                     <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{p.name}</span>
                     {isDefault && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide uppercase text-[#003876] dark:text-[#ffd700] bg-[#003876]/10 dark:bg-[#ffd700]/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide uppercase text-brand-primary dark:text-brand-secondary bg-brand-primary/10 dark:bg-brand-secondary/10 px-2 py-0.5 rounded-full flex-shrink-0">
                         <Star className="w-2.5 h-2.5" /> Padrão
                       </span>
                     )}
                   </div>
                   <button
                     onClick={() => handleEdit(p)}
-                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] transition-colors flex-shrink-0"
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-brand-primary hover:text-brand-primary dark:hover:border-brand-secondary dark:hover:text-brand-secondary transition-colors flex-shrink-0"
                   >
                     <Pencil className="w-3 h-3" />
                     Editar
@@ -1537,7 +1764,7 @@ function WhatsAppProvidersPanel() {
                     <button
                       onClick={() => handleSetDefault(p.id)}
                       disabled={isSettingThis}
-                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] dark:hover:border-[#ffd700] dark:hover:text-[#ffd700] disabled:opacity-50 transition-colors flex-shrink-0"
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-brand-primary hover:text-brand-primary dark:hover:border-brand-secondary dark:hover:text-brand-secondary disabled:opacity-50 transition-colors flex-shrink-0"
                     >
                       {isSettingThis ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
                       Definir padrão
@@ -1555,7 +1782,7 @@ function WhatsAppProvidersPanel() {
           <div className="flex-1 border-t border-gray-100 dark:border-gray-700" />
           <button
             onClick={handleAddNew}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all flex-shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary text-white text-xs font-medium hover:bg-brand-primary-dark transition-all flex-shrink-0"
           >
             <Plug className="w-3.5 h-3.5" />
             Adicionar API
@@ -1612,8 +1839,8 @@ function SettingField({ item, meta, value, isChanged, onChange, hideDescription 
     bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
     placeholder:text-gray-400 dark:placeholder:text-gray-500
     ${isChanged
-      ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 dark:bg-amber-900/10 focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20'
-      : 'border-gray-200 dark:border-gray-600 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 dark:focus:ring-[#ffd700]/20'
+      ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/30 dark:bg-amber-900/10 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20'
+      : 'border-gray-200 dark:border-gray-600 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 dark:focus:ring-brand-secondary/20'
     }
   `;
 
@@ -1650,14 +1877,14 @@ function SettingField({ item, meta, value, isChanged, onChange, hideDescription 
           <button
             type="button"
             onClick={() => onChange(isOn ? 'false' : 'true')}
-            className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${
-              isOn ? 'bg-[#003876] dark:bg-[#ffd700]' : 'bg-gray-300 dark:bg-gray-600'
+            className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 ${
+              isOn ? 'bg-brand-primary dark:bg-brand-secondary' : 'bg-gray-300 dark:bg-gray-600'
             }`}
           >
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${
               isOn ? 'translate-x-6' : 'translate-x-0'
             }`}>
-              {isOn && <Check className="w-3 h-3 text-[#003876] dark:text-[#003876]" strokeWidth={3} />}
+              {isOn && <Check className="w-3 h-3 text-brand-primary dark:text-brand-primary" strokeWidth={3} />}
             </span>
           </button>
         </div>
@@ -1770,11 +1997,11 @@ function NotificationsPanel({ settings, editValues, toStr, onChange }: {
               className={[
                 'flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 relative',
                 active
-                  ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]',
+                  ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary',
               ].join(' ')}
             >
-              <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+              <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${active ? 'text-brand-secondary' : 'text-gray-400'}`} />
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
                   {meta.label}
@@ -1786,7 +2013,7 @@ function NotificationsPanel({ settings, editValues, toStr, onChange }: {
                 )}
               </div>
               {isChanged && (
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#ffd700]" />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-brand-secondary" />
               )}
             </button>
           );
@@ -1926,7 +2153,7 @@ function ReminderChainSection() {
     <div>
       {saving && (
         <div className="flex justify-end mb-2">
-          <Loader2 className="w-4 h-4 animate-spin text-[#003876]" />
+          <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
         </div>
       )}
 
@@ -2143,7 +2370,7 @@ function AutoConfirmSection() {
     <div className="space-y-4">
       {saving && (
         <div className="flex justify-end">
-          <Loader2 className="w-4 h-4 animate-spin text-[#003876]" />
+          <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
         </div>
       )}
 
@@ -2157,14 +2384,14 @@ function AutoConfirmSection() {
           type="button"
           onClick={handleToggle}
           disabled={webhookAlert === 'checking' || webhookAlert === 'registering'}
-          className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 disabled:opacity-50 ${
-            enabled ? 'bg-[#003876] dark:bg-[#ffd700]' : 'bg-gray-300 dark:bg-gray-600'
+          className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 disabled:opacity-50 ${
+            enabled ? 'bg-brand-primary dark:bg-brand-secondary' : 'bg-gray-300 dark:bg-gray-600'
           }`}
         >
           <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${
             enabled ? 'translate-x-6' : 'translate-x-0'
           }`}>
-            {enabled && <Check className="w-3 h-3 text-[#003876] dark:text-[#003876]" strokeWidth={3} />}
+            {enabled && <Check className="w-3 h-3 text-brand-primary dark:text-brand-primary" strokeWidth={3} />}
           </span>
         </button>
       </div>
@@ -2342,14 +2569,14 @@ function TimeRangeSlider({ workStart, workEnd, lunchStart, lunchEnd, valueStart,
 
   return (
     <div className="space-y-2 pt-1">
-      <div className="flex justify-between text-xs font-semibold text-[#003876] dark:text-[#ffd700]">
+      <div className="flex justify-between text-xs font-semibold text-brand-primary dark:text-brand-secondary">
         <span>{toTime(vS)}</span>
         <span>{toTime(vE)}</span>
       </div>
       <div className="relative h-4 flex items-center">
         <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
         <div
-          className="absolute h-2 rounded-full bg-gradient-to-r from-[#003876] to-blue-500"
+          className="absolute h-2 rounded-full bg-gradient-to-r from-brand-primary to-blue-500"
           style={{ left: pct(vS), right: `${((wMax - vE) / total) * 100}%` }}
         />
         {lMax > lMin && (
@@ -2386,10 +2613,10 @@ function SLASlider({ value, onChange }: { value: number; onChange: (v: number) =
   const PRESETS = [4, 8, 24, 48, 72];
   return (
     <div className="space-y-3">
-      <div className="text-2xl font-bold text-[#003876] dark:text-white">{fmt(value)}</div>
+      <div className="text-2xl font-bold text-brand-primary dark:text-white">{fmt(value)}</div>
       <div className="relative h-6 flex items-center">
         <div className="absolute w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full" />
-        <div className="absolute h-1.5 bg-[#003876] rounded-full pointer-events-none" style={{ width: `${pct}%` }} />
+        <div className="absolute h-1.5 bg-brand-primary rounded-full pointer-events-none" style={{ width: `${pct}%` }} />
         <input
           type="range" min={MIN} max={MAX} step={1} value={value}
           onChange={(e) => onChange(parseInt(e.target.value))}
@@ -2412,7 +2639,7 @@ function SLASlider({ value, onChange }: { value: number; onChange: (v: number) =
             onClick={() => onChange(h)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
               value === h
-                ? 'bg-[#003876] text-white shadow-sm'
+                ? 'bg-brand-primary text-white shadow-sm'
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
@@ -2719,6 +2946,7 @@ function AppointmentsSettingsPanel() {
       setSaving(false);
       return;
     }
+    logAudit({ action: 'update', module: 'settings', description: 'Configurações de agendamentos atualizadas' });
     setOriginal(JSON.stringify(data));
     setSaving(false);
     setSaved(true);
@@ -2823,7 +3051,7 @@ function AppointmentsSettingsPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+        <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
       </div>
     );
   }
@@ -2843,7 +3071,7 @@ function AppointmentsSettingsPanel() {
             {data.reasons.length < 10 && (
               <button
                 onClick={() => openDrawer(null)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary text-white text-xs font-medium hover:bg-brand-primary-dark transition-all"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Adicionar
@@ -2863,10 +3091,10 @@ function AppointmentsSettingsPanel() {
                   <button
                     key={r.key}
                     onClick={() => openDrawer(r.key)}
-                    className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-[#003876]/50 hover:shadow-sm transition-all text-left group"
+                    className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-brand-primary/50 hover:shadow-sm transition-all text-left group"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-[#003876]/8 dark:bg-[#003876]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#003876]/15 transition-colors">
-                      <IconComp className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
+                    <div className="w-9 h-9 rounded-xl bg-brand-primary/8 dark:bg-brand-primary/20 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-primary/15 transition-colors">
+                      <IconComp className="w-[18px] h-[18px] text-brand-primary dark:text-brand-secondary" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{r.label}</p>
@@ -2876,7 +3104,7 @@ function AppointmentsSettingsPanel() {
                         <span className="text-[10px] text-gray-400">×{r.max_per_slot ?? 1}</span>
                         {(r.min_advance_hours ?? 0) > 0 && <span className="text-[10px] text-gray-400">⏱{r.min_advance_hours}h</span>}
                         {(r.lead_integrated ?? false) && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#003876]/10 text-[#003876] dark:text-[#ffd700]">Lead</span>
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-primary/10 text-brand-primary dark:text-brand-secondary">Lead</span>
                         )}
                       </div>
                     </div>
@@ -2895,7 +3123,7 @@ function AppointmentsSettingsPanel() {
         description="Datas específicas em que não há atendimento."
       >
           {/* ── Cadastrados ── */}
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Cadastrados</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Cadastrados</p>
           <div className="space-y-2">
             {blockedDates.length === 0 && (
               <p className="text-xs text-gray-400 italic">Nenhum dia fechado cadastrado.</p>
@@ -2917,28 +3145,28 @@ function AppointmentsSettingsPanel() {
           </div>
           <hr className="border-gray-100 dark:border-gray-700/50" />
           {/* ── Adicionar ── */}
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Adicionar</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Adicionar</p>
           <div className="flex gap-2 flex-wrap items-center">
-            <select value={newBlockedDay} onChange={(e) => setNewBlockedDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+            <select value={newBlockedDay} onChange={(e) => setNewBlockedDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20">
               <option value="">Dia</option>
               {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>{String(d).padStart(2, '0')}</option>
               ))}
             </select>
-            <select value={newBlockedMonth} onChange={(e) => setNewBlockedMonth(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+            <select value={newBlockedMonth} onChange={(e) => setNewBlockedMonth(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20">
               <option value="">Mês</option>
               {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'].map((m, i) => (
                 <option key={i + 1} value={i + 1}>{m}</option>
               ))}
             </select>
-            <select value={newBlockedYear} onChange={(e) => setNewBlockedYear(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+            <select value={newBlockedYear} onChange={(e) => setNewBlockedYear(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20">
               <option value="">Ano</option>
               {Array.from({ length: 3 }, (_, i) => new Date().getFullYear() + i).map((y) => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <input type="text" value={newBlockedReason} onChange={(e) => setNewBlockedReason(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addBlockedDate()} placeholder="Motivo (opcional)" className="flex-1 min-w-[120px] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
-            <button onClick={addBlockedDate} disabled={!newBlockedDay || !newBlockedMonth || !newBlockedYear} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">
+            <input type="text" value={newBlockedReason} onChange={(e) => setNewBlockedReason(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addBlockedDate()} placeholder="Motivo (opcional)" className="flex-1 min-w-[120px] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" />
+            <button onClick={addBlockedDate} disabled={!newBlockedDay || !newBlockedMonth || !newBlockedYear} className="px-4 py-2 rounded-xl bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary-dark disabled:opacity-40 transition-all">
               Adicionar
             </button>
           </div>
@@ -2952,7 +3180,7 @@ function AppointmentsSettingsPanel() {
         description="Datas fixas recorrentes (dia/mês). Feriados variáveis use Dias Fechados."
       >
           {/* ── Cadastrados ── */}
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Cadastrados</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Cadastrados</p>
           <div className="space-y-2">
             {holidays.length === 0 && (
               <p className="text-xs text-gray-400 italic">Nenhum feriado cadastrado.</p>
@@ -2974,22 +3202,22 @@ function AppointmentsSettingsPanel() {
           </div>
           <hr className="border-gray-100 dark:border-gray-700/50" />
           {/* ── Adicionar ── */}
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Adicionar</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Adicionar</p>
           <div className="flex gap-2 flex-wrap items-center">
-            <select value={newHolidayDay} onChange={(e) => setNewHolidayDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+            <select value={newHolidayDay} onChange={(e) => setNewHolidayDay(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20">
               <option value="">Dia</option>
               {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>{String(d).padStart(2, '00')}</option>
               ))}
             </select>
-            <select value={newHolidayMonth} onChange={(e) => setNewHolidayMonth(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20">
+            <select value={newHolidayMonth} onChange={(e) => setNewHolidayMonth(e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20">
               <option value="">Mês</option>
               {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'].map((m, i) => (
                 <option key={i + 1} value={i + 1}>{m}</option>
               ))}
             </select>
-            <input type="text" value={newHolidayName} onChange={(e) => setNewHolidayName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addHoliday()} placeholder="Nome do feriado" className="flex-1 min-w-[140px] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
-            <button onClick={addHoliday} disabled={!newHolidayDay || !newHolidayMonth || !newHolidayName.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">
+            <input type="text" value={newHolidayName} onChange={(e) => setNewHolidayName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addHoliday()} placeholder="Nome do feriado" className="flex-1 min-w-[140px] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" />
+            <button onClick={addHoliday} disabled={!newHolidayDay || !newHolidayMonth || !newHolidayName.trim()} className="px-4 py-2 rounded-xl bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary-dark disabled:opacity-40 transition-all">
               Adicionar
             </button>
           </div>
@@ -3025,7 +3253,7 @@ function AppointmentsSettingsPanel() {
           className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
               ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-              : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50'
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
           }`}
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
@@ -3042,7 +3270,7 @@ function AppointmentsSettingsPanel() {
           <>
             <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40" onClick={closeDrawer} />
             <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
-              <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
+              <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark flex-shrink-0">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                   <ClipboardList className="w-4 h-4" />
                   {drawerIsNew ? 'Novo motivo' : 'Editar motivo'}
@@ -3073,7 +3301,7 @@ function AppointmentsSettingsPanel() {
                   <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Nome</label>
-                      <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
+                      <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20" />
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Ícone</p>
@@ -3082,7 +3310,7 @@ function AppointmentsSettingsPanel() {
                           const isSelected = (d.icon || 'FileText') === iconKey;
                           return (
                             <button key={iconKey} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, icon: iconKey } : prev)} title={iconLabel}
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isSelected ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'}`}>
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isSelected ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20 ring-2 ring-brand-primary/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-brand-primary/10 hover:text-brand-primary dark:hover:text-brand-secondary'}`}>
                               <IconComp className="w-4 h-4" />
                             </button>
                           );
@@ -3103,8 +3331,8 @@ function AppointmentsSettingsPanel() {
                       <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Duração da visita</p>
                       <div className="flex flex-wrap gap-2">
                         {DURATION_OPTIONS.map((min) => (
-                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, duration_minutes: min } : prev)} className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.duration_minutes === min ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'}`}>
-                            <Clock className={`w-3 h-3 ${d.duration_minutes === min ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, duration_minutes: min } : prev)} className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.duration_minutes === min ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'}`}>
+                            <Clock className={`w-3 h-3 ${d.duration_minutes === min ? 'text-brand-secondary' : 'text-gray-400'}`} />
                             {min} min
                           </button>
                         ))}
@@ -3115,8 +3343,8 @@ function AppointmentsSettingsPanel() {
                       <p className="text-xs text-gray-400 mb-2">Tempo de preparação entre atendimentos</p>
                       <div className="flex flex-wrap gap-2">
                         {BUFFER_OPTIONS.map((min) => (
-                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, buffer_minutes: min } : prev)} className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.buffer_minutes === min ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'}`}>
-                            <Timer className={`w-3 h-3 ${d.buffer_minutes === min ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                          <button key={min} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, buffer_minutes: min } : prev)} className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${d.buffer_minutes === min ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'}`}>
+                            <Timer className={`w-3 h-3 ${d.buffer_minutes === min ? 'text-brand-secondary' : 'text-gray-400'}`} />
                             {min === 0 ? 'Nenhum' : `${min} min`}
                           </button>
                         ))}
@@ -3138,7 +3366,7 @@ function AppointmentsSettingsPanel() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">0h</span>
-                          <span className="font-display text-xl font-bold text-[#003876] dark:text-white tabular-nums">
+                          <span className="font-display text-xl font-bold text-brand-primary dark:text-white tabular-nums">
                             {(d.min_advance_hours ?? 0) === 0 ? 'Sem restrição' : `${d.min_advance_hours}h`}
                           </span>
                           <span className="text-xs text-gray-500">72h</span>
@@ -3146,7 +3374,7 @@ function AppointmentsSettingsPanel() {
                         <div className="relative h-6 flex items-center">
                           <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
                           <div
-                            className="absolute h-2 rounded-full bg-gradient-to-r from-[#003876] to-blue-500 pointer-events-none"
+                            className="absolute h-2 rounded-full bg-gradient-to-r from-brand-primary to-blue-500 pointer-events-none"
                             style={{ width: `${((d.min_advance_hours ?? 0) / 72) * 100}%` }}
                           />
                           <input
@@ -3171,7 +3399,7 @@ function AppointmentsSettingsPanel() {
                           {[0, 6, 12, 24, 48, 72].map((tick) => {
                             const current = tick === (d.min_advance_hours ?? 0);
                             return (
-                              <span key={tick} className={`tabular-nums ${current ? 'text-[#003876] dark:text-[#ffd700] font-semibold' : ''}`}>
+                              <span key={tick} className={`tabular-nums ${current ? 'text-brand-primary dark:text-brand-secondary font-semibold' : ''}`}>
                                 {tick === 0 ? '0' : `${tick}h`}
                               </span>
                             );
@@ -3195,9 +3423,9 @@ function AppointmentsSettingsPanel() {
                         <p className="text-xs text-gray-400 mt-0.5">Agendamentos no mesmo horário</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.max(1, (prev.max_per_slot ?? 1) - 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.max(1, (prev.max_per_slot ?? 1) - 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-brand-primary hover:text-brand-primary transition-colors"><ChevronDown className="w-4 h-4" /></button>
                         <span className="w-8 text-center text-lg font-bold text-gray-800 dark:text-white">{d.max_per_slot ?? 1}</span>
-                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.min(10, (prev.max_per_slot ?? 1) + 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_per_slot: Math.min(10, (prev.max_per_slot ?? 1) + 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-brand-primary hover:text-brand-primary transition-colors"><ChevronUp className="w-4 h-4" /></button>
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-4">
@@ -3206,9 +3434,9 @@ function AppointmentsSettingsPanel() {
                         <p className="text-xs text-gray-400 mt-0.5">0 = ilimitado</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.max(0, (prev.max_daily ?? 0) - 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.max(0, (prev.max_daily ?? 0) - 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-brand-primary hover:text-brand-primary transition-colors"><ChevronDown className="w-4 h-4" /></button>
                         <span className="w-8 text-center text-lg font-bold text-gray-800 dark:text-white">{d.max_daily ?? 0}</span>
-                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.min(50, (prev.max_daily ?? 0) + 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
+                        <button onClick={() => setDrawerDraft((prev) => prev ? { ...prev, max_daily: Math.min(50, (prev.max_daily ?? 0) + 1) } : prev)} className="w-8 h-8 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 hover:border-brand-primary hover:text-brand-primary transition-colors"><ChevronUp className="w-4 h-4" /></button>
                       </div>
                     </div>
                   </div>
@@ -3245,10 +3473,10 @@ function AppointmentsSettingsPanel() {
                             availability_intervals: intervals,
                           };
                         })}
-                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 flex-shrink-0 ${d.availability_enabled ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
+                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 flex-shrink-0 ${d.availability_enabled ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-600'}`}
                       >
                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.availability_enabled ? 'translate-x-6' : 'translate-x-0'}`}>
-                          {d.availability_enabled && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                          {d.availability_enabled && <Check className="w-3 h-3 text-brand-primary" strokeWidth={3} />}
                         </span>
                       </button>
                     </div>
@@ -3286,8 +3514,8 @@ function AppointmentsSettingsPanel() {
                                       })}
                                       className={`h-9 rounded-xl text-[11px] font-semibold transition-all ${
                                         selected
-                                          ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30'
-                                          : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                                          ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20 ring-2 ring-brand-primary/30'
+                                          : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
                                       }`}
                                     >
                                       {WEEKDAYS[idx]}
@@ -3338,7 +3566,7 @@ function AppointmentsSettingsPanel() {
                                   availability_intervals: [...current, { start: toTime(newStartMin), end: toTime(newEndMin) }],
                                 };
                               })}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#003876] text-white text-[11px] font-semibold hover:bg-[#002855] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-primary text-white text-[11px] font-semibold hover:bg-brand-primary-dark disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                             >
                               <Plus className="w-3 h-3" />
                               Adicionar
@@ -3412,10 +3640,10 @@ function AppointmentsSettingsPanel() {
                       </div>
                       <button
                         onClick={() => setDrawerDraft((prev) => prev ? { ...prev, lead_integrated: !prev.lead_integrated } : prev)}
-                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.lead_integrated ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
+                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 ${d.lead_integrated ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-600'}`}
                       >
                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.lead_integrated ? 'translate-x-6' : 'translate-x-0'}`}>
-                          {d.lead_integrated && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                          {d.lead_integrated && <Check className="w-3 h-3 text-brand-primary" strokeWidth={3} />}
                         </span>
                       </button>
                     </div>
@@ -3424,7 +3652,7 @@ function AppointmentsSettingsPanel() {
 
               </div>
               <div className="px-5 py-4 pb-8 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 flex-shrink-0">
-                <button onClick={saveDrawer} disabled={!d.label.trim()} className="w-full py-2.5 rounded-xl bg-[#003876] text-white text-sm font-semibold hover:bg-[#002855] disabled:opacity-40 transition-all">
+                <button onClick={saveDrawer} disabled={!d.label.trim()} className="w-full py-2.5 rounded-xl bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary-dark disabled:opacity-40 transition-all">
                   {drawerIsNew ? 'Adicionar motivo' : 'Salvar alterações'}
                 </button>
               </div>
@@ -3530,6 +3758,7 @@ function EnrollmentSettingsPanel() {
               }),
       ),
     );
+    logAudit({ action: 'update', module: 'settings', description: 'Configurações de matrículas atualizadas' });
     setOriginal(JSON.stringify(data));
     setSaving(false);
     setSaved(true);
@@ -3559,7 +3788,7 @@ function EnrollmentSettingsPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+        <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
       </div>
     );
   }
@@ -3575,12 +3804,12 @@ function EnrollmentSettingsPanel() {
         description="Idade mínima exigida para pré-matrícula."
       >
         <div className="flex items-center gap-4">
-          <button onClick={() => setData((p) => ({ ...p, min_age: Math.max(0, p.min_age - 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronDown className="w-4 h-4" /></button>
+          <button onClick={() => setData((p) => ({ ...p, min_age: Math.max(0, p.min_age - 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-brand-primary hover:text-brand-primary transition-colors"><ChevronDown className="w-4 h-4" /></button>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-[#003876] dark:text-white">{data.min_age}</span>
+            <span className="text-3xl font-bold text-brand-primary dark:text-white">{data.min_age}</span>
             <span className="text-sm text-gray-400">anos</span>
           </div>
-          <button onClick={() => setData((p) => ({ ...p, min_age: Math.min(18, p.min_age + 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-[#003876] hover:text-[#003876] transition-colors"><ChevronUp className="w-4 h-4" /></button>
+          <button onClick={() => setData((p) => ({ ...p, min_age: Math.min(18, p.min_age + 1) }))} className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:border-brand-primary hover:text-brand-primary transition-colors"><ChevronUp className="w-4 h-4" /></button>
         </div>
       </SettingsCard>
 
@@ -3600,8 +3829,8 @@ function EnrollmentSettingsPanel() {
                 onClick={() => toggleSegment(seg)}
                 className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
                   selected
-                    ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                    ? 'bg-brand-primary border-brand-primary text-white shadow-sm shadow-brand-primary/20'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-brand-primary/40 hover:text-brand-primary dark:hover:text-brand-secondary'
                 }`}
               >
                 <SegIcon className="w-4 h-4 flex-shrink-0" />
@@ -3620,7 +3849,7 @@ function EnrollmentSettingsPanel() {
         description="Documentos exigidos no formulário de pré-matrícula."
       >
           {/* ── Sugeridos ── */}
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Sugeridos</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Sugeridos</p>
           <div className="flex flex-wrap gap-2">
             {DOC_SUGGESTIONS.map(({ label: s, Icon: DocIcon }) => {
               const added = data.required_docs_list.includes(s);
@@ -3630,8 +3859,8 @@ function EnrollmentSettingsPanel() {
                   onClick={() => added ? removeDoc(s) : addDoc(s)}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
                     added
-                      ? 'bg-[#003876] border-[#003876] text-white shadow-md shadow-[#003876]/20'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                      ? 'bg-brand-primary border-brand-primary text-white shadow-md shadow-brand-primary/20'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-brand-primary/40 hover:text-brand-primary dark:hover:text-brand-secondary'
                   }`}
                 >
                   <DocIcon className="w-3.5 h-3.5 flex-shrink-0" />
@@ -3641,7 +3870,7 @@ function EnrollmentSettingsPanel() {
               );
             })}
             {data.required_docs_list.filter((d) => !DOC_SUGGESTIONS.some((s) => s.label === d)).map((doc) => (
-              <span key={doc} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-[#003876] border-[#003876] text-white text-xs font-medium">
+              <span key={doc} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-brand-primary border-brand-primary text-white text-xs font-medium">
                 <FileText className="w-3.5 h-3.5 flex-shrink-0" />
                 {doc}
                 <button onClick={() => removeDoc(doc)} className="opacity-70 hover:opacity-100 transition-opacity ml-0.5">
@@ -3652,10 +3881,10 @@ function EnrollmentSettingsPanel() {
           </div>
           <hr className="border-gray-100 dark:border-gray-700/50" />
           {/* ── Adicionar personalizado ── */}
-          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Adicionar personalizado</p>
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-primary/50 dark:text-blue-400/60">Adicionar personalizado</p>
           <div className="flex gap-2">
-            <input type="text" value={newDoc} onChange={(e) => setNewDoc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addDoc(newDoc)} placeholder="Outro documento..." className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20 placeholder:text-gray-400" />
-            <button onClick={() => addDoc(newDoc)} disabled={!newDoc.trim()} className="px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002855] disabled:opacity-40 transition-all">Adicionar</button>
+            <input type="text" value={newDoc} onChange={(e) => setNewDoc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addDoc(newDoc)} placeholder="Outro documento..." className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" />
+            <button onClick={() => addDoc(newDoc)} disabled={!newDoc.trim()} className="px-4 py-2 rounded-xl bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary-dark disabled:opacity-40 transition-all">Adicionar</button>
           </div>
       </SettingsCard>
 
@@ -3683,10 +3912,10 @@ function EnrollmentSettingsPanel() {
                   <button
                     type="button"
                     onClick={() => setData((p) => ({ ...p, [key]: !p[key] }))}
-                    className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${isOn ? 'bg-[#003876]' : 'bg-gray-300 dark:bg-gray-600'}`}
+                    className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 ${isOn ? 'bg-brand-primary' : 'bg-gray-300 dark:bg-gray-600'}`}
                   >
                     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${isOn ? 'translate-x-6' : 'translate-x-0'}`}>
-                      {isOn && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                      {isOn && <Check className="w-3 h-3 text-brand-primary" strokeWidth={3} />}
                     </span>
                   </button>
                 </div>
@@ -3705,7 +3934,7 @@ function EnrollmentSettingsPanel() {
           className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
               ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-              : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50'
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
           }`}
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
@@ -3832,6 +4061,7 @@ function ContactSettingsPanel() {
       setSaving(false);
       return;
     }
+    logAudit({ action: 'update', module: 'settings', description: 'Configurações de contatos atualizadas' });
     setOriginal(JSON.stringify(data));
     setSaving(false);
     setSaved(true);
@@ -3917,7 +4147,7 @@ function ContactSettingsPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 text-[#003876] animate-spin" />
+        <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
       </div>
     );
   }
@@ -3951,8 +4181,8 @@ function ContactSettingsPanel() {
                 onClick={() => toggleField(key)}
                 className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
                   active
-                    ? 'bg-[#003876] border-[#003876] text-white shadow-sm shadow-[#003876]/20'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[#003876]/40 hover:text-[#003876] dark:hover:text-[#ffd700]'
+                    ? 'bg-brand-primary border-brand-primary text-white shadow-sm shadow-brand-primary/20'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-brand-primary/40 hover:text-brand-primary dark:hover:text-brand-secondary'
                 }`}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
@@ -3973,7 +4203,7 @@ function ContactSettingsPanel() {
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400">{data.reasons.length}/12</span>
             {data.reasons.length < 12 && (
-              <button onClick={() => openDrawer(null)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#003876] text-white text-xs font-medium hover:bg-[#002855] transition-all">
+              <button onClick={() => openDrawer(null)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary text-white text-xs font-medium hover:bg-brand-primary-dark transition-all">
                 <Plus className="w-3.5 h-3.5" />
                 Adicionar
               </button>
@@ -3989,14 +4219,14 @@ function ContactSettingsPanel() {
               const iconOpt = REASON_ICON_OPTIONS.find((o) => o.key === (r.icon || 'MessageSquare'));
               const IconComp = iconOpt?.Icon ?? MessageSquare;
               return (
-                <button key={r.key} onClick={() => openDrawer(r.key)} className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-[#003876]/50 hover:shadow-sm transition-all text-left group">
-                  <div className="w-9 h-9 rounded-xl bg-[#003876]/8 dark:bg-[#003876]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#003876]/15 transition-colors">
-                    <IconComp className="w-[18px] h-[18px] text-[#003876] dark:text-[#ffd700]" />
+                <button key={r.key} onClick={() => openDrawer(r.key)} className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-brand-primary/50 hover:shadow-sm transition-all text-left group">
+                  <div className="w-9 h-9 rounded-xl bg-brand-primary/8 dark:bg-brand-primary/20 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-primary/15 transition-colors">
+                    <IconComp className="w-[18px] h-[18px] text-brand-primary dark:text-brand-secondary" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{r.label}</p>
                     {r.lead_integrated && (
-                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#003876]/10 text-[#003876] dark:text-[#ffd700] mt-1 inline-block">Lead</span>
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-primary/10 text-brand-primary dark:text-brand-secondary mt-1 inline-block">Lead</span>
                     )}
                   </div>
                 </button>
@@ -4016,7 +4246,7 @@ function ContactSettingsPanel() {
           className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
               ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-              : 'bg-[#003876] text-white hover:bg-[#002855] shadow-[#003876]/25 disabled:opacity-50'
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
           }`}
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
@@ -4031,7 +4261,7 @@ function ContactSettingsPanel() {
           <>
             <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40" onClick={closeDrawer} />
             <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
-              <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
+              <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark flex-shrink-0">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                   <ClipboardList className="w-4 h-4" />
                   {drawerIsNew ? 'Novo motivo' : 'Editar motivo'}
@@ -4058,7 +4288,7 @@ function ContactSettingsPanel() {
                   <div className="bg-white dark:bg-gray-900 px-4 py-4 space-y-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Nome</label>
-                      <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20" />
+                      <input type="text" value={d.label} onChange={(e) => setDrawerDraft((prev) => prev ? { ...prev, label: e.target.value } : prev)} placeholder="Nome do motivo" className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20" />
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Ícone</p>
@@ -4067,7 +4297,7 @@ function ContactSettingsPanel() {
                           const isSelected = (d.icon || 'MessageSquare') === iconKey;
                           return (
                             <button key={iconKey} onClick={() => setDrawerDraft((prev) => prev ? { ...prev, icon: iconKey } : prev)} title={iconLabel}
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isSelected ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20 ring-2 ring-[#003876]/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-[#003876]/10 hover:text-[#003876] dark:hover:text-[#ffd700]'}`}>
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isSelected ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20 ring-2 ring-brand-primary/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-brand-primary/10 hover:text-brand-primary dark:hover:text-brand-secondary'}`}>
                               <IconComp className="w-4 h-4" />
                             </button>
                           );
@@ -4091,10 +4321,10 @@ function ContactSettingsPanel() {
                       </div>
                       <button
                         onClick={() => setDrawerDraft((prev) => prev ? { ...prev, require_message: !prev.require_message } : prev)}
-                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.require_message ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
+                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 ${d.require_message ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-600'}`}
                       >
                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.require_message ? 'translate-x-6' : 'translate-x-0'}`}>
-                          {d.require_message && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                          {d.require_message && <Check className="w-3 h-3 text-brand-primary" strokeWidth={3} />}
                         </span>
                       </button>
                     </div>
@@ -4115,10 +4345,10 @@ function ContactSettingsPanel() {
                       </div>
                       <button
                         onClick={() => setDrawerDraft((prev) => prev ? { ...prev, lead_integrated: !prev.lead_integrated } : prev)}
-                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003876]/50 ${d.lead_integrated ? 'bg-[#003876]' : 'bg-gray-200 dark:bg-gray-600'}`}
+                        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 ${d.lead_integrated ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-600'}`}
                       >
                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md flex items-center justify-center transition-all duration-300 ${d.lead_integrated ? 'translate-x-6' : 'translate-x-0'}`}>
-                          {d.lead_integrated && <Check className="w-3 h-3 text-[#003876]" strokeWidth={3} />}
+                          {d.lead_integrated && <Check className="w-3 h-3 text-brand-primary" strokeWidth={3} />}
                         </span>
                       </button>
                     </div>
@@ -4127,7 +4357,7 @@ function ContactSettingsPanel() {
 
               </div>
               <div className="px-5 py-4 pb-8 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 flex-shrink-0">
-                <button onClick={saveDrawer} disabled={!d.label.trim()} className="w-full py-2.5 rounded-xl bg-[#003876] text-white text-sm font-semibold hover:bg-[#002855] disabled:opacity-40 transition-all">
+                <button onClick={saveDrawer} disabled={!d.label.trim()} className="w-full py-2.5 rounded-xl bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary-dark disabled:opacity-40 transition-all">
                   {drawerIsNew ? 'Adicionar motivo' : 'Salvar alterações'}
                 </button>
               </div>

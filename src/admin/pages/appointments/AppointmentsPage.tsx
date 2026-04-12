@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { useRealtimeRows } from '../../hooks/useRealtimeRows';
 import type { VisitAppointment, AppointmentStatus } from '../../types/admin.types';
@@ -106,7 +107,7 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
   });
 
   const set = (k: string, v: string) => setForm((prev) => ({ ...prev, [k]: v }));
-  const fieldClass = 'w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none';
+  const fieldClass = 'w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none';
   const fieldClassError = `${fieldClass} border-red-400 dark:border-red-500`;
   const labelClass = 'block text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1';
 
@@ -132,7 +133,10 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
       origin: 'internal',
     });
     setSaving(false);
-    if (!error) { onCreated(); onClose(); }
+    if (!error) {
+      logAudit({ action: 'create', module: 'appointments', description: `Agendamento criado para ${form.visitor_name}`, newData: form as Record<string, unknown> });
+      onCreated(); onClose();
+    }
   }
 
   return (
@@ -140,7 +144,7 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
       <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40" onClick={onClose} />
       <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#003876] to-[#002255] text-white flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white flex-shrink-0">
           <div className="flex items-center gap-2">
             <CalendarCheck className="w-4 h-4" />
             <h2 className="font-semibold text-sm">Novo Agendamento</h2>
@@ -216,7 +220,7 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
           <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             Cancelar
           </button>
-          <button type="submit" form="create-appointment-form" disabled={saving} className="flex-1 py-2.5 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+          <button type="submit" form="create-appointment-form" disabled={saving} className="flex-1 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Criando…</> : 'Criar Agendamento'}
           </button>
         </div>
@@ -300,7 +304,10 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
     if (newStatus === 'confirmed') { patch.confirmed_at = new Date().toISOString(); patch.confirmed_by = profile?.id || null; }
     if (newStatus === 'cancelled') { patch.cancelled_at = new Date().toISOString(); patch.cancelled_by = profile?.id || null; }
     const { error } = await supabase.from('visit_appointments').update(patch).eq('id', apt!.id);
-    if (!error) onUpdate(apt!.id, patch as Partial<VisitAppointment>);
+    if (!error) {
+      logAudit({ action: 'status_change', module: 'appointments', recordId: apt!.id, description: `Status do agendamento de ${apt!.visitor_name} alterado para ${newStatus}`, oldData: { status: apt!.status }, newData: { status: newStatus } });
+      onUpdate(apt!.id, patch as Partial<VisitAppointment>);
+    }
     setSaving(false);
     setShowCancelForm(false);
   }
@@ -325,6 +332,7 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
       setInternalNotes(updated);
       setNewNote('');
       onUpdate(apt!.id, { internal_notes: JSON.stringify(updated) });
+      logAudit({ action: 'update', module: 'appointments', recordId: apt!.id, description: `Nota interna adicionada ao agendamento de ${apt!.visitor_name}` });
       await supabase.from('appointment_history').insert({
         appointment_id: apt!.id,
         event_type: 'note',
@@ -354,7 +362,7 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
       <div className="fixed inset-0 bg-black/30 dark:bg-black/50 z-40" onClick={onClose} />
       <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 z-50 shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#003876] to-[#002255] flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
               <CalendarCheck className="w-4 h-4 text-white" />
@@ -400,7 +408,7 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
               onClick={() => setTab(key)}
               className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium border-b-2 transition-all ${
                 tab === key
-                  ? 'border-[#003876] dark:border-[#ffd700] text-[#003876] dark:text-[#ffd700]'
+                  ? 'border-brand-primary dark:border-brand-secondary text-brand-primary dark:text-brand-secondary'
                   : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
               }`}
             >
@@ -543,12 +551,12 @@ function AppointmentDrawer({ apt, onClose, onUpdate, reasonLabels: REASON_LABELS
                     onChange={(e) => setNewNote(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNote(); } }}
                     placeholder="Nova nota..."
-                    className="flex-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none"
+                    className="flex-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none"
                   />
                   <button
                     onClick={addNote}
                     disabled={!newNote.trim() || saving}
-                    className="px-3 py-2 bg-[#003876] hover:bg-[#002855] text-white rounded-xl transition-colors disabled:opacity-40 flex items-center gap-1.5 text-xs font-medium flex-shrink-0"
+                    className="px-3 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl transition-colors disabled:opacity-40 flex items-center gap-1.5 text-xs font-medium flex-shrink-0"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
@@ -741,11 +749,11 @@ function CalendarView({ appointments, onClickAppointment, reasonLabels }: {
               onClick={() => setDayPopover(isSelected ? null : iso)}
               className={`min-h-[80px] p-1.5 text-left border-b border-r border-gray-50 dark:border-gray-700/50 transition-colors ${
                 !cell.isCurrentMonth ? 'bg-gray-50/50 dark:bg-gray-800/30' : 'hover:bg-blue-50/30 dark:hover:bg-blue-900/10'
-              } ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-inset ring-[#003876]/20' : ''}`}
+              } ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-inset ring-brand-primary/20' : ''}`}
             >
               <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium mb-1 ${
                 isToday
-                  ? 'bg-[#003876] dark:bg-[#ffd700] text-white dark:text-[#003876]'
+                  ? 'bg-brand-primary dark:bg-brand-secondary text-white dark:text-brand-primary'
                   : cell.isCurrentMonth
                     ? 'text-gray-700 dark:text-gray-300'
                     : 'text-gray-300 dark:text-gray-600'
@@ -913,6 +921,7 @@ export default function AppointmentsPage() {
 
     const { error } = await supabase.from('visit_appointments').update(patch).in('id', ids);
     if (!error) {
+      logAudit({ action: 'status_change', module: 'appointments', description: `Status de ${ids.length} agendamentos alterado em lote para ${newStatus}`, newData: { status: newStatus, count: ids.length } });
       setAppointments((prev) => prev.map((a) => ids.includes(a.id) ? { ...a, ...patch } as VisitAppointment : a));
       setSelectedIds(new Set());
     }
@@ -926,7 +935,7 @@ export default function AppointmentsPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <CalendarCheck className="w-8 h-8" />
             Agendamentos
           </h1>
@@ -937,14 +946,14 @@ export default function AppointmentsPage() {
           <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-0.5">
             <button
               onClick={() => setViewMode('table')}
-              className={`p-2 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-white dark:bg-gray-600 shadow-sm text-[#003876] dark:text-white' : 'text-gray-400 hover:text-gray-600'}`}
+              className={`p-2 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-white dark:bg-gray-600 shadow-sm text-brand-primary dark:text-white' : 'text-gray-400 hover:text-gray-600'}`}
               title="Tabela"
             >
               <LayoutList className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('calendar')}
-              className={`p-2 rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-white dark:bg-gray-600 shadow-sm text-[#003876] dark:text-white' : 'text-gray-400 hover:text-gray-600'}`}
+              className={`p-2 rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-white dark:bg-gray-600 shadow-sm text-brand-primary dark:text-white' : 'text-gray-400 hover:text-gray-600'}`}
               title="Calendário"
             >
               <CalendarDays className="w-4 h-4" />
@@ -952,12 +961,12 @@ export default function AppointmentsPage() {
           </div>
           <button
             onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 text-sm bg-[#003876] text-white px-4 py-2.5 rounded-xl hover:bg-[#002855] transition-colors font-medium shadow-sm"
+            className="inline-flex items-center gap-2 text-sm bg-brand-primary text-white px-4 py-2.5 rounded-xl hover:bg-brand-primary-dark transition-colors font-medium shadow-sm"
           >
             <Plus className="w-4 h-4" />
             Novo Agendamento
           </button>
-          <button onClick={fetchData} className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-[#003876] dark:hover:text-white border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <button onClick={fetchData} className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-brand-primary dark:hover:text-white border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -971,8 +980,8 @@ export default function AppointmentsPage() {
             onClick={() => setStatusFilter(key as AppointmentStatus | 'all')}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
               statusFilter === key
-                ? 'bg-[#003876] text-white shadow-md'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-[#003876]'
+                ? 'bg-brand-primary text-white shadow-md'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-brand-primary'
             }`}
           >
             {key !== 'all' && <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[key as AppointmentStatus]?.dot}`} />}
@@ -991,7 +1000,7 @@ export default function AppointmentsPage() {
             placeholder="Buscar por nome ou telefone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm"
           />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"><X className="w-4 h-4" /></button>}
         </div>
@@ -999,7 +1008,7 @@ export default function AppointmentsPage() {
           <select
             value={reasonFilter}
             onChange={(e) => setReasonFilter(e.target.value)}
-            className="pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm appearance-none"
+            className="pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm appearance-none"
           >
             <option value="all">Todos os motivos</option>
             {reasons.map((r) => <option key={r} value={r}>{REASON_LABELS[r] || r}</option>)}
@@ -1010,22 +1019,22 @@ export default function AppointmentsPage() {
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
-          className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none text-sm"
+          className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none text-sm"
           title="Data inicial"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
-          className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-[#003876] dark:focus:border-[#ffd700] outline-none text-sm"
+          className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none text-sm"
           title="Data final"
         />
       </div>
 
       {/* Batch actions bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 mb-4 bg-[#003876]/5 dark:bg-[#ffd700]/5 border border-[#003876]/20 dark:border-[#ffd700]/20 rounded-xl px-4 py-2.5">
-          <span className="text-xs font-medium text-[#003876] dark:text-[#ffd700]">
+        <div className="flex items-center gap-3 mb-4 bg-brand-primary/5 dark:bg-brand-secondary/5 border border-brand-primary/20 dark:border-brand-secondary/20 rounded-xl px-4 py-2.5">
+          <span className="text-xs font-medium text-brand-primary dark:text-brand-secondary">
             {selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}
           </span>
           {pendingSelected > 0 && (
@@ -1061,7 +1070,7 @@ export default function AppointmentsPage() {
         />
       ) : loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20">
@@ -1099,7 +1108,7 @@ export default function AppointmentsPage() {
                     >
                       <td className="py-3 px-3" onClick={(e) => { e.stopPropagation(); toggleSelect(apt.id); }}>
                         {selectedIds.has(apt.id)
-                          ? <CheckSquare className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+                          ? <CheckSquare className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
                           : <Square className="w-4 h-4 text-gray-300 dark:text-gray-600" />
                         }
                       </td>

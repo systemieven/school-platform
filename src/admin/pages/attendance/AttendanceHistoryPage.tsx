@@ -161,11 +161,11 @@ function DateRangePicker({
                 className={`
                   text-xs py-1.5 rounded-lg transition-colors
                   ${isStart || isEnd
-                    ? 'bg-[#003876] text-white font-bold'
+                    ? 'bg-brand-primary text-white font-bold'
                     : isBetween
-                      ? 'bg-[#003876]/10 text-[#003876] dark:text-blue-300 dark:bg-blue-900/30'
+                      ? 'bg-brand-primary/10 text-brand-primary dark:text-blue-300 dark:bg-blue-900/30'
                       : isToday
-                        ? 'font-bold text-[#003876] dark:text-blue-400'
+                        ? 'font-bold text-brand-primary dark:text-blue-400'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }
                 `}
@@ -226,7 +226,7 @@ function DateRangePicker({
             type="button"
             disabled={!start || !end}
             onClick={onApply}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#003876] text-white hover:bg-[#002255] disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50 transition-colors"
           >
             Aplicar
           </button>
@@ -279,7 +279,7 @@ function AttendantSelect({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#003876]/30"
+        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
       >
         <span className={value ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400'}>
           {selectedName || 'Todos os atendentes'}
@@ -298,7 +298,7 @@ function AttendantSelect({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar atendente..."
-                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-xs outline-none focus:border-[#003876]"
+                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-xs outline-none focus:border-brand-primary"
                   autoFocus
                 />
               </div>
@@ -307,7 +307,7 @@ function AttendantSelect({
               <button
                 type="button"
                 onClick={() => { onChange(''); setOpen(false); setSearch(''); }}
-                className={`w-full px-4 py-2.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 ${!value ? 'text-[#003876] font-semibold' : 'text-gray-600 dark:text-gray-300'}`}
+                className={`w-full px-4 py-2.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 ${!value ? 'text-brand-primary font-semibold' : 'text-gray-600 dark:text-gray-300'}`}
               >
                 Todos os atendentes
               </button>
@@ -316,7 +316,7 @@ function AttendantSelect({
                   key={s.id}
                   type="button"
                   onClick={() => { onChange(s.id); setOpen(false); setSearch(''); }}
-                  className={`w-full px-4 py-2.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 ${value === s.id ? 'text-[#003876] font-semibold' : 'text-gray-600 dark:text-gray-300'}`}
+                  className={`w-full px-4 py-2.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 ${value === s.id ? 'text-brand-primary font-semibold' : 'text-gray-600 dark:text-gray-300'}`}
                 >
                   {s.avatar_url ? (
                     <img src={s.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
@@ -441,7 +441,7 @@ export default function AttendanceHistoryPage() {
   if (permsLoading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-[#003876]" />
+        <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -457,7 +457,7 @@ export default function AttendanceHistoryPage() {
         </p>
         <button
           onClick={() => navigate('/admin/atendimentos')}
-          className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#003876] text-white text-sm font-medium hover:bg-[#002255] transition-colors"
+          className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary-dark transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Voltar aos Atendimentos
@@ -471,7 +471,7 @@ export default function AttendanceHistoryPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white flex items-center gap-3">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
             <History className="w-8 h-8" />
             Histórico de Atendimentos
           </h1>
@@ -507,8 +507,8 @@ export default function AttendanceHistoryPage() {
             className={`
               px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200
               ${dateFilter === f.key
-                ? 'bg-[#003876] text-white shadow-md shadow-[#003876]/20'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
               }
             `}
           >
@@ -563,7 +563,7 @@ export default function AttendanceHistoryPage() {
             placeholder="Buscar por cliente..."
             value={searchClient}
             onChange={(e) => setSearchClient(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#003876]/30"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
           />
         </div>
         <div className="relative">
@@ -573,14 +573,14 @@ export default function AttendanceHistoryPage() {
             placeholder="Buscar por senha..."
             value={searchTicket}
             onChange={(e) => setSearchTicket(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#003876]/30"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
           />
         </div>
         <div className="relative">
           <select
             value={sectorFilter}
             onChange={(e) => setSectorFilter(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#003876]/30 appearance-none pr-9"
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none pr-9"
           >
             <option value="">Todos os setores</option>
             {sectors.map((s) => (
@@ -604,7 +604,7 @@ export default function AttendanceHistoryPage() {
       {/* Results */}
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-[#003876]" />
+          <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
         </div>
       ) : tickets.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 py-16 text-center">
@@ -639,7 +639,7 @@ export default function AttendanceHistoryPage() {
                 className="grid grid-cols-1 lg:grid-cols-[100px_1fr_1fr_120px_110px_140px_140px_90px_80px] gap-2 px-4 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 cursor-pointer transition-colors items-center"
               >
                 {/* Senha */}
-                <span className="font-display text-sm font-bold text-[#003876] dark:text-white">
+                <span className="font-display text-sm font-bold text-brand-primary dark:text-white">
                   {t.ticket_number}
                 </span>
 

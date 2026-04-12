@@ -67,13 +67,13 @@ export default function ForcePasswordChange() {
   }
 
   const inputCls =
-    'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-[#003876] dark:focus:border-[#ffd700] focus:ring-2 focus:ring-[#003876]/20 outline-none text-sm transition-all';
+    'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm transition-all';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#003876] via-[#002255] to-[#001133] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-primary via-brand-primary-dark to-[#001133] flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#003876] to-[#002255] px-6 py-5 text-white text-center">
+        <div className="bg-gradient-to-r from-brand-primary to-brand-primary-dark px-6 py-5 text-white text-center">
           <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <KeyRound className="w-6 h-6" />
           </div>
@@ -167,7 +167,7 @@ export default function ForcePasswordChange() {
               <button
                 type="submit"
                 disabled={!canSubmit}
-                className="w-full py-3 bg-[#003876] hover:bg-[#002855] text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 {saving ? (
                   <>

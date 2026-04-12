@@ -136,10 +136,10 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-[#003876] dark:text-[#ffd700]" />
+          <Bell className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
           <span className="font-semibold text-gray-900 dark:text-white text-sm">Notificações</span>
           {unread > 0 && (
-            <span className="bg-[#003876] dark:bg-[#ffd700] text-white dark:text-[#003876] text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+            <span className="bg-brand-primary dark:bg-brand-secondary text-white dark:text-brand-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
               {unread}
             </span>
           )}
@@ -148,7 +148,7 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
           {unread > 0 && (
             <button
               onClick={onMarkAllRead}
-              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-[#003876] dark:hover:text-[#ffd700] px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               title="Marcar todas como lidas"
             >
               <CheckCheck className="w-3.5 h-3.5" />
@@ -157,7 +157,7 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
           )}
           <button
             onClick={() => setShowPrefs(!showPrefs)}
-            className={`p-1 rounded-lg transition-colors ${showPrefs ? 'text-[#003876] dark:text-[#ffd700] bg-gray-100 dark:bg-gray-700' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            className={`p-1 rounded-lg transition-colors ${showPrefs ? 'text-brand-primary dark:text-brand-secondary bg-gray-100 dark:bg-gray-700' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
             title="Preferências de notificação"
           >
             <Settings className="w-4 h-4" />
@@ -188,7 +188,7 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
                   type="checkbox"
                   checked={enabledTypes.includes(type)}
                   onChange={() => toggleType(type)}
-                  className="rounded border-gray-300 dark:border-gray-600 text-[#003876] focus:ring-[#003876]/20"
+                  className="rounded border-gray-300 dark:border-gray-600 text-brand-primary focus:ring-brand-primary/20"
                 />
                 <span className="text-xs text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
                   {NOTIF_TYPE_LABELS[type] || type}
@@ -269,7 +269,7 @@ export default function NotificationsPanel({ notifications, onClose, onMarkRead,
 
                   {/* Unread dot */}
                   {!n.is_read && (
-                    <div className="w-2 h-2 bg-[#003876] dark:bg-[#ffd700] rounded-full flex-shrink-0 mt-2" />
+                    <div className="w-2 h-2 bg-brand-primary dark:bg-brand-secondary rounded-full flex-shrink-0 mt-2" />
                   )}
                 </button>
               );

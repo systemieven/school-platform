@@ -178,7 +178,7 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
             <button
               onClick={handleSave}
               disabled={saving || !isDirty || saved}
-              className="flex-1 py-2.5 rounded-xl bg-[#003876] hover:bg-[#002255] text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {saving ? (
                 <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Salvando…</>
@@ -196,11 +196,11 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
           <div className="flex flex-col items-center gap-4 py-2">
             {/* Avatar preview */}
             <div className="relative">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-[#003876]/10 dark:bg-white/10 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-md">
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-brand-primary/10 dark:bg-white/10 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-md">
                 {previewUrl ? (
                   <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-3xl font-bold text-[#003876] dark:text-[#ffd700]">
+                  <span className="text-3xl font-bold text-brand-primary dark:text-brand-secondary">
                     {initials}
                   </span>
                 )}
@@ -209,7 +209,7 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
               {/* Camera button overlay */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-8 h-8 bg-[#003876] hover:bg-[#002255] text-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                className="absolute bottom-0 right-0 w-8 h-8 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-full flex items-center justify-center shadow-md transition-colors"
                 title="Alterar foto"
               >
                 <Camera className="w-3.5 h-3.5" />
@@ -220,7 +220,7 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline font-medium"
+                className="text-xs text-brand-primary dark:text-brand-secondary hover:underline font-medium"
               >
                 Escolher foto
               </button>
@@ -261,7 +261,7 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Seu nome"
-                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#003876]/30 focus:border-[#003876] dark:focus:border-[#ffd700] transition-colors"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary dark:focus:border-brand-secondary transition-colors"
               />
             </div>
 
@@ -288,7 +288,7 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+55 11 99999-9999"
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#003876]/30 focus:border-[#003876] dark:focus:border-[#ffd700] transition-colors"
+                  className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary dark:focus:border-brand-secondary transition-colors"
                 />
               </div>
             </div>

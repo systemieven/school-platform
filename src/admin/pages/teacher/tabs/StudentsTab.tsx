@@ -19,7 +19,7 @@ export default function StudentsTab({ cls }: { cls: SchoolClass }) {
 
   if (loading) return (
     <div className="flex items-center justify-center py-16">
-      <Loader2 className="w-6 h-6 animate-spin text-[#003876] dark:text-[#ffd700]" />
+      <Loader2 className="w-6 h-6 animate-spin text-brand-primary dark:text-brand-secondary" />
     </div>
   );
 
@@ -53,7 +53,7 @@ export default function StudentsTab({ cls }: { cls: SchoolClass }) {
             <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#003876]/10 dark:bg-[#ffd700]/10 flex items-center justify-center text-xs font-bold text-[#003876] dark:text-[#ffd700] flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-brand-primary/10 dark:bg-brand-secondary/10 flex items-center justify-center text-xs font-bold text-brand-primary dark:text-brand-secondary flex-shrink-0">
                     {s.full_name.charAt(0).toUpperCase()}
                   </div>
                   <span className="font-medium text-gray-800 dark:text-gray-200">{s.full_name}</span>

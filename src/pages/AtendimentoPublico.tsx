@@ -410,11 +410,11 @@ export default function AtendimentoPublico() {
   }, [ticket, config]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#003876] to-[#001f44] text-white flex flex-col items-center justify-start px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-brand-primary to-[#001f44] text-white flex flex-col items-center justify-start px-4 py-8">
       {/* Brand header */}
       <div className="w-full max-w-md flex items-center gap-3 mb-8">
-        <div className="w-11 h-11 bg-[#ffd700] rounded-xl flex items-center justify-center">
-          <span className="text-[#003876] font-bold text-sm">{schoolInitials}</span>
+        <div className="w-11 h-11 bg-brand-secondary rounded-xl flex items-center justify-center">
+          <span className="text-brand-primary font-bold text-sm">{schoolInitials}</span>
         </div>
         <div>
           <p className="font-display font-bold text-lg leading-tight">{schoolName}</p>
@@ -427,10 +427,10 @@ export default function AtendimentoPublico() {
         {step === 'phone' && (
           <div className="p-6 space-y-5">
             <div className="text-center">
-              <div className="w-14 h-14 bg-[#003876]/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <Phone className="w-6 h-6 text-[#003876]" />
+              <div className="w-14 h-14 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Phone className="w-6 h-6 text-brand-primary" />
               </div>
-              <h1 className="font-display text-2xl font-bold text-[#003876]">Bem-vindo!</h1>
+              <h1 className="font-display text-2xl font-bold text-brand-primary">Bem-vindo!</h1>
               <p className="text-sm text-gray-500 mt-1">
                 Digite seu telefone para gerar sua senha de atendimento.
               </p>
@@ -444,7 +444,7 @@ export default function AtendimentoPublico() {
                 placeholder="(00) 00000-0000"
                 value={phone}
                 onChange={(e) => setPhone(maskPhone(e.target.value))}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-base outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-base outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
               />
             </div>
 
@@ -457,7 +457,7 @@ export default function AtendimentoPublico() {
 
             <button
               onClick={submitPhone}
-              className="w-full py-3.5 rounded-xl bg-[#003876] text-white font-semibold hover:bg-[#002255] transition-colors inline-flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-brand-primary text-white font-semibold hover:bg-[#002255] transition-colors inline-flex items-center justify-center gap-2"
             >
               Continuar
               <ArrowRight className="w-4 h-4" />
@@ -467,7 +467,7 @@ export default function AtendimentoPublico() {
 
         {step === 'validating' && (
           <div className="p-10 text-center">
-            <Loader2 className="w-8 h-8 text-[#003876] animate-spin mx-auto mb-3" />
+            <Loader2 className="w-8 h-8 text-brand-primary animate-spin mx-auto mb-3" />
             <p className="text-sm text-gray-500">{loadingMsg}</p>
           </div>
         )}
@@ -478,7 +478,7 @@ export default function AtendimentoPublico() {
               <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
               </div>
-              <h1 className="font-display text-2xl font-bold text-[#003876]">Agendamento encontrado!</h1>
+              <h1 className="font-display text-2xl font-bold text-brand-primary">Agendamento encontrado!</h1>
               <p className="text-sm text-gray-500 mt-1">
                 Para confirmar sua presença, precisamos da sua localização.
               </p>
@@ -486,14 +486,14 @@ export default function AtendimentoPublico() {
 
             <button
               onClick={() => performCheckin({})}
-              className="w-full py-3.5 rounded-xl bg-[#003876] text-white font-semibold hover:bg-[#002255] transition-colors inline-flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-brand-primary text-white font-semibold hover:bg-[#002255] transition-colors inline-flex items-center justify-center gap-2"
             >
               <MapPin className="w-4 h-4" />
               Gerar senha de atendimento
             </button>
             <button
               onClick={() => setStep('phone')}
-              className="w-full py-2 text-xs text-gray-400 hover:text-[#003876] transition-colors"
+              className="w-full py-2 text-xs text-gray-400 hover:text-brand-primary transition-colors"
             >
               Voltar
             </button>
@@ -506,7 +506,7 @@ export default function AtendimentoPublico() {
               <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <AlertCircle className="w-6 h-6 text-amber-600" />
               </div>
-              <h1 className="font-display text-xl font-bold text-[#003876]">Sem agendamento prévio</h1>
+              <h1 className="font-display text-xl font-bold text-brand-primary">Sem agendamento prévio</h1>
               <p className="text-sm text-gray-500 mt-1">
                 Não encontramos um agendamento para este telefone.
                 Confirme seus dados abaixo para atendimento imediato.
@@ -520,19 +520,19 @@ export default function AtendimentoPublico() {
                 value={walkinName}
                 onChange={(e) => setWalkinName(e.target.value)}
                 placeholder="Como gostaria de ser chamado"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-base outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-base outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
               />
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Celular verificado</p>
-                <p className="text-sm font-semibold text-[#003876] truncate">{maskPhone(phone)}</p>
+                <p className="text-sm font-semibold text-brand-primary truncate">{maskPhone(phone)}</p>
               </div>
               <button
                 type="button"
                 onClick={() => { setError(null); setStep('phone'); }}
-                className="text-[11px] font-medium text-[#003876] hover:underline flex-shrink-0"
+                className="text-[11px] font-medium text-brand-primary hover:underline flex-shrink-0"
               >
                 Alterar
               </button>
@@ -554,12 +554,12 @@ export default function AtendimentoPublico() {
                       className={`
                         flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left text-sm transition-all duration-200
                         ${active
-                          ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876]/30 hover:text-[#003876]'
+                          ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-brand-primary/30 hover:text-brand-primary'
                         }
                       `}
                     >
-                      <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                      <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-brand-secondary' : 'text-gray-400'}`} />
                       <span className="leading-tight">{s.label}</span>
                     </button>
                   );
@@ -597,14 +597,14 @@ export default function AtendimentoPublico() {
                   walkin_sector: walkinSector,
                 });
               }}
-              className="w-full py-3.5 rounded-xl bg-[#003876] text-white font-semibold hover:bg-[#002255] transition-colors inline-flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-brand-primary text-white font-semibold hover:bg-[#002255] transition-colors inline-flex items-center justify-center gap-2"
             >
               <MapPin className="w-4 h-4" />
               Gerar senha
             </button>
             <button
               onClick={() => { setError(null); setStep('phone'); }}
-              className="w-full py-2 text-xs text-gray-400 hover:text-[#003876] transition-colors"
+              className="w-full py-2 text-xs text-gray-400 hover:text-brand-primary transition-colors"
             >
               Voltar
             </button>
@@ -613,7 +613,7 @@ export default function AtendimentoPublico() {
 
         {step === 'locating' && (
           <div className="p-10 text-center">
-            <Loader2 className="w-8 h-8 text-[#003876] animate-spin mx-auto mb-3" />
+            <Loader2 className="w-8 h-8 text-brand-primary animate-spin mx-auto mb-3" />
             <p className="text-sm text-gray-500">{loadingMsg || 'Processando…'}</p>
           </div>
         )}
@@ -624,7 +624,7 @@ export default function AtendimentoPublico() {
               <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
-              <h1 className="font-display text-xl font-bold text-[#003876]">Não foi possível continuar</h1>
+              <h1 className="font-display text-xl font-bold text-brand-primary">Não foi possível continuar</h1>
               <p className="text-sm text-gray-500 mt-2">{error}</p>
             </div>
             <button
@@ -641,7 +641,7 @@ export default function AtendimentoPublico() {
             {/* Big ticket number */}
             <div className="text-center">
               <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-gray-400">Sua senha</p>
-              <p className="font-display text-6xl font-bold text-[#003876] leading-none my-3">
+              <p className="font-display text-6xl font-bold text-brand-primary leading-none my-3">
                 {ticket.ticket_number}
               </p>
               {config?.client_screen_fields?.show_sector !== false && (
@@ -668,7 +668,7 @@ export default function AtendimentoPublico() {
               </div>
             )}
             {ticket.status === 'called' && (
-              <div className="rounded-2xl bg-[#003876] text-white border border-[#003876] px-4 py-4 text-center animate-pulse">
+              <div className="rounded-2xl bg-brand-primary text-white border border-brand-primary px-4 py-4 text-center animate-pulse">
                 <p className="text-xs font-semibold uppercase tracking-wide flex items-center justify-center gap-1.5">
                   <Bell className="w-4 h-4" />
                   Você foi chamado!
@@ -695,13 +695,13 @@ export default function AtendimentoPublico() {
               {config?.client_screen_fields?.show_last_called && lastCalled && ticket.status === 'waiting' && (
                 <div className="flex items-center justify-between text-xs text-gray-500 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
                   <span>Última senha chamada</span>
-                  <span className="font-semibold text-[#003876]">{lastCalled.ticket_number}</span>
+                  <span className="font-semibold text-brand-primary">{lastCalled.ticket_number}</span>
                 </div>
               )}
               {config?.client_screen_fields?.show_wait_estimate && estimatedLabel && ticket.status === 'waiting' && (
                 <div className="flex items-center justify-between text-xs text-gray-500 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
                   <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" />Tempo estimado</span>
-                  <span className="font-semibold text-[#003876]">{estimatedLabel}</span>
+                  <span className="font-semibold text-brand-primary">{estimatedLabel}</span>
                 </div>
               )}
             </div>
@@ -872,7 +872,7 @@ function FeedbackForm({ ticketId, config }: FeedbackFormProps) {
           onChange={(e) => setComments(e.target.value)}
           placeholder="Comentário (opcional)"
           rows={2}
-          className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+          className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
         />
       )}
 
@@ -884,7 +884,7 @@ function FeedbackForm({ ticketId, config }: FeedbackFormProps) {
         type="button"
         onClick={submit}
         disabled={submitting}
-        className="w-full py-2.5 rounded-xl bg-[#003876] text-white text-sm font-semibold hover:bg-[#002255] disabled:opacity-50 transition-colors"
+        className="w-full py-2.5 rounded-xl bg-brand-primary text-white text-sm font-semibold hover:bg-[#002255] disabled:opacity-50 transition-colors"
       >
         {submitting ? 'Enviando…' : 'Enviar avaliação'}
       </button>
@@ -947,7 +947,7 @@ function renderFieldInput(
         onChange={(e) => onChange(e.target.value)}
         rows={2}
         placeholder="Escreva sua resposta…"
-        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#003876] focus:ring-2 focus:ring-[#003876]/20"
+        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
       />
     );
   }
@@ -966,8 +966,8 @@ function renderFieldInput(
               onClick={() => onChange(opt)}
               className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
                 active
-                  ? 'bg-[#003876] text-white border-[#003876] shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876] hover:text-[#003876]'
+                  ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-brand-primary hover:text-brand-primary'
               }`}
             >
               {opt}
@@ -997,8 +997,8 @@ function renderFieldInput(
               }}
               className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
                 active
-                  ? 'bg-[#003876] text-white border-[#003876] shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876] hover:text-[#003876]'
+                  ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-brand-primary hover:text-brand-primary'
               }`}
             >
               {opt}
@@ -1022,8 +1022,8 @@ function renderFieldInput(
               onClick={() => onChange(opt)}
               className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${
                 active
-                  ? 'bg-[#003876] text-white border-[#003876] shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#003876] hover:text-[#003876]'
+                  ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-brand-primary hover:text-brand-primary'
               }`}
             >
               {opt}
@@ -1045,7 +1045,7 @@ function renderFieldInput(
         <div className="relative h-6 flex items-center">
           <div className="absolute w-full h-1.5 bg-gray-200 rounded-full" />
           <div
-            className="absolute h-1.5 bg-[#003876] rounded-full pointer-events-none"
+            className="absolute h-1.5 bg-brand-primary rounded-full pointer-events-none"
             style={{ width: `${pct}%` }}
           />
           <input
@@ -1066,7 +1066,7 @@ function renderFieldInput(
         </div>
         <div className="flex items-center justify-between text-[11px]">
           <span className="text-gray-400">{q.min_label || min}</span>
-          <span className="font-semibold text-[#003876]">{current}</span>
+          <span className="font-semibold text-brand-primary">{current}</span>
           <span className="text-gray-400">{q.max_label || max}</span>
         </div>
       </div>
@@ -1087,8 +1087,8 @@ function renderFieldInput(
               onClick={() => onChange(v)}
               className={`flex-1 py-2 rounded-xl text-2xl transition-all border ${
                 active
-                  ? 'bg-[#003876]/5 border-[#003876] scale-110 shadow-md'
-                  : 'bg-white border-gray-200 grayscale hover:grayscale-0 hover:border-[#003876]/50'
+                  ? 'bg-brand-primary/5 border-brand-primary scale-110 shadow-md'
+                  : 'bg-white border-gray-200 grayscale hover:grayscale-0 hover:border-brand-primary/50'
               }`}
             >
               {emoji}

@@ -111,8 +111,8 @@ function BarChart({ items, title, emptyLabel, linkTo }: {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-display text-sm font-bold text-[#003876] dark:text-white">{title}</h3>
-        <Link to={linkTo} className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1">
+        <h3 className="font-display text-sm font-bold text-brand-primary dark:text-white">{title}</h3>
+        <Link to={linkTo} className="text-xs text-brand-primary dark:text-brand-secondary hover:underline flex items-center gap-1">
           Ver todos <ChevronRight className="w-3 h-3" />
         </Link>
       </div>
@@ -162,7 +162,7 @@ function StatCard({ label, value, prev, icon: Icon, colorClass, iconBg, linkTo }
         </div>
       </div>
       <p className="text-3xl font-bold text-gray-800 dark:text-white">{value}</p>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] transition-colors">{label}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 group-hover:text-brand-primary dark:group-hover:text-brand-secondary transition-colors">{label}</p>
     </Link>
   );
 }
@@ -178,8 +178,8 @@ function WaStatsWidget({ stats }: { stats: WaStats }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-display text-sm font-bold text-[#003876] dark:text-white">Mensagens WhatsApp</h3>
-        <Link to="/admin/configuracoes" className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1">
+        <h3 className="font-display text-sm font-bold text-brand-primary dark:text-white">Mensagens WhatsApp</h3>
+        <Link to="/admin/configuracoes" className="text-xs text-brand-primary dark:text-brand-secondary hover:underline flex items-center gap-1">
           Ver histórico <ChevronRight className="w-3 h-3" />
         </Link>
       </div>
@@ -211,14 +211,14 @@ function OverdueContactsWidget({ contacts }: { contacts: OverdueContact[] }) {
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <h3 className="font-display text-sm font-bold text-[#003876] dark:text-white">Contatos pendentes</h3>
+          <h3 className="font-display text-sm font-bold text-brand-primary dark:text-white">Contatos pendentes</h3>
           {contacts.length > 0 && (
             <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
               {contacts.length}
             </span>
           )}
         </div>
-        <Link to="/admin/contatos" className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1">
+        <Link to="/admin/contatos" className="text-xs text-brand-primary dark:text-brand-secondary hover:underline flex items-center gap-1">
           Ver todos <ChevronRight className="w-3 h-3" />
         </Link>
       </div>
@@ -347,7 +347,7 @@ export default function DashboardPage() {
       Object.entries(reasonMap).map(([k, v]) => ({
         label: REASON_LABELS[k] || k,
         value: v,
-        color: 'bg-[#003876]',
+        color: 'bg-brand-primary',
       })),
     );
 
@@ -395,7 +395,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-display text-3xl font-bold text-[#003876] dark:text-white">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white">
             {greeting}, {profile?.full_name?.split(' ')[0] || 'Administrador'}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Aqui está o resumo do seu painel.</p>
@@ -409,7 +409,7 @@ export default function DashboardPage() {
               onClick={() => setPeriod(opt.key)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 period === opt.key
-                  ? 'bg-[#003876] text-white shadow-sm'
+                  ? 'bg-brand-primary text-white shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
@@ -421,7 +421,7 @@ export default function DashboardPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-32">
-          <Loader2 className="w-8 h-8 text-[#003876] animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
         </div>
       ) : (
         <>
@@ -450,7 +450,7 @@ export default function DashboardPage() {
                 <span className="text-xs text-gray-400">Visitas</span>
               </div>
               <p className="text-3xl font-bold text-gray-800 dark:text-white">{stats!.pendingVisits}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 group-hover:text-[#003876] dark:group-hover:text-[#ffd700] transition-colors">Pendentes de confirmação</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 group-hover:text-brand-primary dark:group-hover:text-brand-secondary transition-colors">Pendentes de confirmação</p>
             </Link>
           </div>
 
@@ -500,8 +500,8 @@ export default function DashboardPage() {
             {/* Upcoming appointments */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display text-sm font-bold text-[#003876] dark:text-white">Próximas visitas (7 dias)</h3>
-                <Link to="/admin/agendamentos" className="text-xs text-[#003876] dark:text-[#ffd700] hover:underline flex items-center gap-1">
+                <h3 className="font-display text-sm font-bold text-brand-primary dark:text-white">Próximas visitas (7 dias)</h3>
+                <Link to="/admin/agendamentos" className="text-xs text-brand-primary dark:text-brand-secondary hover:underline flex items-center gap-1">
                   Ver todos <ChevronRight className="w-3 h-3" />
                 </Link>
               </div>
@@ -519,11 +519,11 @@ export default function DashboardPage() {
                       to="/admin/agendamentos"
                       className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors group"
                     >
-                      <div className="w-9 h-9 bg-[#003876]/10 dark:bg-white/10 rounded-xl flex flex-col items-center justify-center flex-shrink-0">
-                        <span className="text-[9px] font-bold text-[#003876] dark:text-[#ffd700] uppercase leading-none">
+                      <div className="w-9 h-9 bg-brand-primary/10 dark:bg-white/10 rounded-xl flex flex-col items-center justify-center flex-shrink-0">
+                        <span className="text-[9px] font-bold text-brand-primary dark:text-brand-secondary uppercase leading-none">
                           {new Date(apt.appointment_date + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short' })}
                         </span>
-                        <span className="text-sm font-bold text-[#003876] dark:text-[#ffd700] leading-none">
+                        <span className="text-sm font-bold text-brand-primary dark:text-brand-secondary leading-none">
                           {new Date(apt.appointment_date + 'T00:00:00').getDate()}
                         </span>
                       </div>
