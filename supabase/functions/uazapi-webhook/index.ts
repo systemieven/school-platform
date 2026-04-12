@@ -15,6 +15,7 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +47,10 @@ const STATUS_ORDER = ["failed", "queued", "sent", "delivered", "read"];
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  // Rate limit: 120 webhook calls per minute (WhatsApp can burst)
+  const rl = rateLimit(req, { maxRequests: 120, windowMs: 60_000 });
+  if (!rl.ok) return rateLimitResponse(rl, CORS);
 
   const service = createClient(
     Deno.env.get("SUPABASE_URL")!,

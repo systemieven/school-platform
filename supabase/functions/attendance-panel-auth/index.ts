@@ -9,6 +9,7 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -41,6 +42,10 @@ function normalizeSettingValue(value: unknown): unknown {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  // Rate limit: 5 auth attempts per minute per IP (brute force protection)
+  const rl = rateLimit(req, { maxRequests: 5, windowMs: 60_000 });
+  if (!rl.ok) return rateLimitResponse(rl, CORS);
 
   let body: { password?: string };
   try {

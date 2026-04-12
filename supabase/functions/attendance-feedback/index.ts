@@ -7,6 +7,7 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,10 @@ const WINDOW_MS = 24 * 60 * 60 * 1000;
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  // Rate limit: 10 feedbacks per minute per IP
+  const rl = rateLimit(req, { maxRequests: 10, windowMs: 60_000 });
+  if (!rl.ok) return rateLimitResponse(rl, CORS);
 
   try {
     const body = await req.json().catch(() => ({}));
