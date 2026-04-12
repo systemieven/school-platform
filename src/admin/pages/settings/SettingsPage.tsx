@@ -1177,7 +1177,7 @@ function BusinessHoursField({ value, savedValue, onChange }: {
                 </button>
               )}
             </div>
-            <div className="space-y-3">
+            <div className={day.intervals.length === 2 ? 'grid grid-cols-2 gap-3' : 'space-y-3'}>
               {day.intervals.map((it, iidx) => {
                 const changed = intervalChanged(idx, iidx);
                 return (
