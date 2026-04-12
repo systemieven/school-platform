@@ -100,8 +100,8 @@ const TABS: TabDef[] = [
     label: 'Site',
     shortLabel: 'Site',
     icon: Palette,
-    categories: ['appearance', 'branding', 'navigation', 'content'],
-    description: 'Aparência, marca, navegação e conteúdo do site público.',
+    categories: ['appearance', 'branding', 'navigation', 'content', 'seo'],
+    description: 'Aparência, marca, navegação, conteúdo e SEO do site público.',
   },
   {
     key: 'security',
@@ -221,7 +221,7 @@ export default function SettingsPage() {
     const { data: rows } = await supabase
       .from('system_settings')
       .select('category, key, value')
-      .in('category', ['appearance', 'branding', 'navigation', 'content']);
+      .in('category', ['appearance', 'branding', 'navigation', 'content', 'seo']);
     if (!rows) return null;
     const pd: Record<string, unknown> = {};
     for (const r of rows) pd[`${r.category}.${r.key}`] = r.value;

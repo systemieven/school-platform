@@ -14,6 +14,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
+import { useSEO } from '../hooks/useSEO';
 import { getLucideIcon } from '../lib/lucide';
 import Testimonials from '../components/Testimonials';
 import HeroSlideshow from '../components/HeroSlideshow';
@@ -111,6 +112,7 @@ function resolveIcon(name: string): LucideIcon {
 }
 
 export default function Home() {
+  useSEO('home');
   const revealRef = useScrollReveal();
 
   const { settings: appearanceSettings } = useSettings('appearance');

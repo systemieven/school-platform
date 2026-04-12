@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useSEO } from '../hooks/useSEO';
 import {
   User,
   Phone,
@@ -380,6 +381,7 @@ function CPFParentField({
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function Matricula() {
+  useSEO('matricula');
   const { settings } = useSettings('enrollment');
   const { settings: appearanceSettings } = useSettings('appearance');
   const heroMat = (appearanceSettings.matricula as Record<string, string> | undefined) ?? {};

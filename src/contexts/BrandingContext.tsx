@@ -159,6 +159,22 @@ function injectGoogleFonts(url: string) {
   }
 }
 
+// ── Dynamic Favicon ──
+
+function injectFavicon(url: string) {
+  if (!url) return;
+  let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+  if (link) {
+    if (link.href === url) return;
+    link.href = url;
+  } else {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    link.href = url;
+    document.head.appendChild(link);
+  }
+}
+
 // ── Provider ──
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
@@ -216,9 +232,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
             case 'identity':
               setIdentity((prev) => ({ ...prev, ...(val as Partial<BrandingIdentity>) }));
               break;
-            case 'logos':
-              setIdentity((prev) => ({ ...prev, ...(val as Partial<BrandingIdentity>) }));
+            case 'logos': {
+              const logoData = val as Partial<BrandingIdentity>;
+              setIdentity((prev) => ({ ...prev, ...logoData }));
+              if (logoData.favicon_url) injectFavicon(logoData.favicon_url);
               break;
+            }
           }
         }
       }
@@ -268,6 +287,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
             case 'identity':
               setIdentity((prev) => ({ ...prev, ...(val as Partial<BrandingIdentity>) }));
               break;
+            case 'logos': {
+              const logoData = val as Partial<BrandingIdentity>;
+              setIdentity((prev) => ({ ...prev, ...logoData }));
+              if (logoData.favicon_url) injectFavicon(logoData.favicon_url);
+              break;
+            }
           }
         },
       )

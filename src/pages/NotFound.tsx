@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useSEO } from '../hooks/useSEO';
 
 export default function NotFound() {
+  useSEO('not_found', { title: 'Página não encontrada', noindex: true });
   return (
     <div className="min-h-screen bg-[var(--surface)] flex items-center justify-center relative overflow-hidden">
 

@@ -3,6 +3,7 @@ import { BookOpen, Target, Users, Lightbulb, Star, Award, Clock, ArrowRight } fr
 import type { LucideIcon } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
+import { useSEO } from '../hooks/useSEO';
 import { getLucideIcon } from '../lib/lucide';
 
 /* ── Types ── */
@@ -21,6 +22,7 @@ function resolveIcon(name: string): LucideIcon {
 }
 
 export default function EnsinoFundamental1() {
+  useSEO('fundamental_1');
   const revealRef = useScrollReveal();
 
   const { settings: appearanceSettings } = useSettings('appearance');

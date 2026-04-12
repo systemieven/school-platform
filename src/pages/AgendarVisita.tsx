@@ -27,6 +27,7 @@ import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
+import { useSEO } from '../hooks/useSEO';
 import LegalConsent from '../components/LegalConsent';
 
 // ─── Fallback constants (used when DB settings are not yet loaded) ───────────
@@ -272,6 +273,7 @@ const inputClsError =
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AgendarVisita() {
+  useSEO('agendar_visita');
   const location  = useLocation();
   const heroRef   = useScrollReveal();
   const bodyRef   = useScrollReveal();

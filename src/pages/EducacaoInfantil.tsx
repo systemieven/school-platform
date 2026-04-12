@@ -3,6 +3,7 @@ import { Heart, Brain, Users, Plane as Plant, Music, Book, Palette, Puzzle, Cloc
 import type { LucideIcon } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
+import { useSEO } from '../hooks/useSEO';
 import { getLucideIcon } from '../lib/lucide';
 
 /* ── Types ── */
@@ -21,6 +22,7 @@ function resolveIcon(name: string): LucideIcon {
 }
 
 export default function EducacaoInfantil() {
+  useSEO('educacao_infantil');
   const revealRef = useScrollReveal();
 
   const { settings: appearanceSettings } = useSettings('appearance');

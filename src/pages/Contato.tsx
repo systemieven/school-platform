@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase';
 import { saveConsent } from '../lib/consent';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
+import { useSEO } from '../hooks/useSEO';
 import LegalConsent from '../components/LegalConsent';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -214,6 +215,7 @@ function ToggleGroup<T extends string>({
 
 // ── Page ───────────────────────────────────────────────────────────────────
 export default function Contato() {
+  useSEO('contato');
   const navigate  = useNavigate();
   const formRef   = useScrollReveal();
   const infoRef   = useScrollReveal();

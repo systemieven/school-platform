@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { HardHat, ArrowLeft, ChevronRight } from 'lucide-react';
+import { useSEO } from '../hooks/useSEO';
 
 const PAGE_LABELS: Record<string, string> = {
   '/sobre': 'Sobre Nós',
@@ -12,6 +13,7 @@ const PAGE_LABELS: Record<string, string> = {
 export default function EmConstrucao() {
   const { pathname } = useLocation();
   const pageLabel = PAGE_LABELS[pathname];
+  useSEO('em_construcao', { title: pageLabel || 'Em Construção', noindex: true });
 
   return (
     <div className="relative overflow-hidden min-h-screen bg-brand-primary flex items-center justify-center px-4">

@@ -5,6 +5,7 @@
 import { Link } from 'react-router-dom';
 import { FileText, ArrowRight } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import { useSEO } from '../hooks/useSEO';
 
 const LAST_UPDATE = '06 de abril de 2026';
 
@@ -156,6 +157,7 @@ function renderMarkdown(text: string) {
 }
 
 export default function TermosUso() {
+  useSEO('termos_uso');
   const bodyRef = useScrollReveal();
 
   return (

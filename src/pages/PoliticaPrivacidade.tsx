@@ -6,6 +6,7 @@
 import { Link } from 'react-router-dom';
 import { Shield, ArrowRight } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import { useSEO } from '../hooks/useSEO';
 
 const LAST_UPDATE = '06 de abril de 2026';
 
@@ -130,6 +131,7 @@ function renderMarkdown(text: string) {
 }
 
 export default function PoliticaPrivacidade() {
+  useSEO('politica_privacidade');
   const bodyRef = useScrollReveal();
 
   return (
