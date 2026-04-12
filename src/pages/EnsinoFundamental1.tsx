@@ -16,77 +16,44 @@ interface SegmentContent { pillars?: PillarData[]; differentials?: DiffData[]; c
 
 const ICON_MAP: Record<string, LucideIcon> = { BookOpen, Target, Users, Lightbulb, Star, Award };
 
-const DEFAULT_PILLARS: PillarData[] = [
-  { icon: 'BookOpen',  title: 'Aprendizagem Ativa', desc: 'Metodologias inovadoras que estimulam o protagonismo e a curiosidade do aluno.', stat: '90%+', statLabel: 'aprovação vestibular' },
-  { icon: 'Target',    title: 'Objetivos Claros',   desc: 'Metas de aprendizagem definidas e acompanhamento personalizado de cada aluno.',  stat: '~20',  statLabel: 'alunos por turma' },
-  { icon: 'Users',     title: 'Valores Cristãos',   desc: 'Formação integral baseada em princípios éticos, morais e no respeito ao próximo.', stat: '20+', statLabel: 'anos de tradição' },
-  { icon: 'Lightbulb', title: 'Criatividade',       desc: 'Estímulo ao pensamento criativo e à resolução de problemas de forma inovadora.', stat: '100%', statLabel: 'prof. especializados' },
-];
-
-const DEFAULT_DIFERENCIAIS: DiffData[] = [
-  { icon: 'Star',  title: 'Programa Acadêmico',        items: ['Material didático de excelência', 'Projetos interdisciplinares', 'Acompanhamento personalizado'] },
-  { icon: 'Award', title: 'Atividades Complementares', items: ['Oficinas de tecnologia', 'Práticas esportivas', 'Iniciação científica'] },
-];
-
-const DEFAULT_CAMPOS: CampoData[] = [
-  { img: 'https://images.unsplash.com/photo-1596495578065-6e0763fa1178?auto=format&fit=crop&q=80&w=1000', title: 'Feira de Ciências',  desc: 'Projetos práticos que estimulam a curiosidade e o método científico' },
-  { img: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&q=80&w=1000', title: 'Horta Escolar',      desc: 'Aprendizagem vivencial sobre meio ambiente e sustentabilidade' },
-  { img: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&q=80&w=1000', title: 'Sarau Literário',     desc: 'Expressão artística e desenvolvimento da leitura e escrita criativa' },
-];
-
-const DEFAULT_RESULTADOS: ResultadoData[] = [
-  { value: '20+',  label: 'Anos de tradição' },
-  { value: '~20',  label: 'Alunos por turma' },
-  { value: '100%', label: 'Prof. especializados' },
-  { value: '95%',  label: 'Aprovação escolar' },
-];
-
-const DEFAULT_HORARIOS: HorarioTurno[] = [
-  { title: 'Turno Matutino',   times: [{ label: 'Entrada', time: '7h00' }, { label: 'Intervalo', time: '9h30 – 9h50' }, { label: 'Saída', time: '11h30' }] },
-  { title: 'Turno Vespertino', times: [{ label: 'Entrada', time: '13h00' }, { label: 'Intervalo', time: '15h30 – 15h50' }, { label: 'Saída', time: '17h30' }] },
-];
-
 function resolveIcon(name: string): LucideIcon {
   return getLucideIcon(name) ?? ICON_MAP[name] ?? BookOpen;
 }
 
 export default function EnsinoFundamental1() {
-  const pillarsRef      = useScrollReveal();
-  const diferenciaisRef = useScrollReveal();
-  const camposRef       = useScrollReveal();
-  const resultadosRef   = useScrollReveal();
-  const horariosRef     = useScrollReveal();
-  const ctaRef          = useScrollReveal();
+  const revealRef = useScrollReveal();
 
   const { settings: appearanceSettings } = useSettings('appearance');
   const { settings: contentSettings } = useSettings('content');
-  const segContent   = (contentSettings.segment_fundamental1 as SegmentContent | undefined) ?? {};
-  const pillars      = segContent.pillars       ?? DEFAULT_PILLARS;
-  const diferenciais = segContent.differentials  ?? DEFAULT_DIFERENCIAIS;
-  const campos       = segContent.campos         ?? DEFAULT_CAMPOS;
-  const camposTitle  = segContent.campos_title   ?? 'Projetos Interdisciplinares';
-  const resultados      = segContent.resultados       ?? DEFAULT_RESULTADOS;
-  const resultadosTitle = segContent.resultados_title  ?? 'Nossos Resultados';
-  const horariosList     = segContent.horarios         ?? DEFAULT_HORARIOS;
-  const horariosTitle    = segContent.horarios_title   ?? 'Rotina Escolar';
+  const segContent      = (contentSettings.segment_fundamental1 as SegmentContent | undefined) ?? {};
+  const pillars         = segContent.pillars       ?? [];
+  const diferenciais    = segContent.differentials ?? [];
+  const campos          = segContent.campos        ?? [];
+  const camposTitle     = segContent.campos_title  ?? '';
+  const resultados      = segContent.resultados    ?? [];
+  const resultadosTitle = segContent.resultados_title ?? '';
+  const horariosList    = segContent.horarios      ?? [];
+  const horariosTitle   = segContent.horarios_title ?? '';
   const hero = (appearanceSettings.fundamental_1 as Record<string, string> | undefined) ?? {};
   const heroBadge    = hero.badge     || 'Fundamental I · 1º ao 5º ano';
   const heroTitle    = hero.title     || 'Construindo as Bases do Futuro';
   const heroHL       = hero.highlight || 'Bases';
   const heroSubtitle = hero.subtitle  || 'Bases sólidas para o futuro através de uma educação integral, inovadora e com valores cristãos.';
-  const heroImage    = hero.image     || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=2070';
+  const heroImage    = hero.image     || '';
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" ref={revealRef}>
 
       {/* ── Hero ── */}
       <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="Alunos em sala de aula"
-            className="w-full h-full object-cover"
-          />
+          {heroImage && (
+            <img
+              src={heroImage}
+              alt="Alunos em sala de aula"
+              className="w-full h-full object-cover"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
 
@@ -148,9 +115,10 @@ export default function EnsinoFundamental1() {
       </section>
 
       {/* ── Pilares ── */}
+      {pillars.length > 0 && (
       <section className="py-24 bg-[var(--surface)] relative overflow-hidden">
         <div className="absolute -right-40 -top-40 w-[500px] h-[500px] rounded-full bg-brand-primary/[0.02]" />
-        <div className="relative container mx-auto px-4" ref={pillarsRef}>
+        <div className="relative container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Nossa proposta
@@ -202,10 +170,12 @@ export default function EnsinoFundamental1() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Diferenciais ── */}
+      {diferenciais.length > 0 && (
       <section className="py-24 bg-white">
-        <div className="container mx-auto px-4" ref={diferenciaisRef}>
+        <div className="container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Por que o Batista
@@ -248,10 +218,12 @@ export default function EnsinoFundamental1() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Campos / Image-Cards ── */}
+      {campos.length > 0 && (
       <section className="py-24 bg-[var(--surface)] grain-overlay relative">
-        <div className="container mx-auto px-4" ref={camposRef}>
+        <div className="container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Currículo
@@ -286,6 +258,7 @@ export default function EnsinoFundamental1() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Resultados ── */}
       {resultados.length > 0 && (
@@ -294,7 +267,7 @@ export default function EnsinoFundamental1() {
             <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-brand-secondary" />
             <div className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full bg-white" />
           </div>
-          <div className="relative z-10 container mx-auto px-4" ref={resultadosRef}>
+          <div className="relative z-10 container mx-auto px-4">
             <div className="text-center mb-16" data-reveal="up">
               <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
                 {(() => {
@@ -333,7 +306,7 @@ export default function EnsinoFundamental1() {
       {/* ── Horários ── */}
       {horariosList.length > 0 && (
         <section className="py-24 bg-white">
-          <div className="container mx-auto px-4" ref={horariosRef}>
+          <div className="container mx-auto px-4">
             <div className="text-center mb-16" data-reveal="up">
               <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
                 Organização
@@ -384,7 +357,7 @@ export default function EnsinoFundamental1() {
           <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-brand-secondary" />
           <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full bg-white" />
         </div>
-        <div ref={ctaRef} className="relative container mx-auto px-4 text-center" data-reveal="scale">
+        <div className="relative container mx-auto px-4 text-center" data-reveal="scale">
           <p className="text-brand-secondary text-sm font-semibold tracking-[0.2em] uppercase mb-4">
             Próximo passo
           </p>

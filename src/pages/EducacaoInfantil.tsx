@@ -16,79 +16,44 @@ interface SegmentContent { pillars?: PillarData[]; activities?: ActivityData[]; 
 
 const ICON_MAP: Record<string, LucideIcon> = { Heart, Brain, Users, Plane: Plant, Music, Book, Palette, Puzzle };
 
-const DEFAULT_PILLARS: PillarData[] = [
-  { icon: 'Heart',  title: 'Afetividade',   desc: 'Construímos vínculos afetivos que proporcionam segurança e confiança para o desenvolvimento.', stat: '100%', statLabel: 'ambiente acolhedor' },
-  { icon: 'Brain',  title: 'Cognição',      desc: 'Estimulamos a curiosidade e o pensamento crítico através de experiências significativas.',       stat: '~20',  statLabel: 'alunos por turma' },
-  { icon: 'Users',  title: 'Socialização',  desc: 'Desenvolvemos habilidades sociais e emocionais através da interação e cooperação.',             stat: '20+',  statLabel: 'anos de experiência' },
-  { icon: 'Plane',  title: 'Valores',       desc: 'Cultivamos valores cristãos e éticos que formam o caráter e a cidadania.',                      stat: '100%', statLabel: 'professores qualificados' },
-];
-
-const DEFAULT_ATIVIDADES: ActivityData[] = [
-  { icon: 'Music',   title: 'Musicalização',        desc: 'Desenvolvimento da sensibilidade musical e expressão corporal' },
-  { icon: 'Book',    title: 'Contação de Histórias', desc: 'Estímulo à imaginação e desenvolvimento da linguagem' },
-  { icon: 'Palette', title: 'Artes',                 desc: 'Exploração de diferentes materiais e técnicas artísticas' },
-  { icon: 'Puzzle',  title: 'Jogos Pedagógicos',     desc: 'Desenvolvimento do raciocínio lógico e coordenação motora' },
-];
-
-const DEFAULT_HORARIOS: HorarioTurno[] = [
-  { title: 'Turno Matutino',   times: [{ label: 'Entrada', time: '7h00' }, { label: 'Intervalo', time: '9h30 – 9h50' }, { label: 'Saída', time: '11h30' }] },
-  { title: 'Turno Vespertino', times: [{ label: 'Entrada', time: '13h00' }, { label: 'Intervalo', time: '15h30 – 15h50' }, { label: 'Saída', time: '17h30' }] },
-];
-
-const DEFAULT_RESULTADOS: ResultadoData[] = [
-  { value: '20+',  label: 'Anos de experiência' },
-  { value: '~20',  label: 'Alunos por turma' },
-  { value: '100%', label: 'Professores qualificados' },
-  { value: '5',    label: 'Campos de experiência' },
-];
-
-const DEFAULT_CAMPOS: CampoData[] = [
-  { img: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=1000', title: 'O Eu, o Outro e o Nós',        desc: 'Desenvolvimento da identidade e das relações sociais' },
-  { img: 'https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=1000', title: 'Corpo, Gestos e Movimentos',    desc: 'Expressão corporal e desenvolvimento motor' },
-  { img: 'https://images.unsplash.com/photo-1555619662-99b91fcec542?auto=format&fit=crop&q=80&w=1000',   title: 'Traços, Sons, Cores e Formas',  desc: 'Desenvolvimento artístico e sensorial' },
-];
-
 function resolveIcon(name: string): LucideIcon {
   return getLucideIcon(name) ?? ICON_MAP[name] ?? Heart;
 }
 
 export default function EducacaoInfantil() {
-  const pillarsRef     = useScrollReveal();
-  const camposRef      = useScrollReveal();
-  const atividadesRef  = useScrollReveal();
-  const resultadosRef  = useScrollReveal();
-  const horariosRef    = useScrollReveal();
-  const ctaRef         = useScrollReveal();
+  const revealRef = useScrollReveal();
 
   const { settings: appearanceSettings } = useSettings('appearance');
   const { settings: contentSettings } = useSettings('content');
   const segContent = (contentSettings.segment_educacao_infantil as SegmentContent | undefined) ?? {};
-  const pillars    = segContent.pillars    ?? DEFAULT_PILLARS;
-  const atividades = segContent.activities ?? DEFAULT_ATIVIDADES;
-  const campos      = segContent.campos       ?? DEFAULT_CAMPOS;
-  const camposTitle = segContent.campos_title ?? 'Campos de Experiências';
-  const resultados      = segContent.resultados       ?? DEFAULT_RESULTADOS;
-  const resultadosTitle = segContent.resultados_title  ?? 'Nossos Números';
-  const horariosList     = segContent.horarios         ?? DEFAULT_HORARIOS;
-  const horariosTitle    = segContent.horarios_title   ?? 'Rotina Escolar';
+  const pillars         = segContent.pillars       ?? [];
+  const atividades      = segContent.activities    ?? [];
+  const campos          = segContent.campos        ?? [];
+  const camposTitle     = segContent.campos_title  ?? '';
+  const resultados      = segContent.resultados    ?? [];
+  const resultadosTitle = segContent.resultados_title ?? '';
+  const horariosList    = segContent.horarios      ?? [];
+  const horariosTitle   = segContent.horarios_title ?? '';
   const hero = (appearanceSettings.educacao_infantil as Record<string, string> | undefined) ?? {};
   const heroBadge    = hero.badge     || 'Educação Infantil · 2 a 5 anos';
   const heroTitle    = hero.title     || 'Educação que Encanta e Transforma';
   const heroHL       = hero.highlight || 'Encanta';
   const heroSubtitle = hero.subtitle  || 'Um ambiente acolhedor e estimulante para o desenvolvimento integral do seu filho. Aqui, cada criança é única e especial.';
-  const heroImage    = hero.image     || 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&q=80&w=2070';
+  const heroImage    = hero.image     || '';
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" ref={revealRef}>
 
       {/* ── Hero ── */}
       <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="Crianças brincando e aprendendo"
-            className="w-full h-full object-cover"
-          />
+          {heroImage && (
+            <img
+              src={heroImage}
+              alt="Crianças brincando e aprendendo"
+              className="w-full h-full object-cover"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
 
@@ -150,9 +115,10 @@ export default function EducacaoInfantil() {
       </section>
 
       {/* ── Pilares ── */}
+      {pillars.length > 0 && (
       <section className="py-24 bg-[var(--surface)] grain-overlay relative overflow-hidden">
         <div className="absolute -right-40 -top-40 w-[500px] h-[500px] rounded-full bg-brand-primary/[0.02]" />
-        <div className="relative container mx-auto px-4" ref={pillarsRef}>
+        <div className="relative container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Nossa proposta
@@ -195,10 +161,12 @@ export default function EducacaoInfantil() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Campos de Experiências ── */}
+      {campos.length > 0 && (
       <section className="py-24 bg-white">
-        <div className="container mx-auto px-4" ref={camposRef}>
+        <div className="container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Currículo
@@ -233,10 +201,12 @@ export default function EducacaoInfantil() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Atividades Diárias ── */}
+      {atividades.length > 0 && (
       <section className="py-24 bg-[var(--surface)]">
-        <div className="container mx-auto px-4" ref={atividadesRef}>
+        <div className="container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Rotina
@@ -268,6 +238,7 @@ export default function EducacaoInfantil() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Resultados ── */}
       {resultados.length > 0 && (
@@ -276,7 +247,7 @@ export default function EducacaoInfantil() {
             <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-brand-secondary" />
             <div className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full bg-white" />
           </div>
-          <div className="relative z-10 container mx-auto px-4" ref={resultadosRef}>
+          <div className="relative z-10 container mx-auto px-4">
             <div className="text-center mb-16" data-reveal="up">
               <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
                 {(() => {
@@ -315,7 +286,7 @@ export default function EducacaoInfantil() {
       {/* ── Horários ── */}
       {horariosList.length > 0 && (
         <section className="py-24 bg-[var(--surface)]">
-          <div className="container mx-auto px-4" ref={horariosRef}>
+          <div className="container mx-auto px-4">
             <div className="text-center mb-16" data-reveal="up">
               <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
                 Organização
@@ -361,29 +332,32 @@ export default function EducacaoInfantil() {
       )}
 
       {/* ── CTA ── */}
-      <section className="relative py-20 bg-[var(--surface)] overflow-hidden">
-        <div ref={ctaRef} className="relative container mx-auto px-4 text-center" data-reveal="scale">
+      <section className="relative py-20 bg-brand-primary overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.04]">
+          <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-brand-secondary" />
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full bg-white" />
+        </div>
+        <div className="relative container mx-auto px-4 text-center" data-reveal="scale">
           <p className="text-brand-secondary text-sm font-semibold tracking-[0.2em] uppercase mb-4">
             Próximo passo
           </p>
-          <h2 className="font-display text-4xl md:text-5xl font-bold text-brand-primary mb-6">
+          <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-6">
             Venha Conhecer <span className="italic">Nossa Escola</span>
           </h2>
-          <div className="section-divider mx-auto mb-8" />
-          <p className="text-gray-600 max-w-xl mx-auto mb-10 leading-relaxed">
+          <p className="text-white/70 max-w-xl mx-auto mb-10 leading-relaxed">
             Agende uma visita e conheça de perto nossa proposta pedagógica e estrutura completa.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               to="/agendar-visita"
-              className="group inline-flex items-center gap-3 bg-brand-secondary text-brand-primary px-10 py-5 rounded-full font-bold text-lg transition-all duration-500 hover:bg-brand-primary hover:text-white hover:shadow-[0_0_60px_rgba(0,56,118,0.3)] active:scale-95"
+              className="group inline-flex items-center gap-3 bg-brand-secondary text-brand-primary px-10 py-5 rounded-full font-bold text-lg transition-all duration-500 hover:bg-white hover:shadow-[0_0_60px_rgba(255,215,0,0.4)] active:scale-95"
             >
               Agende uma Visita
               <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
             <Link
               to="/matricula"
-              className="inline-flex items-center gap-3 border-2 border-brand-primary text-brand-primary px-10 py-5 rounded-full font-bold text-lg transition-all duration-500 hover:bg-brand-primary hover:text-white active:scale-95"
+              className="inline-flex items-center gap-3 border-2 border-white/60 text-white px-10 py-5 rounded-full font-bold text-lg transition-all duration-500 hover:bg-white hover:text-brand-primary active:scale-95"
             >
               Fazer Matrícula
             </Link>

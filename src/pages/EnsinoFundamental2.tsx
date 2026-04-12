@@ -17,78 +17,44 @@ interface SegmentContent { pillars?: PillarData[]; programa?: ProgData[]; activi
 
 const ICON_MAP: Record<string, LucideIcon> = { Target, Users, Star, Award, Lightbulb, Brain, Rocket };
 
-const DEFAULT_PILLARS: PillarData[] = [
-  { icon: 'Brain',  title: 'Pensamento Crítico', desc: 'Desenvolvimento do raciocínio lógico e análise crítica para resolver problemas reais.',                    stat: '90%+', statLabel: 'aprovação vestibulares' },
-  { icon: 'Rocket', title: 'Inovação',           desc: 'Tecnologia integrada ao processo de aprendizagem de forma natural e criativa.',                             stat: '100%', statLabel: 'laboratórios modernos' },
-  { icon: 'Users',  title: 'Protagonismo',       desc: 'Desenvolvimento da autonomia e liderança com projetos que estimulam o protagonismo juvenil.',               stat: '~20',  statLabel: 'alunos por turma' },
-  { icon: 'Target', title: 'Preparação',         desc: 'Base sólida para o Ensino Médio e os grandes desafios que estão por vir.',                                  stat: '20+',  statLabel: 'anos de tradição' },
-];
-
-const DEFAULT_PROGRAMA: ProgData[] = [
-  { icon: 'Star',     title: 'Base Curricular',              items: ['Português e Literatura', 'Matemática', 'Ciências', 'História e Geografia'] },
-  { icon: 'Award',    title: 'Disciplinas Complementares',   items: ['Inglês Avançado', 'Educação Tecnológica', 'Iniciação Científica', 'Educação Física'] },
-  { icon: 'Lightbulb', title: 'Projetos Especiais',          items: ['Feira de Ciências', 'Olimpíadas do Conhecimento', 'Projetos Interdisciplinares', 'Clube de Robótica'] },
-];
-
-const DEFAULT_ATIVIDADES: ActivityData[] = [
-  { img: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=1000', title: 'Laboratório de Ciências', desc: 'Experimentos práticos e descobertas científicas' },
-  { img: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=1000', title: 'Práticas Esportivas',     desc: 'Desenvolvimento físico e trabalho em equipe' },
-  { img: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&q=80&w=1000', title: 'Tecnologia e Inovação',    desc: 'Programação, robótica e pensamento computacional' },
-];
-
-const DEFAULT_RESULTADOS: ResultadoData[] = [
-  { value: '90%+', label: 'Aprovação vestibulares' },
-  { value: '100%', label: 'Laboratórios modernos' },
-  { value: '~20',  label: 'Alunos por turma' },
-  { value: '20+',  label: 'Anos de tradição' },
-];
-
-const DEFAULT_HORARIOS: HorarioTurno[] = [
-  { title: 'Turno Matutino',   times: [{ label: 'Entrada', time: '7h00' }, { label: 'Intervalo', time: '9h30 – 9h50' }, { label: 'Saída', time: '12h30' }] },
-  { title: 'Turno Vespertino', times: [{ label: 'Entrada', time: '13h00' }, { label: 'Intervalo', time: '15h30 – 15h50' }, { label: 'Saída', time: '18h30' }] },
-];
-
 function resolveIcon(name: string): LucideIcon {
   return getLucideIcon(name) ?? ICON_MAP[name] ?? Brain;
 }
 
 export default function EnsinoFundamental2() {
-  const pillarsRef    = useScrollReveal();
-  const programaRef   = useScrollReveal();
-  const atividadesRef = useScrollReveal();
-  const resultadosRef = useScrollReveal();
-  const horariosRef   = useScrollReveal();
-  const ctaRef        = useScrollReveal();
+  const revealRef = useScrollReveal();
 
   const { settings: appearanceSettings } = useSettings('appearance');
   const { settings: contentSettings } = useSettings('content');
-  const segContent  = (contentSettings.segment_fundamental2 as SegmentContent | undefined) ?? {};
-  const pillars     = segContent.pillars    ?? DEFAULT_PILLARS;
-  const programa    = segContent.programa   ?? DEFAULT_PROGRAMA;
-  const atividades   = (segContent.campos as ActivityData[] | undefined) ?? segContent.activities ?? DEFAULT_ATIVIDADES;
-  const camposTitle  = segContent.campos_title ?? 'Atividades Extracurriculares';
-  const resultados      = segContent.resultados       ?? DEFAULT_RESULTADOS;
-  const resultadosTitle = segContent.resultados_title  ?? 'Resultados Acadêmicos';
-  const horariosList     = segContent.horarios         ?? DEFAULT_HORARIOS;
-  const horariosTitle    = segContent.horarios_title   ?? 'Horários Escolares';
+  const segContent      = (contentSettings.segment_fundamental2 as SegmentContent | undefined) ?? {};
+  const pillars         = segContent.pillars    ?? [];
+  const programa        = segContent.programa   ?? [];
+  const atividades      = (segContent.campos as ActivityData[] | undefined) ?? segContent.activities ?? [];
+  const camposTitle     = segContent.campos_title ?? '';
+  const resultados      = segContent.resultados    ?? [];
+  const resultadosTitle = segContent.resultados_title ?? '';
+  const horariosList    = segContent.horarios      ?? [];
+  const horariosTitle   = segContent.horarios_title ?? '';
   const hero = (appearanceSettings.fundamental_2 as Record<string, string> | undefined) ?? {};
   const heroBadge    = hero.badge     || 'Fundamental II · 6º ao 9º ano';
   const heroTitle    = hero.title     || 'Construindo o Futuro de cada jovem';
   const heroHL       = hero.highlight || 'Futuro';
   const heroSubtitle = hero.subtitle  || 'Preparando jovens para os desafios do futuro com excelência acadêmica e valores sólidos que duram para toda a vida.';
-  const heroImage    = hero.image     || 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&q=80&w=2070';
+  const heroImage    = hero.image     || '';
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" ref={revealRef}>
 
       {/* ── Hero ── */}
       <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="Estudantes em laboratório"
-            className="w-full h-full object-cover"
-          />
+          {heroImage && (
+            <img
+              src={heroImage}
+              alt="Estudantes em laboratório"
+              className="w-full h-full object-cover"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
 
@@ -150,9 +116,10 @@ export default function EnsinoFundamental2() {
       </section>
 
       {/* ── Pilares ── */}
+      {pillars.length > 0 && (
       <section className="py-24 bg-[var(--surface)] relative overflow-hidden">
         <div className="absolute -right-40 -top-40 w-[500px] h-[500px] rounded-full bg-brand-primary/[0.02]" />
-        <div className="relative container mx-auto px-4" ref={pillarsRef}>
+        <div className="relative container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Por que escolher
@@ -195,10 +162,12 @@ export default function EnsinoFundamental2() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Programa Acadêmico ── */}
+      {programa.length > 0 && (
       <section className="py-24 bg-white">
-        <div className="container mx-auto px-4" ref={programaRef}>
+        <div className="container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Currículo
@@ -241,10 +210,12 @@ export default function EnsinoFundamental2() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Atividades Extracurriculares ── */}
+      {atividades.length > 0 && (
       <section className="py-24 bg-[var(--surface)] grain-overlay relative">
-        <div className="container mx-auto px-4" ref={atividadesRef}>
+        <div className="container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Além da sala de aula
@@ -279,6 +250,7 @@ export default function EnsinoFundamental2() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Resultados ── */}
       {resultados.length > 0 && (
@@ -287,7 +259,7 @@ export default function EnsinoFundamental2() {
             <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-brand-secondary" />
             <div className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full bg-white" />
           </div>
-          <div className="relative z-10 container mx-auto px-4" ref={resultadosRef}>
+          <div className="relative z-10 container mx-auto px-4">
             <div className="text-center mb-16" data-reveal="up">
               <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
                 {(() => {
@@ -326,7 +298,7 @@ export default function EnsinoFundamental2() {
       {/* ── Horários ── */}
       {horariosList.length > 0 && (
         <section className="py-24 bg-white">
-          <div className="container mx-auto px-4" ref={horariosRef}>
+          <div className="container mx-auto px-4">
             <div className="text-center mb-16" data-reveal="up">
               <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
                 Organização
@@ -377,7 +349,7 @@ export default function EnsinoFundamental2() {
           <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-brand-secondary" />
           <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full bg-white" />
         </div>
-        <div ref={ctaRef} className="relative container mx-auto px-4 text-center" data-reveal="scale">
+        <div className="relative container mx-auto px-4 text-center" data-reveal="scale">
           <p className="text-brand-secondary text-sm font-semibold tracking-[0.2em] uppercase mb-4">
             Próximo passo
           </p>

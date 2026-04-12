@@ -16,78 +16,44 @@ interface SegmentContent { pillars?: PillarData[]; programa?: ProgData[]; campos
 
 const ICON_MAP: Record<string, LucideIcon> = { Target, Users, Star, Award, Brain, Rocket, Trophy };
 
-const DEFAULT_PILLARS: PillarData[] = [
-  { icon: 'Trophy', title: 'Excelência',  desc: 'Alto índice de aprovação em vestibulares das universidades mais concorridas do Brasil.', stat: '90%+', statLabel: 'aprovação vestibulares' },
-  { icon: 'Brain',  title: 'Metodologia', desc: 'Aprendizagem ativa e personalizada que respeita o ritmo de cada estudante.',             stat: '920+', statLabel: 'média ENEM' },
-  { icon: 'Target', title: 'Foco',        desc: 'Preparação específica e estruturada para o ENEM com simulados e análise de desempenho.', stat: '100+', statLabel: 'aprovações em federais' },
-  { icon: 'Users',  title: 'Mentoria',    desc: 'Orientação vocacional e acadêmica para ajudar cada aluno a encontrar seu caminho.',      stat: '20+',  statLabel: 'anos de tradição' },
-];
-
-const DEFAULT_PROGRAMA: ProgData[] = [
-  { icon: 'Star',   title: 'Base Curricular',   items: ['Linguagens e suas Tecnologias', 'Matemática e suas Tecnologias', 'Ciências da Natureza', 'Ciências Humanas'] },
-  { icon: 'Award',  title: 'Preparação ENEM',   items: ['Simulados periódicos', 'Resolução de questões', 'Redação semanal', 'Monitorias extras'] },
-  { icon: 'Rocket', title: 'Diferenciais',      items: ['Orientação vocacional', 'Mentoria acadêmica', 'Projetos de pesquisa', 'Laboratórios avançados'] },
-];
-
-const DEFAULT_RESULTADOS: ResultadoData[] = [
-  { value: '90%+', label: 'Aprovação em vestibulares' },
-  { value: '920+', label: 'Média no ENEM' },
-  { value: '100+', label: 'Aprovações em federais' },
-  { value: '20+',  label: 'Anos de tradição' },
-];
-
-const DEFAULT_HORARIOS: HorarioTurno[] = [
-  { title: 'Turno Regular',     times: [{ label: 'Entrada', time: '7h00' }, { label: 'Intervalo', time: '9h30 – 9h50' }, { label: 'Saída', time: '13h00' }] },
-  { title: 'Atividades Extras', times: [{ label: 'Monitorias', time: '14h00 – 16h00' }, { label: 'Laboratórios', time: '14h00 – 17h00' }, { label: 'Simulados', time: 'Sábados' }] },
-];
-
-const DEFAULT_CAMPOS: CampoData[] = [
-  { img: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&q=80&w=1000', title: 'Laboratório de Ciências', desc: 'Experimentos avançados em Física, Química e Biologia' },
-  { img: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=1000', title: 'Projeto de Pesquisa',     desc: 'Iniciação científica com orientação acadêmica personalizada' },
-  { img: 'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?auto=format&fit=crop&q=80&w=1000', title: 'Simulados e Aulões',       desc: 'Preparação intensiva para ENEM e vestibulares com análise de desempenho' },
-];
-
 function resolveIcon(name: string): LucideIcon {
   return getLucideIcon(name) ?? ICON_MAP[name] ?? Trophy;
 }
 
 export default function EnsinoMedio() {
-  const pillarsRef    = useScrollReveal();
-  const programaRef   = useScrollReveal();
-  const camposRef     = useScrollReveal();
-  const resultadosRef = useScrollReveal();
-  const horariosRef   = useScrollReveal();
-  const ctaRef        = useScrollReveal();
+  const revealRef = useScrollReveal();
 
   const { settings: appearanceSettings } = useSettings('appearance');
   const { settings: contentSettings } = useSettings('content');
-  const segContent = (contentSettings.segment_ensino_medio as SegmentContent | undefined) ?? {};
-  const pillars    = segContent.pillars     ?? DEFAULT_PILLARS;
-  const programa   = segContent.programa    ?? DEFAULT_PROGRAMA;
-  const campos     = segContent.campos      ?? DEFAULT_CAMPOS;
-  const camposTitle = segContent.campos_title ?? 'Projetos e Laboratórios';
-  const resultados      = segContent.resultados       ?? DEFAULT_RESULTADOS;
-  const resultadosTitle = segContent.resultados_title  ?? 'Nosso Histórico';
-  const horariosList     = segContent.horarios         ?? DEFAULT_HORARIOS;
-  const horariosTitle    = segContent.horarios_title   ?? 'Horários Escolares';
+  const segContent      = (contentSettings.segment_ensino_medio as SegmentContent | undefined) ?? {};
+  const pillars         = segContent.pillars    ?? [];
+  const programa        = segContent.programa   ?? [];
+  const campos          = segContent.campos     ?? [];
+  const camposTitle     = segContent.campos_title ?? '';
+  const resultados      = segContent.resultados    ?? [];
+  const resultadosTitle = segContent.resultados_title ?? '';
+  const horariosList    = segContent.horarios      ?? [];
+  const horariosTitle   = segContent.horarios_title ?? '';
   const hero = (appearanceSettings.ensino_medio as Record<string, string> | undefined) ?? {};
   const heroBadge    = hero.badge     || 'Ensino Médio · 1º a 3º ano';
   const heroTitle    = hero.title     || 'Sua rota para o Sucesso';
   const heroHL       = hero.highlight || 'Sucesso';
   const heroSubtitle = hero.subtitle  || 'Excelência acadêmica e preparação completa para o sucesso no ENEM e vestibulares das melhores universidades do país.';
-  const heroImage    = hero.image     || 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=2070';
+  const heroImage    = hero.image     || '';
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" ref={revealRef}>
 
       {/* ── Hero ── */}
       <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="Estudantes em laboratório avançado"
-            className="w-full h-full object-cover"
-          />
+          {heroImage && (
+            <img
+              src={heroImage}
+              alt="Estudantes em laboratório avançado"
+              className="w-full h-full object-cover"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
 
@@ -149,9 +115,10 @@ export default function EnsinoMedio() {
       </section>
 
       {/* ── Pilares ── */}
+      {pillars.length > 0 && (
       <section className="py-24 bg-[var(--surface)] relative overflow-hidden">
         <div className="absolute -right-40 -top-40 w-[500px] h-[500px] rounded-full bg-brand-primary/[0.02]" />
-        <div className="relative container mx-auto px-4" ref={pillarsRef}>
+        <div className="relative container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Nossos diferenciais
@@ -194,10 +161,12 @@ export default function EnsinoMedio() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Programa Acadêmico ── */}
+      {programa.length > 0 && (
       <section id="programa" className="py-24 bg-white">
-        <div className="container mx-auto px-4" ref={programaRef}>
+        <div className="container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Currículo
@@ -240,10 +209,12 @@ export default function EnsinoMedio() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Campos / Image-Cards ── */}
+      {campos.length > 0 && (
       <section className="py-24 bg-[var(--surface)] grain-overlay relative">
-        <div className="container mx-auto px-4" ref={camposRef}>
+        <div className="container mx-auto px-4">
           <div className="text-center mb-16" data-reveal="up">
             <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
               Vivências
@@ -278,6 +249,7 @@ export default function EnsinoMedio() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Resultados ── */}
       {resultados.length > 0 && (
@@ -286,7 +258,7 @@ export default function EnsinoMedio() {
             <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-brand-secondary" />
             <div className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full bg-white" />
           </div>
-          <div className="relative z-10 container mx-auto px-4" ref={resultadosRef}>
+          <div className="relative z-10 container mx-auto px-4">
             <div className="text-center mb-16" data-reveal="up">
               <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
                 {(() => {
@@ -325,7 +297,7 @@ export default function EnsinoMedio() {
       {/* ── Horários ── */}
       {horariosList.length > 0 && (
         <section className="py-24 bg-[var(--surface)]">
-          <div className="container mx-auto px-4" ref={horariosRef}>
+          <div className="container mx-auto px-4">
             <div className="text-center mb-16" data-reveal="up">
               <p className="text-sm font-semibold tracking-[0.2em] uppercase text-brand-secondary mb-3">
                 Organização
@@ -376,7 +348,7 @@ export default function EnsinoMedio() {
           <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-brand-secondary" />
           <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full bg-white" />
         </div>
-        <div ref={ctaRef} className="relative container mx-auto px-4 text-center" data-reveal="scale">
+        <div className="relative container mx-auto px-4 text-center" data-reveal="scale">
           <p className="text-brand-secondary text-sm font-semibold tracking-[0.2em] uppercase mb-4">
             Próximo passo
           </p>
