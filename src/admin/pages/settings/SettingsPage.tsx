@@ -181,6 +181,7 @@ export default function SettingsPage() {
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [showRestorePreset, setShowRestorePreset] = useState(false);
   const [presetName, setPresetName] = useState('');
+  const [showConfirmReplace, setShowConfirmReplace] = useState(false);
 
   const toggleTabs = () => {
     setTabsCollapsed((prev) => {
@@ -216,20 +217,57 @@ export default function SettingsPage() {
     finally { setPresetBusy(false); setShowRestorePreset(false); }
   }
 
+  async function buildPresetData() {
+    const { data: rows } = await supabase
+      .from('system_settings')
+      .select('category, key, value')
+      .in('category', ['appearance', 'branding', 'navigation', 'content']);
+    if (!rows) return null;
+    const pd: Record<string, unknown> = {};
+    for (const r of rows) pd[`${r.category}.${r.key}`] = r.value;
+    return pd;
+  }
+
   async function handleSavePreset() {
     if (!presetName.trim()) return;
     setPresetBusy(true);
     try {
-      const { data: rows } = await supabase
-        .from('system_settings')
-        .select('category, key, value')
-        .in('category', ['appearance', 'branding', 'navigation', 'content']);
-      if (!rows) { setShowSavePreset(false); return; }
-      const pd: Record<string, unknown> = {};
-      for (const r of rows) pd[`${r.category}.${r.key}`] = r.value;
+      // Check for ANY existing presets with same name
+      const { data: duplicates } = await supabase
+        .from('site_presets')
+        .select('id')
+        .eq('name', presetName.trim());
+
+      if (duplicates && duplicates.length > 0) {
+        // Duplicates found — ask for confirmation before replacing
+        setShowConfirmReplace(true);
+        return;
+      }
+
+      // No duplicate — insert new
+      const pd = await buildPresetData();
+      if (!pd) { setShowSavePreset(false); return; }
       await supabase.from('site_presets').insert({ name: presetName.trim(), preset_data: pd });
       logAudit({ action: 'create', module: 'settings.preset', description: `Preset salvo: ${presetName.trim()}` });
       setPresetName('');
+      setShowSavePreset(false);
+    } catch { /* silently fail */ }
+    finally { setPresetBusy(false); }
+  }
+
+  async function handleConfirmReplace() {
+    const name = presetName.trim();
+    if (!name) return;
+    setPresetBusy(true);
+    try {
+      const pd = await buildPresetData();
+      if (!pd) { setShowConfirmReplace(false); setShowSavePreset(false); return; }
+      // Delete ALL existing presets with this name, then insert fresh
+      await supabase.from('site_presets').delete().eq('name', name);
+      await supabase.from('site_presets').insert({ name, preset_data: pd });
+      logAudit({ action: 'update', module: 'settings.preset', description: `Preset substituído: ${name}` });
+      setPresetName('');
+      setShowConfirmReplace(false);
       setShowSavePreset(false);
     } catch { /* silently fail */ }
     finally { setPresetBusy(false); }
@@ -632,6 +670,54 @@ export default function SettingsPage() {
               >
                 {presetBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 {presetBusy ? 'Salvando…' : 'Salvar Preset'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════ Modal: Confirmar Substituição */}
+      {showConfirmReplace && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-[90vw] max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <TriangleAlert className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Preset já existe</h3>
+                  <p className="text-xs text-white/80 mt-0.5">Um preset com este nome já foi salvo</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-xl p-4">
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  Já existe um preset chamado <strong>&ldquo;{presetName.trim()}&rdquo;</strong>.
+                  Deseja substituí-lo com as configurações atuais? Esta ação não pode ser desfeita.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowConfirmReplace(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmReplace}
+                disabled={presetBusy}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-md shadow-amber-500/20 transition-all disabled:opacity-50"
+              >
+                {presetBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                {presetBusy ? 'Substituindo…' : 'Substituir Preset'}
               </button>
             </div>
           </div>
