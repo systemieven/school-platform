@@ -4,7 +4,9 @@ import PanelDisplay from './painel-atendimento/PanelDisplay';
 
 interface AuthResult {
   config: {
+    show_history: boolean;
     show_visitor_name: boolean;
+    ticket_effect: string;
     sound_preset: string;
     sound_repeat: number;
     history_count: number;

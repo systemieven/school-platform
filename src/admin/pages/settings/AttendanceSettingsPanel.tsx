@@ -58,6 +58,9 @@ import {
   Tv,
   Eye,
   EyeOff,
+  Sparkles,
+  ArrowRight,
+  Zap,
   Copy,
   Link,
   ArrowRightLeft,
@@ -152,7 +155,9 @@ const DEFAULTS: AttendanceState = {
   },
   display_panel: {
     password: '',
+    show_history: true,
     show_visitor_name: true,
+    ticket_effect: 'glow',
     sound_preset: 'bell',
     sound_repeat: 2,
     history_count: 5,
@@ -1462,28 +1467,97 @@ export default function AttendanceSettingsPanel() {
         {/* ── Exibição ── */}
         <div className="space-y-4">
           <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Exibição</p>
-          <div className="sm:w-1/2">
+          <div className="space-y-3 sm:w-1/2">
+            {/* Toggle histórico */}
             <button
               type="button"
-              onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, show_visitor_name: !prev.display_panel.show_visitor_name } }))}
+              onClick={() => setData((prev) => ({
+                ...prev,
+                display_panel: {
+                  ...prev.display_panel,
+                  show_history: !prev.display_panel.show_history,
+                  // Desabilitar nome do visitante quando histórico é desabilitado
+                  ...(!prev.display_panel.show_history ? {} : { show_visitor_name: false }),
+                },
+              }))}
               className={`
                 w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
-                ${data.display_panel.show_visitor_name
+                ${data.display_panel.show_history
                   ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
                   : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
                 }
               `}
             >
-              <Eye className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_visitor_name ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+              <History className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_history ? 'text-[#ffd700]' : 'text-gray-400'}`} />
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-semibold ${data.display_panel.show_visitor_name ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
-                  Exibir nome do visitante
+                <p className={`text-sm font-semibold ${data.display_panel.show_history ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                  Exibir últimas senhas chamadas
                 </p>
-                <p className={`text-[11px] mt-0.5 leading-tight ${data.display_panel.show_visitor_name ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
-                  Mostra o nome do visitante abaixo da senha em destaque no painel.
+                <p className={`text-[11px] mt-0.5 leading-tight ${data.display_panel.show_history ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                  Mostra o histórico das últimas senhas chamadas no painel.
                 </p>
               </div>
             </button>
+
+            {/* Toggle nome do visitante — só aparece quando histórico está habilitado */}
+            {data.display_panel.show_history && (
+              <button
+                type="button"
+                onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, show_visitor_name: !prev.display_panel.show_visitor_name } }))}
+                className={`
+                  w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+                  ${data.display_panel.show_visitor_name
+                    ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                  }
+                `}
+              >
+                <Eye className={`w-4 h-4 shrink-0 mt-0.5 ${data.display_panel.show_visitor_name ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${data.display_panel.show_visitor_name ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                    Exibir nome do visitante
+                  </p>
+                  <p className={`text-[11px] mt-0.5 leading-tight ${data.display_panel.show_visitor_name ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                    Mostra o nome do visitante abaixo da senha em destaque no painel.
+                  </p>
+                </div>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <hr className="border-gray-100 dark:border-gray-700/50" />
+
+        {/* ── Efeito da Senha ── */}
+        <div className="space-y-4">
+          <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#003876]/50 dark:text-blue-400/60">Efeito da senha</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {([
+              { key: 'glow', label: 'Brilho', desc: 'Pulsação luminosa', Icon: Sparkles },
+              { key: 'slide', label: 'Deslizar', desc: 'Entrada lateral', Icon: ArrowRight },
+              { key: 'bounce', label: 'Quique', desc: 'Entrada com salto', Icon: Zap },
+              { key: 'neon', label: 'Neon', desc: 'Contorno piscante', Icon: Tv },
+            ] as const).map(({ key, label, desc, Icon }) => {
+              const active = (data.display_panel.ticket_effect ?? 'glow') === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setData((prev) => ({ ...prev, display_panel: { ...prev.display_panel, ticket_effect: key } }))}
+                  className={`
+                    flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
+                    ${active
+                      ? 'bg-[#003876] text-white border-[#003876] shadow-md shadow-[#003876]/20'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#003876]/40 hover:text-[#003876]'
+                    }
+                  `}
+                >
+                  <Icon className={`w-6 h-6 ${active ? 'text-[#ffd700]' : 'text-gray-400'}`} />
+                  <span className={`text-xs font-semibold ${active ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>{label}</span>
+                  <span className={`text-[10px] leading-tight ${active ? 'text-white/60' : 'text-gray-400'}`}>{desc}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1555,7 +1629,7 @@ export default function AttendanceSettingsPanel() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Senhas no histórico por setor</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Senhas no histórico</label>
             <div className="grid grid-cols-4 gap-2">
               {[3, 5, 7, 10].map((n) => {
                 const active = data.display_panel.history_count === n;

@@ -5,10 +5,56 @@ import { Clock } from 'lucide-react';
 interface Props {
   ticket: CalledTicket | null;
   showVisitorName: boolean;
+  ticketEffect: string;
   theme: PanelTheme;
 }
 
-export default function FeaturedCall({ ticket, showVisitorName, theme }: Props) {
+function getEffectStyles(effect: string, highlight: string): { container: React.CSSProperties; number: React.CSSProperties } {
+  switch (effect) {
+    case 'slide':
+      return {
+        container: { animation: 'panelSlideIn 600ms ease-out' },
+        number: {
+          fontSize: 'clamp(9rem, 20vw, 18rem)',
+          color: highlight,
+          textShadow: `0 0 40px ${highlight}40`,
+        },
+      };
+    case 'bounce':
+      return {
+        container: { animation: 'panelBounceIn 700ms ease-out' },
+        number: {
+          fontSize: 'clamp(9rem, 20vw, 18rem)',
+          color: highlight,
+          textShadow: `0 4px 20px ${highlight}30`,
+        },
+      };
+    case 'neon':
+      return {
+        container: { animation: 'panelCallIn 500ms ease-out' },
+        number: {
+          fontSize: 'clamp(9rem, 20vw, 18rem)',
+          color: highlight,
+          '--neon-color': `${highlight}80`,
+          animation: 'panelNeonPulse 1.5s ease-in-out 3',
+          textShadow: `0 0 10px ${highlight}, 0 0 30px ${highlight}, 0 0 60px ${highlight}`,
+        } as React.CSSProperties,
+      };
+    case 'glow':
+    default:
+      return {
+        container: { animation: 'panelCallIn 500ms ease-out' },
+        number: {
+          fontSize: 'clamp(9rem, 20vw, 18rem)',
+          color: highlight,
+          animation: 'panelGlow 2s ease-in-out 3',
+          textShadow: `0 0 40px ${highlight}40`,
+        },
+      };
+  }
+}
+
+export default function FeaturedCall({ ticket, showVisitorName, ticketEffect, theme }: Props) {
   if (!ticket) {
     return (
       <div className="flex flex-col items-center justify-center gap-6 animate-pulse">
@@ -20,11 +66,13 @@ export default function FeaturedCall({ ticket, showVisitorName, theme }: Props) 
     );
   }
 
+  const styles = getEffectStyles(ticketEffect, theme.highlight);
+
   return (
     <div
       key={ticket.id}
       className="flex flex-col items-center justify-center gap-4"
-      style={{ animation: 'panelCallIn 500ms ease-out' }}
+      style={styles.container}
     >
       <p
         className="text-4xl sm:text-5xl lg:text-7xl font-semibold tracking-widest uppercase"
@@ -35,12 +83,7 @@ export default function FeaturedCall({ ticket, showVisitorName, theme }: Props) 
 
       <p
         className="font-black leading-none -mt-2"
-        style={{
-          fontSize: 'clamp(9rem, 20vw, 18rem)',
-          color: theme.highlight,
-          animation: 'panelGlow 2s ease-in-out 3',
-          textShadow: `0 0 40px ${theme.highlight}40`,
-        }}
+        style={styles.number}
       >
         {ticket.ticket_number}
       </p>

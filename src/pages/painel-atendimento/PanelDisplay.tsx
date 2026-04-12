@@ -6,7 +6,9 @@ import ConnectionIndicator from './ConnectionIndicator';
 import { THEMES, SOUND_FILES, type PanelTheme } from './themes';
 
 interface PanelConfig {
+  show_history: boolean;
   show_visitor_name: boolean;
+  ticket_effect: string;
   sound_preset: string;
   sound_repeat: number;
   history_count: number;
@@ -65,6 +67,20 @@ export default function PanelDisplay({ config, schoolName, sectors }: Props) {
           0%, 100% { filter: brightness(1); }
           50%      { filter: brightness(1.3); }
         }
+        @keyframes panelSlideIn {
+          from { opacity: 0; transform: translateX(-80px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes panelBounceIn {
+          0%   { opacity: 0; transform: scale(0.3); }
+          50%  { opacity: 1; transform: scale(1.08); }
+          70%  { transform: scale(0.95); }
+          100% { transform: scale(1); }
+        }
+        @keyframes panelNeonPulse {
+          0%, 100% { text-shadow: 0 0 10px var(--neon-color), 0 0 30px var(--neon-color), 0 0 60px var(--neon-color); }
+          50%      { text-shadow: 0 0 20px var(--neon-color), 0 0 50px var(--neon-color), 0 0 100px var(--neon-color), 0 0 150px var(--neon-color); }
+        }
       `}</style>
 
       {/* Header */}
@@ -83,14 +99,17 @@ export default function PanelDisplay({ config, schoolName, sectors }: Props) {
         <FeaturedCall
           ticket={featured}
           showVisitorName={config.show_visitor_name}
+          ticketEffect={config.ticket_effect || 'glow'}
           theme={theme}
         />
       </main>
 
       {/* History */}
-      <footer className="px-6 pb-6">
-        <HistoryGrid history={history} theme={theme} />
-      </footer>
+      {config.show_history !== false && (
+        <footer className="px-6 pb-6">
+          <HistoryGrid history={history} theme={theme} showVisitorName={config.show_visitor_name} />
+        </footer>
+      )}
     </div>
   );
 }

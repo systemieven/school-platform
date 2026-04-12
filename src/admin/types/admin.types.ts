@@ -827,9 +827,13 @@ export interface AttendanceFeedbackConfig {
   questions: AttendanceQuestion[];
 }
 
+export type TicketEffect = 'glow' | 'slide' | 'bounce' | 'neon';
+
 export interface DisplayPanelConfig {
   password: string;
+  show_history: boolean;
   show_visitor_name: boolean;
+  ticket_effect: TicketEffect;
   sound_preset: 'bell' | 'chime' | 'ding' | 'buzzer';
   sound_repeat: number;
   history_count: number;
