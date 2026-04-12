@@ -178,9 +178,11 @@ export default function HeroSlideshow({ scenes, config: rawConfig, fallbackVideo
   if (validScenes.length === 0) {
     return (
       <div className="absolute inset-0">
-        <video autoPlay loop muted playsInline className="hero-video w-full h-full object-cover">
-          <source src={fallbackVideoUrl} type="video/mp4" />
-        </video>
+        {fallbackVideoUrl ? (
+          <video key={fallbackVideoUrl} autoPlay loop muted playsInline className="hero-video w-full h-full object-cover">
+            <source src={fallbackVideoUrl} type="video/mp4" />
+          </video>
+        ) : null}
         <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
       </div>
     );
