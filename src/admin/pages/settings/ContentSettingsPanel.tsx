@@ -5,7 +5,8 @@ import { SettingsCard } from '../../components/SettingsCard';
 import {
   Save, Loader2, Check,
   Star, Building2, BarChart3, Layers, Image as ImageIcon,
-  Home, Baby, BookOpen, BookMarked, GraduationCap,
+  Home, Baby, BookOpen, BookMarked, GraduationCap, Info,
+  BookHeart, Target, Award, Milestone,
 } from 'lucide-react';
 import IconPicker from '../../components/IconPicker';
 import ImageField from '../../components/ImageField';
@@ -96,6 +97,37 @@ interface SegmentCardItem {
   to: string;
 }
 
+// ── Sobre types ──
+interface TimelineItem { year: string; title: string; desc: string; }
+interface MVVItem { icon: string; title: string; desc: string; }
+interface DiferencialItem { icon: string; title: string; desc: string; }
+
+interface SobreContent {
+  historia_title?: string;
+  historia_text?: string;
+  timeline?: TimelineItem[];
+  mvv?: MVVItem[];
+  numeros_title?: string;
+  numeros?: ResultadoItem[];
+  diferenciais_title?: string;
+  diferenciais?: DiferencialItem[];
+  cta_title?: string;
+  cta_subtitle?: string;
+}
+
+// ── Estrutura types ──
+interface EstruturaCategoryItem { image: string; title: string; desc: string; }
+interface EstruturaCategory { name: string; icon: string; items: EstruturaCategoryItem[]; }
+interface EstruturaHighlight { icon: string; title: string; desc: string; }
+
+interface EstruturaContent {
+  categories?: EstruturaCategory[];
+  destaques_title?: string;
+  destaques?: EstruturaHighlight[];
+  cta_title?: string;
+  cta_subtitle?: string;
+}
+
 interface ContentState {
   home_features: FeatureItem[];
   home_infrastructure: InfraItem[];
@@ -105,6 +137,8 @@ interface ContentState {
   segment_fundamental1: SegmentData;
   segment_fundamental2: SegmentData;
   segment_ensino_medio: SegmentData;
+  page_sobre: SobreContent;
+  page_estrutura: EstruturaContent;
 }
 
 type ContentKey = keyof ContentState;
@@ -118,6 +152,8 @@ const CONTENT_KEYS: ContentKey[] = [
   'segment_fundamental1',
   'segment_fundamental2',
   'segment_ensino_medio',
+  'page_sobre',
+  'page_estrutura',
 ];
 
 const EMPTY_STATE: ContentState = {
@@ -129,17 +165,21 @@ const EMPTY_STATE: ContentState = {
   segment_fundamental1: { pillars: [], differentials: [], campos: [], campos_title: 'Projetos Interdisciplinares', resultados: [], resultados_title: 'Nossos Resultados', horarios: [], horarios_title: 'Rotina Escolar' },
   segment_fundamental2: { pillars: [], programa: [], activities: [], campos: [], campos_title: 'Atividades Extracurriculares', resultados: [], resultados_title: 'Resultados Acadêmicos', horarios: [], horarios_title: 'Horários Escolares' },
   segment_ensino_medio: { pillars: [], programa: [], campos: [], campos_title: 'Projetos e Laboratórios', resultados: [], resultados_title: 'Nosso Histórico', horarios: [], horarios_title: 'Horários Escolares' },
+  page_sobre: { historia_title: 'Nossa História', historia_text: '', timeline: [], mvv: [], numeros_title: 'Nossos Números', numeros: [], diferenciais_title: 'Nossos Diferenciais', diferenciais: [], cta_title: 'Venha Conhecer Nossa Escola', cta_subtitle: '' },
+  page_estrutura: { categories: [], destaques_title: 'Destaques da Estrutura', destaques: [], cta_title: 'Venha Conhecer Nossa Estrutura', cta_subtitle: '' },
 };
 
 // ── Sub-tabs ────────────────────────────────────────────────────────────────
-type ContentTab = 'home' | 'infantil' | 'fund1' | 'fund2' | 'medio';
+type ContentTab = 'home' | 'infantil' | 'fund1' | 'fund2' | 'medio' | 'sobre' | 'estrutura';
 
 const SUB_TABS: { key: ContentTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { key: 'home',     label: 'Home',      icon: Home },
-  { key: 'infantil', label: 'Infantil',  icon: Baby },
-  { key: 'fund1',    label: 'Fund. I',   icon: BookOpen },
-  { key: 'fund2',    label: 'Fund. II',  icon: BookMarked },
-  { key: 'medio',    label: 'Médio',     icon: GraduationCap },
+  { key: 'home',       label: 'Home',       icon: Home },
+  { key: 'infantil',   label: 'Infantil',   icon: Baby },
+  { key: 'fund1',      label: 'Fund. I',    icon: BookOpen },
+  { key: 'fund2',      label: 'Fund. II',   icon: BookMarked },
+  { key: 'medio',      label: 'Médio',      icon: GraduationCap },
+  { key: 'sobre',      label: 'Sobre',      icon: Info },
+  { key: 'estrutura',  label: 'Estrutura',  icon: Building2 },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -493,6 +533,22 @@ export default function ContentSettingsPanel() {
         </>
       )}
 
+      {/* ── Sobre ── */}
+      {activeTab === 'sobre' && (
+        <SobreContentEditor
+          data={state.page_sobre}
+          onChange={(d) => updateKey('page_sobre', d)}
+        />
+      )}
+
+      {/* ── Estrutura ── */}
+      {activeTab === 'estrutura' && (
+        <EstruturaContentEditor
+          data={state.page_estrutura}
+          onChange={(d) => updateKey('page_estrutura', d)}
+        />
+      )}
+
       {/* ── Floating save ── */}
       <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
         hasChanges || saving || saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
@@ -819,5 +875,263 @@ function CamposSettingsCard({ collapseId, data, onChange }: CamposSettingsCardPr
       </div>
       <AddButton label="Adicionar card" onClick={addCampo} />
     </SettingsCard>
+  );
+}
+
+// ── Sobre Content Editor ────────────────────────────────────────────────────
+
+function SobreContentEditor({ data, onChange }: { data: SobreContent; onChange: (d: SobreContent) => void }) {
+  const timeline = data.timeline ?? [];
+  const mvv = data.mvv ?? [];
+  const numeros = data.numeros ?? [];
+  const diferenciais = data.diferenciais ?? [];
+
+  return (
+    <>
+      {/* ── História ── */}
+      <SettingsCard collapseId="content-sobre-historia" title="História" icon={Milestone}
+        description="Linha do tempo com marcos da história da instituição.">
+        <InputField label="Título da seção" value={data.historia_title ?? ''}
+          onChange={(e) => onChange({ ...data, historia_title: e.target.value })}
+          placeholder="Ex: Nossa História" maxLength={60} />
+        <TextareaField label="Texto introdutório" value={data.historia_text ?? ''}
+          onChange={(e) => onChange({ ...data, historia_text: e.target.value })}
+          hint="Parágrafo exibido antes da linha do tempo." rows={3} />
+        <SectionDivider />
+        <SectionLabel>Linha do Tempo</SectionLabel>
+        <div className="space-y-3">
+          {timeline.map((item, i) => (
+            <ArrayItemCard key={i} index={i + 1} onRemove={() => onChange({ ...data, timeline: removeAt(timeline, i) })}>
+              <InputField label="Ano" value={item.year}
+                onChange={(e) => { const arr = [...timeline]; arr[i] = { ...arr[i], year: e.target.value }; onChange({ ...data, timeline: arr }); }}
+                placeholder="Ex: 2003" maxLength={10} />
+              <InputField label="Título" value={item.title}
+                onChange={(e) => { const arr = [...timeline]; arr[i] = { ...arr[i], title: e.target.value }; onChange({ ...data, timeline: arr }); }}
+                placeholder="Ex: Fundação" />
+              <TextareaField label="Descrição" value={item.desc}
+                onChange={(e) => { const arr = [...timeline]; arr[i] = { ...arr[i], desc: e.target.value }; onChange({ ...data, timeline: arr }); }}
+                maxLength={300} rows={2} />
+            </ArrayItemCard>
+          ))}
+        </div>
+        <AddButton label="Adicionar marco" onClick={() =>
+          onChange({ ...data, timeline: [...timeline, { year: '', title: '', desc: '' }] })
+        } />
+      </SettingsCard>
+
+      {/* ── Missão, Visão e Valores ── */}
+      <SettingsCard collapseId="content-sobre-mvv" title="Missão, Visão e Valores" icon={Target}
+        description="Cards com ícone, título e descrição (recomendado: 3 cards).">
+        <div className="space-y-3">
+          {mvv.map((item, i) => (
+            <ArrayItemCard key={i} index={i + 1} onRemove={() => onChange({ ...data, mvv: removeAt(mvv, i) })}>
+              <IconPicker label="Ícone" value={item.icon}
+                onChange={(v) => { const arr = [...mvv]; arr[i] = { ...arr[i], icon: v }; onChange({ ...data, mvv: arr }); }} />
+              <InputField label="Título" value={item.title}
+                onChange={(e) => { const arr = [...mvv]; arr[i] = { ...arr[i], title: e.target.value }; onChange({ ...data, mvv: arr }); }}
+                placeholder="Ex: Missão" />
+              <TextareaField label="Descrição" value={item.desc}
+                onChange={(e) => { const arr = [...mvv]; arr[i] = { ...arr[i], desc: e.target.value }; onChange({ ...data, mvv: arr }); }}
+                maxLength={300} rows={3} />
+            </ArrayItemCard>
+          ))}
+        </div>
+        <AddButton label="Adicionar card" onClick={() =>
+          onChange({ ...data, mvv: [...mvv, { icon: '', title: '', desc: '' }] })
+        } />
+      </SettingsCard>
+
+      {/* ── Números ── */}
+      <SettingsCard collapseId="content-sobre-numeros" title="Números" icon={BarChart3}
+        description="Estatísticas exibidas em destaque (fundo azul escuro).">
+        <InputField label="Título da seção" value={data.numeros_title ?? ''}
+          onChange={(e) => onChange({ ...data, numeros_title: e.target.value })}
+          placeholder="Ex: Nossos Números" maxLength={60} />
+        <div className="space-y-3">
+          {numeros.map((item, i) => (
+            <ArrayItemCard key={i} index={i + 1} onRemove={() => onChange({ ...data, numeros: removeAt(numeros, i) })}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <InputField label="Valor" value={item.value} placeholder="Ex: 20+"
+                  onChange={(e) => { const arr = [...numeros]; arr[i] = { ...arr[i], value: e.target.value }; onChange({ ...data, numeros: arr }); }}
+                  maxLength={10} />
+                <InputField label="Descrição" value={item.label} placeholder="Ex: Anos de experiência"
+                  onChange={(e) => { const arr = [...numeros]; arr[i] = { ...arr[i], label: e.target.value }; onChange({ ...data, numeros: arr }); }}
+                  maxLength={40} />
+              </div>
+            </ArrayItemCard>
+          ))}
+        </div>
+        <AddButton label="Adicionar número" onClick={() =>
+          onChange({ ...data, numeros: [...numeros, { value: '', label: '' }] })
+        } />
+      </SettingsCard>
+
+      {/* ── Diferenciais ── */}
+      <SettingsCard collapseId="content-sobre-diferenciais" title="Diferenciais" icon={Award}
+        description="Cards com ícone, título e descrição dos diferenciais da escola.">
+        <InputField label="Título da seção" value={data.diferenciais_title ?? ''}
+          onChange={(e) => onChange({ ...data, diferenciais_title: e.target.value })}
+          placeholder="Ex: Nossos Diferenciais" maxLength={60} />
+        <div className="space-y-3">
+          {diferenciais.map((item, i) => (
+            <ArrayItemCard key={i} index={i + 1} onRemove={() => onChange({ ...data, diferenciais: removeAt(diferenciais, i) })}>
+              <IconPicker label="Ícone" value={item.icon}
+                onChange={(v) => { const arr = [...diferenciais]; arr[i] = { ...arr[i], icon: v }; onChange({ ...data, diferenciais: arr }); }} />
+              <InputField label="Título" value={item.title}
+                onChange={(e) => { const arr = [...diferenciais]; arr[i] = { ...arr[i], title: e.target.value }; onChange({ ...data, diferenciais: arr }); }} />
+              <TextareaField label="Descrição" value={item.desc}
+                onChange={(e) => { const arr = [...diferenciais]; arr[i] = { ...arr[i], desc: e.target.value }; onChange({ ...data, diferenciais: arr }); }}
+                maxLength={200} rows={2} />
+            </ArrayItemCard>
+          ))}
+        </div>
+        <AddButton label="Adicionar diferencial" onClick={() =>
+          onChange({ ...data, diferenciais: [...diferenciais, { icon: '', title: '', desc: '' }] })
+        } />
+      </SettingsCard>
+
+      {/* ── CTA ── */}
+      <SettingsCard collapseId="content-sobre-cta" title="CTA (Chamada Final)" icon={BookHeart}
+        description="Título e subtítulo da seção de chamada para ação no final da página.">
+        <InputField label="Título" value={data.cta_title ?? ''}
+          onChange={(e) => onChange({ ...data, cta_title: e.target.value })}
+          placeholder="Ex: Venha Conhecer Nossa Escola" maxLength={80} />
+        <TextareaField label="Subtítulo" value={data.cta_subtitle ?? ''}
+          onChange={(e) => onChange({ ...data, cta_subtitle: e.target.value })}
+          rows={2} maxLength={200} />
+      </SettingsCard>
+    </>
+  );
+}
+
+// ── Estrutura Content Editor ────────────────────────────────────────────────
+
+function EstruturaContentEditor({ data, onChange }: { data: EstruturaContent; onChange: (d: EstruturaContent) => void }) {
+  const categories = data.categories ?? [];
+  const destaques = data.destaques ?? [];
+
+  // ── Category helpers ──
+  function updateCategory(idx: number, partial: Partial<EstruturaCategory>) {
+    const arr = [...categories];
+    arr[idx] = { ...arr[idx], ...partial };
+    onChange({ ...data, categories: arr });
+  }
+  function removeCategory(idx: number) {
+    onChange({ ...data, categories: removeAt(categories, idx) });
+  }
+  function addCategory() {
+    onChange({ ...data, categories: [...categories, { name: '', icon: '', items: [] }] });
+  }
+
+  // ── Item helpers (within a category) ──
+  function updateCategoryItem(catIdx: number, itemIdx: number, partial: Partial<EstruturaCategoryItem>) {
+    const arr = [...categories];
+    const items = [...arr[catIdx].items];
+    items[itemIdx] = { ...items[itemIdx], ...partial };
+    arr[catIdx] = { ...arr[catIdx], items };
+    onChange({ ...data, categories: arr });
+  }
+  function removeCategoryItem(catIdx: number, itemIdx: number) {
+    const arr = [...categories];
+    arr[catIdx] = { ...arr[catIdx], items: removeAt(arr[catIdx].items, itemIdx) };
+    onChange({ ...data, categories: arr });
+  }
+  function addCategoryItem(catIdx: number) {
+    const arr = [...categories];
+    arr[catIdx] = { ...arr[catIdx], items: [...arr[catIdx].items, { image: '', title: '', desc: '' }] };
+    onChange({ ...data, categories: arr });
+  }
+
+  return (
+    <>
+      {/* ── Galeria de Espaços ── */}
+      <SettingsCard collapseId="content-estrutura-gallery" title="Galeria de Espaços" icon={ImageIcon}
+        description="Categorias com imagens dos espaços da escola. Cada categoria agrupa fotos relacionadas.">
+        <div className="space-y-4">
+          {categories.map((cat, ci) => (
+            <ArrayItemCard key={ci} index={ci + 1} onRemove={() => removeCategory(ci)}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <InputField label="Nome da categoria" value={cat.name}
+                  onChange={(e) => updateCategory(ci, { name: e.target.value })}
+                  placeholder="Ex: Salas de Aula" />
+                <IconPicker label="Ícone" value={cat.icon}
+                  onChange={(v) => updateCategory(ci, { icon: v })} />
+              </div>
+
+              <SectionDivider />
+              <SectionLabel>Fotos desta categoria</SectionLabel>
+              <div className="space-y-3">
+                {cat.items.map((item, ii) => (
+                  <div key={ii} className="relative bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+                    <button type="button"
+                      className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      onClick={() => removeCategoryItem(ci, ii)} title="Remover foto">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                    <ImageField
+                      label={`Foto ${ii + 1}`}
+                      value={item.image}
+                      onChange={(url) => updateCategoryItem(ci, ii, { image: url })}
+                      storageKey={`estrutura_cat${ci}_item${ii}`}
+                      hint="Recomendado: 800×600px, proporção 4:3 (paisagem)"
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                      <InputField label="Título" value={item.title}
+                        onChange={(e) => updateCategoryItem(ci, ii, { title: e.target.value })}
+                        placeholder="Ex: Sala de Robótica" />
+                      <InputField label="Descrição" value={item.desc}
+                        onChange={(e) => updateCategoryItem(ci, ii, { desc: e.target.value })}
+                        placeholder="Ex: Equipada com kits LEGO Education"
+                        maxLength={120} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button type="button"
+                className="text-xs text-brand-primary hover:text-brand-primary/80 font-medium mt-2"
+                onClick={() => addCategoryItem(ci)}>
+                + Adicionar foto
+              </button>
+            </ArrayItemCard>
+          ))}
+        </div>
+        <AddButton label="Adicionar categoria" onClick={addCategory} />
+      </SettingsCard>
+
+      {/* ── Destaques ── */}
+      <SettingsCard collapseId="content-estrutura-destaques" title="Destaques" icon={Star}
+        description="Cards de destaque exibidos abaixo da galeria (ícone, título, descrição).">
+        <InputField label="Título da seção" value={data.destaques_title ?? ''}
+          onChange={(e) => onChange({ ...data, destaques_title: e.target.value })}
+          placeholder="Ex: Destaques da Estrutura" maxLength={60} />
+        <div className="space-y-3">
+          {destaques.map((item, i) => (
+            <ArrayItemCard key={i} index={i + 1} onRemove={() => onChange({ ...data, destaques: removeAt(destaques, i) })}>
+              <IconPicker label="Ícone" value={item.icon}
+                onChange={(v) => { const arr = [...destaques]; arr[i] = { ...arr[i], icon: v }; onChange({ ...data, destaques: arr }); }} />
+              <InputField label="Título" value={item.title}
+                onChange={(e) => { const arr = [...destaques]; arr[i] = { ...arr[i], title: e.target.value }; onChange({ ...data, destaques: arr }); }} />
+              <TextareaField label="Descrição" value={item.desc}
+                onChange={(e) => { const arr = [...destaques]; arr[i] = { ...arr[i], desc: e.target.value }; onChange({ ...data, destaques: arr }); }}
+                maxLength={200} rows={2} />
+            </ArrayItemCard>
+          ))}
+        </div>
+        <AddButton label="Adicionar destaque" onClick={() =>
+          onChange({ ...data, destaques: [...destaques, { icon: '', title: '', desc: '' }] })
+        } />
+      </SettingsCard>
+
+      {/* ── CTA ── */}
+      <SettingsCard collapseId="content-estrutura-cta" title="CTA (Chamada Final)" icon={BookHeart}
+        description="Título e subtítulo da chamada para ação no final da página.">
+        <InputField label="Título" value={data.cta_title ?? ''}
+          onChange={(e) => onChange({ ...data, cta_title: e.target.value })}
+          placeholder="Ex: Venha Conhecer Nossa Estrutura" maxLength={80} />
+        <TextareaField label="Subtítulo" value={data.cta_subtitle ?? ''}
+          onChange={(e) => onChange({ ...data, cta_subtitle: e.target.value })}
+          rows={2} maxLength={200} />
+      </SettingsCard>
+    </>
   );
 }

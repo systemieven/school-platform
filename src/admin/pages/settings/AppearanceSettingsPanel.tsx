@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Loader2, Save, Check,
   Home, Baby, BookOpen, BookMarked, GraduationCap, MessageSquare,
-  CalendarCheck, ClipboardList, Plus, Trash2, GripVertical,
+  CalendarCheck, ClipboardList, Info, Building2, Plus, Trash2, GripVertical,
   Image as ImageIcon, Video, Eye, EyeOff, Clock, Shuffle, ListOrdered,
   Play, Layers,
 } from 'lucide-react';
@@ -87,7 +87,8 @@ type ContatoFields = HeroFields;
 
 type PageKey =
   | 'home' | 'educacao_infantil' | 'fundamental_1' | 'fundamental_2'
-  | 'ensino_medio' | 'contato' | 'visita' | 'matricula';
+  | 'ensino_medio' | 'contato' | 'visita' | 'matricula'
+  | 'sobre' | 'estrutura';
 
 interface AllPages {
   home: HomeFields;
@@ -98,6 +99,8 @@ interface AllPages {
   contato: ContatoFields;
   visita: HeroFields;
   matricula: HeroFields;
+  sobre: HeroFields;
+  estrutura: HeroFields;
 }
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -127,6 +130,8 @@ const DEFAULT_PAGES: AllPages = {
   contato:          { badge: 'Fale conosco', title: 'Entre em Contato', highlight: 'Contato', subtitle: 'Tire suas dúvidas, agende uma visita ou solicite informações sobre matrículas.', image: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&q=80&w=2070' },
   visita:           { badge: 'Visita presencial',               title: 'Agende sua Visita',                 highlight: 'Visita',     subtitle: 'Conheça pessoalmente nossa estrutura, equipe pedagógica e tudo que o Colégio Batista tem a oferecer.',                                     image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2070' },
   matricula:        { badge: 'Matrículas 2026 abertas',         title: 'Matricule seu Filho',               highlight: 'Filho',      subtitle: 'Garanta a vaga do seu filho em uma das melhores escolas de Caruaru.',                                                                      image: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&q=80&w=2070' },
+  sobre:            { badge: 'Conheça nossa história',          title: 'Sobre o Colégio Batista',           highlight: 'Batista',    subtitle: 'Mais de 20 anos formando cidadãos com excelência acadêmica e valores cristãos.',                                                             image: '' },
+  estrutura:        { badge: 'Conheça nossos espaços',          title: 'Nossa Estrutura',                   highlight: 'Estrutura',  subtitle: 'Ambientes modernos e acolhedores projetados para o melhor aprendizado.',                                                                     image: '' },
 };
 
 // ── Sub-tabs ──────────────────────────────────────────────────────────────────
@@ -140,6 +145,8 @@ const SUB_TABS: { key: PageKey; label: string; icon: React.ComponentType<{ class
   { key: 'contato',          label: 'Contato',    icon: MessageSquare },
   { key: 'visita',           label: 'Visita',     icon: CalendarCheck },
   { key: 'matricula',        label: 'Matrícula',  icon: ClipboardList },
+  { key: 'sobre',            label: 'Sobre',      icon: Info },
+  { key: 'estrutura',        label: 'Estrutura',  icon: Building2 },
 ];
 
 // Style aliases from shared FormField

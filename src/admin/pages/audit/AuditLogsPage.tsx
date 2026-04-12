@@ -56,7 +56,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 // ── Component ──
 
-export default function AuditLogsPage() {
+export default function AuditLogsPage({ embedded = false }: { embedded?: boolean }) {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -139,18 +139,20 @@ export default function AuditLogsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center">
-          <FileSearch className="w-5 h-5 text-brand-secondary" />
+      {/* Header (hidden when embedded in SettingsPage) */}
+      {!embedded && (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center">
+            <FileSearch className="w-5 h-5 text-brand-secondary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800 dark:text-white">Logs de Auditoria</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {totalCount.toLocaleString('pt-BR')} registro{totalCount !== 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-white">Logs de Auditoria</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {totalCount.toLocaleString('pt-BR')} registro{totalCount !== 1 ? 's' : ''}
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">

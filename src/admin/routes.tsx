@@ -6,7 +6,6 @@ import AdminLayout from './AdminLayout';
 import LoginPage from './pages/login/LoginPage';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange';
 import DashboardPage from './pages/dashboard/DashboardPage';
-import UsersPage from './pages/users/UsersPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import AppointmentsPage from './pages/appointments/AppointmentsPage';
 import EnrollmentsPage from './pages/enrollments/EnrollmentsPage';
@@ -21,8 +20,6 @@ import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
 import EventsPage from './pages/events/EventsPage';
 import AttendancePage from './pages/attendance/AttendancePage';
 import AttendanceHistoryPage from './pages/attendance/AttendanceHistoryPage';
-import PermissionsPage from './pages/permissions/PermissionsPage';
-import AuditLogsPage from './pages/audit/AuditLogsPage';
 import TestimonialsPage from './pages/testimonials/TestimonialsPage';
 
 export default function AdminRoutes() {
@@ -68,9 +65,6 @@ export default function AdminRoutes() {
           <Route path="depoimentos"   element={<ModuleGuard moduleKey="testimonials"><TestimonialsPage /></ModuleGuard>} />
 
           {/* System */}
-          <Route path="auditoria"      element={<ModuleGuard moduleKey="audit"><AuditLogsPage /></ModuleGuard>} />
-          <Route path="permissoes"     element={<ModuleGuard moduleKey="permissions"><PermissionsPage /></ModuleGuard>} />
-          <Route path="usuarios"       element={<ModuleGuard moduleKey="users"><UsersPage /></ModuleGuard>} />
           <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><SettingsPage /></ModuleGuard>} />
         </Route>
       </Routes>

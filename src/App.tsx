@@ -11,6 +11,8 @@ import Contato from './pages/Contato';
 import AgendarVisita from './pages/AgendarVisita';
 import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
 import TermosUso from './pages/TermosUso';
+import Sobre from './pages/Sobre';
+import Estrutura from './pages/Estrutura';
 import EmConstrucao from './pages/EmConstrucao';
 import NotFound from './pages/NotFound';
 import AtendimentoPublico from './pages/AtendimentoPublico';
@@ -44,8 +46,8 @@ export default function App() {
         <Route path="agendar-visita" element={<AgendarVisita />} />
         <Route path="politica-privacidade" element={<PoliticaPrivacidade />} />
         <Route path="termos-de-uso" element={<TermosUso />} />
-        <Route path="sobre" element={<EmConstrucao />} />
-        <Route path="estrutura" element={<EmConstrucao />} />
+        <Route path="sobre" element={<Sobre />} />
+        <Route path="estrutura" element={<Estrutura />} />
         <Route path="area-professor" element={<EmConstrucao />} />
         <Route path="*" element={<NotFound />} />
       </Route>

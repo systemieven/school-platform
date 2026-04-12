@@ -20,13 +20,16 @@ import {
   // panels
   BookOpen, BookMarked, Calendar, ClipboardList, PenLine, Briefcase, Heart,
   Phone, Mail, Home, HelpCircle, Award, UserCheck, Handshake, Baby, Bus,
-  Users, User, FileText, Trash2,
+  Users, User, FileText, Trash2, FileSearch,
   CalendarX2, Clock, Timer, ChevronDown, ChevronUp,
   Shield, CheckCircle2, TriangleAlert, Share2, Ticket, Instagram,
   RotateCcw, Download,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
 import SiteSettingsPanel, { type SiteTab, SITE_SUB_TABS } from './SiteSettingsPanel';
+import AuditLogsPage from '../audit/AuditLogsPage';
+import PermissionsPage from '../permissions/PermissionsPage';
+import UsersPage from '../users/UsersPage';
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
 interface TabDef {
@@ -110,6 +113,30 @@ const TABS: TabDef[] = [
     icon: Shield,
     categories: ['security'],
     description: 'Defina critérios de senhas, tempo de vida e reutilização.',
+  },
+  {
+    key: 'users',
+    label: 'Usuários',
+    shortLabel: 'Usuários',
+    icon: Users,
+    categories: [],
+    description: 'Gerencie os usuários do sistema, cargos e acessos.',
+  },
+  {
+    key: 'permissions',
+    label: 'Permissões',
+    shortLabel: 'Permissões',
+    icon: Shield,
+    categories: [],
+    description: 'Gerencie permissões por cargo e por usuário.',
+  },
+  {
+    key: 'audit',
+    label: 'Auditoria',
+    shortLabel: 'Auditoria',
+    icon: FileSearch,
+    categories: [],
+    description: 'Visualize logs de ações realizadas no sistema.',
   },
 ];
 
@@ -344,7 +371,7 @@ export default function SettingsPage() {
   }
 
   // Tabs with their own custom panel never depend on the generic settings array
-  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance'];
+  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit'];
 
   // Tabs that have settings in the DB OR have a custom panel
   const availableTabs = TABS.filter(
@@ -536,7 +563,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
@@ -551,6 +578,12 @@ export default function SettingsPage() {
                 <SiteSettingsPanel activeTab={siteSubTab} />
               ) : activeTab === 'security' ? (
                 <SecuritySettingsPanel />
+              ) : activeTab === 'users' ? (
+                <div className="p-6"><UsersPage embedded /></div>
+              ) : activeTab === 'permissions' ? (
+                <div className="p-6"><PermissionsPage embedded /></div>
+              ) : activeTab === 'audit' ? (
+                <div className="p-6"><AuditLogsPage embedded /></div>
               ) : activeTab === 'institutional' ? (
                 <InstitutionalSettingsPanel
                   settings={tabSettings}
@@ -585,7 +618,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Floating save — generic tabs (notifications, etc.) */}
-          {!['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance'].includes(activeTab) && (
+          {!['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit'].includes(activeTab) && (
             <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
               tabHasChanges || saving || saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
             }`}>

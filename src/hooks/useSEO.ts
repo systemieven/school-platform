@@ -63,6 +63,14 @@ const PAGE_DEFAULTS: Record<string, PageSEO> = {
     description: 'Termos e condições de uso do nosso site.',
     noindex: true,
   },
+  sobre: {
+    title: 'Sobre Nós',
+    description: 'Conheça a história, missão, visão e valores. Mais de 20 anos de tradição em educação.',
+  },
+  estrutura: {
+    title: 'Estrutura',
+    description: 'Conheça os espaços modernos e acolhedores: salas, laboratórios, quadras e muito mais.',
+  },
 };
 
 // ── Meta tag helpers ──

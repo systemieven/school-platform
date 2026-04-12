@@ -836,7 +836,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export default function UsersPage() {
+export default function UsersPage({ embedded = false }: { embedded?: boolean }) {
   const { profile: currentUser } = useAdminAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -879,23 +879,38 @@ export default function UsersPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
-            <Users className="w-8 h-8" />
-            Usuários
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie os usuários do sistema.</p>
+      {/* Header (hidden when embedded in SettingsPage) */}
+      {!embedded && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
+              <Users className="w-8 h-8" />
+              Usuários
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie os usuários do sistema.</p>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand-primary-dark transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Usuário
+          </button>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand-primary-dark transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Usuário
-        </button>
-      </div>
+      )}
+
+      {/* Embedded: compact header with just the add button */}
+      {embedded && (
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand-primary-dark transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Usuário
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative mb-6 max-w-md">
