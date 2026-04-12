@@ -2,23 +2,77 @@
  * Termos de Uso — Texto-base para validação jurídica.
  */
 
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ArrowRight } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSEO } from '../hooks/useSEO';
+import { useBranding } from '../contexts/BrandingContext';
+import { useSettings } from '../hooks/useSettings';
 
 const LAST_UPDATE = '06 de abril de 2026';
 
-const SECTIONS = [
-  {
-    title: '1. Aceitação dos termos',
-    content: `Ao acessar e utilizar o site do Colégio Batista em Caruaru ("Site"), você declara que leu, compreendeu e concorda com estes Termos de Uso. Caso não concorde com qualquer disposição, solicitamos que interrompa imediatamente o uso do Site.
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function formatInstitutionalAddress(raw: unknown): string {
+  if (!raw) return 'Rua Marcílio Dias, 99, São Francisco, Caruaru/PE';
+  if (typeof raw === 'object' && raw !== null) {
+    const a = raw as Record<string, string>;
+    const parts = [
+      a.street && a.number ? `${a.street}, ${a.number}` : a.street,
+      a.neighborhood,
+      a.city && a.state ? `${a.city}/${a.state}` : a.city,
+    ].filter(Boolean);
+    return parts.join(', ') || 'Rua Marcílio Dias, 99, São Francisco, Caruaru/PE';
+  }
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  return 'Rua Marcílio Dias, 99, São Francisco, Caruaru/PE';
+}
+
+/** Extracts the city name from the address object or formatted string. */
+function extractCity(raw: unknown): string {
+  if (typeof raw === 'object' && raw !== null) {
+    const a = raw as Record<string, string>;
+    return a.city || 'Caruaru';
+  }
+  return 'Caruaru';
+}
+
+/** Extracts the state name from the address object. */
+function extractState(raw: unknown): string {
+  if (typeof raw === 'object' && raw !== null) {
+    const a = raw as Record<string, string>;
+    const stateMap: Record<string, string> = {
+      PE: 'Pernambuco', SP: 'São Paulo', RJ: 'Rio de Janeiro', MG: 'Minas Gerais',
+      BA: 'Bahia', RS: 'Rio Grande do Sul', PR: 'Paraná', SC: 'Santa Catarina',
+      GO: 'Goiás', CE: 'Ceará', PB: 'Paraíba', RN: 'Rio Grande do Norte',
+    };
+    return stateMap[a.state] || a.state || 'Pernambuco';
+  }
+  return 'Pernambuco';
+}
+
+interface InstData {
+  name: string;
+  cnpj: string;
+  addressLine: string;
+  city: string;
+  state: string;
+  phone: string;
+  email: string;
+}
+
+function buildSections(inst: InstData) {
+  return [
+    {
+      title: '1. Aceitação dos termos',
+      content: `Ao acessar e utilizar o site do ${inst.name} ("Site"), você declara que leu, compreendeu e concorda com estes Termos de Uso. Caso não concorde com qualquer disposição, solicitamos que interrompa imediatamente o uso do Site.
 
 O uso continuado do Site após a publicação de alterações nestes Termos constitui aceitação tácita das modificações.`,
-  },
-  {
-    title: '2. Sobre o site',
-    content: `Este Site é mantido pelo **Colégio Batista em Caruaru**, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº 01.873.279/0002-61, com sede na Rua Marcílio Dias, 99, São Francisco, Caruaru/PE.
+    },
+    {
+      title: '2. Sobre o site',
+      content: `Este Site é mantido pelo **${inst.name}**, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº ${inst.cnpj}, com sede na ${inst.addressLine}.
 
 O Site tem como finalidade:
 
@@ -27,10 +81,10 @@ O Site tem como finalidade:
 • Permitir o agendamento de visitas presenciais.
 • Publicar depoimentos de pais e responsáveis previamente aprovados.
 • Divulgar eventos, projetos pedagógicos e comunicados institucionais.`,
-  },
-  {
-    title: '3. Propriedade intelectual',
-    content: `Todo o conteúdo disponível neste Site — incluindo, mas não se limitando a textos, imagens, fotografias, logotipos, marcas, vídeos, layouts, design gráfico, ícones e código-fonte — é de propriedade exclusiva do Colégio Batista em Caruaru ou de seus licenciadores, sendo protegido pela legislação brasileira de propriedade intelectual (Lei nº 9.610/1998 — Direitos Autorais; Lei nº 9.279/1996 — Propriedade Industrial).
+    },
+    {
+      title: '3. Propriedade intelectual',
+      content: `Todo o conteúdo disponível neste Site — incluindo, mas não se limitando a textos, imagens, fotografias, logotipos, marcas, vídeos, layouts, design gráfico, ícones e código-fonte — é de propriedade exclusiva do ${inst.name} ou de seus licenciadores, sendo protegido pela legislação brasileira de propriedade intelectual (Lei nº 9.610/1998 — Direitos Autorais; Lei nº 9.279/1996 — Propriedade Industrial).
 
 É expressamente proibido, sem autorização prévia e por escrito:
 
@@ -38,20 +92,20 @@ O Site tem como finalidade:
 • Utilizar a marca, logotipo ou identidade visual do Colégio para fins comerciais ou não autorizados.
 • Realizar engenharia reversa, descompilar ou extrair o código-fonte do Site.
 • Criar obras derivadas com base no conteúdo do Site.`,
-  },
-  {
-    title: '4. Uso permitido',
-    content: `O usuário está autorizado a:
+    },
+    {
+      title: '4. Uso permitido',
+      content: `O usuário está autorizado a:
 
 • Acessar o Site para consulta de informações institucionais.
 • Utilizar os formulários disponíveis (contato, pré-matrícula, agendamento de visitas) para as finalidades a que se destinam.
 • Compartilhar links de páginas do Site em redes sociais, desde que sem alteração do conteúdo.
 
 O uso do Site deve respeitar a legislação vigente, a moral, os bons costumes e a ordem pública.`,
-  },
-  {
-    title: '5. Responsabilidades do usuário',
-    content: `Ao utilizar o Site, o usuário se compromete a:
+    },
+    {
+      title: '5. Responsabilidades do usuário',
+      content: `Ao utilizar o Site, o usuário se compromete a:
 
 • Fornecer informações verdadeiras, completas e atualizadas nos formulários disponíveis.
 • Não utilizar o Site para fins ilícitos, fraudulentos ou que violem direitos de terceiros.
@@ -61,10 +115,10 @@ O uso do Site deve respeitar a legislação vigente, a moral, os bons costumes e
 • Não praticar qualquer ação que possa comprometer a segurança, estabilidade ou disponibilidade do Site.
 
 O Colégio reserva-se o direito de bloquear ou restringir o acesso de qualquer usuário que descumpra estes Termos.`,
-  },
-  {
-    title: '6. Depoimentos e conteúdo gerado pelo usuário',
-    content: `Os depoimentos enviados por pais e responsáveis através do Site passam por um processo de moderação antes da publicação. Ao enviar um depoimento, o usuário:
+    },
+    {
+      title: '6. Depoimentos e conteúdo gerado pelo usuário',
+      content: `Os depoimentos enviados por pais e responsáveis através do Site passam por um processo de moderação antes da publicação. Ao enviar um depoimento, o usuário:
 
 • Declara que o conteúdo é de sua autoria e representa sua opinião pessoal.
 • Autoriza o Colégio a publicar, reproduzir e utilizar o depoimento para fins institucionais, sem limite de tempo ou território.
@@ -72,20 +126,20 @@ O Colégio reserva-se o direito de bloquear ou restringir o acesso de qualquer u
 • Garante que o conteúdo não viola direitos de terceiros, não contém informações falsas e não possui caráter ofensivo ou discriminatório.
 
 O Colégio não se responsabiliza pelo conteúdo dos depoimentos publicados, que representam exclusivamente a opinião de seus autores.`,
-  },
-  {
-    title: '7. Agendamento de visitas',
-    content: `O serviço de agendamento de visitas disponível no Site está sujeito às seguintes condições:
+    },
+    {
+      title: '7. Agendamento de visitas',
+      content: `O serviço de agendamento de visitas disponível no Site está sujeito às seguintes condições:
 
 • Os horários disponíveis são apresentados em tempo real e estão sujeitos a alterações sem aviso prévio.
 • O agendamento não garante a realização da visita, podendo o Colégio reagendar ou cancelar por motivos operacionais, mediante comunicação prévia ao visitante.
 • O visitante deve apresentar documento de identificação com foto no ato da visita.
 • Acompanhantes devem ser informados no momento do agendamento e estão limitados a 3 (três) pessoas.
 • O Colégio reserva-se o direito de suspender temporariamente o serviço de agendamento online.`,
-  },
-  {
-    title: '8. Limitação de responsabilidade',
-    content: `O Colégio Batista em Caruaru empenha-se para manter as informações do Site atualizadas e precisas, mas **não garante** que:
+    },
+    {
+      title: '8. Limitação de responsabilidade',
+      content: `O **${inst.name}** empenha-se para manter as informações do Site atualizadas e precisas, mas **não garante** que:
 
 • O conteúdo do Site esteja livre de erros, omissões ou desatualizações.
 • O Site esteja disponível de forma ininterrupta e livre de falhas técnicas.
@@ -97,42 +151,43 @@ O Colégio **não se responsabiliza** por:
 • Decisões tomadas com base exclusivamente nas informações disponíveis no Site.
 • Conteúdo de sites de terceiros acessados por meio de links disponíveis no Site.
 • Problemas de conexão, equipamento ou software do usuário.`,
-  },
-  {
-    title: '9. Links para sites de terceiros',
-    content: `Este Site pode conter links para sites de terceiros (redes sociais, órgãos públicos, parceiros). Esses links são disponibilizados apenas para conveniência do usuário.
+    },
+    {
+      title: '9. Links para sites de terceiros',
+      content: `Este Site pode conter links para sites de terceiros (redes sociais, órgãos públicos, parceiros). Esses links são disponibilizados apenas para conveniência do usuário.
 
 O Colégio não controla, endossa ou se responsabiliza pelo conteúdo, políticas de privacidade ou práticas de sites de terceiros. Recomendamos a leitura dos termos de uso e políticas de privacidade de cada site que você acessar.`,
-  },
-  {
-    title: '10. Disponibilidade e modificações do site',
-    content: `O Colégio reserva-se o direito de, a qualquer momento e sem aviso prévio:
+    },
+    {
+      title: '10. Disponibilidade e modificações do site',
+      content: `O Colégio reserva-se o direito de, a qualquer momento e sem aviso prévio:
 
 • Modificar, suspender ou descontinuar qualquer funcionalidade do Site.
 • Alterar o design, layout ou estrutura do Site.
 • Atualizar estes Termos de Uso.
 
 Alterações significativas nestes Termos serão comunicadas de forma destacada no Site. O uso continuado após as alterações constitui aceitação dos novos termos.`,
-  },
-  {
-    title: '11. Privacidade e proteção de dados',
-    content: `O tratamento de dados pessoais coletados por meio deste Site é regido pela nossa [Política de Privacidade](/politica-privacidade), que integra estes Termos de Uso e descreve detalhadamente como seus dados são coletados, utilizados, armazenados e protegidos, em conformidade com a LGPD (Lei nº 13.709/2018).`,
-  },
-  {
-    title: '12. Legislação aplicável e foro',
-    content: `Estes Termos de Uso são regidos pela legislação da República Federativa do Brasil.
+    },
+    {
+      title: '11. Privacidade e proteção de dados',
+      content: `O tratamento de dados pessoais coletados por meio deste Site é regido pela nossa [Política de Privacidade](/politica-privacidade), que integra estes Termos de Uso e descreve detalhadamente como seus dados são coletados, utilizados, armazenados e protegidos, em conformidade com a LGPD (Lei nº 13.709/2018).`,
+    },
+    {
+      title: '12. Legislação aplicável e foro',
+      content: `Estes Termos de Uso são regidos pela legislação da República Federativa do Brasil.
 
-Fica eleito o foro da Comarca de Caruaru, Estado de Pernambuco, para dirimir quaisquer questões oriundas destes Termos, com renúncia expressa a qualquer outro, por mais privilegiado que seja.`,
-  },
-  {
-    title: '13. Contato',
-    content: `Para dúvidas, sugestões ou reclamações sobre estes Termos de Uso:
+Fica eleito o foro da Comarca de ${inst.city}, Estado de ${inst.state}, para dirimir quaisquer questões oriundas destes Termos, com renúncia expressa a qualquer outro, por mais privilegiado que seja.`,
+    },
+    {
+      title: '13. Contato',
+      content: `Para dúvidas, sugestões ou reclamações sobre estes Termos de Uso:
 
-• **E-mail**: contato@colegiobatistacaruaru.com.br
-• **Telefone**: (81) 3721-4787
-• **Endereço**: Rua Marcílio Dias, 99, São Francisco, Caruaru/PE`,
-  },
-];
+• **E-mail**: ${inst.email}
+• **Telefone**: ${inst.phone}
+• **Endereço**: ${inst.addressLine}`,
+    },
+  ];
+}
 
 function renderMarkdown(text: string) {
   return text.split('\n').map((line, i) => {
@@ -159,6 +214,21 @@ function renderMarkdown(text: string) {
 export default function TermosUso() {
   useSEO('termos_uso');
   const bodyRef = useScrollReveal();
+
+  const { identity } = useBranding();
+  const { settings: generalSettings } = useSettings('general');
+
+  const inst = useMemo<InstData>(() => ({
+    name:        identity.school_name || 'Colégio Batista em Caruaru',
+    cnpj:        identity.cnpj        || '01.873.279/0002-61',
+    addressLine: formatInstitutionalAddress(generalSettings.address),
+    city:        extractCity(generalSettings.address),
+    state:       extractState(generalSettings.address),
+    phone:       (generalSettings.phone as string) || '(81) 3721-4787',
+    email:       (generalSettings.email as string) || 'contato@colegiobatistacaruaru.com.br',
+  }), [identity, generalSettings]);
+
+  const sections = useMemo(() => buildSections(inst), [inst]);
 
   return (
     <div className="min-h-screen">
@@ -196,13 +266,13 @@ export default function TermosUso() {
               data-reveal="up"
             >
               <p className="text-gray-600 text-sm leading-relaxed mb-10 pb-8 border-b border-gray-100">
-                Estes Termos de Uso regulam o acesso e a utilização do site do Colégio Batista em
-                Caruaru. Ao navegar pelo site, você concorda com as condições aqui estabelecidas.
+                Estes Termos de Uso regulam o acesso e a utilização do site do {inst.name}. Ao navegar
+                pelo site, você concorda com as condições aqui estabelecidas.
                 Leia atentamente antes de prosseguir.
               </p>
 
               <div className="space-y-10">
-                {SECTIONS.map(({ title, content }) => (
+                {sections.map(({ title, content }) => (
                   <div key={title}>
                     <h2 className="font-display text-xl font-bold text-brand-primary mb-4">
                       {title}

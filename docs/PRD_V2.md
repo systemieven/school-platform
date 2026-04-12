@@ -77,8 +77,8 @@ Todos os dados sao armazenados no Supabase (PostgreSQL + RLS + Realtime + Storag
 - **32+ tabelas** com Row Level Security (RLS) em todas
 - **26 migrations** aplicadas sequencialmente
 - **4 storage buckets**: `enrollment-documents`, `site-images`, `whatsapp-media`, `library-resources`, `avatars`
-- **13 Edge Functions** para logica server-side
-- **Realtime** habilitado em `visit_appointments`, `enrollments`, `contact_requests` e `attendance_tickets`
+- **13 Edge Functions** para logica server-side (5 publicas com rate limiting)
+- **Realtime** habilitado em `visit_appointments`, `enrollments`, `contact_requests`, `attendance_tickets` e `system_settings`
 
 ### 2.3 Principios Arquiteturais
 
@@ -465,7 +465,7 @@ Interface de gestao de sala com 6 abas:
 **Rota**: `/admin/configuracoes`
 **Roles**: super_admin, admin
 
-Interface com **9 abas**, cada uma com cards recolhiveis (`SettingsCard`) e botao salvar flutuante.
+Interface com **10 abas** (incluindo sub-abas), cada uma com cards recolhiveis (`SettingsCard`) e botao salvar flutuante. A aba "Site" contem 5 sub-abas: Aparencia, Branding, Navegacao, Conteudo e SEO.
 
 ### 5.1 Dados Institucionais
 
@@ -759,21 +759,23 @@ Configuravel na aba Aparencia > Home:
 
 ## 8. Edge Functions
 
-| Funcao | Auth | Descricao |
-|--------|------|-----------|
-| `uazapi-proxy` | JWT (admin+) | Proxy autenticado para UazAPI; token nunca exposto ao client |
-| `uazapi-webhook` | Secret URL param | Recebe status de entrega WhatsApp; atualiza `whatsapp_message_log` |
-| `auto-notify` | Trigger secret | Disparado por eventos do banco; encontra templates; renderiza variaveis; envia via UazAPI |
-| `attendance-checkin` | Nenhum | Check-in em 2 fases: dry-run (validacao) + emissao real (geolocalizacao + ticket) |
-| `attendance-feedback` | Nenhum | Recebe feedback pos-atendimento; valida ticket finalizado; janela de 24h |
-| `attendance-public-config` | Nenhum | Devolve config publica de atendimento sem alargar RLS |
-| `attendance-panel-auth` | Senha do painel | Valida senha; retorna config completa do painel de exibicao |
-| `create-admin-user` | JWT (super_admin) | Cria usuario + profile com senha temporaria |
-| `delete-admin-user` | JWT (super_admin) | Remove usuario com cascade cleanup |
-| `reset-user-password` | JWT (admin+) | Gera senha temporaria; loga para envio WhatsApp |
-| `change-password` | JWT (auth) | Troca de senha com validacao de politica e historico |
-| `geocode-address` | JWT (admin+) | Proxy Google Maps Geocoding API; converte endereco em lat/lng |
-| `google-static-map` | JWT (admin+) | Proxy Google Static Maps API; retorna PNG com marcador + circulo |
+| Funcao | Auth | Rate Limit | Descricao |
+|--------|------|------------|-----------|
+| `uazapi-proxy` | JWT (admin+) | — | Proxy autenticado para UazAPI; token nunca exposto ao client |
+| `uazapi-webhook` | Secret URL param | 120/min | Recebe status de entrega WhatsApp; atualiza `whatsapp_message_log` |
+| `auto-notify` | Trigger secret | — | Disparado por eventos do banco; encontra templates; renderiza variaveis; envia via UazAPI |
+| `attendance-checkin` | Nenhum | 15/min | Check-in em 2 fases: dry-run (validacao) + emissao real (geolocalizacao + ticket) |
+| `attendance-feedback` | Nenhum | 10/min | Recebe feedback pos-atendimento; valida ticket finalizado; janela de 24h |
+| `attendance-public-config` | Nenhum | 30/min | Devolve config publica de atendimento sem alargar RLS |
+| `attendance-panel-auth` | Senha do painel | 5/min | Valida senha; retorna config completa do painel de exibicao |
+| `create-admin-user` | JWT (super_admin) | — | Cria usuario + profile com senha temporaria |
+| `delete-admin-user` | JWT (super_admin) | — | Remove usuario com cascade cleanup |
+| `reset-user-password` | JWT (admin+) | — | Gera senha temporaria; loga para envio WhatsApp |
+| `change-password` | JWT (auth) | — | Troca de senha com validacao de politica e historico |
+| `geocode-address` | JWT (admin+) | — | Proxy Google Maps Geocoding API; converte endereco em lat/lng |
+| `google-static-map` | JWT (admin+) | — | Proxy Google Static Maps API; retorna PNG com marcador + circulo |
+
+**Rate Limiting**: Endpoints publicos usam rate limiter in-memory com sliding window por IP (`_shared/rate-limit.ts`). Resposta 429 inclui headers `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`. Endpoints protegidos por JWT nao precisam de rate limiting adicional.
 
 ---
 
@@ -846,20 +848,22 @@ Configuravel na aba Aparencia > Home:
 
 ## 10. Pendencias e Roadmap Futuro
 
-### 10.1 Fase 6 — Governanca e Escala (nao iniciada)
+### 10.1 Fase 6 — Governanca e Escala (CONCLUIDA — exceto F6.4)
 
-| Item | Descricao | Prioridade |
-|------|-----------|------------|
-| **F6.1 Permissoes Granulares** | Tabelas `role_permissions` e `user_permission_overrides`; grid modulo x acao por role; override por usuario; preview de permissoes efetivas | Alta |
-| **F6.2 Gerenciamento de Modulos** | Interface on/off para modulos; mapa de dependencias; ocultar menu/bloquear rotas ao desabilitar | Media |
-| **F6.3 Audit Logs Centralizados** | Tabela `audit_logs` unificada (usuario, acao, modulo, old/new data, IP, user-agent); interface de consulta; retencao configuravel | Media |
-| **F6.4 Documentacao Tecnica** | API docs, guia de onboarding, runbook operacional, manual do usuario | Baixa |
+| Item | Descricao | Prioridade | Status |
+|------|-----------|------------|--------|
+| **F6.1 Permissoes Granulares** | Tabelas `role_permissions` e `user_permission_overrides`; grid modulo x acao por role; override por usuario; preview de permissoes efetivas | Alta | ✅ Concluido (migration 26, PermissionsContext, PermissionsPage, PermissionGate) |
+| **F6.2 Gerenciamento de Modulos** | Interface on/off para modulos; mapa de dependencias; ocultar menu/bloquear rotas ao desabilitar | Media | ✅ Concluido (PermissionsPage aba Modulos, ModuleGuard, depends_on) |
+| **F6.3 Audit Logs Centralizados** | Tabela `audit_logs` unificada (usuario, acao, modulo, old/new data, IP, user-agent); interface de consulta; retencao configuravel | Media | ✅ Concluido (migration 27, logAudit em 10+ paginas, AuditLogsPage) |
+| **F6.4 Documentacao Tecnica** | API docs, guia de onboarding, runbook operacional, manual do usuario | Baixa | ⏳ Pendente |
 
-### 10.2 Fase 7 — Whitelabel: Personalizacao Total
+### 10.2 Fase 7 — Whitelabel: Personalizacao Total (CONCLUIDA)
 
 **Objetivo**: Tornar o app inteiramente configuravel pelo admin, sem necessidade de alterar codigo. Qualquer instituicao de ensino pode usar o sistema com sua propria identidade visual, textos, menus e branding — mantendo a consistencia de UI/UX consolidada.
 
 **Principio**: Toda alteracao visual e textual deve fluir de `system_settings` → CSS variables / React context → componentes. Nenhum valor de marca deve permanecer hardcoded.
+
+**Status**: ✅ Todas as 11 etapas concluidas. BrandingContext com Realtime, useBranding() hook, useSEO() hook, favicon dinamico, SEO admin panel, 5 categorias de settings (appearance, branding, navigation, content, seo), site_presets com save/restore.
 
 #### 10.2.1 Auditoria — Elementos Hardcoded Atuais
 
@@ -1077,25 +1081,29 @@ Nova aba no painel de configuracoes:
 
 #### 10.2.9 Migracao de Codigo — Etapas
 
-| Etapa | Descricao | Esforco |
-|-------|-----------|---------|
-| 1. CSS Variables | Substituir TODOS os `bg-[#003876]`, `text-[#ffd700]`, etc. por `bg-[var(--primary)]`, `text-[var(--secondary)]` em ~78 arquivos | Alto |
-| 2. BrandingProvider | Criar context + hook que carrega settings e injeta CSS vars + fonts | Medio |
-| 3. Navbar dinamica | Migrar menu hardcoded para leitura de `navigation.navbar` | Medio |
-| 4. Footer dinamico | Migrar colunas e links para `navigation.footer` | Medio |
-| 5. TopBar dinamica | Migrar URLs sociais para `navigation.topbar` | Baixo |
-| 6. Home content | Migrar FEATURES, INFRASTRUCTURE, STATS para `content.home` | Medio |
-| 7. Segment pages | Migrar PILLARS, DIFFERENTIALS para `content.segment_pages` | Medio |
-| 8. Admin branding | Migrar LoginPage, Sidebar, Header para `branding.*` | Medio |
-| 9. SEO dinamico | Injetar meta tags via React Helmet a partir de `content.seo` | Baixo |
-| 10. Config UI | Criar abas Branding, Navegacao e Conteudo no painel | Alto |
-| 11. Seed defaults | Criar migration com valores atuais como seed (preserva identidade Batista) | Baixo |
+| Etapa | Descricao | Esforco | Status |
+|-------|-----------|---------|--------|
+| 1. CSS Variables | Substituir TODOS os `bg-[#003876]`, `text-[#ffd700]`, etc. por `bg-[var(--primary)]`, `text-[var(--secondary)]` em ~78 arquivos | Alto | ✅ Concluido |
+| 2. BrandingProvider | Criar context + hook que carrega settings e injeta CSS vars + fonts | Medio | ✅ Concluido (BrandingContext com Realtime) |
+| 3. Navbar dinamica | Migrar menu hardcoded para leitura de `navigation.navbar` | Medio | ✅ Concluido |
+| 4. Footer dinamico | Migrar colunas e links para `navigation.footer` | Medio | ✅ Concluido |
+| 5. TopBar dinamica | Migrar URLs sociais para `navigation.topbar` | Baixo | ✅ Concluido |
+| 6. Home content | Migrar FEATURES, INFRASTRUCTURE, STATS para `content.home` | Medio | ✅ Concluido |
+| 7. Segment pages | Migrar PILLARS, DIFFERENTIALS para `content.segment_pages` | Medio | ✅ Concluido |
+| 8. Admin branding | Migrar LoginPage, Sidebar, Header, templates WhatsApp para `branding.*` | Medio | ✅ Concluido (useBranding em admin + portal) |
+| 9. SEO dinamico | Hook `useSEO()` injeta title, meta, OG/Twitter tags; admin panel SEO; favicon dinamico | Baixo | ✅ Concluido (useSEO em 12 paginas, SEOSettingsPanel, injectFavicon) |
+| 10. Config UI | Criar abas Branding, Navegacao e Conteudo no painel | Alto | ✅ Concluido (BrandingSettingsPanel, NavigationSettingsPanel, ContentSettingsPanel, SEOSettingsPanel) |
+| 11. Seed defaults | Criar migration com valores atuais como seed (preserva identidade Batista) | Baixo | ✅ Concluido (site_presets com preset base) |
 
 ---
 
-### 10.3 Fase Final — Script de Replicacao (Setup Script)
+### 10.3 ~~Fase Final — Script de Replicacao (Setup Script)~~ (REMOVIDO)
 
-**Objetivo**: Gerar um kit de replicacao completo que permite criar uma instancia funcional do sistema em um projeto Supabase novo e limpo, pronta para customizacao via painel.
+> **Descartado**: Abordagem de replicacao via SQL script nao sera utilizada. O projeto seguira outra estrategia de escalabilidade/multi-tenancy a ser definida.
+
+<details><summary>Planejamento original (historico)</summary>
+
+**Objetivo original**: Gerar um kit de replicacao completo que permite criar uma instancia funcional do sistema em um projeto Supabase novo e limpo, pronta para customizacao via painel.
 
 #### 10.3.1 O Que Vai no SQL vs. O Que Fica Fora
 
@@ -1344,20 +1352,22 @@ PRIMEIRO ACESSO
 | 8 | Validar deploy das edge functions + teste de health check |
 | 9 | Teste end-to-end: site → formularios → admin → portal |
 
+</details>
+
 ---
 
 ### 10.4 Melhorias Adicionais
 
 | Item | Descricao | Prioridade |
 |------|-----------|------------|
-| **2FA real via WhatsApp** | Implementar geracao/verificacao de OTP com time-window; hoje so existe scaffold de categoria | Baixa |
-| **Calendario visual de agendamentos** | Visao semanal/mensal com drag-and-drop e indicador de lotacao (PRD v1 especificava) | Media |
-| **Relatorios agendados** | Envio periodico por e-mail (mensal/trimestral) | Baixa |
-| **OAuth para depoimentos** | Google e Facebook providers no Supabase Auth (pendente desde frontend v1) | Baixa |
-| **Paginas placeholder do site** | `/sobre`, `/estrutura`, `/area-professor` — apontam para EmConstrucao | Media |
-| **Mascaramento de dados** | CPF e telefone parcial para roles restritas | Baixa |
-| **Rate limiting** | Endpoints publicos | Media |
-| **Biblioteca Virtual publica** | Rota `/biblioteca-virtual` no site (parcial com busca local, sem backend) — decidir se migra para /portal/biblioteca | Baixa |
+| **2FA real via WhatsApp** | Implementar geracao/verificacao de OTP com time-window; hoje so existe scaffold de categoria | Baixa | ⏳ Pendente |
+| **Calendario visual de agendamentos** | Visao semanal/mensal com drag-and-drop e indicador de lotacao (PRD v1 especificava) | Media | ✅ Concluido (CalendarView em AppointmentsPage) |
+| **Relatorios agendados** | Envio periodico por e-mail (mensal/trimestral) | Baixa | ⏳ Pendente |
+| **OAuth para depoimentos** | Google e Facebook providers no Supabase Auth (pendente desde frontend v1) | Baixa | ⏳ Pendente |
+| **Paginas placeholder do site** | `/sobre`, `/estrutura`, `/area-professor` — apontam para EmConstrucao | Media | ✅ Concluido |
+| **Mascaramento de dados** | CPF e telefone parcial para roles restritas | Baixa | ⏳ Pendente |
+| **Rate limiting** | Endpoints publicos (5 Edge Functions com sliding window por IP) | Media | ✅ Concluido (15/30/10/5/120 req/min) |
+| **Biblioteca Virtual publica** | Rota `/biblioteca-virtual` no site (parcial com busca local, sem backend) — decidir se migra para /portal/biblioteca | Baixa | ⏳ Pendente |
 
 ---
 

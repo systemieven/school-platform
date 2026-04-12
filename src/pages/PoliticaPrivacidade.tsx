@@ -3,21 +3,50 @@
  * Texto-base para validação jurídica.
  */
 
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, ArrowRight } from 'lucide-react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSEO } from '../hooks/useSEO';
+import { useBranding } from '../contexts/BrandingContext';
+import { useSettings } from '../hooks/useSettings';
 
 const LAST_UPDATE = '06 de abril de 2026';
 
-const SECTIONS = [
-  {
-    title: '1. Quem somos',
-    content: `O Colégio Batista em Caruaru, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº 01.873.279/0002-61, com sede na Rua Marcílio Dias, 99, São Francisco, Caruaru/PE, é a Controladora dos dados pessoais coletados neste site, nos termos da Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD).`,
-  },
-  {
-    title: '2. Dados pessoais que coletamos',
-    content: `Podemos coletar as seguintes categorias de dados pessoais, conforme a finalidade da interação:
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function formatInstitutionalAddress(raw: unknown): string {
+  if (!raw) return 'Rua Marcílio Dias, 99, São Francisco, Caruaru/PE';
+  if (typeof raw === 'object' && raw !== null) {
+    const a = raw as Record<string, string>;
+    const parts = [
+      a.street && a.number ? `${a.street}, ${a.number}` : a.street,
+      a.neighborhood,
+      a.city && a.state ? `${a.city}/${a.state}` : a.city,
+    ].filter(Boolean);
+    return parts.join(', ') || 'Rua Marcílio Dias, 99, São Francisco, Caruaru/PE';
+  }
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  return 'Rua Marcílio Dias, 99, São Francisco, Caruaru/PE';
+}
+
+interface InstData {
+  name: string;
+  cnpj: string;
+  addressLine: string;
+  phone: string;
+  email: string;
+}
+
+function buildSections(inst: InstData) {
+  return [
+    {
+      title: '1. Quem somos',
+      content: `${inst.name}, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº ${inst.cnpj}, com sede na ${inst.addressLine}, é a Controladora dos dados pessoais coletados neste site, nos termos da Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD).`,
+    },
+    {
+      title: '2. Dados pessoais que coletamos',
+      content: `Podemos coletar as seguintes categorias de dados pessoais, conforme a finalidade da interação:
 
 • **Dados de identificação**: nome completo, e-mail, telefone/celular.
 • **Dados do aluno**: série/turma pretendida, documentos acadêmicos (quando enviados via formulário de matrícula).
@@ -25,10 +54,10 @@ const SECTIONS = [
 • **Dados de agendamento de visitas**: nome, celular, e-mail, motivo da visita, nome de acompanhantes, data e horário selecionados.
 • **Dados de depoimentos**: nome, avatar (via login social), e-mail, série do aluno matriculado, conteúdo do depoimento.
 • **Dados sensíveis**: não coletamos dados sensíveis (origem racial ou étnica, convicção religiosa, opinião política, dado referente à saúde ou à vida sexual, dado genético ou biométrico) através deste site.`,
-  },
-  {
-    title: '3. Finalidades do tratamento',
-    content: `Utilizamos seus dados pessoais para as seguintes finalidades:
+    },
+    {
+      title: '3. Finalidades do tratamento',
+      content: `Utilizamos seus dados pessoais para as seguintes finalidades:
 
 • **Contato e atendimento**: responder mensagens enviadas via formulário de contato ou WhatsApp.
 • **Processo de matrícula**: avaliar e processar solicitações de matrícula, entrar em contato com responsáveis legais.
@@ -37,28 +66,28 @@ const SECTIONS = [
 • **Melhoria do site**: analisar padrões de navegação para aprimorar a experiência do usuário.
 • **Comunicação institucional**: enviar informações sobre eventos, matrículas e novidades da escola (apenas quando autorizado pelo titular).
 • **Cumprimento de obrigações legais**: atender exigências legais, regulatórias ou judiciais.`,
-  },
-  {
-    title: '4. Base legal para o tratamento',
-    content: `O tratamento dos seus dados pessoais é realizado com fundamento nas seguintes bases legais previstas na LGPD:
+    },
+    {
+      title: '4. Base legal para o tratamento',
+      content: `O tratamento dos seus dados pessoais é realizado com fundamento nas seguintes bases legais previstas na LGPD:
 
 • **Consentimento** (art. 7º, I): quando você preenche formulários, agenda visitas ou envia depoimentos voluntariamente.
 • **Execução de contrato** (art. 7º, V): para viabilizar o processo de matrícula e a prestação de serviços educacionais.
 • **Legítimo interesse** (art. 7º, IX): para melhoria do site e comunicação institucional, respeitando suas legítimas expectativas.
 • **Cumprimento de obrigação legal** (art. 7º, II): para atender obrigações legais e regulatórias do setor educacional.`,
-  },
-  {
-    title: '5. Compartilhamento de dados',
-    content: `Seus dados pessoais podem ser compartilhados com:
+    },
+    {
+      title: '5. Compartilhamento de dados',
+      content: `Seus dados pessoais podem ser compartilhados com:
 
 • **Prestadores de serviço**: empresas que nos auxiliam na operação do site e sistemas (hospedagem, e-mail, armazenamento em nuvem), sempre mediante contrato que garanta a proteção dos dados.
 • **Autoridades públicas**: quando exigido por lei, regulamento ou ordem judicial.
 
 **Não vendemos, alugamos ou comercializamos** seus dados pessoais com terceiros para fins de marketing.`,
-  },
-  {
-    title: '6. Armazenamento e segurança',
-    content: `Seus dados são armazenados em servidores seguros com as seguintes medidas de proteção:
+    },
+    {
+      title: '6. Armazenamento e segurança',
+      content: `Seus dados são armazenados em servidores seguros com as seguintes medidas de proteção:
 
 • Criptografia em trânsito (HTTPS/TLS).
 • Controle de acesso baseado em função (RBAC).
@@ -66,19 +95,19 @@ const SECTIONS = [
 • Monitoramento de acessos.
 
 Os dados são mantidos pelo tempo necessário para cumprir as finalidades descritas nesta Política ou conforme exigido por lei. Dados de contato e matrícula são mantidos por no mínimo 5 anos após o encerramento da relação, conforme legislação educacional.`,
-  },
-  {
-    title: '7. Cookies',
-    content: `Este site utiliza cookies para:
+    },
+    {
+      title: '7. Cookies',
+      content: `Este site utiliza cookies para:
 
 • **Cookies essenciais**: necessários para o funcionamento do site (autenticação, preferências de sessão).
 • **Cookies de desempenho**: para análise de uso e melhoria da experiência (ex.: Google Analytics, quando ativo).
 
 Você pode configurar seu navegador para recusar cookies, mas algumas funcionalidades do site poderão ficar indisponíveis.`,
-  },
-  {
-    title: '8. Direitos do titular',
-    content: `Nos termos da LGPD, você tem direito a:
+    },
+    {
+      title: '8. Direitos do titular',
+      content: `Nos termos da LGPD, você tem direito a:
 
 • **Confirmação e acesso**: saber se tratamos seus dados e acessar uma cópia.
 • **Correção**: solicitar a correção de dados incompletos, inexatos ou desatualizados.
@@ -89,27 +118,28 @@ Você pode configurar seu navegador para recusar cookies, mas algumas funcionali
 • **Revogação do consentimento**: a qualquer momento, sem prejuízo da legalidade do tratamento já realizado.
 • **Oposição**: ao tratamento realizado com base em legítimo interesse, se aplicável.
 
-Para exercer seus direitos, entre em contato pelo e-mail **privacidade@colegiobatistacaruaru.com.br** ou pelo telefone **(81) 3721-4787**.`,
-  },
-  {
-    title: '9. Dados de menores',
-    content: `Não coletamos dados pessoais diretamente de crianças e adolescentes através deste site. Os dados de alunos menores de idade são fornecidos exclusivamente por seus pais ou responsáveis legais durante o processo de matrícula, com o consentimento expresso destes.`,
-  },
-  {
-    title: '10. Alterações nesta Política',
-    content: `Esta Política de Privacidade pode ser atualizada periodicamente. Recomendamos que você a consulte regularmente. Alterações significativas serão comunicadas de forma destacada no site.`,
-  },
-  {
-    title: '11. Contato e Encarregado (DPO)',
-    content: `Para dúvidas, solicitações ou reclamações sobre o tratamento de dados pessoais:
+Para exercer seus direitos, entre em contato pelo e-mail **${inst.email}** ou pelo telefone **${inst.phone}**.`,
+    },
+    {
+      title: '9. Dados de menores',
+      content: `Não coletamos dados pessoais diretamente de crianças e adolescentes através deste site. Os dados de alunos menores de idade são fornecidos exclusivamente por seus pais ou responsáveis legais durante o processo de matrícula, com o consentimento expresso destes.`,
+    },
+    {
+      title: '10. Alterações nesta Política',
+      content: `Esta Política de Privacidade pode ser atualizada periodicamente. Recomendamos que você a consulte regularmente. Alterações significativas serão comunicadas de forma destacada no site.`,
+    },
+    {
+      title: '11. Contato e Encarregado (DPO)',
+      content: `Para dúvidas, solicitações ou reclamações sobre o tratamento de dados pessoais:
 
-• **E-mail**: privacidade@colegiobatistacaruaru.com.br
-• **Telefone**: (81) 3721-4787
-• **Endereço**: Rua Marcílio Dias, 99, São Francisco, Caruaru/PE
+• **E-mail**: ${inst.email}
+• **Telefone**: ${inst.phone}
+• **Endereço**: ${inst.addressLine}
 
 Caso não obtenha resposta satisfatória, você pode apresentar reclamação à **Autoridade Nacional de Proteção de Dados (ANPD)** em [gov.br/anpd](https://www.gov.br/anpd).`,
-  },
-];
+    },
+  ];
+}
 
 function renderMarkdown(text: string) {
   return text.split('\n').map((line, i) => {
@@ -133,6 +163,19 @@ function renderMarkdown(text: string) {
 export default function PoliticaPrivacidade() {
   useSEO('politica_privacidade');
   const bodyRef = useScrollReveal();
+
+  const { identity } = useBranding();
+  const { settings: generalSettings } = useSettings('general');
+
+  const inst = useMemo<InstData>(() => ({
+    name:        identity.school_name || 'Colégio Batista em Caruaru',
+    cnpj:        identity.cnpj        || '01.873.279/0002-61',
+    addressLine: formatInstitutionalAddress(generalSettings.address),
+    phone:       (generalSettings.phone as string)  || '(81) 3721-4787',
+    email:       (generalSettings.email as string)  || 'privacidade@colegiobatistacaruaru.com.br',
+  }), [identity, generalSettings]);
+
+  const sections = useMemo(() => buildSections(inst), [inst]);
 
   return (
     <div className="min-h-screen">
@@ -170,14 +213,14 @@ export default function PoliticaPrivacidade() {
               data-reveal="up"
             >
               <p className="text-gray-600 text-sm leading-relaxed mb-10 pb-8 border-b border-gray-100">
-                O Colégio Batista em Caruaru respeita a sua privacidade e está comprometido
+                {inst.name} respeita a sua privacidade e está comprometido
                 com a proteção dos seus dados pessoais. Esta Política descreve como coletamos,
                 utilizamos, armazenamos e protegemos suas informações, em conformidade com a
                 Lei Geral de Proteção de Dados Pessoais (LGPD — Lei nº 13.709/2018).
               </p>
 
               <div className="space-y-10">
-                {SECTIONS.map(({ title, content }) => (
+                {sections.map(({ title, content }) => (
                   <div key={title}>
                     <h2 className="font-display text-xl font-bold text-brand-primary mb-4">
                       {title}
