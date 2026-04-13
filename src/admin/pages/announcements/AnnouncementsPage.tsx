@@ -9,7 +9,8 @@ import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
   createMassCampaign, listCampaigns, controlCampaign,
   listCampaignMessages, cleanDoneMessages, clearAllQueue,
-  type CampaignFolder, type CampaignMessage,
+  listWhatsAppGroups,
+  type CampaignFolder, type CampaignMessage, type WhatsAppGroup,
 } from '../../lib/whatsapp-api';
 import {
   Loader2, Pencil, Trash2, Megaphone, X, Save,
@@ -360,6 +361,8 @@ const emptyForm = () => ({
   target_ids:   [] as string[],
   target_roles: [] as string[],
   send_whatsapp: false,
+  send_to_groups: false,
+  selected_groups: [] as Array<{ jid: string; name: string }>,
   publish_at:   new Date().toISOString().slice(0, 16),
   is_published: false,
   // Campaign settings
@@ -377,6 +380,8 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
     target_ids:    announcement.target_ids,
     target_roles:  announcement.target_roles,
     send_whatsapp: announcement.send_whatsapp,
+    send_to_groups: false,
+    selected_groups: [] as Array<{ jid: string; name: string }>,
     publish_at:    announcement.publish_at.slice(0, 16),
     is_published:  announcement.is_published,
     delayMin:      5,
@@ -386,6 +391,24 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState('');
   const [waStatus, setWaStatus] = useState('');
+  const [waGroups, setWaGroups] = useState<WhatsAppGroup[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+
+  async function fetchGroups() {
+    setLoadingGroups(true);
+    const result = await listWhatsAppGroups();
+    if (result.groups) setWaGroups(result.groups);
+    setLoadingGroups(false);
+  }
+
+  function toggleGroup(jid: string, name: string) {
+    setForm((p) => ({
+      ...p,
+      selected_groups: p.selected_groups.some((g) => g.jid === jid)
+        ? p.selected_groups.filter((g) => g.jid !== jid)
+        : [...p.selected_groups, { jid, name }],
+    }));
+  }
 
   function toggleTargetId(id: string) {
     setForm((p) => ({
@@ -463,11 +486,26 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
 
     // Create mass campaign when publishing with WhatsApp
     if (isPublishing && form.send_whatsapp && !announcement?.is_published) {
-      setWaStatus('Buscando destinatários...');
-      const messages = await _buildRecipients(saved);
+      let messages: Array<{ number: string; text: string }>;
+
+      if (form.send_to_groups) {
+        if (!form.selected_groups.length) {
+          setWaStatus('Nenhum grupo selecionado.');
+          setSaving(false);
+          return;
+        }
+        const text = `*${saved.title}*\n\n${saved.body}`;
+        messages = form.selected_groups.map((g) => ({ number: g.jid, text }));
+        setWaStatus(`Criando campanha para ${messages.length} grupo(s)...`);
+      } else {
+        setWaStatus('Buscando destinatários...');
+        messages = await _buildRecipients(saved);
+      }
 
       if (messages.length > 0) {
-        setWaStatus(`Criando campanha para ${messages.length} destinatário${messages.length !== 1 ? 's' : ''}...`);
+        if (!form.send_to_groups) {
+          setWaStatus(`Criando campanha para ${messages.length} destinatário${messages.length !== 1 ? 's' : ''}...`);
+        }
         const folderName = `Comunicado: ${saved.title.slice(0, 60)}`;
         const scheduledTs = form.scheduledFor
           ? new Date(form.scheduledFor).getTime()
@@ -591,6 +629,41 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
             )}
           </SettingsCard>
 
+          {/* ── Selecionar Grupos ── */}
+          {form.send_whatsapp && form.send_to_groups && (
+            <SettingsCard title="Selecionar Grupos" icon={MessageSquare}
+              headerExtra={
+                <button type="button" onClick={fetchGroups} disabled={loadingGroups}
+                  className="flex items-center gap-1 text-xs text-brand-primary dark:text-brand-secondary hover:underline disabled:opacity-50">
+                  <RefreshCw className={`w-3 h-3 ${loadingGroups ? 'animate-spin' : ''}`} /> Atualizar
+                </button>
+              }>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {form.selected_groups.length} grupo(s) selecionado(s)
+              </p>
+              {loadingGroups ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                </div>
+              ) : waGroups.length === 0 ? (
+                <p className="text-xs text-gray-400 dark:text-gray-500 py-2">Nenhum grupo encontrado.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                  {waGroups.map((g) => (
+                    <button key={g.JID} type="button" onClick={() => toggleGroup(g.JID, g.Name || g.JID)}
+                      title={g.Name || g.JID}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors max-w-[200px] truncate ${
+                        form.selected_groups.some((s) => s.jid === g.JID)
+                          ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
+                      {g.Name || g.JID}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </SettingsCard>
+          )}
+
           {/* ── Publicação ── */}
           <SettingsCard title="Publicação" icon={Calendar}>
             <div>
@@ -599,14 +672,26 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                 onChange={(e) => setForm((p) => ({ ...p, publish_at: e.target.value }))} className={cls} />
             </div>
 
-            <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800">
+            <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 space-y-2">
               <Toggle
                 checked={form.send_whatsapp}
-                onChange={(v) => setForm((p) => ({ ...p, send_whatsapp: v }))}
+                onChange={(v) => setForm((p) => ({ ...p, send_whatsapp: v, send_to_groups: v ? p.send_to_groups : false, selected_groups: v ? p.selected_groups : [] }))}
                 label="Enviar por WhatsApp"
                 description="Cria campanha em massa para os responsáveis ao publicar"
                 onColor="bg-emerald-600"
               />
+              {form.send_whatsapp && (
+                <Toggle
+                  checked={form.send_to_groups}
+                  onChange={(v) => {
+                    setForm((p) => ({ ...p, send_to_groups: v, selected_groups: v ? p.selected_groups : [] }));
+                    if (v && waGroups.length === 0) fetchGroups();
+                  }}
+                  label="Enviar para grupos"
+                  description="Envia para grupos do WhatsApp em vez de contatos individuais"
+                  onColor="bg-emerald-600"
+                />
+              )}
             </div>
 
             {form.send_whatsapp && (

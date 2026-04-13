@@ -857,6 +857,22 @@ export const MODULE_VARIABLES: Record<string, string[]> = {
 
 export const ALL_VARIABLES = [...new Set(Object.values(MODULE_VARIABLES).flat())];
 
+// ── WhatsApp Groups ──────────────────────────────────────────────────────────
+
+export interface WhatsAppGroup {
+  JID: string;
+  Name: string;
+  IsAnnounce?: boolean;
+  OwnerCanSendMessage?: boolean;
+}
+
+export async function listWhatsAppGroups(): Promise<{ groups: WhatsAppGroup[]; error?: string }> {
+  const { data, error } = await callProxy('/group/list?force=true&noparticipants=true', 'GET');
+  if (error) return { groups: [], error };
+  const raw = data as { groups?: WhatsAppGroup[] } | null;
+  return { groups: raw?.groups ?? [] };
+}
+
 // ── Mass Campaign ─────────────────────────────────────────────────────────────
 
 export type CampaignStatus = 'scheduled' | 'sending' | 'paused' | 'done' | 'deleting';
@@ -922,7 +938,7 @@ export async function createMassCampaign(
     delayMax:      opts.delayMax  ?? 15,
     ...(opts.scheduledFor ? { scheduled_for: opts.scheduledFor } : {}),
     messages: opts.messages.map((m) => ({
-      number: normalizePhone(m.number),
+      number: m.number.endsWith('@g.us') ? m.number : normalizePhone(m.number),
       text:   m.text,
     })),
   });
