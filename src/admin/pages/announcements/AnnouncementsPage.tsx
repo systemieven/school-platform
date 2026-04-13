@@ -729,16 +729,14 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                 </div>
               )}
             </div>
-          </SettingsCard>
 
-          {/* ── Mensagem da Campanha (rich) ── */}
-          {form.send_whatsapp && (
-            <SettingsCard title="Mensagem da Campanha" icon={MessageSquare}>
-              {/* Type selector */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de mensagem</label>
-                <div className="flex gap-2 flex-wrap">
-                  {MESSAGE_TYPES.map((t) => (
+            {/* Type selector — always visible: text/media; buttons/list only with WhatsApp */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de mensagem</label>
+              <div className="flex gap-2 flex-wrap">
+                {MESSAGE_TYPES
+                  .filter((t) => form.send_whatsapp || t.value === 'text' || t.value === 'media')
+                  .map((t) => (
                     <button key={t.value} type="button"
                       onClick={() => updateContent('messageType', t.value)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
@@ -748,67 +746,71 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                       {t.label}
                     </button>
                   ))}
-                </div>
               </div>
+            </div>
 
-              {/* Media fields */}
-              {form.campaignContent.messageType === 'media' && (
-                <div className="space-y-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Tipo de mídia</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {MEDIA_TYPES.map((mt) => {
-                      const Icon = mt.icon;
-                      return (
-                        <button key={mt.value} type="button"
-                          onClick={() => updateContent('mediaType', mt.value)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                            form.campaignContent.mediaType === mt.value
-                              ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
-                              : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
-                          <Icon className="w-3.5 h-3.5" /> {mt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+            {/* Media fields — visible when type is media (both internal and WhatsApp) */}
+            {form.campaignContent.messageType === 'media' && (
+              <div className="space-y-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Tipo de mídia</label>
+                <div className="flex gap-2 flex-wrap">
+                  {MEDIA_TYPES.map((mt) => {
+                    const Icon = mt.icon;
+                    return (
+                      <button key={mt.value} type="button"
+                        onClick={() => updateContent('mediaType', mt.value)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          form.campaignContent.mediaType === mt.value
+                            ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
+                        <Icon className="w-3.5 h-3.5" /> {mt.label}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                  {/* URL or upload */}
-                  <div className="space-y-2">
-                    <input value={form.campaignContent.mediaUrl || ''} placeholder="URL do arquivo ou faça upload abaixo"
-                      onChange={(e) => updateContent('mediaUrl', e.target.value)}
-                      className={cls} />
-                    <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                      {uploadingMedia
-                        ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                        : <Upload className="w-4 h-4 text-gray-400" />}
-                      <span className="text-xs text-gray-500">
-                        {uploadingMedia ? 'Enviando...' : 'Fazer upload'}
-                      </span>
-                      <input type="file" className="hidden" disabled={uploadingMedia}
-                        accept={
-                          form.campaignContent.mediaType === 'image' ? 'image/*'
-                          : form.campaignContent.mediaType === 'video' ? 'video/*'
-                          : form.campaignContent.mediaType === 'audio' ? 'audio/*'
-                          : '*/*'
-                        }
-                        onChange={(e) => { if (e.target.files?.[0]) handleMediaUpload(e.target.files[0]); }} />
-                    </label>
-                    {form.campaignContent.mediaUrl && (
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate">
-                        ✓ {form.campaignContent.mediaUrl}
-                      </p>
-                    )}
-                  </div>
-
-                  {form.campaignContent.mediaType === 'document' && (
-                    <div>
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Nome do documento</label>
-                      <input value={form.campaignContent.docName || ''} placeholder="relatorio.pdf"
-                        onChange={(e) => updateContent('docName', e.target.value)} className={cls} />
-                    </div>
+                {/* URL or upload */}
+                <div className="space-y-2">
+                  <input value={form.campaignContent.mediaUrl || ''} placeholder="URL do arquivo ou faça upload abaixo"
+                    onChange={(e) => updateContent('mediaUrl', e.target.value)}
+                    className={cls} />
+                  <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    {uploadingMedia
+                      ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                      : <Upload className="w-4 h-4 text-gray-400" />}
+                    <span className="text-xs text-gray-500">
+                      {uploadingMedia ? 'Enviando...' : 'Fazer upload'}
+                    </span>
+                    <input type="file" className="hidden" disabled={uploadingMedia}
+                      accept={
+                        form.campaignContent.mediaType === 'image' ? 'image/*'
+                        : form.campaignContent.mediaType === 'video' ? 'video/*'
+                        : form.campaignContent.mediaType === 'audio' ? 'audio/*'
+                        : '*/*'
+                      }
+                      onChange={(e) => { if (e.target.files?.[0]) handleMediaUpload(e.target.files[0]); }} />
+                  </label>
+                  {form.campaignContent.mediaUrl && (
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate">
+                      ✓ {form.campaignContent.mediaUrl}
+                    </p>
                   )}
                 </div>
-              )}
 
+                {form.campaignContent.mediaType === 'document' && (
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Nome do documento</label>
+                    <input value={form.campaignContent.docName || ''} placeholder="relatorio.pdf"
+                      onChange={(e) => updateContent('docName', e.target.value)} className={cls} />
+                  </div>
+                )}
+              </div>
+            )}
+          </SettingsCard>
+
+          {/* ── Opções WhatsApp (botões/lista) ── */}
+          {form.send_whatsapp && (form.campaignContent.messageType === 'buttons' || form.campaignContent.messageType === 'list') && (
+            <SettingsCard title="Opções WhatsApp" icon={MessageSquare}>
               {/* Button editor */}
               {form.campaignContent.messageType === 'buttons' && (
                 <div className="space-y-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
@@ -1031,7 +1033,16 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
             <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 space-y-2">
               <Toggle
                 checked={form.send_whatsapp}
-                onChange={(v) => setForm((p) => ({ ...p, send_whatsapp: v, send_to_groups: v ? p.send_to_groups : false, selected_groups: v ? p.selected_groups : [] }))}
+                onChange={(v) => setForm((p) => ({
+                  ...p,
+                  send_whatsapp: v,
+                  send_to_groups: v ? p.send_to_groups : false,
+                  selected_groups: v ? p.selected_groups : [],
+                  // Reset to text/media when WhatsApp is turned off (buttons/list are WA-only)
+                  campaignContent: !v && (p.campaignContent.messageType === 'buttons' || p.campaignContent.messageType === 'list')
+                    ? { ...p.campaignContent, messageType: 'text', buttons: undefined, listSections: undefined }
+                    : p.campaignContent,
+                }))}
                 label="Enviar por WhatsApp"
                 description="Cria campanha em massa para os responsáveis ao publicar"
                 onColor="bg-emerald-600"
