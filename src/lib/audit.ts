@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 interface AuditParams {
-  action: 'create' | 'update' | 'delete' | 'login' | 'logout' | 'status_change' | 'role_change' | 'move';
+  action: 'create' | 'update' | 'delete' | 'login' | 'logout' | 'status_change' | 'role_change' | 'move' | 'import';
   module: string;
   recordId?: string;
   description: string;
