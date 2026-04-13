@@ -414,7 +414,7 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
             </p>
           </SettingsCard>
 
-          <SettingsCard title="Permissões de Acesso">
+          <SettingsCard title="Permissões de Acesso" collapseId="drawer.create.permissions">
             <p className="text-xs text-gray-400 dark:text-gray-500 -mt-1 mb-3">
               Conceda ou revogue acesso rápido aos módulos do sistema. Para permissões granulares, use o painel de <span className="font-medium text-brand-primary dark:text-brand-secondary">Permissões</span> em Configurações.
             </p>
@@ -427,10 +427,14 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
                       key={mod.key}
                       checked={modulePerms[mod.key] ?? false}
                       onChange={(v) => {
-                        setModulePerms(p => ({ ...p, [mod.key]: v }));
-                        if ((mod.key === 'appointments' || mod.key === 'attendance') && !v) {
-                          setForm(f => ({ ...f, sector_keys: [] }));
-                        }
+                        setModulePerms(p => {
+                          const next = { ...p, [mod.key]: v };
+                          // Atendimentos ON → auto-ativar Agendamentos (dependência)
+                          if (mod.key === 'attendance' && v) next['appointments'] = true;
+                          // Atendimentos OFF → limpar setores
+                          if (mod.key === 'attendance' && !v) setForm(f => ({ ...f, sector_keys: [] }));
+                          return next;
+                        });
                       }}
                       label={mod.label}
                     />
@@ -440,7 +444,7 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
             ))}
           </SettingsCard>
 
-          {sectors.length > 0 && (modulePerms['attendance'] || modulePerms['appointments']) && (
+          {sectors.length > 0 && modulePerms['attendance'] && (
             <SettingsCard title="Setores de Atendimento">
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
                 Selecione os setores que este usuário poderá atender. Se nenhum for selecionado, o usuário não verá tickets no modo restrito.
@@ -771,7 +775,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
             />
           </SettingsCard>
 
-          <SettingsCard title="Permissões de Acesso">
+          <SettingsCard title="Permissões de Acesso" collapseId="drawer.edit.permissions">
             <p className="text-xs text-gray-400 dark:text-gray-500 -mt-1 mb-3">
               Conceda ou revogue acesso rápido aos módulos. Para permissões granulares, use o painel de <span className="font-medium text-brand-primary dark:text-brand-secondary">Permissões</span> em Configurações.
             </p>
@@ -784,10 +788,14 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
                       key={mod.key}
                       checked={modulePerms[mod.key] ?? false}
                       onChange={(v) => {
-                        setModulePerms(p => ({ ...p, [mod.key]: v }));
-                        if ((mod.key === 'appointments' || mod.key === 'attendance') && !v) {
-                          setForm(f => ({ ...f, sector_keys: [] }));
-                        }
+                        setModulePerms(p => {
+                          const next = { ...p, [mod.key]: v };
+                          // Atendimentos ON → auto-ativar Agendamentos (dependência)
+                          if (mod.key === 'attendance' && v) next['appointments'] = true;
+                          // Atendimentos OFF → limpar setores
+                          if (mod.key === 'attendance' && !v) setForm(f => ({ ...f, sector_keys: [] }));
+                          return next;
+                        });
                       }}
                       label={mod.label}
                     />
@@ -797,7 +805,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
             ))}
           </SettingsCard>
 
-          {sectors.length > 0 && (modulePerms['attendance'] || modulePerms['appointments']) && (
+          {sectors.length > 0 && modulePerms['attendance'] && (
             <SettingsCard title="Setores de Atendimento">
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
                 Selecione os setores que este usuário poderá atender.
