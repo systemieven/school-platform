@@ -12,16 +12,18 @@ import {
   listCampaignMessages, cleanDoneMessages, clearAllQueue,
   listWhatsAppGroups, renderTemplate,
   CAMPAIGN_VARIABLES, CAMPAIGN_VARIABLE_LABELS, resolveCampaignVars,
+  sendPixFollowUp,
   type CampaignFolder, type CampaignMessage, type WhatsAppGroup,
   type CampaignContent,
 } from '../../lib/whatsapp-api';
+import { useBranding } from '../../../contexts/BrandingContext';
 import {
   Loader2, Pencil, Trash2, Megaphone, X, Save,
   Users, Globe, BookOpen, Send, Eye, CheckCircle2, Calendar,
   Pause, Play, ChevronDown, ChevronUp, RefreshCw, Trash,
   MessageSquare, Clock, AlertTriangle, Inbox,
   Image, Video, File, Music, Plus, Reply, ExternalLink,
-  Copy, Phone as PhoneIcon, Upload,
+  Copy, Phone as PhoneIcon, Upload, Wallet,
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { SettingsCard } from '../../components/SettingsCard';
@@ -54,6 +56,7 @@ const BUTTON_TYPES: { value: TemplateButtonType; label: string; icon: typeof Rep
 const emptyCampaignContent = (): CampaignContent => ({
   messageType: 'text',
   body: '',
+  pixEnabled: false,
 });
 
 const emptyButton = (): TemplateButton => ({ id: crypto.randomUUID(), text: '', type: 'reply', value: '' });
@@ -434,6 +437,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const { identity } = useBranding();
 
   async function fetchGroups() {
     setLoadingGroups(true);
@@ -668,6 +672,28 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
 
         if (result.success) {
           setWaStatus(`✓ Campanha criada: ${messages.length} mensagens ${scheduledTs ? 'agendadas' : 'na fila'}.`);
+
+          // PIX follow-up — send individual PIX buttons after the batch campaign
+          if (cc.pixEnabled && cc.pixKey && cc.pixType && !form.send_to_groups) {
+            setWaStatus((s) => s + ' Enviando botão PIX...');
+            try {
+              const pixRecipients = messages.map((m) => ({
+                phone: m.number,
+                name:  m.number, // name not available in message payload
+              }));
+              const pixResult = await sendPixFollowUp(
+                pixRecipients,
+                { pixType: cc.pixType, pixKey: cc.pixKey, pixName: cc.pixName },
+                { delayPerMessage: 2, announcementId: saved.id },
+              );
+              setWaStatus((s) =>
+                s.replace('Enviando botão PIX...', `PIX: ${pixResult.sent} enviado(s)${pixResult.failed ? `, ${pixResult.failed} falha(s)` : ''}.`),
+              );
+            } catch (e) {
+              console.warn('[AnnouncementDrawer] PIX follow-up error:', e);
+              setWaStatus((s) => s.replace('Enviando botão PIX...', 'PIX: erro ao enviar.'));
+            }
+          }
         } else {
           setWaStatus(`⚠ Comunicado salvo, mas erro ao criar campanha: ${result.error}`);
           setTimeout(() => onSaved(saved), 2000);
@@ -676,7 +702,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
       } else {
         setWaStatus('Nenhum destinatário encontrado para os filtros selecionados.');
       }
-      setTimeout(() => onSaved(saved), 1500);
+      setTimeout(() => onSaved(saved), 2500);
       return;
     }
 
@@ -922,6 +948,38 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                       onChange={(e) => updateContent('footerText', e.target.value)} className={cls} />
                   </div>
                 </div>
+              )}
+            </SettingsCard>
+          )}
+
+          {/* ── PIX add-on ── */}
+          {form.send_whatsapp && (
+            <SettingsCard title="Botão PIX" icon={Wallet}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Enviar botão de pagamento PIX</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Usa o CNPJ da instituição · enviado após a campanha</p>
+                </div>
+                <Toggle
+                  checked={Boolean(form.campaignContent.pixEnabled)}
+                  onChange={(on) => {
+                    setForm((p) => ({
+                      ...p,
+                      campaignContent: {
+                        ...p.campaignContent,
+                        pixEnabled: on,
+                        pixType:    on ? 'CNPJ' : undefined,
+                        pixKey:     on ? (identity?.cnpj || '') : undefined,
+                        pixName:    on ? (identity?.school_name || '') : undefined,
+                      },
+                    }));
+                  }}
+                />
+              </div>
+              {form.campaignContent.pixEnabled && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
+                  <span className="font-medium">CNPJ:</span> {identity?.cnpj || '(não cadastrado)'} · <span className="font-medium">Beneficiário:</span> {identity?.school_name || '—'}
+                </p>
               )}
             </SettingsCard>
           )}

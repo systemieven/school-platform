@@ -14,7 +14,7 @@ import {
   Zap, Clock, Tag, AlertCircle, FileText,
   Settings2, Check, ChevronRight, Link, Upload,
   Copy, Phone, ExternalLink, Reply, Image, Video,
-  File, Music, GripVertical,
+  File, Music, GripVertical, Wallet,
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { SettingsCard } from '../../components/SettingsCard';
@@ -1228,6 +1228,42 @@ function TemplateDrawer({
                   )}
 
                 </div>
+              </SettingsCard>
+
+              {/* PIX add-on */}
+              <SettingsCard title="Botão PIX" icon={Wallet}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Enviar botão de pagamento PIX</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Usa o CNPJ da instituição · enviado após o conteúdo principal</p>
+                  </div>
+                  <Toggle
+                    checked={Boolean(form.content.pix_key)}
+                    onChange={(on) => {
+                      if (on) {
+                        setForm((p) => ({
+                          ...p,
+                          content: {
+                            ...p.content,
+                            pix_type: 'CNPJ',
+                            pix_key:  identity?.cnpj || '',
+                            pix_name: identity?.school_name || '',
+                          },
+                        }));
+                      } else {
+                        setForm((p) => {
+                          const { pix_type, pix_key, pix_name, ...rest } = p.content;
+                          return { ...p, content: rest };
+                        });
+                      }
+                    }}
+                  />
+                </div>
+                {form.content.pix_key && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
+                    <span className="font-medium">CNPJ:</span> {identity?.cnpj || '(não cadastrado)'} · <span className="font-medium">Beneficiário:</span> {identity?.school_name || '—'}
+                  </p>
+                )}
               </SettingsCard>
 
               {/* Trigger */}

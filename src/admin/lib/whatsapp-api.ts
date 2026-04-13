@@ -4,7 +4,7 @@
  * API token is never exposed on the client.
  */
 import { supabase } from '../../lib/supabase';
-import type { TemplateContent, TemplateButton, MessageType } from '../types/admin.types';
+import type { TemplateContent, TemplateButton, MessageType, PixKeyType } from '../types/admin.types';
 
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 export const WEBHOOK_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1/uazapi-webhook`;
@@ -711,18 +711,22 @@ export async function sendWhatsAppTemplate(opts: SendTemplateOptions): Promise<S
     delay:           opts.delay,
   };
 
+  // 1. Send the primary message
+  let result: SendResult;
+
   switch (template.message_type) {
     case 'media':
-      return sendWhatsAppMedia({
+      result = await sendWhatsAppMedia({
         ...baseOpts,
         text:      finalText,
         file:      template.content.media_url || '',
         mediaType: template.content.media_type || 'image',
         docName:   template.content.doc_name,
       });
+      break;
 
     case 'buttons':
-      return sendWhatsAppMenu({
+      result = await sendWhatsAppMenu({
         ...baseOpts,
         text:        finalText,
         menuType:    'button',
@@ -730,9 +734,10 @@ export async function sendWhatsAppTemplate(opts: SendTemplateOptions): Promise<S
         footerText:  template.content.footer_text,
         imageButton: template.content.image_url || undefined,
       });
+      break;
 
     case 'list':
-      return sendWhatsAppMenu({
+      result = await sendWhatsAppMenu({
         ...baseOpts,
         text:        finalText,
         menuType:    'list',
@@ -741,11 +746,35 @@ export async function sendWhatsAppTemplate(opts: SendTemplateOptions): Promise<S
         footerText:  template.content.footer_text,
         imageButton: template.content.image_url || undefined,
       });
+      break;
 
     case 'text':
     default:
-      return sendWhatsAppText({ ...baseOpts, text: finalText });
+      result = await sendWhatsAppText({ ...baseOpts, text: finalText });
+      break;
   }
+
+  // 2. If primary succeeded and template has PIX config, send PIX follow-up
+  if (result.success && template.content.pix_key) {
+    try {
+      await sendWhatsAppPix({
+        phone:           opts.phone,
+        pixType:         template.content.pix_type || 'CPF',
+        pixKey:          template.content.pix_key,
+        pixName:         template.content.pix_name,
+        templateId:      opts.template.id,
+        recipientName:   opts.recipientName,
+        relatedModule:   opts.relatedModule,
+        relatedRecordId: opts.relatedRecordId,
+        delay:           2, // 2s delay so PIX arrives after the main message
+      });
+    } catch (e) {
+      console.warn('[sendWhatsAppTemplate] PIX follow-up failed:', e);
+      // PIX failure is non-blocking — primary message was sent successfully
+    }
+  }
+
+  return result;
 }
 
 // ── Profile management ────────────────────────────────────────────────────────
@@ -907,6 +936,11 @@ export interface CampaignContent {
   imageUrl?:      string;
   listSections?:  TemplateContent['list_sections'];
   listButtonText?: string;
+  // ── PIX add-on (follow-up message) ──
+  pixEnabled?:    boolean;
+  pixType?:       PixKeyType;
+  pixKey?:        string;
+  pixName?:       string;
 }
 
 export interface CreateCampaignOptions {
@@ -1057,6 +1091,36 @@ export function resolveCampaignVars(
     mes:           now.toLocaleDateString('pt-BR', { month: 'long' }),
     ano:           String(now.getFullYear()),
   };
+}
+
+// ── PIX helpers ──────────────────────────────────────────────────────────────
+
+/** Send PIX follow-up button to a list of recipients (used after mass campaigns). */
+export async function sendPixFollowUp(
+  recipients: Array<{ phone: string; name?: string }>,
+  pix: { pixType: PixKeyType; pixKey: string; pixName?: string },
+  options?: { delayPerMessage?: number; announcementId?: string },
+): Promise<{ sent: number; failed: number }> {
+  let sent = 0;
+  let failed = 0;
+  const delay = options?.delayPerMessage ?? 2;
+
+  for (const r of recipients) {
+    const result = await sendWhatsAppPix({
+      phone:           r.phone,
+      pixType:         pix.pixType,
+      pixKey:          pix.pixKey,
+      pixName:         pix.pixName,
+      recipientName:   r.name,
+      relatedModule:   'announcement',
+      relatedRecordId: options?.announcementId,
+      delay,
+    });
+    if (result.success) sent++;
+    else failed++;
+  }
+
+  return { sent, failed };
 }
 
 /** Pause, resume or delete a campaign. */
