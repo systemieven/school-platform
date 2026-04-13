@@ -212,6 +212,7 @@ export default function SettingsPage() {
   const [savedPresets, setSavedPresets] = useState<Array<{ id: string; name: string; created_at: string; is_default: boolean }>>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [loadingPresets, setLoadingPresets] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const toggleTabs = () => {
     setTabsCollapsed((prev) => {
@@ -234,6 +235,7 @@ export default function SettingsPage() {
 
   async function openRestoreModal() {
     setSelectedPresetId(null);
+    setConfirmDeleteId(null);
     setShowRestorePreset(true);
     await loadPresets();
   }
@@ -266,11 +268,11 @@ export default function SettingsPage() {
 
   async function handleDeletePreset(id: string) {
     const p = savedPresets.find((x) => x.id === id);
-    if (!confirm(`Excluir o preset "${p?.name}"? Esta ação é irreversível.`)) return;
     await supabase.from('site_presets').delete().eq('id', id);
     logAudit({ action: 'delete', module: 'settings.preset', description: `Preset excluído: ${p?.name}` });
     setSavedPresets((prev) => prev.filter((x) => x.id !== id));
     if (selectedPresetId === id) setSelectedPresetId(null);
+    setConfirmDeleteId(null);
   }
 
   async function buildPresetData() {
@@ -862,12 +864,27 @@ export default function SettingsPage() {
                         </p>
                       </div>
                       {!p.is_default && (
-                        <button type="button"
-                          onClick={(e) => { e.stopPropagation(); handleDeletePreset(p.id); }}
-                          title="Excluir preset"
-                          className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        confirmDeleteId === p.id ? (
+                          <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <button type="button"
+                              onClick={() => handleDeletePreset(p.id)}
+                              className="px-2 py-1 rounded-lg text-[10px] font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors">
+                              Excluir
+                            </button>
+                            <button type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="p-1 rounded-lg text-gray-400 hover:text-gray-600 transition-colors">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button type="button"
+                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(p.id); }}
+                            title="Excluir preset"
+                            className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )
                       )}
                     </div>
                   ))}
