@@ -8,7 +8,7 @@ import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
   CalendarCheck, Search, X, ChevronRight, ChevronDown, Loader2,
   User, Phone, Clock, MapPin, Check, Ban, CheckCircle2,
-  AlertCircle, RefreshCw, MessageCircle, Plus,
+  AlertCircle, RefreshCw, MessageCircle,
   History, Filter, Square, CheckSquare,
   LayoutList, CalendarDays, ChevronLeft,
   StickyNote, Send,
@@ -965,7 +965,7 @@ export default function AppointmentsPage() {
             onClick={() => setShowCreate(true)}
             className="inline-flex items-center gap-2 text-sm bg-brand-primary text-white px-4 py-2.5 rounded-xl hover:bg-brand-primary-dark transition-colors font-medium shadow-sm"
           >
-            <Plus className="w-4 h-4" />
+            <CalendarCheck className="w-4 h-4" />
             Novo Agendamento
           </button>
           <button onClick={fetchData} className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-brand-primary dark:hover:text-white border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">

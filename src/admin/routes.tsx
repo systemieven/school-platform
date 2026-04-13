@@ -14,6 +14,7 @@ import KanbanPage from './pages/leads/KanbanPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import SegmentsPage from './pages/school/SegmentsPage';
 import StudentsPage from './pages/school/StudentsPage';
+import StudentImportPage from './pages/school/StudentImportPage';
 import TeacherAreaPage from './pages/teacher/TeacherAreaPage';
 import LibraryPage from './pages/library/LibraryPage';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
@@ -58,6 +59,7 @@ export default function AdminRoutes() {
           {/* School */}
           <Route path="segmentos"      element={<ModuleGuard moduleKey="segments"><SegmentsPage /></ModuleGuard>} />
           <Route path="alunos"         element={<ModuleGuard moduleKey="students"><StudentsPage /></ModuleGuard>} />
+          <Route path="alunos/importar" element={<ModuleGuard moduleKey="students"><StudentImportPage /></ModuleGuard>} />
           <Route path="area-professor" element={<ModuleGuard moduleKey="teacher-area"><TeacherAreaPage /></ModuleGuard>} />
           <Route path="biblioteca"     element={<ModuleGuard moduleKey="library"><LibraryPage /></ModuleGuard>} />
           <Route path="comunicados"    element={<ModuleGuard moduleKey="announcements"><AnnouncementsPage /></ModuleGuard>} />

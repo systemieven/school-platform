@@ -391,9 +391,34 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
           full_name: enr.student_name,
           birth_date: enr.student_birth_date || null,
           cpf: enr.student_cpf || null,
+          // Responsável
           guardian_name: enr.guardian_name,
           guardian_phone: enr.guardian_phone,
           guardian_email: enr.guardian_email || null,
+          guardian_cpf: enr.guardian_cpf || null,
+          guardian_zip_code: enr.guardian_zip_code || null,
+          guardian_street: enr.guardian_street || null,
+          guardian_number: enr.guardian_number || null,
+          guardian_complement: enr.guardian_complement || null,
+          guardian_neighborhood: enr.guardian_neighborhood || null,
+          guardian_city: enr.guardian_city || null,
+          guardian_state: enr.guardian_state || null,
+          // Pais
+          father_name: enr.father_name || null,
+          father_cpf: enr.father_cpf || null,
+          father_phone: enr.father_phone || null,
+          father_email: enr.father_email || null,
+          mother_name: enr.mother_name || null,
+          mother_cpf: enr.mother_cpf || null,
+          mother_phone: enr.mother_phone || null,
+          mother_email: enr.mother_email || null,
+          // Histórico escolar
+          first_school: enr.first_school ?? false,
+          last_grade: enr.last_grade || null,
+          previous_school_name: enr.previous_school_name || null,
+          segment: enr.segment || null,
+          // Origem
+          origin: 'enrollment',
           status: 'active',
         });
       }
@@ -989,7 +1014,7 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white flex-shrink-0">
           <h2 className="font-semibold text-sm flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Nova Pré-Matrícula
+            <GraduationCap className="w-4 h-4" /> Nova Pré-Matrícula
           </h2>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-white/20 transition-colors">
             <X className="w-4 h-4" />
@@ -1231,7 +1256,7 @@ export default function EnrollmentsPage() {
             onClick={() => setShowCreate(true)}
             className="inline-flex items-center gap-2 text-sm bg-brand-primary text-white px-4 py-2.5 rounded-xl hover:bg-brand-primary-dark transition-colors font-medium shadow-sm"
           >
-            <Plus className="w-4 h-4" />
+            <GraduationCap className="w-4 h-4" />
             Nova Matrícula
           </button>
           <button

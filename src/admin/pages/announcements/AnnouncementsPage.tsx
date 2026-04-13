@@ -12,7 +12,7 @@ import {
   type CampaignFolder, type CampaignMessage,
 } from '../../lib/whatsapp-api';
 import {
-  Loader2, Plus, Pencil, Trash2, Megaphone, X, Save,
+  Loader2, Pencil, Trash2, Megaphone, X, Save,
   Users, Globe, BookOpen, Send, Eye, CheckCircle2, Calendar,
   Pause, Play, ChevronDown, ChevronUp, RefreshCw, Trash,
   MessageSquare, Clock, AlertTriangle, Inbox,
@@ -739,7 +739,7 @@ export default function AnnouncementsPage() {
         {canManage && mainTab === 'announcements' && (
           <button onClick={() => { setEditing(null); setShowDrawer(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors">
-            <Plus className="w-4 h-4" /> Novo Comunicado
+            <Megaphone className="w-4 h-4" /> Novo Comunicado
           </button>
         )}
       </div>

@@ -938,7 +938,7 @@ export default function KanbanPage() {
             onClick={() => setNewModal(true)}
             className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand-primary-dark hover:shadow-lg transition-all"
           >
-            <Plus className="w-4 h-4" />
+            <TrendingUp className="w-4 h-4" />
             Novo Lead
           </button>
         </div>

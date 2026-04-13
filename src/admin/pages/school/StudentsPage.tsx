@@ -1,10 +1,13 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
+import { usePermissions } from '../../contexts/PermissionsContext';
 import type { Student, SchoolClass, SchoolSegment, StudentStatus } from '../../types/admin.types';
 import { STUDENT_STATUS_LABELS, SHIFT_LABELS, type Shift } from '../../types/admin.types';
+import CreateStudentDrawer from './CreateStudentDrawer';
 import {
-  Users, Search, Loader2, X, GraduationCap,
+  Users, Search, Loader2, X, GraduationCap, UserPlus, Upload,
   Phone, Mail, Calendar, ChevronDown, Edit3, Save, AlertCircle,
 } from 'lucide-react';
 
@@ -169,6 +172,8 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function StudentsPage() {
+  const navigate = useNavigate();
+  const { can } = usePermissions();
   const [students, setStudents] = useState<Student[]>([]);
   const [segments, setSegments] = useState<SchoolSegment[]>([]);
   const [classes, setClasses]   = useState<SchoolClass[]>([]);
@@ -180,6 +185,7 @@ export default function StudentsPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -284,10 +290,28 @@ export default function StudentsPage() {
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Alunos com matrícula confirmada.</p>
         </div>
-        <p className="text-sm text-gray-400">
-          {students.filter((s) => s.status === 'active').length} ativo{students.filter((s) => s.status === 'active').length !== 1 ? 's' : ''}
-          {' / '}{students.length} total
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-gray-400 mr-2">
+            {students.filter((s) => s.status === 'active').length} ativo{students.filter((s) => s.status === 'active').length !== 1 ? 's' : ''}
+            {' / '}{students.length} total
+          </p>
+          {can('students', 'import') && (
+            <button
+              onClick={() => navigate('/admin/alunos/importar')}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Upload className="w-4 h-4" /> Importar
+            </button>
+          )}
+          {can('students', 'create') && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl transition-colors"
+            >
+              <UserPlus className="w-4 h-4" /> Novo Aluno
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -441,6 +465,17 @@ export default function StudentsPage() {
             );
           })}
         </div>
+      )}
+
+      {/* Create drawer */}
+      {showCreate && (
+        <CreateStudentDrawer
+          onClose={() => setShowCreate(false)}
+          onCreated={(newStudent) => {
+            setStudents((prev) => [newStudent, ...prev]);
+            setShowCreate(false);
+          }}
+        />
       )}
 
       {/* Edit drawer */}

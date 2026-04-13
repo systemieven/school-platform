@@ -4,7 +4,7 @@ import { logAudit } from '../../../../lib/audit';
 import type { Activity, ActivityType, ActivityStatus, SchoolClass } from '../../../types/admin.types';
 import { ACTIVITY_TYPE_LABELS, ACTIVITY_STATUS_LABELS } from '../../../types/admin.types';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
-import { Loader2, Plus, Pencil, Trash2, ClipboardList, X, Save, Calendar } from 'lucide-react';
+import { Loader2, Pencil, Trash2, ClipboardList, X, Save, Calendar } from 'lucide-react';
 
 const TYPES: ActivityType[]   = ['homework', 'test', 'project', 'quiz', 'other'];
 const STATUSES: ActivityStatus[] = ['draft', 'published', 'closed'];
@@ -146,7 +146,7 @@ export default function ActivitiesTab({ cls }: { cls: SchoolClass }) {
       <div className="flex justify-end">
         <button onClick={() => { setEditing(null); setShowDrawer(true); }}
           className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl transition-colors">
-          <Plus className="w-4 h-4" /> Nova Atividade
+          <ClipboardList className="w-4 h-4" /> Nova Atividade
         </button>
       </div>
 

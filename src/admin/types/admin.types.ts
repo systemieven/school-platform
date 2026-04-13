@@ -362,9 +362,58 @@ export interface Student {
   enrolled_at: string;
   created_at: string;
   updated_at: string;
+  // Guardian address
+  guardian_cpf: string | null;
+  guardian_zip_code: string | null;
+  guardian_street: string | null;
+  guardian_number: string | null;
+  guardian_complement: string | null;
+  guardian_neighborhood: string | null;
+  guardian_city: string | null;
+  guardian_state: string | null;
+  // Student address
+  student_zip_code: string | null;
+  student_street: string | null;
+  student_number: string | null;
+  student_complement: string | null;
+  student_neighborhood: string | null;
+  student_city: string | null;
+  student_state: string | null;
+  // School history
+  first_school: boolean;
+  last_grade: string | null;
+  previous_school_name: string | null;
+  segment: string | null;
+  // Parents
+  father_name: string | null;
+  father_cpf: string | null;
+  father_phone: string | null;
+  father_email: string | null;
+  mother_name: string | null;
+  mother_cpf: string | null;
+  mother_phone: string | null;
+  mother_email: string | null;
+  // Extra
+  internal_notes: string | null;
+  origin: string | null;
+  document_urls: string[];
   // joined
   class?: SchoolClass | null;
-  segment?: SchoolSegment | null;
+  segment_rel?: SchoolSegment | null;
+}
+
+// ── Import Template ──
+export interface ImportTemplateMapping { column: string; field: string; position: number; }
+export interface ImportTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  target_table: string;
+  mapping: ImportTemplateMapping[];
+  created_by: string | null;
+  is_shared: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export const SHIFT_LABELS: Record<Shift, string> = {

@@ -4,7 +4,7 @@ import { useAdminAuth } from '../hooks/useAdminAuth';
 
 // ── Types ──
 
-export type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
+export type PermissionAction = 'view' | 'create' | 'edit' | 'delete' | 'import';
 
 export interface ModulePermission {
   module_key: string;
@@ -12,6 +12,7 @@ export interface ModulePermission {
   can_create: boolean;
   can_edit: boolean;
   can_delete: boolean;
+  can_import: boolean;
 }
 
 export interface ModuleInfo {
@@ -87,6 +88,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         case 'create': return perm.can_create;
         case 'edit':   return perm.can_edit;
         case 'delete': return perm.can_delete;
+        case 'import': return perm.can_import;
         default:       return false;
       }
     },
@@ -101,7 +103,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const getModulePermission = useCallback(
     (moduleKey: string): ModulePermission | undefined => {
       if (profile?.role === 'super_admin') {
-        return { module_key: moduleKey, can_view: true, can_create: true, can_edit: true, can_delete: true };
+        return { module_key: moduleKey, can_view: true, can_create: true, can_edit: true, can_delete: true, can_import: true };
       }
       return permMap.get(moduleKey);
     },

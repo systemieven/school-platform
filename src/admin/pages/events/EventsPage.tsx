@@ -7,7 +7,7 @@ import type {
 import { EVENT_TARGET_LABELS } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
-  Loader2, Plus, Pencil, Trash2, CalendarDays, X, Save,
+  Loader2, Pencil, Trash2, CalendarDays, X, Save,
   Users, Globe, BookOpen, MapPin, Clock, Send, Eye, EyeOff,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
@@ -424,7 +424,7 @@ export default function EventsPage() {
         {canEdit && (
           <button onClick={() => setDrawerEvent(null)}
             className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors">
-            <Plus className="w-4 h-4" /> Novo Evento
+            <CalendarDays className="w-4 h-4" /> Novo Evento
           </button>
         )}
       </div>

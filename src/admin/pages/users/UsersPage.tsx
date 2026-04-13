@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import type { Profile, Role } from '../../types/admin.types';
 import { ROLE_LABELS, ROLES } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
-  Users, Search, Plus, Loader2, ShieldCheck, UserCheck,
+  Users, Search, Loader2, ShieldCheck, UserCheck,
   X, ChevronDown, Pencil, Copy, Check, MessageCircle, KeyRound, Trash2, AlertTriangle, UserPlus,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
@@ -207,6 +207,10 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
   const [createdResult, setCreatedResult] = useState<{ profile: Profile; tempPassword: string; waStatus: WaStatus; sendError?: string } | null>(null);
 
   const allowedRoles = ROLES.filter((r) => {
@@ -226,13 +230,50 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.full_name || !form.email) {
-      setError('Nome e e-mail são obrigatórios.');
+    if (!form.full_name) {
+      setError('Nome é obrigatório.');
+      nameRef.current?.focus();
       return;
     }
-    if (!validateEmail(form.email)) return;
+    if (!form.email) {
+      setError('E-mail é obrigatório.');
+      emailRef.current?.focus();
+      return;
+    }
+    if (!validateEmail(form.email)) { emailRef.current?.focus(); return; }
     setSaving(true);
     setError('');
+    setEmailError('');
+    setPhoneError('');
+
+    // Check duplicate email
+    const { data: emailDup } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', form.email.trim().toLowerCase())
+      .maybeSingle();
+    if (emailDup) {
+      setSaving(false);
+      setEmailError('Já existe um usuário com este e-mail.');
+      emailRef.current?.focus();
+      return;
+    }
+
+    // Check duplicate phone (only if provided)
+    const rawPhone = form.phone.replace(/\D/g, '');
+    if (rawPhone.length >= 10) {
+      const { data: phoneDup } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', form.phone)
+        .maybeSingle();
+      if (phoneDup) {
+        setSaving(false);
+        setPhoneError('Já existe um usuário com este telefone.');
+        phoneRef.current?.focus();
+        return;
+      }
+    }
     const { data, error: fnError } = await supabase.functions.invoke('create-admin-user', { body: form });
     if (fnError || data?.error) {
       let msg = data?.error ?? 'Erro ao criar usuário.';
@@ -375,11 +416,12 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
           <SettingsCard title="Identidade">
             <div>
               <label className={labelCls}>Nome completo</label>
-              <input type="text" placeholder="Maria da Silva" value={form.full_name} onChange={(e) => set('full_name', e.target.value)} className={inputCls} required />
+              <input ref={nameRef} type="text" placeholder="Maria da Silva" value={form.full_name} onChange={(e) => set('full_name', e.target.value)} className={inputCls} required />
             </div>
             <div>
               <label className={labelCls}>E-mail</label>
               <input
+                ref={emailRef}
                 type="email"
                 placeholder="maria@escola.com"
                 value={form.email}
@@ -392,7 +434,15 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
             </div>
             <div>
               <label className={labelCls}>Telefone</label>
-              <input type="tel" placeholder="(81) 99999-9999" value={form.phone} onChange={(e) => set('phone', maskPhone(e.target.value))} className={inputCls} />
+              <input
+                ref={phoneRef}
+                type="tel"
+                placeholder="(81) 99999-9999"
+                value={form.phone}
+                onChange={(e) => { set('phone', maskPhone(e.target.value)); if (phoneError) setPhoneError(''); }}
+                className={`${inputCls} ${phoneError ? 'border-red-400 dark:border-red-500 focus:border-red-400' : ''}`}
+              />
+              {phoneError && <p className="text-[11px] text-red-500 mt-1">{phoneError}</p>}
             </div>
           </SettingsCard>
 
@@ -510,6 +560,8 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
   const [modulePerms, setModulePerms] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const phoneEditRef = useRef<HTMLInputElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -551,6 +603,25 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
   async function handleSave() {
     setSaving(true);
     setError('');
+    setPhoneError('');
+
+    // Check duplicate phone (only if changed and provided)
+    const rawPhone = form.phone.replace(/\D/g, '');
+    if (rawPhone.length >= 10 && form.phone !== (user.phone || '')) {
+      const { data: phoneDup } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', form.phone)
+        .neq('id', user.id)
+        .maybeSingle();
+      if (phoneDup) {
+        setSaving(false);
+        setPhoneError('Já existe um usuário com este telefone.');
+        phoneEditRef.current?.focus();
+        return;
+      }
+    }
+
     const { error: err } = await supabase
       .from('profiles')
       .update({ full_name: form.full_name, phone: form.phone || null, role: form.role, is_active: form.is_active, sector_keys: form.sector_keys })
@@ -750,7 +821,15 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
             </div>
             <div>
               <label className={labelCls}>Telefone</label>
-              <input type="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="(81) 99999-9999" className={inputCls} />
+              <input
+                ref={phoneEditRef}
+                type="tel"
+                value={form.phone}
+                onChange={(e) => { set('phone', maskPhone(e.target.value)); if (phoneError) setPhoneError(''); }}
+                placeholder="(81) 99999-9999"
+                className={`${inputCls} ${phoneError ? 'border-red-400 dark:border-red-500 focus:border-red-400' : ''}`}
+              />
+              {phoneError && <p className="text-[11px] text-red-500 mt-1">{phoneError}</p>}
             </div>
             <div>
               <label className={labelCls}>Função</label>
@@ -902,7 +981,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
                 Cancelar
               </button>
               <button onClick={handleDelete} disabled={deleting} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                {deleting ? <><Loader2 className="w-4 h-4 animate-spin" />Excluindo…</> : <><Trash2 className="w-4 h-4" />Confirmar exclusão</>}
+                {deleting ? <><Loader2 className="w-4 h-4 animate-spin" />Excluindo…</> : <><Trash2 className="w-4 h-4" />Excluir</>}
               </button>
             </div>
           </div>
@@ -984,7 +1063,7 @@ export default function UsersPage({ embedded = false }: { embedded?: boolean }) 
             onClick={() => setShowCreate(true)}
             className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand-primary-dark transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <UserPlus className="w-4 h-4" />
             Novo Usuário
           </button>
         </div>
@@ -997,7 +1076,7 @@ export default function UsersPage({ embedded = false }: { embedded?: boolean }) 
             onClick={() => setShowCreate(true)}
             className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand-primary-dark transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <UserPlus className="w-4 h-4" />
             Novo Usuário
           </button>
         </div>

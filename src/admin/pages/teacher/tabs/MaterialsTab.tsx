@@ -3,7 +3,7 @@ import { supabase } from '../../../../lib/supabase';
 import { logAudit } from '../../../../lib/audit';
 import type { ClassMaterial, SchoolClass } from '../../../types/admin.types';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
-import { Loader2, Plus, Pencil, Trash2, ExternalLink, FileText, X, Save, EyeOff } from 'lucide-react';
+import { Loader2, Pencil, Trash2, ExternalLink, FileText, X, Save, EyeOff } from 'lucide-react';
 
 const emptyForm = () => ({ title: '', subject: '', description: '', external_url: '', is_visible: true });
 
@@ -118,7 +118,7 @@ export default function MaterialsTab({ cls }: { cls: SchoolClass }) {
       <div className="flex justify-end">
         <button onClick={() => { setDrawer(null); setShowDrawer(true); }}
           className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl transition-colors">
-          <Plus className="w-4 h-4" /> Novo Material
+          <FileText className="w-4 h-4" /> Novo Material
         </button>
       </div>
 

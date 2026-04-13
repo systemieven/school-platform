@@ -14,7 +14,7 @@ import {
 
 const MANAGEABLE_ROLES: Role[] = ['admin', 'coordinator', 'teacher', 'user'];
 
-const ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete'] as const;
+const ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_import'] as const;
 type ActionKey = typeof ACTIONS[number];
 
 const ACTION_LABELS: Record<ActionKey, string> = {
@@ -22,6 +22,7 @@ const ACTION_LABELS: Record<ActionKey, string> = {
   can_create: 'Criar',
   can_edit: 'Editar',
   can_delete: 'Excluir',
+  can_import: 'Importar',
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -41,6 +42,7 @@ interface RolePermsRow {
   can_create: boolean;
   can_edit: boolean;
   can_delete: boolean;
+  can_import: boolean;
 }
 
 interface UserOverrideRow {
@@ -51,6 +53,7 @@ interface UserOverrideRow {
   can_create: boolean | null;
   can_edit: boolean | null;
   can_delete: boolean | null;
+  can_import: boolean | null;
 }
 
 // ── Searchable User Select ──
@@ -191,7 +194,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
 
   // Effective permissions preview state
   const [showEffective, setShowEffective] = useState(false);
-  const [effectivePerms, setEffectivePerms] = useState<{ module_key: string; can_view: boolean; can_create: boolean; can_edit: boolean; can_delete: boolean }[]>([]);
+  const [effectivePerms, setEffectivePerms] = useState<{ module_key: string; can_view: boolean; can_create: boolean; can_edit: boolean; can_delete: boolean; can_import: boolean }[]>([]);
   const [effectiveLoading, setEffectiveLoading] = useState(false);
   const [selectedUserRolePerms, setSelectedUserRolePerms] = useState<RolePermsRow[]>([]);
 
@@ -362,6 +365,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
             can_create: p.can_create,
             can_edit: p.can_edit,
             can_delete: p.can_delete,
+            can_import: p.can_import,
           },
           { onConflict: 'role,module_key' },
         );
@@ -397,6 +401,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
           can_create: action === 'can_create' ? true : null,
           can_edit: action === 'can_edit' ? true : null,
           can_delete: action === 'can_delete' ? true : null,
+          can_import: action === 'can_import' ? true : null,
         },
       ];
     });
@@ -417,7 +422,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
 
     // Insert non-null overrides
     const toInsert = userOverrides.filter(
-      (o) => o.can_view !== null || o.can_create !== null || o.can_edit !== null || o.can_delete !== null,
+      (o) => o.can_view !== null || o.can_create !== null || o.can_edit !== null || o.can_delete !== null || o.can_import !== null,
     );
 
     if (toInsert.length > 0) {
@@ -431,6 +436,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
             can_create: o.can_create,
             can_edit: o.can_edit,
             can_delete: o.can_delete,
+            can_import: o.can_import,
             granted_by: currentUser?.id,
           })),
         );

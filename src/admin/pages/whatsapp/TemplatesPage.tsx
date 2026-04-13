@@ -176,7 +176,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
         Crie templates reutilizáveis para agilizar o envio de mensagens via WhatsApp.
       </p>
       <button onClick={onNew} className="inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand-primary-dark transition-colors">
-        <Plus className="w-4 h-4" />
+        <FilePlus2 className="w-4 h-4" />
         Criar primeiro template
       </button>
     </div>

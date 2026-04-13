@@ -205,7 +205,7 @@ export default function SegmentsPage() {
           onClick={startNewSegment}
           className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl text-sm font-medium hover:bg-[#002a5c] transition-colors"
         >
-          <Plus className="w-4 h-4" /> Novo Segmento
+          <GraduationCap className="w-4 h-4" /> Novo Segmento
         </button>
       </div>
 

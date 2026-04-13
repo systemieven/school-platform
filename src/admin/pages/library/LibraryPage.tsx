@@ -10,7 +10,7 @@ import {
 } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
-  Loader2, Plus, Pencil, Trash2, Library, X, Save,
+  Loader2, Pencil, Trash2, Library, X, Save,
   BookMarked, FileText, Video, Link2, File, ExternalLink, EyeOff, Search,
   Upload, Youtube, Globe, Users, BookOpen, User, Play,
 } from 'lucide-react';
@@ -507,7 +507,7 @@ export default function LibraryPage() {
         {hasRole('super_admin', 'admin', 'coordinator', 'teacher') && (
           <button onClick={() => { setEditing(null); setShowDrawer(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl transition-colors">
-            <Plus className="w-4 h-4" /> Novo Recurso
+            <BookMarked className="w-4 h-4" /> Novo Recurso
           </button>
         )}
       </div>
