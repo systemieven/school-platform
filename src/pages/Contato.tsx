@@ -13,6 +13,7 @@ import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
 import { useSEO } from '../hooks/useSEO';
 import LegalConsent from '../components/LegalConsent';
+import HeroMedia from '../components/HeroMedia';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CONTACT_ICON_MAP: Record<string, any> = {
@@ -357,11 +358,7 @@ export default function Contato() {
       {/* ── Hero ──────────────────────────────────────────────────── */}
       <section className="relative h-[55vh] min-h-[400px] overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt=""
-            className="w-full h-full object-cover"
-          />
+          <HeroMedia url={heroImage} />
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
 

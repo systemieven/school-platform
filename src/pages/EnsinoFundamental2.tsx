@@ -5,6 +5,7 @@ import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
 import { useSEO } from '../hooks/useSEO';
 import { getLucideIcon } from '../lib/lucide';
+import HeroMedia from '../components/HeroMedia';
 
 /* ── Types ── */
 interface PillarData { icon: string; title: string; desc: string; stat: string; statLabel: string; }
@@ -50,13 +51,7 @@ export default function EnsinoFundamental2() {
       {/* ── Hero ── */}
       <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
-          {heroImage && (
-            <img
-              src={heroImage}
-              alt="Estudantes em laboratório"
-              className="w-full h-full object-cover"
-            />
-          )}
+          <HeroMedia url={heroImage} alt="Estudantes em laboratório" />
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
 

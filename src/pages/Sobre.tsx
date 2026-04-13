@@ -5,6 +5,7 @@ import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
 import { useSEO } from '../hooks/useSEO';
 import { getLucideIcon } from '../lib/lucide';
+import HeroMedia from '../components/HeroMedia';
 
 /* ── Types ── */
 interface TimelineItem { year: string; title: string; desc: string; }
@@ -54,9 +55,7 @@ export default function Sobre() {
       {/* ── Hero ── */}
       <section className="relative h-[80vh] min-h-[560px] overflow-hidden">
         <div className="absolute inset-0">
-          {heroImage && (
-            <img src={heroImage} alt="Sobre a escola" className="w-full h-full object-cover" />
-          )}
+          <HeroMedia url={heroImage} alt="Sobre a escola" />
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-[var(--surface)] [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />

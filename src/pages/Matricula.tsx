@@ -20,6 +20,7 @@ import { supabase } from '../lib/supabase';
 import { useSettings } from '../hooks/useSettings';
 import { saveConsent } from '../lib/consent';
 import LegalConsent from '../components/LegalConsent';
+import HeroMedia from '../components/HeroMedia';
 
 // ── Masks ──────────────────────────────────────────────────────────────────
 function maskCPF(v: string) {
@@ -762,11 +763,7 @@ export default function Matricula() {
       {/* ── Hero ── */}
       <section className="relative h-[55vh] min-h-[400px] overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="Matrícula"
-            className="w-full h-full object-cover"
-          />
+          <HeroMedia url={heroImage} alt="Matrícula" />
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
         </div>
 

@@ -29,6 +29,7 @@ import { useScrollReveal } from '../hooks/useScrollReveal';
 import { useSettings } from '../hooks/useSettings';
 import { useSEO } from '../hooks/useSEO';
 import LegalConsent from '../components/LegalConsent';
+import HeroMedia from '../components/HeroMedia';
 
 // ─── Fallback constants (used when DB settings are not yet loaded) ───────────
 
@@ -809,11 +810,7 @@ export default function AgendarVisita() {
       {/* ── Hero ── */}
       <section className="relative h-[45vh] min-h-[340px] overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt=""
-            className="w-full h-full object-cover"
-          />
+          <HeroMedia url={heroImage} />
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/85 to-brand-primary-dark/75" />
         </div>
 
