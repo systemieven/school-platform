@@ -24,7 +24,7 @@ CREATE POLICY "Admins can manage presets" ON site_presets
 -- Seed default preset from current system_settings
 INSERT INTO site_presets (name, description, is_default, preset_data)
 SELECT
-  'Padrão Colégio Batista',
+  'Padrão do sistema',
   'Configurações originais do site',
   true,
   jsonb_object_agg(
