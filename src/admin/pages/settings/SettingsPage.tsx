@@ -209,6 +209,9 @@ export default function SettingsPage() {
   const [showRestorePreset, setShowRestorePreset] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [showConfirmReplace, setShowConfirmReplace] = useState(false);
+  const [savedPresets, setSavedPresets] = useState<Array<{ id: string; name: string; created_at: string; is_default: boolean }>>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [loadingPresets, setLoadingPresets] = useState(false);
 
   const toggleTabs = () => {
     setTabsCollapsed((prev) => {
@@ -219,13 +222,30 @@ export default function SettingsPage() {
   };
 
   // ── Preset handlers ─────────────────────────────────────────────────────
+  async function loadPresets() {
+    setLoadingPresets(true);
+    const { data } = await supabase
+      .from('site_presets')
+      .select('id, name, created_at, is_default')
+      .order('created_at', { ascending: false });
+    setSavedPresets(data ?? []);
+    setLoadingPresets(false);
+  }
+
+  async function openRestoreModal() {
+    setSelectedPresetId(null);
+    setShowRestorePreset(true);
+    await loadPresets();
+  }
+
   async function handleRestorePreset() {
+    if (!selectedPresetId) return;
     setPresetBusy(true);
     try {
       const { data: preset } = await supabase
         .from('site_presets')
-        .select('preset_data')
-        .eq('is_default', true)
+        .select('preset_data, name')
+        .eq('id', selectedPresetId)
         .single();
       if (!preset?.preset_data) { setShowRestorePreset(false); return; }
       const pd = preset.preset_data as Record<string, unknown>;
@@ -238,10 +258,19 @@ export default function SettingsPage() {
         };
       });
       await supabase.from('system_settings').upsert(upserts, { onConflict: 'category,key' });
-      logAudit({ action: 'update', module: 'settings.preset', description: 'Preset padrão restaurado' });
+      logAudit({ action: 'update', module: 'settings.preset', description: `Preset restaurado: ${preset.name}` });
       window.location.reload();
     } catch { /* silently fail */ }
     finally { setPresetBusy(false); setShowRestorePreset(false); }
+  }
+
+  async function handleDeletePreset(id: string) {
+    const p = savedPresets.find((x) => x.id === id);
+    if (!confirm(`Excluir o preset "${p?.name}"? Esta ação é irreversível.`)) return;
+    await supabase.from('site_presets').delete().eq('id', id);
+    logAudit({ action: 'delete', module: 'settings.preset', description: `Preset excluído: ${p?.name}` });
+    setSavedPresets((prev) => prev.filter((x) => x.id !== id));
+    if (selectedPresetId === id) setSelectedPresetId(null);
   }
 
   async function buildPresetData() {
@@ -549,10 +578,10 @@ export default function SettingsPage() {
                       Salvar
                     </button>
                     <button
-                      onClick={() => setShowRestorePreset(true)}
+                      onClick={openRestoreModal}
                       disabled={presetBusy}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg text-gray-500 hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
-                      title="Restaurar padrão"
+                      title="Restaurar preset"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       Restaurar
@@ -661,7 +690,7 @@ export default function SettingsPage() {
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 rounded-xl p-4">
                 <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
                   <strong>O que é um preset?</strong> Um preset salva uma cópia completa das
-                  configurações atuais do site — incluindo <strong>Aparência</strong>, <strong>Marca</strong>, <strong>Navegação</strong> e <strong>Conteúdo</strong>.
+                  configurações atuais do site — incluindo <strong>Aparência</strong>, <strong>Marca</strong>, <strong>Navegação</strong>, <strong>Conteúdo</strong> e <strong>SEO</strong>.
                   Se algo der errado após uma edição, você pode restaurar o preset para voltar exatamente ao estado salvo.
                 </p>
               </div>
@@ -768,8 +797,8 @@ export default function SettingsPage() {
                   <RotateCcw className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Restaurar Padrão</h3>
-                  <p className="text-xs text-white/80 mt-0.5">Reverter para as configurações originais</p>
+                  <h3 className="text-base font-bold text-white">Restaurar Preset</h3>
+                  <p className="text-xs text-white/80 mt-0.5">Selecione um ponto de restauração</p>
                 </div>
               </div>
             </div>
@@ -778,21 +807,72 @@ export default function SettingsPage() {
             <div className="px-6 py-5 space-y-4">
               <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-xl p-4">
                 <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                  <strong>Atenção:</strong> Esta ação vai substituir <strong>todas</strong> as configurações
-                  atuais de <strong>Aparência</strong>, <strong>Marca</strong>, <strong>Navegação</strong> e <strong>Conteúdo</strong> pelas
-                  configurações originais salvas no preset padrão.
+                  <strong>Atenção:</strong> Restaurar um preset vai substituir <strong>todas</strong> as configurações
+                  atuais pelas configurações salvas no preset selecionado.
                 </p>
               </div>
 
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                <TriangleAlert className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">As alterações não salvas serão perdidas</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Recomendamos salvar um preset antes de restaurar, caso queira voltar ao estado atual.
-                  </p>
+              {/* Preset list */}
+              {loadingPresets ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
                 </div>
-              </div>
+              ) : savedPresets.length === 0 ? (
+                <div className="text-center py-6 text-gray-400">
+                  <Download className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Nenhum preset salvo.</p>
+                  <p className="text-xs mt-1">Salve um preset primeiro para poder restaurar depois.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {savedPresets.map((p) => (
+                    <div key={p.id}
+                      onClick={() => setSelectedPresetId(p.id)}
+                      className={[
+                        'flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all',
+                        selectedPresetId === p.id
+                          ? 'border-brand-primary bg-brand-primary/5 dark:border-brand-secondary dark:bg-brand-secondary/5 ring-1 ring-brand-primary/20 dark:ring-brand-secondary/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50',
+                      ].join(' ')}
+                    >
+                      <div className={[
+                        'w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors',
+                        selectedPresetId === p.id
+                          ? 'border-brand-primary dark:border-brand-secondary'
+                          : 'border-gray-300 dark:border-gray-600',
+                      ].join(' ')}>
+                        {selectedPresetId === p.id && (
+                          <div className="w-2 h-2 rounded-full bg-brand-primary dark:bg-brand-secondary" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate flex items-center gap-1.5">
+                          {p.name}
+                          {p.is_default && (
+                            <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-semibold rounded">
+                              Padrão
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+                          Salvo em {new Date(p.created_at).toLocaleDateString('pt-BR', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      {!p.is_default && (
+                        <button type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDeletePreset(p.id); }}
+                          title="Excluir preset"
+                          className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Footer */}
@@ -805,11 +885,11 @@ export default function SettingsPage() {
               </button>
               <button
                 onClick={handleRestorePreset}
-                disabled={presetBusy}
+                disabled={presetBusy || !selectedPresetId}
                 className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-md shadow-amber-500/20 transition-all disabled:opacity-50"
               >
                 {presetBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-                {presetBusy ? 'Restaurando…' : 'Restaurar Padrão'}
+                {presetBusy ? 'Restaurando…' : 'Restaurar Preset'}
               </button>
             </div>
           </div>
