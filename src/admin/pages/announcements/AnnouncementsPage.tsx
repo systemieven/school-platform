@@ -479,15 +479,15 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
     if (el) {
       const start = el.selectionStart;
       const end = el.selectionEnd;
-      const before = form.campaignContent.body.slice(0, start);
-      const after = form.campaignContent.body.slice(end);
-      updateContent('body', before + tag + after);
+      const before = form.body.slice(0, start);
+      const after = form.body.slice(end);
+      setForm((p) => ({ ...p, body: before + tag + after }));
       requestAnimationFrame(() => {
         el.focus();
         el.selectionStart = el.selectionEnd = start + tag.length;
       });
     } else {
-      updateContent('body', form.campaignContent.body + tag);
+      setForm((p) => ({ ...p, body: p.body + tag }));
     }
   }
 
@@ -578,11 +578,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
     const { data: students } = await query;
     if (!students?.length) return [];
 
-    // Use campaign body as template if rich mode is active, else plain title+body
-    const hasRichBody = form.campaignContent.body.trim().length > 0;
-    const template = hasRichBody
-      ? form.campaignContent.body
-      : `*${ann.title}*\n\n${ann.body}`;
+    const template = `*${ann.title}*\n\n${ann.body}`;
 
     const seen  = new Set<string>();
     const msgs: Array<{ number: string; text: string }> = [];
@@ -630,8 +626,9 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
     if (isPublishing && form.send_whatsapp && !announcement?.is_published) {
       let messages: Array<{ number: string; text: string }>;
 
-      const cc = form.campaignContent;
-      const hasRichBody = cc.body.trim().length > 0;
+      // Sync campaign body from the unified form.body
+      const cc: CampaignContent = { ...form.campaignContent, body: form.body };
+      const text = `*${saved.title}*\n\n${saved.body}`;
 
       if (form.send_to_groups) {
         if (!form.selected_groups.length) {
@@ -639,7 +636,6 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
           setSaving(false);
           return;
         }
-        const text = hasRichBody ? cc.body : `*${saved.title}*\n\n${saved.body}`;
         messages = form.selected_groups.map((g) => ({ number: g.jid, text }));
         setWaStatus(`Criando campanha para ${messages.length} grupo(s)...`);
       } else {
@@ -656,7 +652,7 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
           ? new Date(form.scheduledFor).getTime()
           : undefined;
 
-        const richContent = cc.messageType !== 'text' || hasRichBody ? cc : undefined;
+        const richContent = cc.messageType !== 'text' ? cc : undefined;
 
         const result = await createMassCampaign({
           folder:          folderName,
@@ -710,9 +706,28 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Conteúdo *</label>
-              <textarea value={form.body} onChange={(e) => setForm((p) => ({ ...p, body: e.target.value }))}
-                rows={5} placeholder="Escreva o comunicado aqui..."
+              <textarea ref={bodyRef} value={form.body} onChange={(e) => setForm((p) => ({ ...p, body: e.target.value }))}
+                rows={5} placeholder={form.send_whatsapp ? 'Ex: Olá {{primeiro_nome}}, ...' : 'Escreva o comunicado aqui...'}
                 className={`${cls} resize-none`} />
+              {/* Variable picker — visible when WhatsApp is on and not sending to groups */}
+              {form.send_whatsapp && !form.send_to_groups && (
+                <div className="mt-2 space-y-1.5">
+                  {Object.entries(CAMPAIGN_VARIABLES).map(([group, vars]) => (
+                    <div key={group} className="flex flex-wrap items-center gap-1">
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase w-20 flex-shrink-0">
+                        {group === 'destinatario' ? 'Contato' : group === 'institucional' ? 'Escola' : 'Data'}
+                      </span>
+                      {vars.map((v) => (
+                        <button key={v} type="button" onClick={() => insertVar(v)}
+                          title={CAMPAIGN_VARIABLE_LABELS[v]}
+                          className="px-2 py-0.5 rounded text-[10px] font-mono bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-brand-primary/10 hover:text-brand-primary dark:hover:text-brand-secondary transition-colors">
+                          {`{{${v}}}`}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </SettingsCard>
 
@@ -734,35 +749,6 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Body + variable picker */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Texto da mensagem</label>
-                <textarea ref={bodyRef}
-                  value={form.campaignContent.body}
-                  onChange={(e) => updateContent('body', e.target.value)}
-                  rows={4} placeholder="Ex: Olá {{primeiro_nome}}, ..."
-                  className={`${cls} resize-none`} />
-                {/* Variable picker */}
-                {!form.send_to_groups && (
-                  <div className="mt-2 space-y-1.5">
-                    {Object.entries(CAMPAIGN_VARIABLES).map(([group, vars]) => (
-                      <div key={group} className="flex flex-wrap items-center gap-1">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase w-20 flex-shrink-0">
-                          {group === 'destinatario' ? 'Contato' : group === 'institucional' ? 'Escola' : 'Data'}
-                        </span>
-                        {vars.map((v) => (
-                          <button key={v} type="button" onClick={() => insertVar(v)}
-                            title={CAMPAIGN_VARIABLE_LABELS[v]}
-                            className="px-2 py-0.5 rounded text-[10px] font-mono bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-brand-primary/10 hover:text-brand-primary dark:hover:text-brand-secondary transition-colors">
-                            {`{{${v}}}`}
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Media fields */}
