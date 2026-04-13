@@ -25,6 +25,57 @@ const ROLE_COLORS: Record<string, string> = {
 const inputCls = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm transition-all';
 const labelCls = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5';
 
+// ── Quick Permissions: module groups matching sidebar navigation ──────────────
+const MODULE_GROUPS = [
+  {
+    label: 'Principal',
+    modules: [{ key: 'dashboard', label: 'Dashboard' }],
+  },
+  {
+    label: 'Gestão',
+    modules: [
+      { key: 'appointments', label: 'Agendamentos' },
+      { key: 'attendance', label: 'Atendimentos' },
+      { key: 'contacts', label: 'Contatos' },
+      { key: 'enrollments', label: 'Matrícula' },
+    ],
+  },
+  {
+    label: 'Qualificação',
+    modules: [
+      { key: 'kanban', label: 'Kanban de Leads' },
+      { key: 'reports', label: 'Relatórios' },
+    ],
+  },
+  {
+    label: 'Instituição',
+    modules: [
+      { key: 'students', label: 'Alunos' },
+      { key: 'announcements', label: 'Comunicados' },
+      { key: 'events', label: 'Eventos' },
+      { key: 'segments', label: 'Segmentos e Turmas' },
+    ],
+  },
+  {
+    label: 'Ferramentas',
+    modules: [
+      { key: 'teacher-area', label: 'Área do Professor' },
+      { key: 'library', label: 'Biblioteca Virtual' },
+      { key: 'testimonials', label: 'Depoimentos' },
+    ],
+  },
+  {
+    label: 'Sistema',
+    modules: [
+      { key: 'settings', label: 'Configurações' },
+      { key: 'users', label: 'Usuários' },
+      { key: 'permissions', label: 'Permissões' },
+      { key: 'audit', label: 'Auditoria' },
+    ],
+  },
+];
+const ALL_MODULE_KEYS = MODULE_GROUPS.flatMap(g => g.modules.map(m => m.key));
+
 // ── Phone mask ────────────────────────────────────────────────────────────────
 function maskPhone(value: string): string {
   const d = value.replace(/\D/g, '').slice(0, 11);
@@ -151,7 +202,8 @@ interface CreateModalProps {
 function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateModalProps) {
   const { profile: currentUser } = useAdminAuth();
   const { identity } = useBranding();
-  const [form, setForm] = useState({ full_name: '', email: '', role: 'user' as Role, phone: '', sector_keys: [] as string[], attendance_enabled: false });
+  const [form, setForm] = useState({ full_name: '', email: '', role: 'user' as Role, phone: '', sector_keys: [] as string[] });
+  const [modulePerms, setModulePerms] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -202,16 +254,19 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
 
     logAudit({ action: 'create', module: 'users', recordId: profile.id, description: `Usuário ${profile.full_name} criado com role ${form.role}`, newData: { full_name: profile.full_name, email: form.email, role: form.role } });
 
-    // Save module permission overrides (appointments + attendance)
-    const attEnabled = form.attendance_enabled;
-    const permOverrides = ['appointments', 'attendance'].map(key => ({
-      user_id: profile.id,
-      module_key: key,
-      can_view: attEnabled, can_create: attEnabled, can_edit: attEnabled,
-      can_delete: false,
-      granted_by: currentUser?.id ?? profile.id,
-    }));
-    await supabase.from('user_permission_overrides').insert(permOverrides);
+    // Save module permission overrides for all toggled modules
+    const permOverrides = Object.entries(modulePerms)
+      .filter(([, enabled]) => enabled !== undefined)
+      .map(([key, enabled]) => ({
+        user_id: profile.id,
+        module_key: key,
+        can_view: enabled, can_create: enabled, can_edit: enabled,
+        can_delete: false,
+        granted_by: currentUser?.id ?? profile.id,
+      }));
+    if (permOverrides.length > 0) {
+      await supabase.from('user_permission_overrides').insert(permOverrides);
+    }
 
     // WhatsApp check + send (all before showing modal)
     let waStatus: WaStatus = 'no-phone';
@@ -359,22 +414,33 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
             </p>
           </SettingsCard>
 
-          <SettingsCard title="Atendimentos">
-            <Toggle
-              checked={form.attendance_enabled}
-              onChange={(v) => {
-                setForm(f => ({
-                  ...f,
-                  attendance_enabled: v,
-                  ...(v ? {} : { sector_keys: [] }),
-                }));
-              }}
-              label="Permitir que usuário realize atendimentos"
-              description="Habilita acesso aos módulos de agendamento e atendimento. Ao ativar, as permissões necessárias serão configuradas automaticamente."
-            />
+          <SettingsCard title="Permissões de Acesso">
+            <p className="text-xs text-gray-400 dark:text-gray-500 -mt-1 mb-3">
+              Conceda ou revogue acesso rápido aos módulos do sistema. Para permissões granulares, use o painel de <span className="font-medium text-brand-primary dark:text-brand-secondary">Permissões</span> em Configurações.
+            </p>
+            {MODULE_GROUPS.map((group) => (
+              <div key={group.label} className="mb-3 last:mb-0">
+                <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{group.label}</p>
+                <div className="space-y-1">
+                  {group.modules.map((mod) => (
+                    <Toggle
+                      key={mod.key}
+                      checked={modulePerms[mod.key] ?? false}
+                      onChange={(v) => {
+                        setModulePerms(p => ({ ...p, [mod.key]: v }));
+                        if ((mod.key === 'appointments' || mod.key === 'attendance') && !v) {
+                          setForm(f => ({ ...f, sector_keys: [] }));
+                        }
+                      }}
+                      label={mod.label}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </SettingsCard>
 
-          {sectors.length > 0 && form.attendance_enabled && (
+          {sectors.length > 0 && (modulePerms['attendance'] || modulePerms['appointments']) && (
             <SettingsCard title="Setores de Atendimento">
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
                 Selecione os setores que este usuário poderá atender. Se nenhum for selecionado, o usuário não verá tickets no modo restrito.
@@ -436,7 +502,8 @@ interface EditDrawerProps {
 
 function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onUpdated, onDeleted }: EditDrawerProps) {
   const { identity } = useBranding();
-  const [form, setForm] = useState({ full_name: user.full_name || '', phone: user.phone || '', role: user.role, is_active: user.is_active, sector_keys: user.sector_keys ?? [], attendance_enabled: false });
+  const [form, setForm] = useState({ full_name: user.full_name || '', phone: user.phone || '', role: user.role, is_active: user.is_active, sector_keys: user.sector_keys ?? [] });
+  const [modulePerms, setModulePerms] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -453,24 +520,26 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
     return true;
   });
 
-  // Load current attendance permission state
+  // Load current module permission overrides
   useEffect(() => {
     supabase
       .from('user_permission_overrides')
       .select('module_key, can_view')
       .eq('user_id', user.id)
-      .in('module_key', ['appointments', 'attendance'])
+      .in('module_key', ALL_MODULE_KEYS)
       .then(({ data }) => {
-        const appt = data?.find(d => d.module_key === 'appointments');
-        const att  = data?.find(d => d.module_key === 'attendance');
-        const hasOverrides = appt !== undefined || att !== undefined;
-
-        if (hasOverrides) {
-          setForm(f => ({ ...f, attendance_enabled: appt?.can_view === true && att?.can_view === true }));
-        } else {
-          // No overrides: inherit from role. Admin/coordinator have access by default.
+        if (!data || data.length === 0) {
+          // No overrides: inherit from role. Admin/coordinator have broad access by default.
           const roleHasAccess = ['super_admin', 'admin', 'coordinator'].includes(user.role);
-          setForm(f => ({ ...f, attendance_enabled: roleHasAccess }));
+          const defaults: Record<string, boolean> = {};
+          ALL_MODULE_KEYS.forEach(key => { defaults[key] = roleHasAccess; });
+          setModulePerms(defaults);
+        } else {
+          const perms: Record<string, boolean> = {};
+          // Start with false for all, then apply overrides
+          ALL_MODULE_KEYS.forEach(key => { perms[key] = false; });
+          data.forEach(d => { perms[d.module_key] = d.can_view === true; });
+          setModulePerms(perms);
         }
       });
   }, [user.id, user.role]);
@@ -491,22 +560,25 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
       logAudit({ action: 'update', module: 'users', recordId: user.id, description: `Dados do usuário ${user.full_name} atualizados`, oldData: { full_name: user.full_name, role: user.role, is_active: user.is_active }, newData: { full_name: form.full_name, role: form.role, is_active: form.is_active } });
     }
 
-    // Update attendance/appointment permission overrides
+    // Update all module permission overrides
     await supabase
       .from('user_permission_overrides')
       .delete()
       .eq('user_id', user.id)
-      .in('module_key', ['appointments', 'attendance']);
+      .in('module_key', ALL_MODULE_KEYS);
 
-    const attEnabled = form.attendance_enabled;
-    const permOverrides = ['appointments', 'attendance'].map(key => ({
-      user_id: user.id,
-      module_key: key,
-      can_view: attEnabled, can_create: attEnabled, can_edit: attEnabled,
-      can_delete: false,
-      granted_by: currentUserId,
-    }));
-    await supabase.from('user_permission_overrides').insert(permOverrides);
+    const permOverrides = Object.entries(modulePerms)
+      .filter(([, enabled]) => enabled !== undefined)
+      .map(([key, enabled]) => ({
+        user_id: user.id,
+        module_key: key,
+        can_view: enabled, can_create: enabled, can_edit: enabled,
+        can_delete: false,
+        granted_by: currentUserId,
+      }));
+    if (permOverrides.length > 0) {
+      await supabase.from('user_permission_overrides').insert(permOverrides);
+    }
 
     setSaving(false);
     onUpdated({ ...user, ...form });
@@ -699,22 +771,33 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
             />
           </SettingsCard>
 
-          <SettingsCard title="Atendimentos">
-            <Toggle
-              checked={form.attendance_enabled}
-              onChange={(v) => {
-                setForm(f => ({
-                  ...f,
-                  attendance_enabled: v,
-                  ...(v ? {} : { sector_keys: [] }),
-                }));
-              }}
-              label="Permitir que usuário realize atendimentos"
-              description="Habilita acesso aos módulos de agendamento e atendimento. Ao ativar, as permissões necessárias serão configuradas automaticamente."
-            />
+          <SettingsCard title="Permissões de Acesso">
+            <p className="text-xs text-gray-400 dark:text-gray-500 -mt-1 mb-3">
+              Conceda ou revogue acesso rápido aos módulos. Para permissões granulares, use o painel de <span className="font-medium text-brand-primary dark:text-brand-secondary">Permissões</span> em Configurações.
+            </p>
+            {MODULE_GROUPS.map((group) => (
+              <div key={group.label} className="mb-3 last:mb-0">
+                <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{group.label}</p>
+                <div className="space-y-1">
+                  {group.modules.map((mod) => (
+                    <Toggle
+                      key={mod.key}
+                      checked={modulePerms[mod.key] ?? false}
+                      onChange={(v) => {
+                        setModulePerms(p => ({ ...p, [mod.key]: v }));
+                        if ((mod.key === 'appointments' || mod.key === 'attendance') && !v) {
+                          setForm(f => ({ ...f, sector_keys: [] }));
+                        }
+                      }}
+                      label={mod.label}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </SettingsCard>
 
-          {sectors.length > 0 && form.attendance_enabled && (
+          {sectors.length > 0 && (modulePerms['attendance'] || modulePerms['appointments']) && (
             <SettingsCard title="Setores de Atendimento">
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
                 Selecione os setores que este usuário poderá atender.
