@@ -1,25 +1,62 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import type {
   Announcement, AnnouncementTarget, SchoolClass, SchoolSegment,
+  MessageType, TemplateButton, TemplateButtonType,
 } from '../../types/admin.types';
 import { ANNOUNCEMENT_TARGET_LABELS } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import {
   createMassCampaign, listCampaigns, controlCampaign,
   listCampaignMessages, cleanDoneMessages, clearAllQueue,
-  listWhatsAppGroups,
+  listWhatsAppGroups, renderTemplate,
+  CAMPAIGN_VARIABLES, CAMPAIGN_VARIABLE_LABELS, resolveCampaignVars,
   type CampaignFolder, type CampaignMessage, type WhatsAppGroup,
+  type CampaignContent,
 } from '../../lib/whatsapp-api';
 import {
   Loader2, Pencil, Trash2, Megaphone, X, Save,
   Users, Globe, BookOpen, Send, Eye, CheckCircle2, Calendar,
   Pause, Play, ChevronDown, ChevronUp, RefreshCw, Trash,
   MessageSquare, Clock, AlertTriangle, Inbox,
+  Image, Video, File, Music, Plus, Reply, ExternalLink,
+  Copy, Phone as PhoneIcon, Upload,
 } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
+
+const WA_MEDIA_BUCKET = 'whatsapp-media';
+
+// ── Rich message constants ──────────────────────────────────────────────────
+const MESSAGE_TYPES: { value: MessageType; label: string }[] = [
+  { value: 'text',    label: 'Texto' },
+  { value: 'media',   label: 'Mídia' },
+  { value: 'buttons', label: 'Botões' },
+  { value: 'list',    label: 'Lista' },
+];
+
+const MEDIA_TYPES = [
+  { value: 'image'    as const, label: 'Imagem',    icon: Image },
+  { value: 'video'    as const, label: 'Vídeo',     icon: Video },
+  { value: 'document' as const, label: 'Documento', icon: File },
+  { value: 'audio'    as const, label: 'Áudio',     icon: Music },
+];
+
+const BUTTON_TYPES: { value: TemplateButtonType; label: string; icon: typeof Reply; placeholder: string }[] = [
+  { value: 'reply', label: 'Resposta',  icon: Reply,         placeholder: 'ID do payload (ex: confirmar)' },
+  { value: 'url',   label: 'Link',      icon: ExternalLink,  placeholder: 'https://exemplo.com' },
+  { value: 'copy',  label: 'Copiar',    icon: Copy,          placeholder: 'Texto a copiar (ex: CUPOM20)' },
+  { value: 'call',  label: 'Ligar',     icon: PhoneIcon,     placeholder: '+5511999999999' },
+];
+
+const emptyCampaignContent = (): CampaignContent => ({
+  messageType: 'text',
+  body: '',
+});
+
+const emptyButton = (): TemplateButton => ({ id: crypto.randomUUID(), text: '', type: 'reply', value: '' });
 
 const TARGETS: AnnouncementTarget[] = ['all', 'segment', 'class', 'role'];
 
@@ -369,6 +406,7 @@ const emptyForm = () => ({
   delayMin:     5,
   delayMax:     15,
   scheduledFor: '',   // datetime-local string
+  campaignContent: emptyCampaignContent(),
 });
 
 export function AnnouncementDrawer({ announcement, initialValues, segments, classes, onClose, onSaved }: DrawerProps) {
@@ -387,12 +425,15 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
     delayMin:      5,
     delayMax:      15,
     scheduledFor:  '',
+    campaignContent: emptyCampaignContent(),
   } : { ...emptyForm(), ...initialValues });
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState('');
   const [waStatus, setWaStatus] = useState('');
   const [waGroups, setWaGroups] = useState<WhatsAppGroup[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   async function fetchGroups() {
     setLoadingGroups(true);
@@ -428,6 +469,100 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
     }));
   }
 
+  function updateContent<K extends keyof CampaignContent>(key: K, val: CampaignContent[K]) {
+    setForm((p) => ({ ...p, campaignContent: { ...p.campaignContent, [key]: val } }));
+  }
+
+  function insertVar(varName: string) {
+    const el = bodyRef.current;
+    const tag = `{{${varName}}}`;
+    if (el) {
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const before = form.campaignContent.body.slice(0, start);
+      const after = form.campaignContent.body.slice(end);
+      updateContent('body', before + tag + after);
+      requestAnimationFrame(() => {
+        el.focus();
+        el.selectionStart = el.selectionEnd = start + tag.length;
+      });
+    } else {
+      updateContent('body', form.campaignContent.body + tag);
+    }
+  }
+
+  async function handleMediaUpload(file: globalThis.File) {
+    setUploadingMedia(true);
+    try {
+      let uploadFile: globalThis.File | Blob = file;
+      if (file.type.startsWith('image/') && file.size > 500_000) {
+        uploadFile = await imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 1920, useWebWorker: true });
+      }
+      const ext = file.name.split('.').pop() || 'bin';
+      const path = `campaigns/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from(WA_MEDIA_BUCKET).upload(path, uploadFile, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from(WA_MEDIA_BUCKET).getPublicUrl(path);
+      updateContent('mediaUrl', urlData.publicUrl);
+      if (!form.campaignContent.docName && file.type.startsWith('application/')) {
+        updateContent('docName', file.name);
+      }
+    } catch (e: unknown) {
+      alert(`Erro ao enviar arquivo: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setUploadingMedia(false);
+    }
+  }
+
+  function addButton() {
+    const current = form.campaignContent.buttons || [];
+    if (current.length >= 3) return;
+    updateContent('buttons', [...current, emptyButton()]);
+  }
+
+  function updateButton(idx: number, patch: Partial<TemplateButton>) {
+    const btns = [...(form.campaignContent.buttons || [])];
+    btns[idx] = { ...btns[idx], ...patch };
+    updateContent('buttons', btns);
+  }
+
+  function removeButton(idx: number) {
+    updateContent('buttons', (form.campaignContent.buttons || []).filter((_, i) => i !== idx));
+  }
+
+  function addListSection() {
+    const secs = [...(form.campaignContent.listSections || [])];
+    secs.push({ title: '', rows: [{ title: '', id: crypto.randomUUID(), description: '' }] });
+    updateContent('listSections', secs);
+  }
+
+  function updateListSection(si: number, title: string) {
+    const secs = [...(form.campaignContent.listSections || [])];
+    secs[si] = { ...secs[si], title };
+    updateContent('listSections', secs);
+  }
+
+  function addListRow(si: number) {
+    const secs = [...(form.campaignContent.listSections || [])];
+    secs[si] = { ...secs[si], rows: [...secs[si].rows, { title: '', id: crypto.randomUUID(), description: '' }] };
+    updateContent('listSections', secs);
+  }
+
+  function updateListRow(si: number, ri: number, patch: Partial<{ title: string; id: string; description: string }>) {
+    const secs = [...(form.campaignContent.listSections || [])];
+    const rows = [...secs[si].rows];
+    rows[ri] = { ...rows[ri], ...patch };
+    secs[si] = { ...secs[si], rows };
+    updateContent('listSections', secs);
+  }
+
+  function removeListRow(si: number, ri: number) {
+    const secs = [...(form.campaignContent.listSections || [])];
+    secs[si] = { ...secs[si], rows: secs[si].rows.filter((_, i) => i !== ri) };
+    if (secs[si].rows.length === 0) secs.splice(si, 1);
+    updateContent('listSections', secs);
+  }
+
   async function _buildRecipients(ann: Announcement): Promise<Array<{ number: string; text: string }>> {
     let query = supabase.from('students').select('guardian_phone, full_name').eq('status', 'active');
 
@@ -443,7 +578,12 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
     const { data: students } = await query;
     if (!students?.length) return [];
 
-    const text = `*${ann.title}*\n\n${ann.body}`;
+    // Use campaign body as template if rich mode is active, else plain title+body
+    const hasRichBody = form.campaignContent.body.trim().length > 0;
+    const template = hasRichBody
+      ? form.campaignContent.body
+      : `*${ann.title}*\n\n${ann.body}`;
+
     const seen  = new Set<string>();
     const msgs: Array<{ number: string; text: string }> = [];
 
@@ -452,6 +592,8 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
       const phone = s.guardian_phone.replace(/\D/g, '');
       if (seen.has(phone)) continue;
       seen.add(phone);
+      const vars = resolveCampaignVars({ name: s.full_name, phone: s.guardian_phone });
+      const text = renderTemplate(template, vars);
       msgs.push({ number: s.guardian_phone, text });
     }
     return msgs;
@@ -488,13 +630,16 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
     if (isPublishing && form.send_whatsapp && !announcement?.is_published) {
       let messages: Array<{ number: string; text: string }>;
 
+      const cc = form.campaignContent;
+      const hasRichBody = cc.body.trim().length > 0;
+
       if (form.send_to_groups) {
         if (!form.selected_groups.length) {
           setWaStatus('Nenhum grupo selecionado.');
           setSaving(false);
           return;
         }
-        const text = `*${saved.title}*\n\n${saved.body}`;
+        const text = hasRichBody ? cc.body : `*${saved.title}*\n\n${saved.body}`;
         messages = form.selected_groups.map((g) => ({ number: g.jid, text }));
         setWaStatus(`Criando campanha para ${messages.length} grupo(s)...`);
       } else {
@@ -511,10 +656,13 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
           ? new Date(form.scheduledFor).getTime()
           : undefined;
 
+        const richContent = cc.messageType !== 'text' || hasRichBody ? cc : undefined;
+
         const result = await createMassCampaign({
           folder:          folderName,
           info:            saved.body.slice(0, 100),
           messages,
+          content:         richContent,
           delayMin:        form.delayMin,
           delayMax:        form.delayMax,
           scheduledFor:    scheduledTs,
@@ -567,6 +715,228 @@ export function AnnouncementDrawer({ announcement, initialValues, segments, clas
                 className={`${cls} resize-none`} />
             </div>
           </SettingsCard>
+
+          {/* ── Mensagem da Campanha (rich) ── */}
+          {form.send_whatsapp && (
+            <SettingsCard title="Mensagem da Campanha" icon={MessageSquare}>
+              {/* Type selector */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de mensagem</label>
+                <div className="flex gap-2 flex-wrap">
+                  {MESSAGE_TYPES.map((t) => (
+                    <button key={t.value} type="button"
+                      onClick={() => updateContent('messageType', t.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        form.campaignContent.messageType === t.value
+                          ? 'border-brand-primary bg-brand-primary text-white dark:border-brand-secondary dark:bg-brand-secondary dark:text-gray-900'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'}`}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Body + variable picker */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Texto da mensagem</label>
+                <textarea ref={bodyRef}
+                  value={form.campaignContent.body}
+                  onChange={(e) => updateContent('body', e.target.value)}
+                  rows={4} placeholder="Ex: Olá {{primeiro_nome}}, ..."
+                  className={`${cls} resize-none`} />
+                {/* Variable picker */}
+                {!form.send_to_groups && (
+                  <div className="mt-2 space-y-1.5">
+                    {Object.entries(CAMPAIGN_VARIABLES).map(([group, vars]) => (
+                      <div key={group} className="flex flex-wrap items-center gap-1">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase w-20 flex-shrink-0">
+                          {group === 'destinatario' ? 'Contato' : group === 'institucional' ? 'Escola' : 'Data'}
+                        </span>
+                        {vars.map((v) => (
+                          <button key={v} type="button" onClick={() => insertVar(v)}
+                            title={CAMPAIGN_VARIABLE_LABELS[v]}
+                            className="px-2 py-0.5 rounded text-[10px] font-mono bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-brand-primary/10 hover:text-brand-primary dark:hover:text-brand-secondary transition-colors">
+                            {`{{${v}}}`}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Media fields */}
+              {form.campaignContent.messageType === 'media' && (
+                <div className="space-y-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Tipo de mídia</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {MEDIA_TYPES.map((mt) => {
+                      const Icon = mt.icon;
+                      return (
+                        <button key={mt.value} type="button"
+                          onClick={() => updateContent('mediaType', mt.value)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            form.campaignContent.mediaType === mt.value
+                              ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
+                              : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}>
+                          <Icon className="w-3.5 h-3.5" /> {mt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* URL or upload */}
+                  <div className="space-y-2">
+                    <input value={form.campaignContent.mediaUrl || ''} placeholder="URL do arquivo ou faça upload abaixo"
+                      onChange={(e) => updateContent('mediaUrl', e.target.value)}
+                      className={cls} />
+                    <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      {uploadingMedia
+                        ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                        : <Upload className="w-4 h-4 text-gray-400" />}
+                      <span className="text-xs text-gray-500">
+                        {uploadingMedia ? 'Enviando...' : 'Fazer upload'}
+                      </span>
+                      <input type="file" className="hidden" disabled={uploadingMedia}
+                        accept={
+                          form.campaignContent.mediaType === 'image' ? 'image/*'
+                          : form.campaignContent.mediaType === 'video' ? 'video/*'
+                          : form.campaignContent.mediaType === 'audio' ? 'audio/*'
+                          : '*/*'
+                        }
+                        onChange={(e) => { if (e.target.files?.[0]) handleMediaUpload(e.target.files[0]); }} />
+                    </label>
+                    {form.campaignContent.mediaUrl && (
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate">
+                        ✓ {form.campaignContent.mediaUrl}
+                      </p>
+                    )}
+                  </div>
+
+                  {form.campaignContent.mediaType === 'document' && (
+                    <div>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Nome do documento</label>
+                      <input value={form.campaignContent.docName || ''} placeholder="relatorio.pdf"
+                        onChange={(e) => updateContent('docName', e.target.value)} className={cls} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Button editor */}
+              {form.campaignContent.messageType === 'buttons' && (
+                <div className="space-y-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Botões (máx. 3)</label>
+                    <button type="button" onClick={addButton}
+                      disabled={(form.campaignContent.buttons || []).length >= 3}
+                      className="flex items-center gap-1 text-xs text-brand-primary dark:text-brand-secondary hover:underline disabled:opacity-40">
+                      <Plus className="w-3 h-3" /> Adicionar
+                    </button>
+                  </div>
+
+                  {(form.campaignContent.buttons || []).map((btn, i) => {
+                    const btConfig = BUTTON_TYPES.find((b) => b.value === btn.type) || BUTTON_TYPES[0];
+                    return (
+                      <div key={btn.id} className="space-y-2 p-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1 flex-1">
+                            {BUTTON_TYPES.map((bt) => {
+                              const BtIcon = bt.icon;
+                              return (
+                                <button key={bt.value} type="button"
+                                  onClick={() => updateButton(i, { type: bt.value, value: '' })}
+                                  title={bt.label}
+                                  className={`p-1.5 rounded transition-colors ${
+                                    btn.type === bt.value
+                                      ? 'bg-brand-primary/10 text-brand-primary dark:text-brand-secondary'
+                                      : 'text-gray-400 hover:text-gray-600'}`}>
+                                  <BtIcon className="w-3.5 h-3.5" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <button type="button" onClick={() => removeButton(i)}
+                            className="p-1 text-gray-400 hover:text-red-500 transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input value={btn.text} placeholder="Texto do botão"
+                            onChange={(e) => updateButton(i, { text: e.target.value })}
+                            className={`${cls} text-xs`} />
+                          <input value={btn.value} placeholder={btConfig.placeholder}
+                            onChange={(e) => updateButton(i, { value: e.target.value })}
+                            className={`${cls} text-xs`} />
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Rodapé (opcional)</label>
+                    <input value={form.campaignContent.footerText || ''} placeholder="Texto do rodapé"
+                      onChange={(e) => updateContent('footerText', e.target.value)} className={cls} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Imagem do cabeçalho (opcional)</label>
+                    <input value={form.campaignContent.imageUrl || ''} placeholder="URL da imagem"
+                      onChange={(e) => updateContent('imageUrl', e.target.value)} className={cls} />
+                  </div>
+                </div>
+              )}
+
+              {/* List editor */}
+              {form.campaignContent.messageType === 'list' && (
+                <div className="space-y-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Seções da lista</label>
+                    <button type="button" onClick={addListSection}
+                      className="flex items-center gap-1 text-xs text-brand-primary dark:text-brand-secondary hover:underline">
+                      <Plus className="w-3 h-3" /> Seção
+                    </button>
+                  </div>
+
+                  {(form.campaignContent.listSections || []).map((sec, si) => (
+                    <div key={si} className="space-y-2 p-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                      <input value={sec.title} placeholder={`Título da seção ${si + 1}`}
+                        onChange={(e) => updateListSection(si, e.target.value)}
+                        className={`${cls} text-xs font-medium`} />
+                      {sec.rows.map((row, ri) => (
+                        <div key={ri} className="flex items-center gap-1.5">
+                          <input value={row.title} placeholder="Título da opção"
+                            onChange={(e) => updateListRow(si, ri, { title: e.target.value })}
+                            className={`${cls} text-xs flex-1`} />
+                          <input value={row.description || ''} placeholder="Descrição (opcional)"
+                            onChange={(e) => updateListRow(si, ri, { description: e.target.value })}
+                            className={`${cls} text-xs flex-1`} />
+                          <button type="button" onClick={() => removeListRow(si, ri)}
+                            className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => addListRow(si)}
+                        className="text-[10px] text-brand-primary dark:text-brand-secondary hover:underline">
+                        + Adicionar opção
+                      </button>
+                    </div>
+                  ))}
+
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Texto do botão da lista</label>
+                    <input value={form.campaignContent.listButtonText || ''} placeholder="Ver opções"
+                      onChange={(e) => updateContent('listButtonText', e.target.value)} className={cls} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Rodapé (opcional)</label>
+                    <input value={form.campaignContent.footerText || ''} placeholder="Texto do rodapé"
+                      onChange={(e) => updateContent('footerText', e.target.value)} className={cls} />
+                  </div>
+                </div>
+              )}
+            </SettingsCard>
+          )}
 
           {/* ── Público-alvo ── */}
           <SettingsCard title="Público-alvo" icon={Users}>

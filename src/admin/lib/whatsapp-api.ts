@@ -4,7 +4,7 @@
  * API token is never exposed on the client.
  */
 import { supabase } from '../../lib/supabase';
-import type { TemplateContent, TemplateButton } from '../types/admin.types';
+import type { TemplateContent, TemplateButton, MessageType } from '../types/admin.types';
 
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 export const WEBHOOK_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1/uazapi-webhook`;
@@ -896,10 +896,24 @@ export interface CampaignMessage {
   track_id?: string;
 }
 
+export interface CampaignContent {
+  messageType:    MessageType;
+  body:           string;
+  mediaUrl?:      string;
+  mediaType?:     'image' | 'video' | 'document' | 'audio';
+  docName?:       string;
+  buttons?:       TemplateButton[];
+  footerText?:    string;
+  imageUrl?:      string;
+  listSections?:  TemplateContent['list_sections'];
+  listButtonText?: string;
+}
+
 export interface CreateCampaignOptions {
   folder:          string;
   info?:           string;
   messages:        Array<{ number: string; text: string }>;
+  content?:        CampaignContent;
   delayMin?:       number;   // seconds
   delayMax?:       number;   // seconds
   scheduledFor?:   number;   // unix timestamp ms
@@ -913,16 +927,68 @@ export interface CreateCampaignResult {
   error?:     string;
 }
 
+/** Build a single rich message payload for /sender/advanced. */
+function buildRichPayload(
+  number: string,
+  text: string,
+  content?: CampaignContent,
+): Record<string, unknown> {
+  const num = number.endsWith('@g.us') ? number : normalizePhone(number);
+  if (!content || content.messageType === 'text') {
+    return { number: num, text };
+  }
+
+  const base: Record<string, unknown> = { number: num, text };
+
+  switch (content.messageType) {
+    case 'media':
+      return {
+        ...base,
+        type:    content.mediaType || 'image',
+        file:    content.mediaUrl || '',
+        ...(content.docName ? { docName: content.docName } : {}),
+      };
+
+    case 'buttons': {
+      const choices = buttonsToChoices(content.buttons || []);
+      return {
+        ...base,
+        type:    'button',
+        choices,
+        ...(content.footerText ? { footerText: content.footerText } : {}),
+        ...(content.imageUrl   ? { imageButton: content.imageUrl }  : {}),
+      };
+    }
+
+    case 'list': {
+      const choices = listSectionsToChoices(content.listSections || []);
+      return {
+        ...base,
+        type:       'list',
+        choices,
+        listButton: content.listButtonText || 'Ver opções',
+        ...(content.footerText ? { footerText: content.footerText } : {}),
+        ...(content.imageUrl   ? { imageButton: content.imageUrl }  : {}),
+      };
+    }
+
+    default:
+      return { number: num, text };
+  }
+}
+
 /** Create a mass WhatsApp campaign via /sender/advanced and pre-log all recipients. */
 export async function createMassCampaign(
   opts: CreateCampaignOptions,
 ): Promise<CreateCampaignResult> {
   if (!opts.messages.length) return { success: false, error: 'Nenhum destinatário.' };
 
+  const msgType = opts.content?.messageType || 'text';
+
   // Pre-insert one log entry per recipient so they appear in the history tab
   const logRows = opts.messages.map((m) => ({
     recipient_phone:   m.number,
-    rendered_content:  { body: m.text, type: 'text', campaign: opts.folder },
+    rendered_content:  { body: m.text, type: msgType, campaign: opts.folder },
     status:            'queued',
     related_module:    'announcement',
     related_record_id: opts.announcementId ?? null,
@@ -937,10 +1003,9 @@ export async function createMassCampaign(
     delayMin:      opts.delayMin  ?? 5,
     delayMax:      opts.delayMax  ?? 15,
     ...(opts.scheduledFor ? { scheduled_for: opts.scheduledFor } : {}),
-    messages: opts.messages.map((m) => ({
-      number: m.number.endsWith('@g.us') ? m.number : normalizePhone(m.number),
-      text:   m.text,
-    })),
+    messages: opts.messages.map((m) =>
+      buildRichPayload(m.number, m.text, opts.content),
+    ),
   });
 
   if (error) return { success: false, error };
@@ -948,6 +1013,50 @@ export async function createMassCampaign(
   const d = data as Record<string, unknown> | null;
   const folder_id = d?.folder_id as string | undefined;
   return { success: true, folder_id };
+}
+
+// ── Campaign variables ────────────────────────────────────────────────────────
+
+export const CAMPAIGN_VARIABLES = {
+  destinatario: ['nome', 'primeiro_nome', 'telefone'],
+  institucional: ['instituicao', 'site', 'telefone_inst'],
+  data_hora: ['data', 'hora', 'mes', 'ano'],
+};
+
+export const CAMPAIGN_VARIABLE_LABELS: Record<string, string> = {
+  nome: 'Nome do contato',
+  primeiro_nome: 'Primeiro nome',
+  telefone: 'Telefone',
+  instituicao: 'Nome da instituição',
+  site: 'Site',
+  telefone_inst: 'Tel. instituição',
+  data: 'Data atual',
+  hora: 'Hora atual',
+  mes: 'Mês atual',
+  ano: 'Ano atual',
+};
+
+/** Resolve campaign variables for a recipient. */
+export function resolveCampaignVars(
+  recipient: { name?: string; phone?: string },
+  schoolName = '',
+  schoolPhone = '',
+  schoolSite = '',
+): Record<string, string> {
+  const now = new Date();
+  const firstName = (recipient.name || '').split(' ').find((w) => w.length >= 2) || recipient.name || '';
+  return {
+    nome:          recipient.name || '',
+    primeiro_nome: firstName,
+    telefone:      recipient.phone || '',
+    instituicao:   schoolName,
+    site:          schoolSite,
+    telefone_inst: schoolPhone,
+    data:          now.toLocaleDateString('pt-BR'),
+    hora:          now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    mes:           now.toLocaleDateString('pt-BR', { month: 'long' }),
+    ano:           String(now.getFullYear()),
+  };
 }
 
 /** Pause, resume or delete a campaign. */
