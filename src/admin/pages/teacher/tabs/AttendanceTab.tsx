@@ -23,7 +23,7 @@ export default function AttendanceTab({ cls }: { cls: SchoolClass }) {
     setLoading(true); setSaved(false);
     const [stuRes, attRes] = await Promise.all([
       supabase.from('students').select('id, full_name').eq('class_id', cls.id).eq('status', 'active').order('full_name'),
-      supabase.from('attendance').select('*').eq('class_id', cls.id).eq('date', date),
+      supabase.from('student_attendance').select('*').eq('class_id', cls.id).eq('date', date),
     ]);
 
     const stus = (stuRes.data ?? []) as { id: string; full_name: string }[];
@@ -56,7 +56,7 @@ export default function AttendanceTab({ cls }: { cls: SchoolClass }) {
       student_id: r.studentId, class_id: cls.id, created_by: profile!.id,
       date, status: r.status, updated_at: new Date().toISOString(),
     }));
-    await supabase.from('attendance').upsert(upserts, { onConflict: 'student_id,class_id,date' });
+    await supabase.from('student_attendance').upsert(upserts, { onConflict: 'student_id,class_id,date' });
     logAudit({ action: 'update', module: 'teacher-area', description: `Chamada registrada para ${date} com ${upserts.length} aluno(s)`, newData: { date, total: upserts.length } });
     setSaving(false); setSaved(true);
   }

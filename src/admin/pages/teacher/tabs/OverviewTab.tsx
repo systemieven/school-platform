@@ -25,7 +25,7 @@ export default function OverviewTab({ cls }: { cls: SchoolClass }) {
         supabase.from('students').select('id', { count: 'exact', head: true }).eq('class_id', cls.id).eq('status', 'active'),
         supabase.from('class_materials').select('id', { count: 'exact', head: true }).eq('class_id', cls.id),
         supabase.from('activities').select('id', { count: 'exact', head: true }).eq('class_id', cls.id),
-        supabase.from('attendance').select('status').eq('class_id', cls.id).gte('date', monthStr),
+        supabase.from('student_attendance').select('status').eq('class_id', cls.id).gte('date', monthStr),
       ]);
 
       let presentRate: number | null = null;
