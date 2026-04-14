@@ -1805,7 +1805,7 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
 
       {/* Fields not in any group (safety net) */}
       {settings
-        .filter((s) => !INST_GROUPS.flatMap((g) => g.keys).includes(s.key))
+        .filter((s) => !INST_GROUPS.flatMap((g) => g.keys).includes(s.key) && s.key !== 'pix')
         .map((item) => {
           const meta = KEY_META[item.key] || { label: item.key };
           const isChanged = editValues[item.id] !== toStr(item.value);
