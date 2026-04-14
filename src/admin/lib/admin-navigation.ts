@@ -65,6 +65,19 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'Acadêmico',
+    items: [
+      {
+        key: 'academico',
+        label: 'Acadêmico',
+        icon: 'BookOpenCheck',
+        path: '/admin/academico',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'academico',
+      },
+    ],
+  },
+  {
     label: 'Qualificação',
     items: [
       {

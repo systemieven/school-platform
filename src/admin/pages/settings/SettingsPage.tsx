@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
 import FinancialSettingsPanel from './FinancialSettingsPanel';
+import AcademicoSettingsPanel from './AcademicoSettingsPanel';
 import SiteSettingsPanel, { type SiteTab, SITE_SUB_TABS } from './SiteSettingsPanel';
 import AuditLogsPage from '../audit/AuditLogsPage';
 import PermissionsPage from '../permissions/PermissionsPage';
@@ -146,6 +147,14 @@ const TABS: TabDef[] = [
     icon: DollarSign,
     categories: ['financial'],
     description: 'Gateways de pagamento, régua de cobrança e chave PIX.',
+  },
+  {
+    key: 'academico',
+    label: 'Acadêmico',
+    shortLabel: 'Acadêmico',
+    icon: GraduationCap,
+    categories: ['academico'],
+    description: 'Períodos letivos, fórmulas de média e alertas de frequência.',
   },
 ];
 
@@ -411,7 +420,7 @@ export default function SettingsPage() {
   }
 
   // Tabs with their own custom panel never depend on the generic settings array
-  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial'];
+  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial', 'academico'];
 
   // Tabs that have settings in the DB OR have a custom panel
   const availableTabs = TABS.filter(
@@ -626,6 +635,8 @@ export default function SettingsPage() {
                 <div className="p-6"><AuditLogsPage embedded /></div>
               ) : activeTab === 'financial' ? (
                 <FinancialSettingsPanel />
+              ) : activeTab === 'academico' ? (
+                <AcademicoSettingsPanel />
               ) : activeTab === 'institutional' ? (
                 <InstitutionalSettingsPanel
                   settings={tabSettings}

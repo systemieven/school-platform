@@ -32,6 +32,9 @@ const TestimonialsPage     = lazy(() => import('./pages/testimonials/Testimonial
 // Financial (single page with internal tabs)
 const FinancialPage            = lazy(() => import('./pages/financial/FinancialPage'));
 
+// Academic (single page with internal tab rail)
+const AcademicoPage            = lazy(() => import('./pages/academico/AcademicoPage'));
+
 function PageFallback() {
   return (
     <div className="flex items-center justify-center py-24">
@@ -89,6 +92,9 @@ export default function AdminRoutes() {
 
           {/* Financial (single page with internal tab rail) */}
           <Route path="financeiro"  element={<ModuleGuard moduleKey="financial"><LazyPage><FinancialPage /></LazyPage></ModuleGuard>} />
+
+          {/* Academic (single page with internal tab rail) */}
+          <Route path="academico"   element={<ModuleGuard moduleKey="academico"><LazyPage><AcademicoPage /></LazyPage></ModuleGuard>} />
 
           {/* System */}
           <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />

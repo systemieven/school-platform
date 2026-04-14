@@ -1032,3 +1032,202 @@ export const GATEWAY_PROVIDER_LABELS: Record<GatewayProvider, string> = {
   sicredi: 'Sicredi',
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ACADEMIC — Fase 9
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Enums ────────────────────────────────────────────────────────────────
+
+export type CalendarEventType =
+  | 'holiday'
+  | 'exam_period'
+  | 'recess'
+  | 'deadline'
+  | 'institutional'
+  | 'period_start'
+  | 'period_end';
+
+export type FormulaType = 'simple' | 'weighted' | 'by_period' | 'custom';
+
+export type GradeScale = 'numeric' | 'conceptual';
+
+export type StudentResultStatus =
+  | 'approved'
+  | 'recovery'
+  | 'failed_grade'
+  | 'failed_attendance'
+  | 'in_progress';
+
+// ── Interfaces ───────────────────────────────────────────────────────────
+
+export interface Discipline {
+  id: string;
+  name: string;
+  code: string;
+  weekly_hours: number;
+  color: string;
+  segment_ids: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClassDiscipline {
+  id: string;
+  class_id: string;
+  discipline_id: string;
+  teacher_id: string;
+  created_at: string;
+  // Joined
+  discipline?: Discipline;
+  teacher?: { id: string; full_name: string; avatar_url?: string };
+}
+
+export interface ClassSchedule {
+  id: string;
+  class_id: string;
+  discipline_id: string;
+  teacher_id: string;
+  day_of_week: number; // 0=Dom ... 6=Sab
+  start_time: string;  // "HH:mm:ss"
+  end_time: string;    // "HH:mm:ss"
+  created_at: string;
+  // Joined
+  discipline?: Discipline;
+  teacher?: { id: string; full_name: string };
+}
+
+export interface SchoolCalendarEvent {
+  id: string;
+  title: string;
+  type: CalendarEventType;
+  start_date: string;
+  end_date: string;
+  school_year: number;
+  period_number: number | null;
+  segment_ids: string[];
+  description: string | null;
+  created_at: string;
+}
+
+export interface GradeFormula {
+  id: string;
+  segment_id: string;
+  school_year: number;
+  formula_type: FormulaType;
+  config: Record<string, unknown>;
+  passing_grade: number;
+  recovery_grade: number;
+  min_attendance_pct: number;
+  grade_scale: GradeScale;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  segment?: { id: string; name: string };
+}
+
+export interface StudentResult {
+  id: string;
+  student_id: string;
+  discipline_id: string;
+  class_id: string;
+  school_year: number;
+  period1_avg: number | null;
+  period2_avg: number | null;
+  period3_avg: number | null;
+  period4_avg: number | null;
+  recovery_grade: number | null;
+  final_avg: number | null;
+  attendance_pct: number | null;
+  result: StudentResultStatus;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  student?: { id: string; full_name: string; enrollment_number: string };
+  discipline?: Discipline;
+}
+
+export interface StudentTranscript {
+  id: string;
+  student_id: string;
+  school_year: number;
+  class_id: string;
+  segment_id: string;
+  final_result: string;
+  created_at: string;
+  // Joined
+  student?: { id: string; full_name: string; enrollment_number: string };
+  segment?: { id: string; name: string };
+  class?: { id: string; name: string };
+}
+
+// ── Labels & Colors ──────────────────────────────────────────────────────
+
+export const DAY_OF_WEEK_LABELS: Record<number, string> = {
+  0: 'Domingo',
+  1: 'Segunda',
+  2: 'Terça',
+  3: 'Quarta',
+  4: 'Quinta',
+  5: 'Sexta',
+  6: 'Sábado',
+};
+
+export const DAY_OF_WEEK_SHORT: Record<number, string> = {
+  0: 'Dom',
+  1: 'Seg',
+  2: 'Ter',
+  3: 'Qua',
+  4: 'Qui',
+  5: 'Sex',
+  6: 'Sáb',
+};
+
+export const EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
+  holiday: 'Feriado',
+  exam_period: 'Período de Provas',
+  recess: 'Recesso',
+  deadline: 'Prazo',
+  institutional: 'Institucional',
+  period_start: 'Início de Período',
+  period_end: 'Fim de Período',
+};
+
+export const EVENT_TYPE_COLORS: Record<CalendarEventType, string> = {
+  holiday: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  exam_period: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+  recess: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+  deadline: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
+  institutional: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  period_start: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+  period_end: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+};
+
+export const FORMULA_TYPE_LABELS: Record<FormulaType, string> = {
+  simple: 'Média Simples',
+  weighted: 'Média Ponderada',
+  by_period: 'Por Período',
+  custom: 'Personalizada',
+};
+
+export const RESULT_STATUS_LABELS: Record<StudentResultStatus, string> = {
+  approved: 'Aprovado',
+  recovery: 'Recuperação',
+  failed_grade: 'Reprovado (Nota)',
+  failed_attendance: 'Reprovado (Falta)',
+  in_progress: 'Em Andamento',
+};
+
+export const RESULT_STATUS_COLORS: Record<StudentResultStatus, string> = {
+  approved: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  recovery: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+  failed_grade: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  failed_attendance: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  in_progress: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+};
+
+export const GRADE_SCALE_LABELS: Record<GradeScale, string> = {
+  numeric: 'Numérica (0-10)',
+  conceptual: 'Conceitual (A-E)',
+};
+

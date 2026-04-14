@@ -15,7 +15,13 @@ const STATUS_COLORS: Record<ActivityStatus, string> = {
   closed:    'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
 };
 
-const emptyForm = () => ({ title: '', subject: '', description: '', type: 'homework' as ActivityType, status: 'draft' as ActivityStatus, due_date: '', max_score: '10' });
+interface ClassDiscipline {
+  id: string;
+  discipline_id: string;
+  discipline: { name: string } | null;
+}
+
+const emptyForm = () => ({ title: '', subject: '', description: '', type: 'homework' as ActivityType, status: 'draft' as ActivityStatus, due_date: '', max_score: '10', discipline_id: '' });
 
 function ActivityDrawer({
   activity, classId, onClose, onSaved,
@@ -26,11 +32,20 @@ function ActivityDrawer({
   onSaved: (a: Activity) => void;
 }) {
   const { profile } = useAdminAuth();
+  const [classDisciplines, setClassDisciplines] = useState<ClassDiscipline[]>([]);
   const [form, setForm] = useState(activity ? {
     title: activity.title, subject: activity.subject ?? '', description: activity.description ?? '',
     type: activity.type, status: activity.status,
     due_date: activity.due_date ?? '', max_score: String(activity.max_score ?? 10),
+    discipline_id: (activity as Activity & { discipline_id?: string }).discipline_id ?? '',
   } : emptyForm());
+
+  useEffect(() => {
+    supabase.from('class_disciplines')
+      .select('id, discipline_id, discipline:disciplines(name)')
+      .eq('class_id', classId)
+      .then(({ data }) => { setClassDisciplines((data ?? []) as unknown as ClassDiscipline[]); });
+  }, [classId]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,6 +57,7 @@ function ActivityDrawer({
       title: form.title.trim(), subject: form.subject || null,
       description: form.description || null, type: form.type, status: form.status,
       due_date: form.due_date || null, max_score: parseFloat(form.max_score) || 10,
+      discipline_id: form.discipline_id || null,
       updated_at: new Date().toISOString(),
     };
     const { data, error: err } = activity
@@ -81,9 +97,23 @@ function ActivityDrawer({
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          {classDisciplines.length > 0 && (
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Disciplina</label>
+              <select value={form.discipline_id} onChange={(e) => {
+                const disc = classDisciplines.find((cd) => cd.discipline_id === e.target.value);
+                setForm((p) => ({ ...p, discipline_id: e.target.value, subject: disc?.discipline?.name ?? p.subject }));
+              }} className={cls}>
+                <option value="">Selecione</option>
+                {classDisciplines.map((cd) => (
+                  <option key={cd.discipline_id} value={cd.discipline_id}>{cd.discipline?.name ?? cd.discipline_id}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{classDisciplines.length > 0 ? 'Assunto (opcional)' : 'Disciplina'}</label>
               <input value={form.subject} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))} placeholder="Ex: Matemática" className={cls} />
             </div>
             <div>
