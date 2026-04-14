@@ -911,7 +911,7 @@ export interface FinancialPlan {
   amount: number;
   installments: number;
   due_day: number;
-  punctuality_discount_pct: number;
+  max_overdue_days: number;
   late_fee_pct: number;
   interest_rate_pct: number;
   segment_ids: string[];
@@ -927,11 +927,11 @@ export interface FinancialContract {
   plan_id: string;
   school_year: number;
   status: FinancialContractStatus;
-  discount_type: 'percentage' | 'fixed' | null;
-  discount_value: number;
   net_amount: number | null;
   gateway_id: string | null;
   notes: string | null;
+  signed_document_url: string | null;
+  signed_document_path: string | null;
   activated_at: string | null;
   cancelled_at: string | null;
   created_by: string | null;
@@ -1030,6 +1030,153 @@ export const GATEWAY_PROVIDER_LABELS: Record<GatewayProvider, string> = {
   pagseguro: 'PagSeguro',
   mercadopago: 'Mercado Pago',
   sicredi: 'Sicredi',
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FINANCIAL — Descontos, Bolsas e Templates (v2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type DiscountScope = 'global' | 'group' | 'student';
+export type DiscountType = 'percentage' | 'fixed';
+
+export interface ProgressiveDiscountRule {
+  days_before_due: number;
+  percentage: number;
+}
+
+export interface FinancialDiscount {
+  id: string;
+  name: string;
+  description: string | null;
+  scope: DiscountScope;
+  plan_id: string | null;
+  segment_id: string | null;
+  class_id: string | null;
+  student_id: string | null;
+  discount_type: DiscountType;
+  discount_value: number;
+  progressive_rules: ProgressiveDiscountRule[];
+  valid_from: string | null;
+  valid_until: string | null;
+  reason: string | null;
+  priority: number;
+  is_cumulative: boolean;
+  school_year: number | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins opcionais
+  plan?: FinancialPlan | null;
+  segment?: { id: string; name: string } | null;
+  class_info?: { id: string; name: string } | null;
+  student?: { id: string; full_name: string } | null;
+}
+
+export type ScholarshipType = 'percentage' | 'fixed' | 'full';
+export type ScholarshipStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
+
+export interface FinancialScholarship {
+  id: string;
+  student_id: string;
+  name: string;
+  description: string | null;
+  scholarship_type: ScholarshipType;
+  scholarship_value: number;
+  valid_from: string;
+  valid_until: string;
+  category: string;
+  justification: string | null;
+  document_url: string | null;
+  status: ScholarshipStatus;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  school_year: number;
+  is_renewable: boolean;
+  renewed_from: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins opcionais
+  student?: { id: string; full_name: string } | null;
+}
+
+export type ContractTemplateType = 'contract' | 'receipt' | 'boleto' | 'enrollment_form' | 'termination';
+
+export interface ContractTemplateVariable {
+  key: string;
+  label: string;
+}
+
+export interface ContractTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  template_type: ContractTemplateType;
+  content: string;
+  variables: ContractTemplateVariable[];
+  style_config: Record<string, unknown>;
+  segment_ids: string[];
+  plan_ids: string[];
+  is_default: boolean;
+  is_active: boolean;
+  school_year: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const DISCOUNT_SCOPE_LABELS: Record<DiscountScope, string> = {
+  global: 'Global',
+  group: 'Grupo',
+  student: 'Aluno',
+};
+
+export const DISCOUNT_SCOPE_COLORS: Record<DiscountScope, string> = {
+  global: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  group: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+  student: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+};
+
+export const SCHOLARSHIP_STATUS_LABELS: Record<ScholarshipStatus, string> = {
+  pending: 'Pendente',
+  approved: 'Aprovada',
+  rejected: 'Rejeitada',
+  expired: 'Expirada',
+  cancelled: 'Cancelada',
+};
+
+export const SCHOLARSHIP_STATUS_COLORS: Record<ScholarshipStatus, string> = {
+  pending: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+  approved: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  rejected: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  expired: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+  cancelled: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+};
+
+export const SCHOLARSHIP_TYPE_LABELS: Record<ScholarshipType, string> = {
+  percentage: 'Porcentagem',
+  fixed: 'Valor fixo',
+  full: 'Integral (100%)',
+};
+
+export const SCHOLARSHIP_CATEGORY_LABELS: Record<string, string> = {
+  merito: 'Mérito',
+  social: 'Social',
+  filantropia: 'Filantropia',
+  convenio: 'Convênio',
+  irmao: 'Irmão',
+  funcionario: 'Funcionário',
+  outro: 'Outro',
+};
+
+export const CONTRACT_TEMPLATE_TYPE_LABELS: Record<ContractTemplateType, string> = {
+  contract: 'Contrato',
+  receipt: 'Recibo',
+  boleto: 'Boleto',
+  enrollment_form: 'Ficha de Matrícula',
+  termination: 'Rescisão',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

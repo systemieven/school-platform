@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useStudentAuth } from '../../contexts/StudentAuthContext';
 import {
-  Loader2, Wallet, Clock, AlertTriangle, CheckCircle2, Copy, Check, ExternalLink, Filter,
+  Loader2, Wallet, Clock, AlertTriangle, CheckCircle2, Copy, Check, ExternalLink, Filter, Gavel,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -20,6 +20,19 @@ interface Installment {
   boleto_url: string | null;
   pix_code: string | null;
   payment_link: string | null;
+  contract: { plan: { max_overdue_days: number } | null } | null;
+}
+
+function isExtrajudicial(inst: Installment): boolean {
+  if (inst.status === 'paid') return false;
+  const max = inst.contract?.plan?.max_overdue_days ?? 0;
+  if (max <= 0) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(inst.due_date + 'T00:00:00');
+  const limit = new Date(due);
+  limit.setDate(limit.getDate() + max);
+  return today > limit;
 }
 
 type StatusFilter = 'all' | 'pending' | 'overdue' | 'paid';
@@ -56,12 +69,12 @@ export default function FinanceiroPage() {
     Promise.all([
       supabase
         .from('financial_installments')
-        .select('id, installment_number, reference_month, due_date, amount, amount_with_discount, status, paid_at, paid_amount, payment_method, boleto_url, pix_code, payment_link')
+        .select('id, installment_number, reference_month, due_date, amount, amount_with_discount, status, paid_at, paid_amount, payment_method, boleto_url, pix_code, payment_link, contract:financial_contracts(plan:financial_plans(max_overdue_days))')
         .eq('student_id', student.id)
         .order('due_date'),
       supabase.rpc('get_pix_key'),
     ]).then(([inst, pix]) => {
-      setInstallments((inst.data ?? []) as Installment[]);
+      setInstallments((inst.data ?? []) as unknown as Installment[]);
       if (pix.data && typeof pix.data === 'object' && (pix.data as Record<string, string>).value) {
         setPixKey(pix.data as { type: string; value: string });
       }
@@ -73,6 +86,7 @@ export default function FinanceiroPage() {
   const pending  = installments.filter(i => i.status === 'pending');
   const overdue  = installments.filter(i => i.status === 'overdue');
   const paid     = installments.filter(i => i.status === 'paid');
+  const extrajudicial = installments.filter(isExtrajudicial);
 
   const totalPending = [...pending, ...overdue].reduce((s, i) => s + Number(i.amount), 0);
   const totalOverdue = overdue.reduce((s, i) => s + Number(i.amount), 0);
@@ -146,6 +160,21 @@ export default function FinanceiroPage() {
         </div>
       </div>
 
+      {/* Extrajudicial banner */}
+      {extrajudicial.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
+          <Gavel className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              {extrajudicial.length} parcela{extrajudicial.length > 1 && 's'} em cobrança extrajudicial
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+              O prazo para pagamento pelo portal expirou. Entre em contato com a secretaria da escola para regularização.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* PIX Copy */}
       {pixKey && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
@@ -205,6 +234,7 @@ export default function FinanceiroPage() {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {filtered.map(inst => {
                   const st = STATUS_MAP[inst.status] ?? STATUS_MAP.pending;
+                  const blocked = isExtrajudicial(inst);
                   return (
                     <tr key={inst.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
                       <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-200">
@@ -220,35 +250,48 @@ export default function FinanceiroPage() {
                         {fmt(Number(inst.amount))}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${st.color} ${st.bg}`}>
-                          {st.label}
-                        </span>
+                        {blocked ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30">
+                            <Gavel className="w-3 h-3" />
+                            Extrajudicial
+                          </span>
+                        ) : (
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${st.color} ${st.bg}`}>
+                            {st.label}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {inst.boleto_url && (
-                            <a
-                              href={inst.boleto_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              Boleto
-                            </a>
-                          )}
-                          {inst.payment_link && !inst.boleto_url && (
-                            <a
-                              href={inst.payment_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              Pagar
-                            </a>
-                          )}
-                        </div>
+                        {blocked ? (
+                          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                            Contate a secretaria
+                          </span>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1">
+                            {inst.boleto_url && (
+                              <a
+                                href={inst.boleto_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Boleto
+                              </a>
+                            )}
+                            {inst.payment_link && !inst.boleto_url && (
+                              <a
+                                href={inst.payment_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Pagar
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -261,15 +304,23 @@ export default function FinanceiroPage() {
           <div className="md:hidden space-y-3">
             {filtered.map(inst => {
               const st = STATUS_MAP[inst.status] ?? STATUS_MAP.pending;
+              const blocked = isExtrajudicial(inst);
               return (
                 <div key={inst.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                       Parcela {String(inst.installment_number).padStart(2, '0')}
                     </span>
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${st.color} ${st.bg}`}>
-                      {st.label}
-                    </span>
+                    {blocked ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30">
+                        <Gavel className="w-3 h-3" />
+                        Extrajudicial
+                      </span>
+                    ) : (
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${st.color} ${st.bg}`}>
+                        {st.label}
+                      </span>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <div>
@@ -291,7 +342,14 @@ export default function FinanceiroPage() {
                       </div>
                     )}
                   </div>
-                  {(inst.boleto_url || inst.payment_link) && (
+                  {blocked ? (
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
+                        <Gavel className="w-3 h-3" />
+                        Prazo expirado — contate a secretaria da escola
+                      </p>
+                    </div>
+                  ) : (inst.boleto_url || inst.payment_link) && (
                     <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                       <a
                         href={inst.boleto_url || inst.payment_link || '#'}

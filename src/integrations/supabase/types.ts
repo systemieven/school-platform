@@ -968,6 +968,68 @@ export type Database = {
           },
         ]
       }
+      contract_templates: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          plan_ids: string[]
+          school_year: number | null
+          segment_ids: string[]
+          style_config: Json
+          template_type: string
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          plan_ids?: string[]
+          school_year?: number | null
+          segment_ids?: string[]
+          style_config?: Json
+          template_type: string
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          plan_ids?: string[]
+          school_year?: number | null
+          segment_ids?: string[]
+          style_config?: Json
+          template_type?: string
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       disciplines: {
         Row: {
           code: string
@@ -1293,14 +1355,14 @@ export type Database = {
           cancelled_at: string | null
           created_at: string
           created_by: string | null
-          discount_type: string | null
-          discount_value: number | null
           gateway_id: string | null
           id: string
           net_amount: number | null
           notes: string | null
           plan_id: string
           school_year: number
+          signed_document_path: string | null
+          signed_document_url: string | null
           status: string
           student_id: string
           updated_at: string
@@ -1310,14 +1372,14 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
-          discount_type?: string | null
-          discount_value?: number | null
           gateway_id?: string | null
           id?: string
           net_amount?: number | null
           notes?: string | null
           plan_id: string
           school_year?: number
+          signed_document_path?: string | null
+          signed_document_url?: string | null
           status?: string
           student_id: string
           updated_at?: string
@@ -1327,14 +1389,14 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
-          discount_type?: string | null
-          discount_value?: number | null
           gateway_id?: string | null
           id?: string
           net_amount?: number | null
           notes?: string | null
           plan_id?: string
           school_year?: number
+          signed_document_path?: string | null
+          signed_document_url?: string | null
           status?: string
           student_id?: string
           updated_at?: string
@@ -1363,6 +1425,114 @@ export type Database = {
           },
           {
             foreignKeyName: "financial_contracts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_discounts: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean
+          is_cumulative: boolean
+          name: string
+          plan_id: string | null
+          priority: number
+          progressive_rules: Json
+          reason: string | null
+          school_year: number | null
+          scope: string
+          segment_id: string | null
+          student_id: string | null
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type: string
+          discount_value: number
+          id?: string
+          is_active?: boolean
+          is_cumulative?: boolean
+          name: string
+          plan_id?: string | null
+          priority?: number
+          progressive_rules?: Json
+          reason?: string | null
+          school_year?: number | null
+          scope: string
+          segment_id?: string | null
+          student_id?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          is_cumulative?: boolean
+          name?: string
+          plan_id?: string | null
+          priority?: number
+          progressive_rules?: Json
+          reason?: string | null
+          school_year?: number | null
+          scope?: string
+          segment_id?: string | null
+          student_id?: string | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_discounts_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "school_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_discounts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_discounts_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "financial_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_discounts_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "school_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_discounts_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
@@ -1527,13 +1697,13 @@ export type Database = {
           created_at: string
           description: string | null
           due_day: number
+          max_overdue_days: number
           id: string
           installments: number
           interest_rate_pct: number
           is_active: boolean
           late_fee_pct: number
           name: string
-          punctuality_discount_pct: number
           school_year: number
           segment_ids: string[]
           updated_at: string
@@ -1543,13 +1713,13 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_day?: number
+          max_overdue_days?: number
           id?: string
           installments?: number
           interest_rate_pct?: number
           is_active?: boolean
           late_fee_pct?: number
           name: string
-          punctuality_discount_pct?: number
           school_year?: number
           segment_ids?: string[]
           updated_at?: string
@@ -1559,18 +1729,119 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_day?: number
+          max_overdue_days?: number
           id?: string
           installments?: number
           interest_rate_pct?: number
           is_active?: boolean
           late_fee_pct?: number
           name?: string
-          punctuality_discount_pct?: number
           school_year?: number
           segment_ids?: string[]
           updated_at?: string
         }
         Relationships: []
+      }
+      financial_scholarships: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          document_url: string | null
+          id: string
+          is_renewable: boolean
+          justification: string | null
+          name: string
+          rejection_reason: string | null
+          renewed_from: string | null
+          scholarship_type: string
+          scholarship_value: number
+          school_year: number
+          status: string
+          student_id: string
+          updated_at: string
+          valid_from: string
+          valid_until: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_url?: string | null
+          id?: string
+          is_renewable?: boolean
+          justification?: string | null
+          name: string
+          rejection_reason?: string | null
+          renewed_from?: string | null
+          scholarship_type: string
+          scholarship_value?: number
+          school_year?: number
+          status?: string
+          student_id: string
+          updated_at?: string
+          valid_from: string
+          valid_until: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_url?: string | null
+          id?: string
+          is_renewable?: boolean
+          justification?: string | null
+          name?: string
+          rejection_reason?: string | null
+          renewed_from?: string | null
+          scholarship_type?: string
+          scholarship_value?: number
+          school_year?: number
+          status?: string
+          student_id?: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_scholarships_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_scholarships_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_scholarships_renewed_from_fkey"
+            columns: ["renewed_from"]
+            isOneToOne: false
+            referencedRelation: "financial_scholarships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_scholarships_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gateway_customers: {
         Row: {
@@ -3467,6 +3738,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_applicable_discounts:
+        | {
+            Args: {
+              p_amount: number
+              p_plan_id: string
+              p_ref_date?: string
+              p_student_id: string
+            }
+            Returns: {
+              discount_ids: string[]
+              scholarship_ids: string[]
+              total_discount: number
+            }[]
+          }
+        | {
+            Args: {
+              p_amount: number
+              p_due_date?: string
+              p_payment_date?: string
+              p_plan_id: string
+              p_ref_date?: string
+              p_student_id: string
+            }
+            Returns: {
+              discount_ids: string[]
+              scholarship_ids: string[]
+              total_discount: number
+            }[]
+          }
       calculate_overdue_amounts: {
         Args: { p_installment_id: string }
         Returns: {

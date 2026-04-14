@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, FileText, FileSignature, Receipt,
+  Percent, GraduationCap, FileCode2,
   PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import FinancialDashboardPage from './FinancialDashboardPage';
 import FinancialPlansPage from './FinancialPlansPage';
 import FinancialContractsPage from './FinancialContractsPage';
 import FinancialInstallmentsPage from './FinancialInstallmentsPage';
+import FinancialDiscountsPage from './FinancialDiscountsPage';
+import FinancialScholarshipsPage from './FinancialScholarshipsPage';
+import FinancialTemplatesPage from './FinancialTemplatesPage';
 
 interface TabDef {
   key: string;
@@ -44,6 +48,27 @@ const TABS: TabDef[] = [
     shortLabel: 'Cobranças',
     icon: Receipt,
     description: 'Parcelas, pagamentos e baixas manuais',
+  },
+  {
+    key: 'discounts',
+    label: 'Descontos',
+    shortLabel: 'Descontos',
+    icon: Percent,
+    description: 'Descontos globais, por grupo ou por aluno',
+  },
+  {
+    key: 'scholarships',
+    label: 'Bolsas',
+    shortLabel: 'Bolsas',
+    icon: GraduationCap,
+    description: 'Bolsas de estudo com validade e aprovação',
+  },
+  {
+    key: 'templates',
+    label: 'Templates de Documentos',
+    shortLabel: 'Templates',
+    icon: FileCode2,
+    description: 'Templates de contrato, recibo e boleto',
   },
 ];
 
@@ -141,6 +166,9 @@ export default function FinancialPage() {
               {activeTab === 'plans' && <FinancialPlansPage />}
               {activeTab === 'contracts' && <FinancialContractsPage />}
               {activeTab === 'installments' && <FinancialInstallmentsPage />}
+              {activeTab === 'discounts' && <FinancialDiscountsPage />}
+              {activeTab === 'scholarships' && <FinancialScholarshipsPage />}
+              {activeTab === 'templates' && <FinancialTemplatesPage />}
             </div>
           </div>
         </div>

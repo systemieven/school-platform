@@ -6,9 +6,10 @@ import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { usePermissions } from '../../contexts/PermissionsContext';
 import PermissionGate from '../../components/PermissionGate';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { BrandSlider } from '../../components/BrandSlider';
 import {
   FilePlus, Loader2, Pencil, Trash2, X, Save, Check,
-  FileText, DollarSign, Calendar, Percent, Tag, Info,
+  FileText, DollarSign, Calendar, Percent, Tag, Info, Clock,
 } from 'lucide-react';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -19,7 +20,7 @@ const EMPTY: Omit<FinancialPlan, 'id' | 'created_at' | 'updated_at'> = {
   amount: 0,
   installments: 12,
   due_day: 10,
-  punctuality_discount_pct: 0,
+  max_overdue_days: 0,
   late_fee_pct: 2,
   interest_rate_pct: 0.033,
   segment_ids: [],
@@ -82,7 +83,7 @@ export default function FinancialPlansPage() {
       amount: Number(editing.amount),
       installments: Number(editing.installments),
       due_day: Number(editing.due_day),
-      punctuality_discount_pct: Number(editing.punctuality_discount_pct),
+      max_overdue_days: Number(editing.max_overdue_days),
       late_fee_pct: Number(editing.late_fee_pct),
       interest_rate_pct: Number(editing.interest_rate_pct),
       segment_ids: editing.segment_ids,
@@ -165,12 +166,12 @@ export default function FinancialPlansPage() {
                   <span className="text-gray-700 dark:text-gray-300">{plan.installments}x de {fmt(plan.amount / plan.installments)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><Percent className="w-3.5 h-3.5" /> Desc. pontualidade</span>
-                  <span className="text-gray-700 dark:text-gray-300">{plan.punctuality_discount_pct}%</span>
-                </div>
-                <div className="flex items-center justify-between">
                   <span className="text-gray-500 dark:text-gray-400">Vencimento</span>
                   <span className="text-gray-700 dark:text-gray-300">Dia {plan.due_day}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Prazo portal</span>
+                  <span className="text-gray-700 dark:text-gray-300">{plan.max_overdue_days === 0 ? 'Sem limite' : `+${plan.max_overdue_days} dias`}</span>
                 </div>
               </div>
 
@@ -281,31 +282,47 @@ export default function FinancialPlansPage() {
                   <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Prévia</p>
                   <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
                     {editing.installments}x de {fmt(editing.amount / editing.installments)}
-                    {editing.punctuality_discount_pct > 0 && (
-                      <span className="text-emerald-600 dark:text-emerald-400"> — com desc: {fmt((editing.amount / editing.installments) * (1 - editing.punctuality_discount_pct / 100))}</span>
-                    )}
                   </p>
                 </div>
               )}
             </DrawerCard>
 
             <DrawerCard title="Multa e Juros" icon={Percent}>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Desc. pont. %</label>
-                  <input type="number" step="0.1" min="0" max="100" value={editing.punctuality_discount_pct} onChange={(e) => updateField('punctuality_discount_pct', Number(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm" />
-                </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Multa %</label>
                   <input type="number" step="0.1" min="0" value={editing.late_fee_pct} onChange={(e) => updateField('late_fee_pct', Number(e.target.value))}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm" />
+                  <p className="text-[11px] text-gray-400 mt-1">Aplicada uma única vez após o vencimento</p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Juros %/dia</label>
                   <input type="number" step="0.001" min="0" value={editing.interest_rate_pct} onChange={(e) => updateField('interest_rate_pct', Number(e.target.value))}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm" />
+                  <p className="text-[11px] text-gray-400 mt-1">Ex: 0,033% = ~1% ao mês</p>
                 </div>
+              </div>
+            </DrawerCard>
+
+            <DrawerCard title="Prazo de Pagamento" icon={Clock}>
+              <BrandSlider
+                label="Prazo máximo no portal"
+                value={editing.max_overdue_days}
+                onChange={(v) => updateField('max_overdue_days', v)}
+                min={0}
+                max={90}
+                step={10}
+                formatValue={(v) => (v === 0 ? 'Sem limite' : `${v} dias após vencimento`)}
+                minLabel="Sem limite"
+                maxLabel="90 dias"
+              />
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex items-start gap-2">
+                <Info className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-snug">
+                  {editing.max_overdue_days === 0
+                    ? 'O portal aceita pagamentos atrasados sem limite de tempo.'
+                    : <>Após <strong>{editing.max_overdue_days} dias</strong> do vencimento, o pagamento pelo portal é bloqueado e a parcela é encaminhada para <strong>cobrança extrajudicial</strong>.</>}
+                </p>
               </div>
             </DrawerCard>
 
