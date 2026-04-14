@@ -8,6 +8,7 @@ import GradesPage     from './pages/grades/GradesPage';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
 import LibraryPage    from './pages/library/LibraryPage';
 import EventsPage     from './pages/events/EventsPage';
+import FinanceiroPage from './pages/financeiro/FinanceiroPage';
 import ProfilePage    from './pages/profile/ProfilePage';
 
 export default function PortalRoutes() {
@@ -23,6 +24,7 @@ export default function PortalRoutes() {
           <Route path="comunicados" element={<AnnouncementsPage />} />
           <Route path="biblioteca"  element={<LibraryPage />} />
           <Route path="eventos"     element={<EventsPage />} />
+          <Route path="financeiro"  element={<FinanceiroPage />} />
           <Route path="perfil"      element={<ProfilePage />} />
           <Route path="*"           element={<Navigate to="/portal" replace />} />
         </Route>

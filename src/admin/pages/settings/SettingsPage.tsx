@@ -23,9 +23,10 @@ import {
   Users, User, FileText, Trash2, FileSearch,
   CalendarX2, Clock, Timer, ChevronDown, ChevronUp,
   Shield, CheckCircle2, TriangleAlert, Share2, Ticket, Instagram,
-  RotateCcw, Download,
+  RotateCcw, Download, DollarSign,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
+import FinancialSettingsPanel from './FinancialSettingsPanel';
 import SiteSettingsPanel, { type SiteTab, SITE_SUB_TABS } from './SiteSettingsPanel';
 import AuditLogsPage from '../audit/AuditLogsPage';
 import PermissionsPage from '../permissions/PermissionsPage';
@@ -137,6 +138,14 @@ const TABS: TabDef[] = [
     icon: FileSearch,
     categories: [],
     description: 'Visualize logs de ações realizadas no sistema.',
+  },
+  {
+    key: 'financial',
+    label: 'Financeiro',
+    shortLabel: 'Financeiro',
+    icon: DollarSign,
+    categories: ['financial'],
+    description: 'Gateways de pagamento, régua de cobrança e chave PIX.',
   },
 ];
 
@@ -402,7 +411,7 @@ export default function SettingsPage() {
   }
 
   // Tabs with their own custom panel never depend on the generic settings array
-  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit'];
+  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial'];
 
   // Tabs that have settings in the DB OR have a custom panel
   const availableTabs = TABS.filter(
@@ -594,7 +603,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit', 'financial'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
@@ -615,6 +624,8 @@ export default function SettingsPage() {
                 <div className="p-6"><PermissionsPage embedded /></div>
               ) : activeTab === 'audit' ? (
                 <div className="p-6"><AuditLogsPage embedded /></div>
+              ) : activeTab === 'financial' ? (
+                <FinancialSettingsPanel />
               ) : activeTab === 'institutional' ? (
                 <InstitutionalSettingsPanel
                   settings={tabSettings}

@@ -979,6 +979,8 @@ export interface PaymentGateway {
   is_active: boolean;
   is_default: boolean;
   environment: GatewayEnvironment;
+  credentials: Record<string, string>;
+  webhook_secret: string | null;
   supported_methods: string[];
   created_at: string;
   updated_at: string;
