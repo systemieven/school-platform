@@ -660,7 +660,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Floating save — generic tabs (notifications, etc.) */}
-          {!['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit'].includes(activeTab) && (
+          {!['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial'].includes(activeTab) && (
             <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
               tabHasChanges || saving || saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
             }`}>

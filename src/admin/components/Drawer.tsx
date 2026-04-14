@@ -135,7 +135,7 @@ export function Drawer({
 
         {/* Footer */}
         {footer && (
-          <div className="border-t border-gray-100 dark:border-gray-700 p-4 flex-shrink-0 bg-white dark:bg-gray-900">
+          <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-5 flex-shrink-0 bg-white dark:bg-gray-900">
             {footer}
           </div>
         )}

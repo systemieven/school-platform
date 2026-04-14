@@ -168,13 +168,10 @@ Deno.serve(async (req: Request) => {
       templateMap[t.id as string] = t;
     });
 
-    // ── Process each stage ──────────────────────────────────────────────────
+    // ── Process each stage → one campaign per stage ───────────────────────
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
-    let totalSent = 0;
-    let totalSkipped = 0;
-    let totalErrors = 0;
-    const results: Array<{ stage: string; sent: number; skipped: number; errors: number }> = [];
+    const results: Array<{ stage: string; recipients: number; skipped: number; folder_id?: string; error?: string }> = [];
 
     for (const stage of enabledStages) {
       const targetDate = stageTargetDate(stage.stage, today);
@@ -205,13 +202,21 @@ Deno.serve(async (req: Request) => {
         .in("status", statusFilter);
 
       if (!installments || installments.length === 0) {
-        results.push({ stage: stage.stage, sent: 0, skipped: 0, errors: 0 });
+        results.push({ stage: stage.stage, recipients: 0, skipped: 0 });
         continue;
       }
 
-      let stageSent = 0;
+      // Build campaign messages, filtering duplicates and missing phones
+      const campaignMessages: Array<{ number: string; text: string }> = [];
+      const loggedInstallments: Array<{ installment_id: string; recipient_phone: string; recipient_name: string }> = [];
       let stageSkipped = 0;
-      let stageErrors = 0;
+
+      const content = (template.content || {}) as Record<string, unknown>;
+      const body = (content.body as string) || "";
+      if (!body) {
+        results.push({ stage: stage.stage, recipients: 0, skipped: installments.length, error: "empty_template_body" });
+        continue;
+      }
 
       for (const inst of installments) {
         const student = inst.students as unknown as {
@@ -232,7 +237,6 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
-        // Determine recipient phone (guardian first, then student)
         const recipientPhone = student.guardian_phone || student.phone;
         if (!recipientPhone) {
           stageSkipped++;
@@ -244,7 +248,6 @@ Deno.serve(async (req: Request) => {
         const diffMs = today.getTime() - dueDate.getTime();
         const daysOverdue = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 
-        // Build variables
         const vars: Record<string, string> = {
           nome_aluno: student.full_name || "Aluno",
           responsavel: student.guardian_name || student.full_name || "Responsável",
@@ -260,107 +263,89 @@ Deno.serve(async (req: Request) => {
           current_date: new Date().toLocaleDateString("pt-BR"),
         };
 
-        const content = (template.content || {}) as Record<string, unknown>;
-        const body = (content.body as string) || "";
-        if (!body) { stageSkipped++; continue; }
-
         const rendered = render(body, vars);
         const phone = normalizePhone(recipientPhone);
 
-        // Create whatsapp_message_log
-        const { data: log } = await service
-          .from("whatsapp_message_log")
-          .insert({
-            template_id: template.id,
-            recipient_phone: recipientPhone,
-            recipient_name: student.guardian_name || student.full_name,
-            rendered_content: { body: rendered, type: "text" },
-            status: "queued",
-            related_module: "financeiro",
-            related_record_id: inst.id,
-            sent_by: null,
-          })
-          .select("id")
-          .single();
-
-        const logId = log?.id || "";
-
-        try {
-          const apiRes = await fetch(`${instanceUrl}/send/text`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", token: apiToken },
-            body: JSON.stringify({
-              number: phone,
-              text: rendered,
-              track_id: logId,
-              track_source: "colegio-batista",
-            }),
-          });
-
-          if (apiRes.ok) {
-            const apiData = await apiRes.json().catch(() => ({}));
-            const waKeyId = apiData?.messageid ||
-              (typeof apiData?.id === "string" ? apiData.id.split(":").pop() : undefined);
-
-            await service
-              .from("whatsapp_message_log")
-              .update({
-                status: "sent",
-                sent_at: new Date().toISOString(),
-                ...(waKeyId ? { wa_message_id: waKeyId } : {}),
-              })
-              .eq("id", logId);
-
-            // Log in financial_notification_log
-            await service.from("financial_notification_log").insert({
-              installment_id: inst.id,
-              trigger_type: stage.stage,
-              whatsapp_message_id: logId,
-            });
-
-            stageSent++;
-            console.log(`[financial-notify] Sent ${stage.stage} for installment ${inst.id} to ${phone}`);
-          } else {
-            const errBody = await apiRes.text().catch(() => "Unknown error");
-            await service
-              .from("whatsapp_message_log")
-              .update({ status: "failed", error_message: errBody })
-              .eq("id", logId);
-
-            await service.from("financial_notification_log").insert({
-              installment_id: inst.id,
-              trigger_type: stage.stage,
-              error_message: errBody,
-            });
-
-            stageErrors++;
-            console.error(`[financial-notify] Failed ${stage.stage} for ${inst.id}: ${errBody}`);
-          }
-        } catch (sendErr) {
-          await service
-            .from("whatsapp_message_log")
-            .update({ status: "failed", error_message: String(sendErr) })
-            .eq("id", logId);
-
-          await service.from("financial_notification_log").insert({
-            installment_id: inst.id,
-            trigger_type: stage.stage,
-            error_message: String(sendErr),
-          });
-
-          stageErrors++;
-          console.error(`[financial-notify] Error ${stage.stage} for ${inst.id}:`, sendErr);
-        }
+        campaignMessages.push({ number: phone, text: rendered });
+        loggedInstallments.push({
+          installment_id: inst.id,
+          recipient_phone: recipientPhone,
+          recipient_name: student.guardian_name || student.full_name,
+        });
       }
 
-      results.push({ stage: stage.stage, sent: stageSent, skipped: stageSkipped, errors: stageErrors });
-      totalSent += stageSent;
-      totalSkipped += stageSkipped;
-      totalErrors += stageErrors;
+      if (campaignMessages.length === 0) {
+        results.push({ stage: stage.stage, recipients: 0, skipped: stageSkipped });
+        continue;
+      }
+
+      // ── Pre-log to whatsapp_message_log ──────────────────────────────────
+      const folderName = `Cobrança ${stage.stage} — ${todayStr}`;
+      const logRows = campaignMessages.map((m, i) => ({
+        template_id: template.id,
+        recipient_phone: loggedInstallments[i].recipient_phone,
+        recipient_name: loggedInstallments[i].recipient_name,
+        rendered_content: { body: m.text, type: "text", campaign: folderName },
+        status: "queued",
+        related_module: "financeiro",
+        related_record_id: loggedInstallments[i].installment_id,
+        sent_by: null,
+      }));
+      await service.from("whatsapp_message_log").insert(logRows);
+
+      // ── Dispatch as campaign via /sender/advanced ────────────────────────
+      try {
+        const apiRes = await fetch(`${instanceUrl}/sender/advanced`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", token: apiToken },
+          body: JSON.stringify({
+            folder: folderName,
+            info: `Régua ${stage.stage}: ${campaignMessages.length} parcela(s) — ${stage.label || stage.stage}`,
+            delayMin: 5,
+            delayMax: 15,
+            messages: campaignMessages.map((m) => ({
+              number: m.number,
+              text: m.text,
+            })),
+          }),
+        });
+
+        const apiData = await apiRes.json().catch(() => ({}));
+        const folder_id = (apiData as Record<string, unknown>)?.folder_id as string | undefined;
+
+        if (apiRes.ok) {
+          // Log all installments in financial_notification_log
+          const notifRows = loggedInstallments.map((li) => ({
+            installment_id: li.installment_id,
+            trigger_type: stage.stage,
+          }));
+          await service.from("financial_notification_log").insert(notifRows);
+
+          results.push({ stage: stage.stage, recipients: campaignMessages.length, skipped: stageSkipped, folder_id });
+          console.log(`[financial-notify] Campaign created: ${folderName} (${campaignMessages.length} msgs, folder_id=${folder_id})`);
+        } else {
+          const errMsg = JSON.stringify(apiData);
+          results.push({ stage: stage.stage, recipients: 0, skipped: stageSkipped, error: errMsg });
+          console.error(`[financial-notify] Campaign failed for ${stage.stage}: ${errMsg}`);
+
+          // Mark logs as failed
+          await service
+            .from("whatsapp_message_log")
+            .update({ status: "failed", error_message: errMsg })
+            .in("related_record_id", loggedInstallments.map(li => li.installment_id))
+            .eq("related_module", "financeiro")
+            .eq("status", "queued");
+        }
+      } catch (sendErr) {
+        results.push({ stage: stage.stage, recipients: 0, skipped: stageSkipped, error: String(sendErr) });
+        console.error(`[financial-notify] Campaign error for ${stage.stage}:`, sendErr);
+      }
     }
 
-    console.log(`[financial-notify] Done: sent=${totalSent} skipped=${totalSkipped} errors=${totalErrors}`);
-    return json({ success: true, sent: totalSent, skipped: totalSkipped, errors: totalErrors, results });
+    const totalRecipients = results.reduce((s, r) => s + r.recipients, 0);
+    const totalSkipped = results.reduce((s, r) => s + r.skipped, 0);
+    console.log(`[financial-notify] Done: campaigns=${results.filter(r => r.folder_id).length} recipients=${totalRecipients} skipped=${totalSkipped}`);
+    return json({ success: true, campaigns: results.filter(r => r.folder_id).length, recipients: totalRecipients, skipped: totalSkipped, results });
   } catch (err) {
     console.error("[financial-notify] error:", err);
     return json({ error: "Internal server error", detail: String(err) }, 500);
