@@ -6,6 +6,8 @@ import type {
   AttendanceTicketStatus,
   AttendanceFeedback,
   AttendanceTransferHistoryEntry,
+  AttendanceQuestion,
+  AttendanceAnswerValue,
 } from '../../types/admin.types';
 import {
   Ticket,
@@ -21,6 +23,8 @@ import {
   LayoutGrid,
   History,
   ArrowRightLeft,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<AttendanceTicketStatus, { label: string; color: string; dot: string }> = {
@@ -104,6 +108,61 @@ interface VisitorTicketSummary {
   issued_at: string;
 }
 
+const EMOJI_LABELS: Record<number, string> = { 1: '😡', 2: '😞', 3: '😐', 4: '😊', 5: '😍' };
+
+function renderAnswerValue(type: string | undefined, value: AttendanceAnswerValue) {
+  if (value === null || value === undefined) return <span className="text-xs text-gray-400">—</span>;
+
+  // Yes/No
+  if (type === 'yes_no') {
+    const yes = value === 'sim' || value === 'yes' || value === true;
+    return (
+      <span className={`inline-flex items-center gap-1 text-xs font-medium ${yes ? 'text-emerald-600' : 'text-red-500'}`}>
+        {yes ? <ThumbsUp className="w-3 h-3" /> : <ThumbsDown className="w-3 h-3" />}
+        {yes ? 'Sim' : 'Não'}
+      </span>
+    );
+  }
+
+  // Rating (stars)
+  if (type === 'rating' && typeof value === 'number') {
+    return (
+      <div className="flex items-center gap-0.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star key={i} className={`w-3 h-3 ${i < value ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
+        ))}
+        <span className="ml-1 text-[10px] text-gray-500">{value}/5</span>
+      </div>
+    );
+  }
+
+  // Emoji
+  if (type === 'emoji' && typeof value === 'number') {
+    return <span className="text-sm">{EMOJI_LABELS[value] ?? value}</span>;
+  }
+
+  // Scale
+  if (type === 'scale' && typeof value === 'number') {
+    return <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{value}</span>;
+  }
+
+  // Multi-choice (array)
+  if (Array.isArray(value)) {
+    return (
+      <div className="flex flex-wrap gap-1">
+        {value.map((v, i) => (
+          <span key={i} className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-brand-primary/10 text-brand-primary dark:bg-blue-900/30 dark:text-blue-300">
+            {v}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  // Text / single_choice / fallback
+  return <span className="text-xs text-gray-700 dark:text-gray-200">{String(value)}</span>;
+}
+
 interface Props {
   ticket: AttendanceTicket | null;
   onClose: () => void;
@@ -112,6 +171,7 @@ interface Props {
 export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [feedback, setFeedback] = useState<AttendanceFeedback | null>(null);
+  const [feedbackQuestions, setFeedbackQuestions] = useState<AttendanceQuestion[]>([]);
   const [visitorHistory, setVisitorHistory] = useState<VisitorTicketSummary[]>([]);
   const [transferHistory, setTransferHistory] = useState<AttendanceTransferHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -170,9 +230,25 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
       const merged = [...att, ...apt].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
       setTimeline(merged);
-      setFeedback((fbRes.data as AttendanceFeedback | null) || null);
+      const fb = (fbRes.data as AttendanceFeedback | null) || null;
+      setFeedback(fb);
       setVisitorHistory((visitorRes.data as VisitorTicketSummary[]) || []);
       setTransferHistory((transferRes.data as AttendanceTransferHistoryEntry[]) || []);
+
+      // Load feedback question definitions when there are custom answers
+      if (fb && fb.answers && Object.keys(fb.answers).length > 0) {
+        const { data: settingsRow } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('category', 'attendance')
+          .eq('key', 'feedback')
+          .maybeSingle();
+        const cfg = settingsRow?.value as { questions?: AttendanceQuestion[] } | null;
+        setFeedbackQuestions(cfg?.questions ?? []);
+      } else {
+        setFeedbackQuestions([]);
+      }
+
       setLoading(false);
     };
 
@@ -335,6 +411,24 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
                 &ldquo;{feedback.comments}&rdquo;
               </p>
             )}
+
+            {/* Custom question answers */}
+            {feedback.answers && Object.keys(feedback.answers).length > 0 && (
+              <div className="space-y-2 pt-1 border-t border-gray-100 dark:border-gray-700/50">
+                <p className="text-[10px] font-semibold tracking-wider uppercase text-gray-400">Perguntas personalizadas</p>
+                {Object.entries(feedback.answers as Record<string, AttendanceAnswerValue>).map(([qId, value]) => {
+                  const question = feedbackQuestions.find((q) => q.id === qId);
+                  const label = question?.label || qId;
+                  return (
+                    <div key={qId} className="bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
+                      <p className="text-[10px] text-gray-400 mb-0.5">{label}</p>
+                      {renderAnswerValue(question?.type, value)}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <p className="text-[10px] text-gray-400">Enviado em {formatDateTime(feedback.submitted_at)}</p>
           </div>
         </DrawerCard>

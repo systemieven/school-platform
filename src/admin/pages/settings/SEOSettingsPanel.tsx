@@ -191,7 +191,7 @@ export default function SEOSettingsPanel() {
                 label="Palavras-chave"
                 value={page.keywords || ''}
                 onChange={(e) => update(key, 'keywords', e.target.value)}
-                placeholder="Ex: escola, educação, caruaru"
+                placeholder="Ex: escola, educação, ensino"
                 hint="Separadas por vírgula. Uso secundário para SEO."
               />
 

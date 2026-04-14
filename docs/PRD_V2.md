@@ -898,14 +898,14 @@ Configuravel na aba Aparencia > Home:
 
 ## 10. Pendencias e Roadmap Futuro
 
-### 10.1 Fase 6 — Governanca e Escala (CONCLUIDA — exceto F6.4)
+### 10.1 Fase 6 — Governanca e Escala (CONCLUIDA)
 
 | Item | Descricao | Prioridade | Status |
 |------|-----------|------------|--------|
 | **F6.1 Permissoes Granulares** | Tabelas `role_permissions` e `user_permission_overrides`; grid modulo x acao por role; override por usuario; preview de permissoes efetivas | Alta | ✅ Concluido (migration 26, PermissionsContext, PermissionsPage, PermissionGate) |
 | **F6.2 Gerenciamento de Modulos** | Interface on/off para modulos; mapa de dependencias; ocultar menu/bloquear rotas ao desabilitar | Media | ✅ Concluido (PermissionsPage aba Modulos, ModuleGuard, depends_on) |
 | **F6.3 Audit Logs Centralizados** | Tabela `audit_logs` unificada (usuario, acao, modulo, old/new data, IP, user-agent); interface de consulta; retencao configuravel | Media | ✅ Concluido (migration 27, logAudit em 10+ paginas, AuditLogsPage) |
-| **F6.4 Documentacao Tecnica** | API docs, guia de onboarding, runbook operacional, manual do usuario | Baixa | ⏳ Pendente |
+| **F6.4 Documentacao Tecnica** | API docs, guia de onboarding, runbook operacional, manual do usuario | Baixa | ⏳ Ultima etapa — sera feita ao final da v1 |
 
 ### 10.2 Fase 7 — Whitelabel: Personalizacao Total (CONCLUIDA)
 

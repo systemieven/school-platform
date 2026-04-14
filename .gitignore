@@ -7,5 +7,10 @@ dist
 .env.*
 !.env.example
 
+# Secrets e credenciais (qualquer arquivo de secrets/service-account)
+**/secrets*.json
+**/service-account*.json
+docs/batista_secrets_google.json
+
 # Claude Code — arquivos locais de sessão/ambiente
 .claude/

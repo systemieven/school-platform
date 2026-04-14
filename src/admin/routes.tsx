@@ -1,27 +1,45 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AdminAuthProvider } from './contexts/AdminAuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ModuleGuard from './components/ModuleGuard';
 import AdminLayout from './AdminLayout';
+import { Loader2 } from 'lucide-react';
+
+// Eager: auth pages (small, needed immediately)
 import LoginPage from './pages/login/LoginPage';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange';
-import DashboardPage from './pages/dashboard/DashboardPage';
-import SettingsPage from './pages/settings/SettingsPage';
-import AppointmentsPage from './pages/appointments/AppointmentsPage';
-import EnrollmentsPage from './pages/enrollments/EnrollmentsPage';
-import ContactsPage from './pages/contacts/ContactsPage';
-import KanbanPage from './pages/leads/KanbanPage';
-import ReportsPage from './pages/reports/ReportsPage';
-import SegmentsPage from './pages/school/SegmentsPage';
-import StudentsPage from './pages/school/StudentsPage';
-import StudentImportPage from './pages/school/StudentImportPage';
-import TeacherAreaPage from './pages/teacher/TeacherAreaPage';
-import LibraryPage from './pages/library/LibraryPage';
-import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
-import EventsPage from './pages/events/EventsPage';
-import AttendancePage from './pages/attendance/AttendancePage';
-import AttendanceHistoryPage from './pages/attendance/AttendanceHistoryPage';
-import TestimonialsPage from './pages/testimonials/TestimonialsPage';
+
+// Lazy: all admin pages
+const DashboardPage        = lazy(() => import('./pages/dashboard/DashboardPage'));
+const SettingsPage         = lazy(() => import('./pages/settings/SettingsPage'));
+const AppointmentsPage     = lazy(() => import('./pages/appointments/AppointmentsPage'));
+const EnrollmentsPage      = lazy(() => import('./pages/enrollments/EnrollmentsPage'));
+const ContactsPage         = lazy(() => import('./pages/contacts/ContactsPage'));
+const KanbanPage           = lazy(() => import('./pages/leads/KanbanPage'));
+const ReportsPage          = lazy(() => import('./pages/reports/ReportsPage'));
+const SegmentsPage         = lazy(() => import('./pages/school/SegmentsPage'));
+const StudentsPage         = lazy(() => import('./pages/school/StudentsPage'));
+const StudentImportPage    = lazy(() => import('./pages/school/StudentImportPage'));
+const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'));
+const LibraryPage          = lazy(() => import('./pages/library/LibraryPage'));
+const AnnouncementsPage    = lazy(() => import('./pages/announcements/AnnouncementsPage'));
+const EventsPage           = lazy(() => import('./pages/events/EventsPage'));
+const AttendancePage       = lazy(() => import('./pages/attendance/AttendancePage'));
+const AttendanceHistoryPage = lazy(() => import('./pages/attendance/AttendanceHistoryPage'));
+const TestimonialsPage     = lazy(() => import('./pages/testimonials/TestimonialsPage'));
+
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+    </div>
+  );
+}
+
+function LazyPage({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
+}
 
 export default function AdminRoutes() {
   return (
@@ -45,29 +63,29 @@ export default function AdminRoutes() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<ModuleGuard moduleKey="dashboard"><DashboardPage /></ModuleGuard>} />
+          <Route index element={<ModuleGuard moduleKey="dashboard"><LazyPage><DashboardPage /></LazyPage></ModuleGuard>} />
 
-          <Route path="agendamentos" element={<ModuleGuard moduleKey="appointments"><AppointmentsPage /></ModuleGuard>} />
-          <Route path="matriculas"   element={<ModuleGuard moduleKey="enrollments"><EnrollmentsPage /></ModuleGuard>} />
-          <Route path="contatos"     element={<ModuleGuard moduleKey="contacts"><ContactsPage /></ModuleGuard>} />
-          <Route path="atendimentos" element={<ModuleGuard moduleKey="attendance"><AttendancePage /></ModuleGuard>} />
-          <Route path="historico-atendimentos" element={<ModuleGuard moduleKey="attendance"><AttendanceHistoryPage /></ModuleGuard>} />
+          <Route path="agendamentos" element={<ModuleGuard moduleKey="appointments"><LazyPage><AppointmentsPage /></LazyPage></ModuleGuard>} />
+          <Route path="matriculas"   element={<ModuleGuard moduleKey="enrollments"><LazyPage><EnrollmentsPage /></LazyPage></ModuleGuard>} />
+          <Route path="contatos"     element={<ModuleGuard moduleKey="contacts"><LazyPage><ContactsPage /></LazyPage></ModuleGuard>} />
+          <Route path="atendimentos" element={<ModuleGuard moduleKey="attendance"><LazyPage><AttendancePage /></LazyPage></ModuleGuard>} />
+          <Route path="historico-atendimentos" element={<ModuleGuard moduleKey="attendance"><LazyPage><AttendanceHistoryPage /></LazyPage></ModuleGuard>} />
 
-          <Route path="leads/kanban" element={<ModuleGuard moduleKey="kanban"><KanbanPage /></ModuleGuard>} />
-          <Route path="relatorios"   element={<ModuleGuard moduleKey="reports"><ReportsPage /></ModuleGuard>} />
+          <Route path="leads/kanban" element={<ModuleGuard moduleKey="kanban"><LazyPage><KanbanPage /></LazyPage></ModuleGuard>} />
+          <Route path="relatorios"   element={<ModuleGuard moduleKey="reports"><LazyPage><ReportsPage /></LazyPage></ModuleGuard>} />
 
           {/* School */}
-          <Route path="segmentos"      element={<ModuleGuard moduleKey="segments"><SegmentsPage /></ModuleGuard>} />
-          <Route path="alunos"         element={<ModuleGuard moduleKey="students"><StudentsPage /></ModuleGuard>} />
-          <Route path="alunos/importar" element={<ModuleGuard moduleKey="students"><StudentImportPage /></ModuleGuard>} />
-          <Route path="area-professor" element={<ModuleGuard moduleKey="teacher-area"><TeacherAreaPage /></ModuleGuard>} />
-          <Route path="biblioteca"     element={<ModuleGuard moduleKey="library"><LibraryPage /></ModuleGuard>} />
-          <Route path="comunicados"    element={<ModuleGuard moduleKey="announcements"><AnnouncementsPage /></ModuleGuard>} />
-          <Route path="eventos"        element={<ModuleGuard moduleKey="events"><EventsPage /></ModuleGuard>} />
-          <Route path="depoimentos"   element={<ModuleGuard moduleKey="testimonials"><TestimonialsPage /></ModuleGuard>} />
+          <Route path="segmentos"      element={<ModuleGuard moduleKey="segments"><LazyPage><SegmentsPage /></LazyPage></ModuleGuard>} />
+          <Route path="alunos"         element={<ModuleGuard moduleKey="students"><LazyPage><StudentsPage /></LazyPage></ModuleGuard>} />
+          <Route path="alunos/importar" element={<ModuleGuard moduleKey="students"><LazyPage><StudentImportPage /></LazyPage></ModuleGuard>} />
+          <Route path="area-professor" element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherAreaPage /></LazyPage></ModuleGuard>} />
+          <Route path="biblioteca"     element={<ModuleGuard moduleKey="library"><LazyPage><LibraryPage /></LazyPage></ModuleGuard>} />
+          <Route path="comunicados"    element={<ModuleGuard moduleKey="announcements"><LazyPage><AnnouncementsPage /></LazyPage></ModuleGuard>} />
+          <Route path="eventos"        element={<ModuleGuard moduleKey="events"><LazyPage><EventsPage /></LazyPage></ModuleGuard>} />
+          <Route path="depoimentos"   element={<ModuleGuard moduleKey="testimonials"><LazyPage><TestimonialsPage /></LazyPage></ModuleGuard>} />
 
           {/* System */}
-          <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><SettingsPage /></ModuleGuard>} />
+          <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />
         </Route>
       </Routes>
     </AdminAuthProvider>
