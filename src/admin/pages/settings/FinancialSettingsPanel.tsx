@@ -212,7 +212,7 @@ export default function FinancialSettingsPanel() {
 
   async function handleSave() {
     setSaving(true);
-    const promises: Promise<unknown>[] = [];
+    const promises: PromiseLike<unknown>[] = [];
 
     // Save billing stages if changed
     if (JSON.stringify(stages) !== initialStages) {
@@ -221,7 +221,7 @@ export default function FinancialSettingsPanel() {
           category: 'financial',
           key: 'billing_stages',
           value: JSON.stringify(stages),
-        }, { onConflict: 'category,key' }),
+        }, { onConflict: 'category,key' }).then(),
       );
       logAudit({ action: 'update', module: 'settings', description: 'Régua de cobrança atualizada' });
     }
@@ -229,8 +229,8 @@ export default function FinancialSettingsPanel() {
     // Save PIX if changed
     if (pixType !== initialPixType || pixValue !== initialPixValue) {
       promises.push(
-        supabase.from('system_settings').upsert({ category: 'financial', key: 'pix_key_type', value: pixType }, { onConflict: 'category,key' }),
-        supabase.from('system_settings').upsert({ category: 'financial', key: 'pix_key_value', value: pixValue }, { onConflict: 'category,key' }),
+        supabase.from('system_settings').upsert({ category: 'financial', key: 'pix_key_type', value: pixType }, { onConflict: 'category,key' }).then(),
+        supabase.from('system_settings').upsert({ category: 'financial', key: 'pix_key_value', value: pixValue }, { onConflict: 'category,key' }).then(),
       );
       logAudit({ action: 'update', module: 'settings', description: 'Chave PIX atualizada' });
     }
