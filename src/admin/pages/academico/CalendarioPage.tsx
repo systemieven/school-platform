@@ -4,9 +4,22 @@ import type { SchoolCalendarEvent, CalendarEventType } from '../../types/admin.t
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } from '../../types/admin.types';
 import {
   Calendar, ChevronLeft, ChevronRight, Loader2, List, LayoutGrid,
-  Plus, Pencil, Trash2,
+  Plus, Pencil, Trash2, CalendarDays,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+
+// ── School event (from /admin/eventos) ──────────────────────────────────────
+interface SchoolEventRow {
+  id: string;
+  title: string;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  is_published: boolean;
+}
+
+const SCHOOL_EVENT_COLOR = 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400';
 
 // ── Native date helpers (replacing date-fns) ────────────────────────────────
 
@@ -116,6 +129,8 @@ export default function CalendarioPage() {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [segments, setSegments] = useState<{ id: string; name: string }[]>([]);
   const [filterSegment, setFilterSegment] = useState<string>('');
+  const [showSchoolEvents, setShowSchoolEvents] = useState(true);
+  const [schoolEvents, setSchoolEvents] = useState<SchoolEventRow[]>([]);
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -151,10 +166,24 @@ export default function CalendarioPage() {
     setSegments(data ?? []);
   }, []);
 
+  const fetchSchoolEvents = useCallback(async () => {
+    const yearStart = `${schoolYear}-01-01`;
+    const yearEnd = `${schoolYear}-12-31`;
+    const { data } = await supabase
+      .from('school_events')
+      .select('id, title, event_date, start_time, end_time, location, is_published')
+      .gte('event_date', yearStart)
+      .lte('event_date', yearEnd)
+      .eq('is_published', true)
+      .order('event_date');
+    setSchoolEvents(data ?? []);
+  }, [schoolYear]);
+
   useEffect(() => {
     fetchEvents();
     fetchSegments();
-  }, [fetchEvents, fetchSegments]);
+    fetchSchoolEvents();
+  }, [fetchEvents, fetchSegments, fetchSchoolEvents]);
 
   // ── Filtered events ─────────────────────────────────────────────────────────
   const filtered = filterSegment
@@ -174,6 +203,12 @@ export default function CalendarioPage() {
       const end = parseISO(e.end_date);
       return day >= start && day <= end;
     });
+  }
+
+  function schoolEventsForDay(day: Date): SchoolEventRow[] {
+    if (!showSchoolEvents) return [];
+    const iso = formatDateISO(day);
+    return schoolEvents.filter((e) => e.event_date === iso);
   }
 
   // ── Drawer handlers ─────────────────────────────────────────────────────────
@@ -304,6 +339,19 @@ export default function CalendarioPage() {
             ))}
           </select>
 
+          <button
+            onClick={() => setShowSchoolEvents(!showSchoolEvents)}
+            title={showSchoolEvents ? 'Ocultar eventos institucionais' : 'Mostrar eventos institucionais'}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border transition-colors ${
+              showSchoolEvents
+                ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
+                : 'border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            Eventos
+          </button>
+
           <div className="flex rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden">
             <button
               onClick={() => setView('grid')}
@@ -344,7 +392,12 @@ export default function CalendarioPage() {
           {/* Day cells */}
           <div className="grid grid-cols-7">
             {gridDays.map((day) => {
-              const dayEvents = eventsForDay(day);
+              const dayCalEvents = eventsForDay(day);
+              const daySchoolEvts = schoolEventsForDay(day);
+              const allChips = [
+                ...dayCalEvents.map((ev) => ({ key: ev.id, title: ev.title, color: EVENT_TYPE_COLORS[ev.type], editable: true as const, event: ev })),
+                ...daySchoolEvts.map((ev) => ({ key: `se-${ev.id}`, title: `📅 ${ev.title}`, color: SCHOOL_EVENT_COLOR, editable: false as const, event: null })),
+              ];
               const inMonth = isSameMonth(day, currentDate);
               const today = isTodayDate(day);
 
@@ -362,21 +415,21 @@ export default function CalendarioPage() {
                     {day.getDate()}
                   </div>
                   <div className="space-y-0.5">
-                    {dayEvents.slice(0, 3).map((ev) => (
+                    {allChips.slice(0, 3).map((chip) => (
                       <button
-                        key={ev.id}
+                        key={chip.key}
                         onClick={(e) => {
                           e.stopPropagation();
-                          openEditEvent(ev);
+                          if (chip.editable && chip.event) openEditEvent(chip.event);
                         }}
-                        className={`w-full text-left text-[10px] leading-tight px-1.5 py-0.5 rounded truncate ${EVENT_TYPE_COLORS[ev.type]}`}
+                        className={`w-full text-left text-[10px] leading-tight px-1.5 py-0.5 rounded truncate ${chip.color} ${!chip.editable ? 'cursor-default opacity-80' : ''}`}
                       >
-                        {ev.title}
+                        {chip.title}
                       </button>
                     ))}
-                    {dayEvents.length > 3 && (
+                    {allChips.length > 3 && (
                       <span className="text-[10px] text-gray-400 dark:text-gray-500 pl-1">
-                        +{dayEvents.length - 3}
+                        +{allChips.length - 3}
                       </span>
                     )}
                   </div>
@@ -388,37 +441,79 @@ export default function CalendarioPage() {
       )}
 
       {/* List view */}
-      {view === 'list' && (
-        <div className="space-y-2">
-          {filtered.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
-              <Calendar className="w-10 h-10 mb-2 opacity-40" />
-              <p className="text-sm">Nenhum evento neste ano</p>
-            </div>
-          )}
-          {filtered.map((ev) => (
-            <div
-              key={ev.id}
-              onClick={() => openEditEvent(ev)}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-brand-primary/30 dark:hover:border-brand-primary/30 cursor-pointer transition-colors"
-            >
-              <div className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${EVENT_TYPE_COLORS[ev.type]}`}>
-                {EVENT_TYPE_LABELS[ev.type]}
+      {view === 'list' && (() => {
+        // Merge calendar events + school events into a single sorted list
+        type ListItem =
+          | { kind: 'calendar'; ev: SchoolCalendarEvent; sortDate: string }
+          | { kind: 'school'; ev: SchoolEventRow; sortDate: string };
+
+        const listItems: ListItem[] = [
+          ...filtered.map((ev): ListItem => ({ kind: 'calendar', ev, sortDate: ev.start_date })),
+          ...(showSchoolEvents
+            ? schoolEvents.map((ev): ListItem => ({ kind: 'school', ev, sortDate: ev.event_date }))
+            : []),
+        ].sort((a, b) => a.sortDate.localeCompare(b.sortDate));
+
+        return (
+          <div className="space-y-2">
+            {listItems.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
+                <Calendar className="w-10 h-10 mb-2 opacity-40" />
+                <p className="text-sm">Nenhum evento neste ano</p>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{ev.title}</p>
-                {ev.description && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{ev.description}</p>
-                )}
-              </div>
-              <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
-                {formatDayMonth(parseISO(ev.start_date))}
-                {ev.start_date !== ev.end_date && ` – ${formatDayMonth(parseISO(ev.end_date))}`}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+            {listItems.map((item) => {
+              if (item.kind === 'calendar') {
+                const ev = item.ev;
+                return (
+                  <div
+                    key={ev.id}
+                    onClick={() => openEditEvent(ev)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-brand-primary/30 dark:hover:border-brand-primary/30 cursor-pointer transition-colors"
+                  >
+                    <div className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${EVENT_TYPE_COLORS[ev.type]}`}>
+                      {EVENT_TYPE_LABELS[ev.type]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{ev.title}</p>
+                      {ev.description && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{ev.description}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                      {formatDayMonth(parseISO(ev.start_date))}
+                      {ev.start_date !== ev.end_date && ` – ${formatDayMonth(parseISO(ev.end_date))}`}
+                    </span>
+                  </div>
+                );
+              }
+              // School event (read-only, indigo)
+              const ev = item.ev;
+              return (
+                <div
+                  key={`se-${ev.id}`}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl border border-indigo-100 dark:border-indigo-800/40 bg-indigo-50/50 dark:bg-indigo-900/10 opacity-80"
+                >
+                  <div className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${SCHOOL_EVENT_COLOR}`}>
+                    📅 Evento
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300 truncate">{ev.title}</p>
+                    {ev.location && (
+                      <p className="text-xs text-indigo-400 dark:text-indigo-500 truncate">{ev.location}</p>
+                    )}
+                  </div>
+                  <span className="text-xs text-indigo-400 dark:text-indigo-500 whitespace-nowrap">
+                    {formatDayMonth(parseISO(ev.event_date))}
+                    {ev.start_time && ` ${ev.start_time.slice(0, 5)}`}
+                    {ev.end_time && `–${ev.end_time.slice(0, 5)}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Drawer */}
       <Drawer

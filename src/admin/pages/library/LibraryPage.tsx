@@ -423,7 +423,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
           </SettingsCard>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+        <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
           <button onClick={save} disabled={saving || uploading}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors">
             {(saving || uploading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

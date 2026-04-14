@@ -750,7 +750,7 @@ export default function CreateStudentDrawer({ onClose, onCreated }: Props) {
         </form>
 
         {/* ── Footer ── */}
-        <footer className="px-6 py-4 border-t border-gray-100 dark:border-gray-700/60">
+        <footer className="p-5 border-t border-gray-100 dark:border-gray-700/60 flex-shrink-0">
           <button
             type="submit"
             disabled={saving}
