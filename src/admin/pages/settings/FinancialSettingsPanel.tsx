@@ -10,6 +10,7 @@ import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { Toggle } from '../../components/Toggle';
 import type { PaymentGateway, GatewayProvider, GatewayEnvironment } from '../../types/admin.types';
 import { GATEWAY_PROVIDER_LABELS } from '../../types/admin.types';
 import {
@@ -36,6 +37,148 @@ function generateWebhookSecret(): string {
 function buildWebhookUrl(provider: string, gatewayId: string): string {
   return `${WEBHOOK_BASE}?provider=${provider}&gateway_id=${gatewayId}`;
 }
+
+// ── Gateway webhook configuration guides ─────────────────────────────────────
+// Orienta o usuário a registrar a URL do webhook no painel de cada provedor.
+// `implemented=true` indica que o backend já possui adapter funcional (hoje só Asaas).
+
+interface GatewayGuide {
+  panelPath: string;        // Caminho no painel do provedor
+  authField: string;        // Nome do campo no painel para colar o Auth Token
+  steps: string[];          // Passos extras depois de URL + Auth Token
+  events: string[];         // Eventos recomendados / obrigatórios
+  eventsNote?: string;      // Observação sobre seleção de eventos
+  implemented: boolean;     // Backend já possui adapter para este provedor?
+  notes?: string;           // Observação adicional (aparece no rodapé)
+}
+
+const GATEWAY_GUIDES: Partial<Record<GatewayProvider, GatewayGuide>> = {
+  asaas: {
+    panelPath: 'Integrações → Webhooks → Adicionar Webhook',
+    authField: 'Token de autenticação',
+    steps: [
+      'Em Versão da API, selecione v3.',
+      'Mantenha o status "Habilitado" e a fila "Sequencial".',
+    ],
+    events: [
+      'PAYMENT_CONFIRMED',
+      'PAYMENT_RECEIVED',
+      'PAYMENT_OVERDUE',
+      'PAYMENT_DELETED',
+      'PAYMENT_REFUNDED',
+      'PAYMENT_UPDATED',
+    ],
+    eventsNote: 'Marque apenas os eventos abaixo — os demais são ignorados.',
+    implemented: true,
+    notes: 'Regerar o Auth Token invalida o webhook atual — atualize o token no painel Asaas após regerar.',
+  },
+  iugu: {
+    panelPath: 'Administração → Web Hooks → Novo Web Hook',
+    authField: 'Autenticação HTTP (usuário / senha)',
+    steps: [
+      'Defina o gatilho (evento) em cada Web Hook — a Iugu cria um registro por evento.',
+      'Use o Auth Token como senha do HTTP Basic (usuário pode ficar em branco).',
+    ],
+    events: [
+      'invoice.created',
+      'invoice.status_changed',
+      'invoice.payment_failed',
+      'invoice.refund',
+    ],
+    eventsNote: 'Crie um Web Hook para cada gatilho acima.',
+    implemented: false,
+  },
+  pagarme: {
+    panelPath: 'Dashboard → Configurações → Postbacks / Webhooks',
+    authField: 'Secret Key (HMAC)',
+    steps: [
+      'O Pagar.me assina o corpo com HMAC SHA1 no header X-Hub-Signature.',
+      'Cole o Auth Token no campo de chave usada para gerar a assinatura.',
+    ],
+    events: [
+      'order.paid',
+      'order.payment_failed',
+      'order.canceled',
+      'charge.paid',
+      'charge.refunded',
+    ],
+    implemented: false,
+  },
+  mercadopago: {
+    panelPath: 'Desenvolvedores → Suas integrações → Webhooks',
+    authField: 'Chave secreta (x-signature)',
+    steps: [
+      'Selecione "Modo de produção" apenas após testar em sandbox.',
+      'O Mercado Pago envia a assinatura no header x-signature — o backend valida com o Auth Token.',
+    ],
+    events: [
+      'payment',
+      'merchant_order',
+    ],
+    eventsNote: 'Habilite ao menos o tópico "payment".',
+    implemented: false,
+  },
+  vindi: {
+    panelPath: 'Configurações → Webhooks → Novo webhook',
+    authField: 'Autenticação (usuário / senha)',
+    steps: [
+      'A Vindi envia HTTP Basic — use o Auth Token como senha.',
+    ],
+    events: [
+      'bill_created',
+      'bill_paid',
+      'charge_rejected',
+      'subscription_canceled',
+    ],
+    implemented: false,
+  },
+  efi: {
+    panelPath: 'API Efí — endpoint PUT /v1/notification/webhook',
+    authField: 'Certificado mTLS (P12) + Auth Token como query string',
+    steps: [
+      'Efí exige certificado mTLS (.p12) enviado na requisição de configuração.',
+      'O webhook é registrado via API, não pelo painel web.',
+      'Anexe o Auth Token como ?hmac= na URL do webhook para validação adicional.',
+    ],
+    events: [
+      'Cobranças PIX',
+      'Boletos registrados',
+    ],
+    eventsNote: 'Efí envia todos os eventos de cobrança para o mesmo endpoint.',
+    implemented: false,
+    notes: 'O adapter Efí precisa ser implementado no backend antes de usar este gateway em produção.',
+  },
+  pagseguro: {
+    panelPath: 'Integrações → Notificações / Webhooks',
+    authField: 'Token de autenticação',
+    steps: [
+      'Habilite notificações em tempo real no painel.',
+      'PagSeguro envia o código da transação e exige chamada de volta à API para detalhes.',
+    ],
+    events: [
+      'Transação aprovada',
+      'Transação cancelada',
+      'Transação estornada',
+    ],
+    implemented: false,
+  },
+  sicredi: {
+    panelPath: 'Integração via Gerente de Conta — requer certificado digital',
+    authField: 'Certificado mTLS fornecido pelo Sicredi',
+    steps: [
+      'A integração Sicredi é contratada via gerente de conta PJ.',
+      'O banco fornece o certificado mTLS e documenta o formato do webhook.',
+      'Após configurado, cole o Auth Token no header combinado com o banco.',
+    ],
+    events: [
+      'Boleto pago',
+      'Boleto baixado',
+      'PIX recebido',
+    ],
+    implemented: false,
+    notes: 'Exige certificado digital e contrato com a cooperativa — não pode ser configurado apenas pelo painel.',
+  },
+};
 
 // ── Billing stage config ─────────────────────────────────────────────────────
 
@@ -80,6 +223,58 @@ const PAYMENT_METHODS = [
   { value: 'credit_card', label: 'Cartão de Crédito' },
   { value: 'debit_card', label: 'Cartão de Débito' },
 ];
+
+// ── GatewayGuideBlock ────────────────────────────────────────────────────────
+// Bloco de instruções de webhook por provedor (data-driven via GATEWAY_GUIDES).
+
+function GatewayGuideBlock({ provider, guide }: { provider: GatewayProvider; guide: GatewayGuide }) {
+  const providerLabel = GATEWAY_PROVIDER_LABELS[provider];
+  return (
+    <div className="text-[11px] text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 space-y-2 leading-relaxed">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+          <Webhook className="w-3 h-3" /> Como configurar no {providerLabel}
+        </p>
+        {!guide.implemented && (
+          <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
+            Adapter pendente
+          </span>
+        )}
+      </div>
+
+      {!guide.implemented && (
+        <p className="text-[10px] text-amber-700 dark:text-amber-300">
+          O backend ainda não possui adapter para este provedor. As instruções abaixo servem como referência,
+          mas o webhook só processará eventos após a implementação do adapter.
+        </p>
+      )}
+
+      <ol className="list-decimal list-inside space-y-1 pl-1">
+        <li>Acesse <strong>{guide.panelPath}</strong>.</li>
+        <li>Cole a <strong>URL do Webhook</strong> acima no campo de URL do provedor.</li>
+        <li>Cole o <strong>Auth Token</strong> acima no campo <em>{guide.authField}</em>.</li>
+        {guide.steps.map((step, i) => (
+          <li key={i}>{step}</li>
+        ))}
+        {guide.events.length > 0 && (
+          <li>
+            {guide.eventsNote ?? 'Marque os seguintes eventos:'}
+            <ul className="mt-1 ml-4 list-disc space-y-0.5 font-mono text-[10px]">
+              {guide.events.map((ev) => (
+                <li key={ev}>{ev}</li>
+              ))}
+            </ul>
+          </li>
+        )}
+        <li>Salve. O {providerLabel} começará a enviar eventos para a URL acima.</li>
+      </ol>
+
+      <p className="text-[10px] text-gray-400 pt-1 border-t border-blue-200 dark:border-blue-800">
+        {guide.notes ?? 'Regerar o Auth Token invalida o webhook atual — atualize o token no painel do provedor após regerar.'}
+      </p>
+    </div>
+  );
+}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -562,21 +757,19 @@ export default function FinancialSettingsPanel() {
                   <option value="production">Produção</option>
                 </select>
               </div>
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <div className={`relative w-10 h-5 rounded-full transition-colors ${editingGw.is_active ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                    onClick={() => setEditingGw({ ...editingGw, is_active: !editingGw.is_active })}>
-                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${editingGw.is_active ? 'translate-x-5' : ''}`} />
-                  </div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Ativo</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <div className={`relative w-10 h-5 rounded-full transition-colors ${editingGw.is_default ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                    onClick={() => setEditingGw({ ...editingGw, is_default: !editingGw.is_default })}>
-                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${editingGw.is_default ? 'translate-x-5' : ''}`} />
-                  </div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Padrão</span>
-                </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <Toggle
+                  checked={!!editingGw.is_active}
+                  onChange={(v) => setEditingGw({ ...editingGw, is_active: v })}
+                  label="Ativo"
+                  description="Habilita este gateway para processar cobranças."
+                />
+                <Toggle
+                  checked={!!editingGw.is_default}
+                  onChange={(v) => setEditingGw({ ...editingGw, is_default: v })}
+                  label="Padrão"
+                  description="Usado por padrão em novas cobranças."
+                />
               </div>
             </DrawerCard>
 
@@ -649,33 +842,11 @@ export default function FinancialSettingsPanel() {
                   </div>
                 </div>
 
-                {editingGw.provider === 'asaas' && (
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 space-y-2 leading-relaxed">
-                    <p className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                      <Webhook className="w-3 h-3" /> Como configurar no Asaas
-                    </p>
-                    <ol className="list-decimal list-inside space-y-1 pl-1">
-                      <li>Acesse o painel Asaas → <strong>Integrações</strong> → <strong>Webhooks</strong> → <em>Adicionar Webhook</em>.</li>
-                      <li>Cole a <strong>URL do Webhook</strong> acima no campo <em>URL</em>.</li>
-                      <li>Cole o <strong>Auth Token</strong> acima no campo <em>Token de autenticação</em>.</li>
-                      <li>Em <em>Versão da API</em>, selecione <strong>v3</strong>.</li>
-                      <li>
-                        Em <em>Eventos</em>, marque <strong>apenas</strong>:
-                        <ul className="mt-1 ml-4 list-disc space-y-0.5 font-mono text-[10px]">
-                          <li>PAYMENT_CONFIRMED</li>
-                          <li>PAYMENT_RECEIVED</li>
-                          <li>PAYMENT_OVERDUE</li>
-                          <li>PAYMENT_DELETED</li>
-                          <li>PAYMENT_REFUNDED</li>
-                          <li>PAYMENT_UPDATED</li>
-                        </ul>
-                      </li>
-                      <li>Salve. O Asaas começará a enviar eventos para a URL acima.</li>
-                    </ol>
-                    <p className="text-[10px] text-gray-400 pt-1 border-t border-blue-200 dark:border-blue-800">
-                      Regerar o Auth Token invalida o webhook atual — você precisará atualizar o token no painel Asaas.
-                    </p>
-                  </div>
+                {editingGw.provider && GATEWAY_GUIDES[editingGw.provider] && (
+                  <GatewayGuideBlock
+                    provider={editingGw.provider}
+                    guide={GATEWAY_GUIDES[editingGw.provider]!}
+                  />
                 )}
               </DrawerCard>
             )}
