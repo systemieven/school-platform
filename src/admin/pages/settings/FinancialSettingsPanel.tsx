@@ -16,7 +16,26 @@ import {
   CreditCard, Loader2, Save, Check, Pencil, Trash2,
   X, ToggleLeft, ToggleRight, Zap, QrCode,
   Shield, Tag, Settings, Star, Wifi, WifiOff,
+  Webhook, Copy, RefreshCcw, ExternalLink,
 } from 'lucide-react';
+
+// Webhook endpoint base (same host used by the supabase client)
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const WEBHOOK_BASE = `${SUPABASE_URL}/functions/v1/payment-gateway-webhook`;
+
+/** Generate a 36-char UUID-style webhook secret */
+function generateWebhookSecret(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback
+  return Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+}
+
+/** Build webhook URL for a saved gateway */
+function buildWebhookUrl(provider: string, gatewayId: string): string {
+  return `${WEBHOOK_BASE}?provider=${provider}&gateway_id=${gatewayId}`;
+}
 
 // ── Billing stage config ─────────────────────────────────────────────────────
 
@@ -73,6 +92,8 @@ export default function FinancialSettingsPanel() {
   const [gwSaving, setGwSaving] = useState(false);
   const [gwSaved, setGwSaved] = useState(false);
   const [deleteGwId, setDeleteGwId] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
   const gwSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Billing stages
@@ -155,11 +176,30 @@ export default function FinancialSettingsPanel() {
       label: '',
       environment: 'sandbox' as GatewayEnvironment,
       credentials: {},
+      webhook_secret: generateWebhookSecret(),
       is_active: true,
       is_default: false,
       supported_methods: ['pix', 'boleto'],
     });
     setIsNewGw(true);
+  }
+
+  function regenerateSecret() {
+    if (!editingGw) return;
+    setEditingGw({ ...editingGw, webhook_secret: generateWebhookSecret() });
+  }
+
+  async function copyToClipboard(text: string, target: 'url' | 'secret') {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch { /* ignore */ }
+    if (target === 'url') {
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 1500);
+    } else {
+      setCopiedSecret(true);
+      setTimeout(() => setCopiedSecret(false), 1500);
+    }
   }
 
   function openEditGw(gw: PaymentGateway) {
@@ -181,6 +221,7 @@ export default function FinancialSettingsPanel() {
       label: editingGw.label!,
       environment: editingGw.environment!,
       credentials: editingGw.credentials || {},
+      webhook_secret: editingGw.webhook_secret || null,
       is_active: editingGw.is_active ?? true,
       is_default: editingGw.is_default ?? false,
       supported_methods: editingGw.supported_methods || [],
@@ -551,6 +592,89 @@ export default function FinancialSettingsPanel() {
                     <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Wallet ID (opcional)</label>
                     <input value={editingGw.credentials?.wallet_id || ''} onChange={(e) => setEditingGw({ ...editingGw, credentials: { ...editingGw.credentials, wallet_id: e.target.value } })} placeholder="Seu wallet ID"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none" />
+                  </div>
+                )}
+              </DrawerCard>
+            )}
+
+            {editingGw.provider !== 'manual' && (
+              <DrawerCard title="Webhook" icon={Webhook}>
+                {isNewGw || !editingGw.id ? (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+                    Salve o gateway primeiro para gerar a URL do webhook. O Auth Token já foi gerado abaixo.
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">URL do Webhook</label>
+                    <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2">
+                      <ExternalLink className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                      <code className="text-[11px] text-gray-600 dark:text-gray-400 flex-1 truncate select-all">
+                        {buildWebhookUrl(editingGw.provider!, editingGw.id)}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(buildWebhookUrl(editingGw.provider!, editingGw.id!), 'url')}
+                        title="Copiar URL"
+                        className={`flex-shrink-0 p-1 rounded transition-colors ${copiedUrl ? 'text-emerald-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                      >
+                        {copiedUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Auth Token (validação)</label>
+                  <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2">
+                    <Shield className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    <code className="text-[11px] text-gray-600 dark:text-gray-400 flex-1 truncate select-all font-mono">
+                      {editingGw.webhook_secret || '—'}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => editingGw.webhook_secret && copyToClipboard(editingGw.webhook_secret, 'secret')}
+                      title="Copiar token"
+                      className={`flex-shrink-0 p-1 rounded transition-colors ${copiedSecret ? 'text-emerald-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                    >
+                      {copiedSecret ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={regenerateSecret}
+                      title="Gerar novo token"
+                      className="flex-shrink-0 p-1 rounded text-gray-400 hover:text-brand-primary transition-colors"
+                    >
+                      <RefreshCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {editingGw.provider === 'asaas' && (
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 space-y-2 leading-relaxed">
+                    <p className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                      <Webhook className="w-3 h-3" /> Como configurar no Asaas
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 pl-1">
+                      <li>Acesse o painel Asaas → <strong>Integrações</strong> → <strong>Webhooks</strong> → <em>Adicionar Webhook</em>.</li>
+                      <li>Cole a <strong>URL do Webhook</strong> acima no campo <em>URL</em>.</li>
+                      <li>Cole o <strong>Auth Token</strong> acima no campo <em>Token de autenticação</em>.</li>
+                      <li>Em <em>Versão da API</em>, selecione <strong>v3</strong>.</li>
+                      <li>
+                        Em <em>Eventos</em>, marque <strong>apenas</strong>:
+                        <ul className="mt-1 ml-4 list-disc space-y-0.5 font-mono text-[10px]">
+                          <li>PAYMENT_CONFIRMED</li>
+                          <li>PAYMENT_RECEIVED</li>
+                          <li>PAYMENT_OVERDUE</li>
+                          <li>PAYMENT_DELETED</li>
+                          <li>PAYMENT_REFUNDED</li>
+                          <li>PAYMENT_UPDATED</li>
+                        </ul>
+                      </li>
+                      <li>Salve. O Asaas começará a enviar eventos para a URL acima.</li>
+                    </ol>
+                    <p className="text-[10px] text-gray-400 pt-1 border-t border-blue-200 dark:border-blue-800">
+                      Regerar o Auth Token invalida o webhook atual — você precisará atualizar o token no painel Asaas.
+                    </p>
                   </div>
                 )}
               </DrawerCard>
