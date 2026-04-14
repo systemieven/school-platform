@@ -248,64 +248,6 @@ export type Database = {
           },
         ]
       }
-      attendance: {
-        Row: {
-          class_id: string
-          created_at: string
-          created_by: string
-          date: string
-          id: string
-          notes: string | null
-          status: string
-          student_id: string
-          updated_at: string
-        }
-        Insert: {
-          class_id: string
-          created_at?: string
-          created_by: string
-          date: string
-          id?: string
-          notes?: string | null
-          status?: string
-          student_id: string
-          updated_at?: string
-        }
-        Update: {
-          class_id?: string
-          created_at?: string
-          created_by?: string
-          date?: string
-          id?: string
-          notes?: string | null
-          status?: string
-          student_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attendance_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "school_classes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendance_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendance_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       attendance_feedback: {
         Row: {
           answers: Json
@@ -1198,6 +1140,384 @@ export type Database = {
           },
         ]
       }
+      financial_contracts: {
+        Row: {
+          activated_at: string | null
+          cancelled_at: string | null
+          created_at: string
+          created_by: string | null
+          discount_type: string | null
+          discount_value: number | null
+          gateway_id: string | null
+          id: string
+          net_amount: number | null
+          notes: string | null
+          plan_id: string
+          school_year: number
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
+          gateway_id?: string | null
+          id?: string
+          net_amount?: number | null
+          notes?: string | null
+          plan_id: string
+          school_year?: number
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
+          gateway_id?: string | null
+          id?: string
+          net_amount?: number | null
+          notes?: string | null
+          plan_id?: string
+          school_year?: number
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_contracts_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "payment_gateways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_contracts_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "financial_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_contracts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_installments: {
+        Row: {
+          amount: number
+          amount_with_discount: number | null
+          boleto_url: string | null
+          contract_id: string
+          created_at: string
+          due_date: string
+          gateway_fee_cents: number | null
+          gateway_id: string | null
+          gateway_raw_response: Json | null
+          id: string
+          installment_number: number
+          interest_amount: number | null
+          late_fee_amount: number | null
+          paid_amount: number | null
+          paid_at: string | null
+          payment_link: string | null
+          payment_method: string | null
+          payment_notes: string | null
+          pix_code: string | null
+          provider_charge_id: string | null
+          reference_month: string
+          status: string
+          student_id: string
+          total_due: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          amount_with_discount?: number | null
+          boleto_url?: string | null
+          contract_id: string
+          created_at?: string
+          due_date: string
+          gateway_fee_cents?: number | null
+          gateway_id?: string | null
+          gateway_raw_response?: Json | null
+          id?: string
+          installment_number: number
+          interest_amount?: number | null
+          late_fee_amount?: number | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_link?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          pix_code?: string | null
+          provider_charge_id?: string | null
+          reference_month: string
+          status?: string
+          student_id: string
+          total_due?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          amount_with_discount?: number | null
+          boleto_url?: string | null
+          contract_id?: string
+          created_at?: string
+          due_date?: string
+          gateway_fee_cents?: number | null
+          gateway_id?: string | null
+          gateway_raw_response?: Json | null
+          id?: string
+          installment_number?: number
+          interest_amount?: number | null
+          late_fee_amount?: number | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_link?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          pix_code?: string | null
+          provider_charge_id?: string | null
+          reference_month?: string
+          status?: string
+          student_id?: string
+          total_due?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_installments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "financial_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_installments_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "payment_gateways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_installments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_notification_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          installment_id: string
+          sent_at: string
+          trigger_type: string
+          whatsapp_message_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          installment_id: string
+          sent_at?: string
+          trigger_type: string
+          whatsapp_message_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          installment_id?: string
+          sent_at?: string
+          trigger_type?: string
+          whatsapp_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_notification_log_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "financial_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_notification_log_whatsapp_message_id_fkey"
+            columns: ["whatsapp_message_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_message_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_plans: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          due_day: number
+          id: string
+          installments: number
+          interest_rate_pct: number
+          is_active: boolean
+          late_fee_pct: number
+          name: string
+          punctuality_discount_pct: number
+          school_year: number
+          segment_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          due_day?: number
+          id?: string
+          installments?: number
+          interest_rate_pct?: number
+          is_active?: boolean
+          late_fee_pct?: number
+          name: string
+          punctuality_discount_pct?: number
+          school_year?: number
+          segment_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          due_day?: number
+          id?: string
+          installments?: number
+          interest_rate_pct?: number
+          is_active?: boolean
+          late_fee_pct?: number
+          name?: string
+          punctuality_discount_pct?: number
+          school_year?: number
+          segment_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gateway_customers: {
+        Row: {
+          created_at: string
+          gateway_id: string
+          id: string
+          provider_customer_id: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          gateway_id: string
+          id?: string
+          provider_customer_id: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          gateway_id?: string
+          id?: string
+          provider_customer_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_customers_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "payment_gateways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gateway_customers_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gateway_webhook_log: {
+        Row: {
+          created_at: string
+          event_type: string
+          gateway_id: string | null
+          id: string
+          installment_id: string | null
+          normalized: Json
+          processed_at: string | null
+          provider: string
+          provider_charge_id: string | null
+          raw: Json
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          gateway_id?: string | null
+          id?: string
+          installment_id?: string | null
+          normalized?: Json
+          processed_at?: string | null
+          provider: string
+          provider_charge_id?: string | null
+          raw?: Json
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          gateway_id?: string | null
+          id?: string
+          installment_id?: string | null
+          normalized?: Json
+          processed_at?: string | null
+          provider?: string
+          provider_charge_id?: string | null
+          raw?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gateway_webhook_log_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "payment_gateways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gateway_webhook_log_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "financial_installments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grades: {
         Row: {
           activity_id: string | null
@@ -1271,6 +1591,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      import_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_shared: boolean
+          mapping: Json
+          name: string
+          target_table: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_shared?: boolean
+          mapping?: Json
+          name: string
+          target_table?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_shared?: boolean
+          mapping?: Json
+          name?: string
+          target_table?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       lead_activities: {
         Row: {
@@ -1625,6 +1981,48 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_gateways: {
+        Row: {
+          created_at: string
+          credentials: Json
+          environment: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          label: string
+          provider: string
+          supported_methods: string[]
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          created_at?: string
+          credentials?: Json
+          environment?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          label?: string
+          provider: string
+          supported_methods?: string[]
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          created_at?: string
+          credentials?: Json
+          environment?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          label?: string
+          provider?: string
+          supported_methods?: string[]
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1675,6 +2073,7 @@ export type Database = {
           can_create: boolean
           can_delete: boolean
           can_edit: boolean
+          can_import: boolean
           can_view: boolean
           created_at: string
           id: string
@@ -1686,6 +2085,7 @@ export type Database = {
           can_create?: boolean
           can_delete?: boolean
           can_edit?: boolean
+          can_import?: boolean
           can_view?: boolean
           created_at?: string
           id?: string
@@ -1697,6 +2097,7 @@ export type Database = {
           can_create?: boolean
           can_delete?: boolean
           can_edit?: boolean
+          can_import?: boolean
           can_view?: boolean
           created_at?: string
           id?: string
@@ -1854,6 +2255,155 @@ export type Database = {
         }
         Relationships: []
       }
+      site_presets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_default: boolean
+          name: string
+          preset_data: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          preset_data?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          preset_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_presets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_attendance: {
+        Row: {
+          class_id: string
+          created_at: string
+          created_by: string
+          date: string
+          id: string
+          notes: string | null
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          created_by: string
+          date: string
+          id?: string
+          notes?: string | null
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          created_by?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "school_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_guardians: {
+        Row: {
+          created_at: string
+          guardian_cpf: string | null
+          guardian_email: string | null
+          guardian_name: string
+          guardian_phone: string | null
+          guardian_user_id: string | null
+          id: string
+          is_financial: boolean
+          is_primary: boolean
+          relationship: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          guardian_cpf?: string | null
+          guardian_email?: string | null
+          guardian_name: string
+          guardian_phone?: string | null
+          guardian_user_id?: string | null
+          id?: string
+          is_financial?: boolean
+          is_primary?: boolean
+          relationship?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          guardian_cpf?: string | null
+          guardian_email?: string | null
+          guardian_name?: string
+          guardian_phone?: string | null
+          guardian_user_id?: string | null
+          id?: string
+          is_financial?: boolean
+          is_primary?: boolean
+          relationship?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_guardians_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           auth_user_id: string | null
@@ -1861,15 +2411,46 @@ export type Database = {
           class_id: string | null
           cpf: string | null
           created_at: string | null
+          document_urls: string[] | null
           enrolled_at: string | null
           enrollment_id: string | null
           enrollment_number: string
+          father_cpf: string | null
+          father_email: string | null
+          father_name: string | null
+          father_phone: string | null
+          first_school: boolean | null
           full_name: string
+          guardian_city: string | null
+          guardian_complement: string | null
+          guardian_cpf: string | null
           guardian_email: string | null
           guardian_name: string
+          guardian_neighborhood: string | null
+          guardian_number: string | null
           guardian_phone: string
+          guardian_state: string | null
+          guardian_street: string | null
+          guardian_zip_code: string | null
           id: string
+          internal_notes: string | null
+          last_grade: string | null
+          mother_cpf: string | null
+          mother_email: string | null
+          mother_name: string | null
+          mother_phone: string | null
+          origin: string | null
+          previous_school_name: string | null
+          school_year: number | null
+          segment: string | null
           status: string | null
+          student_city: string | null
+          student_complement: string | null
+          student_neighborhood: string | null
+          student_number: string | null
+          student_state: string | null
+          student_street: string | null
+          student_zip_code: string | null
           updated_at: string | null
           user_id: string | null
         }
@@ -1879,15 +2460,46 @@ export type Database = {
           class_id?: string | null
           cpf?: string | null
           created_at?: string | null
+          document_urls?: string[] | null
           enrolled_at?: string | null
           enrollment_id?: string | null
           enrollment_number: string
+          father_cpf?: string | null
+          father_email?: string | null
+          father_name?: string | null
+          father_phone?: string | null
+          first_school?: boolean | null
           full_name: string
+          guardian_city?: string | null
+          guardian_complement?: string | null
+          guardian_cpf?: string | null
           guardian_email?: string | null
           guardian_name: string
+          guardian_neighborhood?: string | null
+          guardian_number?: string | null
           guardian_phone: string
+          guardian_state?: string | null
+          guardian_street?: string | null
+          guardian_zip_code?: string | null
           id?: string
+          internal_notes?: string | null
+          last_grade?: string | null
+          mother_cpf?: string | null
+          mother_email?: string | null
+          mother_name?: string | null
+          mother_phone?: string | null
+          origin?: string | null
+          previous_school_name?: string | null
+          school_year?: number | null
+          segment?: string | null
           status?: string | null
+          student_city?: string | null
+          student_complement?: string | null
+          student_neighborhood?: string | null
+          student_number?: string | null
+          student_state?: string | null
+          student_street?: string | null
+          student_zip_code?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -1897,15 +2509,46 @@ export type Database = {
           class_id?: string | null
           cpf?: string | null
           created_at?: string | null
+          document_urls?: string[] | null
           enrolled_at?: string | null
           enrollment_id?: string | null
           enrollment_number?: string
+          father_cpf?: string | null
+          father_email?: string | null
+          father_name?: string | null
+          father_phone?: string | null
+          first_school?: boolean | null
           full_name?: string
+          guardian_city?: string | null
+          guardian_complement?: string | null
+          guardian_cpf?: string | null
           guardian_email?: string | null
           guardian_name?: string
+          guardian_neighborhood?: string | null
+          guardian_number?: string | null
           guardian_phone?: string
+          guardian_state?: string | null
+          guardian_street?: string | null
+          guardian_zip_code?: string | null
           id?: string
+          internal_notes?: string | null
+          last_grade?: string | null
+          mother_cpf?: string | null
+          mother_email?: string | null
+          mother_name?: string | null
+          mother_phone?: string | null
+          origin?: string | null
+          previous_school_name?: string | null
+          school_year?: number | null
+          segment?: string | null
           status?: string | null
+          student_city?: string | null
+          student_complement?: string | null
+          student_neighborhood?: string | null
+          student_number?: string | null
+          student_state?: string | null
+          student_street?: string | null
+          student_zip_code?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -2017,6 +2660,7 @@ export type Database = {
           can_create: boolean | null
           can_delete: boolean | null
           can_edit: boolean | null
+          can_import: boolean | null
           can_view: boolean | null
           created_at: string
           granted_by: string | null
@@ -2029,6 +2673,7 @@ export type Database = {
           can_create?: boolean | null
           can_delete?: boolean | null
           can_edit?: boolean | null
+          can_import?: boolean | null
           can_view?: boolean | null
           created_at?: string
           granted_by?: string | null
@@ -2041,6 +2686,7 @@ export type Database = {
           can_create?: boolean | null
           can_delete?: boolean | null
           can_edit?: boolean | null
+          can_import?: boolean | null
           can_view?: boolean | null
           created_at?: string
           granted_by?: string | null
@@ -2427,6 +3073,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_overdue_amounts: {
+        Args: { p_installment_id: string }
+        Returns: {
+          interest: number
+          late_fee: number
+          total: number
+        }[]
+      }
       claim_next_ticket: {
         Args: { p_caller_id?: string; p_sector_keys?: string[] }
         Returns: {
@@ -2470,16 +3124,26 @@ export type Database = {
       }
       expire_pending_confirmations: { Args: never; Returns: undefined }
       generate_enrollment_number: { Args: never; Returns: string }
+      generate_enrollment_numbers: {
+        Args: { p_count: number }
+        Returns: string[]
+      }
+      generate_installments_for_contract: {
+        Args: { p_contract_id: string }
+        Returns: number
+      }
       get_effective_permissions: {
         Args: { p_user_id: string }
         Returns: {
           can_create: boolean
           can_delete: boolean
           can_edit: boolean
+          can_import: boolean
           can_view: boolean
           module_key: string
         }[]
       }
+      get_pix_key: { Args: never; Returns: Json }
       is_admin_or_coordinator: { Args: never; Returns: boolean }
       is_teacher_of_class: { Args: { p_class_id: string }; Returns: boolean }
       log_audit: {
