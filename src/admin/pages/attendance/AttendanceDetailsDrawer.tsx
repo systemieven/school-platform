@@ -115,7 +115,7 @@ function renderAnswerValue(type: string | undefined, value: AttendanceAnswerValu
 
   // Yes/No
   if (type === 'yes_no') {
-    const yes = value === 'sim' || value === 'yes' || value === true;
+    const yes = value === 'sim' || value === 'yes' || value === 'true';
     return (
       <span className={`inline-flex items-center gap-1 text-xs font-medium ${yes ? 'text-emerald-600' : 'text-red-500'}`}>
         {yes ? <ThumbsUp className="w-3 h-3" /> : <ThumbsDown className="w-3 h-3" />}

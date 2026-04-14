@@ -29,7 +29,7 @@ const EMPTY: Omit<FinancialPlan, 'id' | 'created_at' | 'updated_at'> = {
 
 export default function FinancialPlansPage() {
   const { profile } = useAdminAuth();
-  const { can } = usePermissions();
+  usePermissions();
   const [plans, setPlans] = useState<FinancialPlan[]>([]);
   const [segments, setSegments] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
