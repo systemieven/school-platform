@@ -50,6 +50,7 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          discipline_id: string | null
           due_date: string | null
           id: string
           max_score: number | null
@@ -64,6 +65,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          discipline_id?: string | null
           due_date?: string | null
           id?: string
           max_score?: number | null
@@ -78,6 +80,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          discipline_id?: string | null
           due_date?: string | null
           id?: string
           max_score?: number | null
@@ -100,6 +103,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
             referencedColumns: ["id"]
           },
         ]
@@ -565,6 +575,52 @@ export type Database = {
         }
         Relationships: []
       }
+      class_disciplines: {
+        Row: {
+          class_id: string
+          created_at: string
+          discipline_id: string
+          id: string
+          teacher_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          discipline_id: string
+          id?: string
+          teacher_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          discipline_id?: string
+          id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_disciplines_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "school_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_disciplines_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_disciplines_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_materials: {
         Row: {
           class_id: string
@@ -613,6 +669,61 @@ export type Database = {
           {
             foreignKeyName: "class_materials_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_schedules: {
+        Row: {
+          class_id: string
+          created_at: string
+          day_of_week: number
+          discipline_id: string
+          end_time: string
+          id: string
+          start_time: string
+          teacher_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          day_of_week: number
+          discipline_id: string
+          end_time: string
+          id?: string
+          start_time: string
+          teacher_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          day_of_week?: number
+          discipline_id?: string
+          end_time?: string
+          id?: string
+          start_time?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_schedules_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "school_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_schedules_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_schedules_teacher_id_fkey"
+            columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -856,6 +967,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      disciplines: {
+        Row: {
+          code: string
+          color: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          segment_ids: string[]
+          updated_at: string
+          weekly_hours: number
+        }
+        Insert: {
+          code: string
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          segment_ids?: string[]
+          updated_at?: string
+          weekly_hours?: number
+        }
+        Update: {
+          code?: string
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          segment_ids?: string[]
+          updated_at?: string
+          weekly_hours?: number
+        }
+        Relationships: []
       }
       enrollment_documents: {
         Row: {
@@ -1518,12 +1665,63 @@ export type Database = {
           },
         ]
       }
+      grade_formulas: {
+        Row: {
+          config: Json
+          created_at: string
+          formula_type: string
+          grade_scale: string
+          id: string
+          min_attendance_pct: number
+          passing_grade: number
+          recovery_grade: number
+          school_year: number
+          segment_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          formula_type?: string
+          grade_scale?: string
+          id?: string
+          min_attendance_pct?: number
+          passing_grade?: number
+          recovery_grade?: number
+          school_year?: number
+          segment_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          formula_type?: string
+          grade_scale?: string
+          id?: string
+          min_attendance_pct?: number
+          passing_grade?: number
+          recovery_grade?: number
+          school_year?: number
+          segment_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grade_formulas_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "school_segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grades: {
         Row: {
           activity_id: string | null
           class_id: string
           created_at: string
           created_by: string
+          discipline_id: string | null
           id: string
           max_score: number
           notes: string | null
@@ -1538,6 +1736,7 @@ export type Database = {
           class_id: string
           created_at?: string
           created_by: string
+          discipline_id?: string | null
           id?: string
           max_score?: number
           notes?: string | null
@@ -1552,6 +1751,7 @@ export type Database = {
           class_id?: string
           created_at?: string
           created_by?: string
+          discipline_id?: string | null
           id?: string
           max_score?: number
           notes?: string | null
@@ -1581,6 +1781,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
             referencedColumns: ["id"]
           },
           {
@@ -2115,6 +2322,45 @@ export type Database = {
           },
         ]
       }
+      school_calendar_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string
+          id: string
+          period_number: number | null
+          school_year: number
+          segment_ids: string[]
+          start_date: string
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date: string
+          id?: string
+          period_number?: number | null
+          school_year?: number
+          segment_ids?: string[]
+          start_date: string
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string
+          id?: string
+          period_number?: number | null
+          school_year?: number
+          segment_ids?: string[]
+          start_date?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       school_classes: {
         Row: {
           created_at: string | null
@@ -2299,8 +2545,10 @@ export type Database = {
           created_at: string
           created_by: string
           date: string
+          discipline_id: string | null
           id: string
           notes: string | null
+          school_calendar_event_id: string | null
           status: string
           student_id: string
           updated_at: string
@@ -2310,8 +2558,10 @@ export type Database = {
           created_at?: string
           created_by: string
           date: string
+          discipline_id?: string | null
           id?: string
           notes?: string | null
+          school_calendar_event_id?: string | null
           status?: string
           student_id: string
           updated_at?: string
@@ -2321,8 +2571,10 @@ export type Database = {
           created_at?: string
           created_by?: string
           date?: string
+          discipline_id?: string | null
           id?: string
           notes?: string | null
+          school_calendar_event_id?: string | null
           status?: string
           student_id?: string
           updated_at?: string
@@ -2347,6 +2599,20 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_attendance_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_attendance_school_calendar_event_id_fkey"
+            columns: ["school_calendar_event_id"]
+            isOneToOne: false
+            referencedRelation: "school_calendar_events"
             referencedColumns: ["id"]
           },
         ]
@@ -2397,6 +2663,134 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "student_guardians_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_results: {
+        Row: {
+          attendance_pct: number | null
+          class_id: string
+          created_at: string
+          discipline_id: string
+          final_avg: number | null
+          id: string
+          period1_avg: number | null
+          period2_avg: number | null
+          period3_avg: number | null
+          period4_avg: number | null
+          recovery_grade: number | null
+          result: string
+          school_year: number
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          attendance_pct?: number | null
+          class_id: string
+          created_at?: string
+          discipline_id: string
+          final_avg?: number | null
+          id?: string
+          period1_avg?: number | null
+          period2_avg?: number | null
+          period3_avg?: number | null
+          period4_avg?: number | null
+          recovery_grade?: number | null
+          result?: string
+          school_year: number
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          attendance_pct?: number | null
+          class_id?: string
+          created_at?: string
+          discipline_id?: string
+          final_avg?: number | null
+          id?: string
+          period1_avg?: number | null
+          period2_avg?: number | null
+          period3_avg?: number | null
+          period4_avg?: number | null
+          recovery_grade?: number | null
+          result?: string
+          school_year?: number
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_results_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "school_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_results_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_transcripts: {
+        Row: {
+          class_id: string
+          created_at: string
+          final_result: string
+          id: string
+          school_year: number
+          segment_id: string
+          student_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          final_result?: string
+          id?: string
+          school_year: number
+          segment_id: string
+          student_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          final_result?: string
+          id?: string
+          school_year?: number
+          segment_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_transcripts_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "school_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_transcripts_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "school_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_transcripts_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
