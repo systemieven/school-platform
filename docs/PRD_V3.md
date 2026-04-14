@@ -533,31 +533,39 @@ Interface de gestao de sala com 6 abas:
 **Roles**: super_admin, admin
 **Portal**: `/portal/financeiro`
 
-Gerencia mensalidades, cobrancas, inadimplencia e BI financeiro, integrado ao aluno matriculado. Opera com tab rail interna (pagina unica, 4 abas).
+Gerencia mensalidades, cobrancas, descontos, bolsas, templates de contrato, inadimplencia, cobranca extrajudicial e BI financeiro, integrado ao aluno matriculado. Opera com tab rail interna (pagina unica, **7 abas**: Dashboard, Planos, Contratos, Cobrancas, Descontos, Bolsas, Templates).
 
 #### 4.17.1 Dashboard Financeiro
 
-- **KPIs**: Receita total (pagas), Valores pendentes, Inadimplencia (vencidos), Contratos ativos
-- **Alerta**: Parcelas vencidas com contagem
+- **5 KPIs**: Receita recebida (pagas), A receber (pendente), Inadimplencia (vencidos), **Cobranca Extrajudicial** (vencidos alem do `max_overdue_days` do plano), Contratos ativos
+- **Alertas**: banner vermelho para parcelas vencidas + banner ambar para parcelas em cobranca extrajudicial
+- **Calculo de extrajudicial**: derivado client-side via join `installment → contract → plan.max_overdue_days`, sem novo status de parcela
 
 #### 4.17.2 Planos de Mensalidade
 
-- **CRUD** completo: nome, valor, parcelas, dia de vencimento, desconto por pontualidade (%), multa (%), juros (%)
+- **CRUD** completo: nome, valor, parcelas, dia de vencimento, multa (%), juros (%)
+- **Prazo de pagamento no portal** (`max_overdue_days`, 0-90 dias, passo 10 via `BrandSlider`): dias maximos apos vencimento em que o portal ainda aceita pagamento; apos esse prazo a parcela e considerada em cobranca extrajudicial e o botao de pagamento e bloqueado no portal do aluno. Valor `0` = sem limite.
 - **Segmentacao**: por segmento escolar e ano letivo
 - **Toggle** ativo/inativo
+
+> **Nota historica**: O campo `punctuality_discount_pct` foi removido (migration 57) — descontos por antecipacao agora sao regras progressivas no modulo de Descontos (ver 4.17.7).
 
 #### 4.17.3 Contratos Financeiros
 
 - **Pipeline de status**: draft → active → suspended → cancelled → concluded
-- **Vinculo**: aluno + plano + ano letivo
-- **Desconto individual**: fixo (R$) ou percentual (%)
+- **Vinculo**: aluno + plano + ano letivo (UNIQUE)
 - **Geracao automatica de parcelas** ao ativar contrato (RPC `generate_installments_for_contract`)
+- **Descontos automaticos**: ao ativar, o contrato consulta `calculate_applicable_discounts` e aplica todos os descontos/bolsas compativeis com o aluno (scope global/group/student). Fonte unica de verdade.
+- **Acoes**: ativar + gerar parcelas, suspender, cancelar (cancela parcelas pendentes)
+
+> **Nota historica**: Os campos `discount_type` / `discount_value` em `financial_contracts` foram removidos (migration 59). Todo desconto agora vive no modulo Descontos (ver 4.17.7) — para um desconto especifico de aluno, criar com `scope='student'`.
 
 #### 4.17.4 Parcelas e Cobrancas
 
-- **Listagem** com filtros por status (pending, overdue, paid)
+- **Listagem** com filtros por status (pending, overdue, paid, negotiated, cancelled, renegotiated)
 - **Registro de pagamento manual**: valor, metodo (boleto, PIX, cartao, dinheiro, transferencia), observacoes
 - **KPIs resumo**: total pendente, total vencido, total pago
+- **`amount_with_discount`** preenchido no momento do pagamento quando regras progressivas se aplicam (calculadas via `payment_date` vs `due_date`)
 
 #### 4.17.5 Portal do Aluno — Financeiro
 
@@ -566,6 +574,7 @@ Gerencia mensalidades, cobrancas, inadimplencia e BI financeiro, integrado ao al
 - **Tabela/cards responsivos** com numero da parcela, vencimento, valor, status badge
 - **Copiar PIX**: via RPC `get_pix_key()` (SECURITY DEFINER)
 - **Ver Boleto**: link quando `boleto_url` preenchido
+- **Bloqueio extrajudicial**: quando `today > due_date + plan.max_overdue_days`, o portal substitui o status "Vencida" por badge `Gavel + Extrajudicial` e substitui os botoes PIX/Boleto/Link por mensagem "Contate a secretaria da escola". Banner ambar no topo lista quantas parcelas estao nesse estado.
 
 #### 4.17.6 Regua de Cobranca WhatsApp
 
@@ -575,7 +584,41 @@ Gerencia mensalidades, cobrancas, inadimplencia e BI financeiro, integrado ao al
 - **Dedup**: tabela `financial_notification_log` impede duplicidade (installment_id + trigger_type)
 - **pg_cron**: job `financial-notify-daily` executa 08:00 BRT diariamente
 
-#### 4.17.7 Gateway de Pagamento
+#### 4.17.7 Descontos
+
+**Tabela**: `financial_discounts`
+
+- **CRUD** completo com grid cards + drawer edit
+- **Scopes**: `global` (todos os alunos), `group` (por plano, segmento ou turma), `student` (aluno especifico)
+- **Tipos**: percentual (%) ou fixo (R$)
+- **Descontos progressivos por antecipacao**: array JSONB `progressive_rules = [{days_before_due, percentage}]` — ex: "10 dias antes = 5%, 5 dias antes = 3%". Quando preenchido substitui `discount_value`.
+- **Validade**: datas `valid_from` / `valid_until` opcionais
+- **Prioridade** + flag `is_cumulative` — descontos nao cumulativos sao mutuamente exclusivos (aplica-se apenas o de maior prioridade)
+- **Aplicacao**:
+  - **Descontos comuns**: aplicados na geracao de parcelas via RPC `calculate_applicable_discounts` (chamada por `generate_installments_for_contract`)
+  - **Progressivos**: ignorados na geracao (sem `payment_date`); avaliados no momento do registro de pagamento, escolhendo a melhor regra (maior `days_before_due <= due - payment`)
+- **RPC**: `calculate_applicable_discounts(student_id, plan_id, amount, ref_date, payment_date?, due_date?)` retorna `total_discount`, `discount_ids[]`, `scholarship_ids[]`
+
+#### 4.17.8 Bolsas (Scholarships)
+
+**Tabela**: `financial_scholarships`
+
+- **CRUD** por aluno com pipeline de aprovacao (`pending` → `approved` → `rejected` → `expired`)
+- **Tipos**: `full` (100%), `percentage` (%), `fixed` (R$)
+- **Vigencia**: `valid_from` / `valid_until` obrigatorios
+- **Cumulativas** por padrao (sempre somam aos descontos aplicaveis)
+- **Aplicacao automatica**: integradas na mesma RPC `calculate_applicable_discounts` (bloco separado, pos-descontos)
+
+#### 4.17.9 Templates de Contrato
+
+**Tabela**: `financial_contract_templates`
+
+- **CRUD** de templates com body HTML + variaveis (`{{aluno_nome}}`, `{{plano_nome}}`, `{{valor_total}}`, `{{ano_letivo}}`, `{{responsavel_nome}}`, etc.)
+- **Header/Footer** customizaveis por template
+- **Versionamento** por `school_year`
+- **Geracao de PDF** cliente-side a partir do template escolhido no contrato
+
+#### 4.17.10 Gateway de Pagamento
 
 - **Adapter Pattern**: interface `GatewayAdapter` normaliza operacoes entre provedores
 - **V1**: Asaas implementado (`AsaasAdapter`); modo manual sempre disponivel
@@ -845,9 +888,12 @@ Configuravel na aba Aparencia > Home:
 #### Financeiro (Fase 8)
 | Tabela | Descricao |
 |--------|-----------|
-| `financial_plans` | Planos de mensalidade: nome, valor, parcelas, vencimento, juros, multa, desconto |
-| `financial_contracts` | Contrato aluno+plano+ano com pipeline draft→active→concluded |
-| `financial_installments` | Parcelas com status, pagamento, gateway, boleto/PIX |
+| `financial_plans` | Planos de mensalidade: nome, valor, parcelas, vencimento, multa, juros, `max_overdue_days` (0-90) |
+| `financial_contracts` | Contrato aluno+plano+ano com pipeline draft→active→concluded (sem desconto proprio — delegado a `financial_discounts`) |
+| `financial_installments` | Parcelas com status, pagamento, gateway, boleto/PIX, `amount_with_discount` aplicado no pagamento |
+| `financial_discounts` | Descontos com scope (global/group/student), tipo (% ou R$), `progressive_rules` JSONB, validade, prioridade, cumulativo |
+| `financial_scholarships` | Bolsas por aluno com pipeline de aprovacao, tipos (full/%/fixo) e vigencia |
+| `financial_contract_templates` | Templates de contrato HTML com header/footer/body e variaveis por `school_year` |
 | `financial_notification_log` | Dedup da regua de cobranca (installment_id + trigger_type) |
 | `payment_gateways` | Gateways configurados com credentials (JSONB), webhook_secret |
 | `gateway_customers` | Cache de clientes no gateway (gateway_id, student_id) |
@@ -871,7 +917,7 @@ Configuravel na aba Aparencia > Home:
 | `library-resources` | Privado (signed URL) | PDFs, videos, imagens da biblioteca |
 | `avatars` | Publico | Fotos de perfil dos usuarios |
 
-### 7.3 Migrations Aplicadas (47)
+### 7.3 Migrations Aplicadas (58)
 
 | # | Nome | Data | Descricao |
 |---|------|------|-----------|
@@ -922,6 +968,17 @@ Configuravel na aba Aparencia > Home:
 | 46 | `financial_module` | 13/04 | Schema financeiro: plans, contracts, installments, gateways, logs |
 | 47 | `financial_portal_rpc` | 14/04 | RPC get_pix_key() SECURITY DEFINER |
 | 48 | `financial_notify_cron` | 14/04 | pg_cron job financial-notify-daily 08:00 BRT |
+| 49 | `academic_disciplines_schedules` | 14/04 | Fase 9: disciplines, class_disciplines, class_schedules |
+| 50 | `academic_calendar_formulas` | 14/04 | Fase 9: school_calendar_events, grade_formulas |
+| 51 | `academic_results_transcripts` | 14/04 | Fase 9: student_results, student_transcripts |
+| 52 | `academic_whatsapp_templates` | 14/04 | Seed categoria `academico` + 5 templates (nota-baixa, alerta-faltas, resultado-final, nova-atividade, prazo-atividade) |
+| 53 | `financial_discounts_scholarships` | 14/04 | Tabelas `financial_discounts` e `financial_scholarships` com RLS |
+| 54 | `financial_discounts_rpc` | 14/04 | RPC `calculate_applicable_discounts` (global/group/student + bolsas) |
+| 55 | `financial_contract_templates` | 14/04 | Tabela `financial_contract_templates` (HTML body + variaveis) |
+| 56 | `whatsapp_billing_templates` | 14/04 | Seed templates de cobranca (regua WhatsApp) |
+| 57 | `financial_plans_grace_progressive` | 14/04 | DROP `punctuality_discount_pct`; ADD `grace_days` em plans; ADD `progressive_rules` JSONB em discounts; RPC com `payment_date` |
+| 58 | `financial_plans_rename_max_overdue` | 14/04 | Rename `grace_days` → `max_overdue_days` (0-90); semantica de prazo maximo no portal antes da cobranca extrajudicial |
+| 59 | `drop_contract_discount` | 14/04 | DROP `discount_type` / `discount_value` de `financial_contracts`; fonte unica de desconto = modulo Descontos |
 
 ### 7.4 RLS Policies
 
@@ -1080,7 +1137,7 @@ Configuravel na aba Aparencia > Home:
 | `/admin/relatorios` | ReportsPage | admin+ |
 | `/admin/segmentos` | SegmentsPage | admin+ |
 | `/admin/alunos` | StudentsPage | admin+ |
-| `/admin/financeiro` | FinancialPage (tab rail: Dashboard, Planos, Contratos, Cobrancas) | admin+ |
+| `/admin/financeiro` | FinancialPage (tab rail: Dashboard, Planos, Contratos, Cobrancas, Descontos, Bolsas, Templates) | admin+ |
 | `/admin/area-professor` | TeacherAreaPage | admin+, teacher |
 | `/admin/biblioteca` | LibraryPage | admin+, teacher |
 | `/admin/comunicados` | AnnouncementsPage | admin+, teacher |
@@ -1225,18 +1282,21 @@ Implementado em 12 de abril de 2026. Detalhes na secao 2.3.
 ### 10.3 Fase 8 — Modulo Financeiro (CONCLUIDA)
 
 > **Concluido em**: 14 de abril de 2026
-> **Migrations**: 46, 47, 48
+> **Migrations**: 46, 47, 48, 53, 54, 55, 56, 57, 58, 59
 > **Edge Functions**: financial-notify (v2), payment-gateway-proxy (v2), payment-gateway-webhook (v2)
 > **Detalhes completos**: secao 4.17, `docs/PRD_ERP_COMPLEMENTAR.md` secao 3, `docs/PRD_FINANCEIRO_GATEWAYS.md`
 
 | Item | Descricao | Status |
 |------|-----------|--------|
-| **Planos de Mensalidade** | CRUD com valor, parcelas, vencimento, juros, multa, desconto pontualidade; por segmento/ano letivo | ✅ Concluido (FinancialPlansPage) |
-| **Contratos Financeiros** | Pipeline draft→active→concluded; geracao automatica de parcelas via RPC; desconto individual | ✅ Concluido (FinancialContractsPage) |
-| **Parcelas e Cobrancas** | Listagem com filtros; registro de pagamento manual; KPIs | ✅ Concluido (FinancialInstallmentsPage) |
-| **Dashboard Financeiro** | KPIs: receita, pendente, inadimplencia, contratos ativos; alerta de vencidos | ✅ Concluido (FinancialDashboardPage) |
+| **Planos de Mensalidade** | CRUD com valor, parcelas, vencimento, multa, juros; `max_overdue_days` (slider 0-90) para prazo maximo no portal | ✅ Concluido (FinancialPlansPage) |
+| **Contratos Financeiros** | Pipeline draft→active→concluded; geracao automatica de parcelas via RPC; descontos automaticos via modulo Descontos | ✅ Concluido (FinancialContractsPage) |
+| **Parcelas e Cobrancas** | Listagem com filtros; registro de pagamento manual; KPIs; `amount_with_discount` no pagamento | ✅ Concluido (FinancialInstallmentsPage) |
+| **Dashboard Financeiro** | 5 KPIs: receita, pendente, inadimplencia, **cobranca extrajudicial**, contratos ativos; 2 alertas (vencidos + extrajudicial) | ✅ Concluido (FinancialDashboardPage) |
+| **Descontos** | CRUD com scopes (global/group/student); tipos % e R$; regras progressivas por antecipacao; validade; prioridade; cumulativo; RPC `calculate_applicable_discounts` | ✅ Concluido (FinancialDiscountsPage) |
+| **Bolsas** | CRUD por aluno com pipeline de aprovacao; tipos full/%/fixo; vigencia; aplicacao automatica cumulativa | ✅ Concluido (FinancialScholarshipsPage) |
+| **Templates de Contrato** | CRUD de templates HTML com variaveis, header/footer, versionamento por ano letivo | ✅ Concluido (FinancialTemplatesPage) |
 | **Regua de Cobranca WhatsApp** | Etapas customizaveis CRUD (offset arbitrario); disparo por campanha via `/sender/advanced`; dedup | ✅ Concluido (FinancialSettingsPanel + financial-notify) |
-| **Portal do Aluno — Financeiro** | 3 KPIs, filtros, copiar PIX, ver boleto | ✅ Concluido (FinanceiroPage) |
+| **Portal do Aluno — Financeiro** | 3 KPIs, filtros, copiar PIX, ver boleto; **bloqueio de pagamento apos `max_overdue_days`** (cobranca extrajudicial) | ✅ Concluido (FinanceiroPage) |
 | **Gateway Asaas (V1)** | Adapter Pattern; proxy + webhook; idempotente | ✅ Concluido (AsaasAdapter deployed) |
 | **Settings — Financeiro** | 3 cards: Gateways, Regua, PIX; floating save com dirty tracking | ✅ Concluido (FinancialSettingsPanel) |
 
@@ -1244,8 +1304,18 @@ Implementado em 12 de abril de 2026. Detalhes na secao 2.3.
 
 1. **Regua customizavel**: O plano previa 6 etapas fixas (D-5, D-1, D+0, D+3, D+10, D+30). A implementacao permite CRUD de etapas com offset arbitrario — cada escola define sua propria regua.
 2. **Disparo por campanha**: O plano previa envio individual por parcela. A implementacao agrupa parcelas por etapa em campanha unica via UazAPI `/sender/advanced`, habilitando pause/resume/cancel via UI de Comunicados.
-3. **Tab rail interno**: O plano previa 4 rotas separadas. A implementacao usa pagina unica `/admin/financeiro` com tab rail interna (padrao do sistema).
+3. **Tab rail interno**: O plano previa 4 rotas separadas. A implementacao usa pagina unica `/admin/financeiro` com tab rail interna (padrao do sistema) — hoje com **7 abas**: Dashboard, Planos, Contratos, Cobrancas, Descontos, Bolsas, Templates.
 4. **Relatorios financeiros dedicados**: Planejados mas adiados — funcionalidades basicas cobertas pelo ReportsPage existente.
+
+**Adendos pos-entrega (refatoracoes de 14/04 — migrations 53-59):**
+
+5. **Modulo Descontos expandido**: O plano previa apenas `financial_contracts.discount_type/value` como unica forma de desconto. A implementacao criou um modulo dedicado `financial_discounts` com scopes (global/group/student), validade, prioridade, cumulatividade e regras progressivas por antecipacao. O desconto de contrato foi removido (migration 59) — fonte unica de verdade.
+6. **Descontos progressivos por antecipacao**: Regras JSONB `[{days_before_due, percentage}]` em `financial_discounts`. Aplicadas somente no momento do pagamento (a RPC `calculate_applicable_discounts` recebe `payment_date` + `due_date`; quando `NULL` no momento da geracao de parcelas, os progressivos sao ignorados).
+7. **Prazo maximo no portal** (`max_overdue_days`, 0-90 dias, passo 10): substituiu semanticamente o antigo `grace_days` (migration 58). Representa o limite apos o qual a parcela entra em cobranca extrajudicial — nao e tolerancia de multa/juros.
+8. **KPI Cobranca Extrajudicial**: adicionado ao dashboard (derivado client-side via join com `plan.max_overdue_days`). Nao estava previsto no PRD original — surgiu naturalmente da refatoracao do `max_overdue_days`.
+9. **Bloqueio de pagamento no portal**: quando uma parcela vencida ultrapassa o prazo, o portal do aluno substitui o status por badge `Gavel + Extrajudicial` e remove botoes de pagamento (PIX, boleto, link), exibindo "Contate a secretaria da escola".
+10. **Bolsas e Templates de Contrato**: ambos planejados no PRD ERP complementar mas nao listados na Fase 8 original — implementados em 14/04 (migrations 53 e 55).
+11. **Remocao do `punctuality_discount_pct`**: coluna removida de `financial_plans` (migration 57). A semantica foi substituida por descontos progressivos em `financial_discounts.progressive_rules` — mais flexivel (multiplas faixas) e reutilizavel (global ou por grupo).
 
 ---
 
