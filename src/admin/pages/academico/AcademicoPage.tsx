@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import {
-  BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
+  School, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
   PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
+import SegmentsPage from '../school/SegmentsPage';
 import DisciplinasPage from './DisciplinasPage';
 import GradeHorariaPage from './GradeHorariaPage';
 import CalendarioPage from './CalendarioPage';
@@ -20,6 +21,13 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
+  {
+    key: 'segmentos',
+    label: 'Segmentos e Turmas',
+    shortLabel: 'Segmentos',
+    icon: School,
+    description: 'Segmentos (ex.: Infantil, Fundamental) e suas turmas',
+  },
   {
     key: 'disciplinas',
     label: 'Disciplinas',
@@ -72,7 +80,7 @@ const TABS: TabDef[] = [
 ];
 
 export default function AcademicoPage() {
-  const [activeTab, setActiveTab] = useState('disciplinas');
+  const [activeTab, setActiveTab] = useState('segmentos');
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
 
   const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
@@ -161,6 +169,7 @@ export default function AcademicoPage() {
 
             {/* Panel content */}
             <div className="p-6">
+              {activeTab === 'segmentos' && <SegmentsPage />}
               {activeTab === 'disciplinas' && <DisciplinasPage />}
               {activeTab === 'grade-horaria' && <GradeHorariaPage />}
               {activeTab === 'calendario' && <CalendarioPage />}

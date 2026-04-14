@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AdminAuthProvider } from './contexts/AdminAuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ModuleGuard from './components/ModuleGuard';
@@ -18,7 +18,6 @@ const EnrollmentsPage      = lazy(() => import('./pages/enrollments/EnrollmentsP
 const ContactsPage         = lazy(() => import('./pages/contacts/ContactsPage'));
 const KanbanPage           = lazy(() => import('./pages/leads/KanbanPage'));
 const ReportsPage          = lazy(() => import('./pages/reports/ReportsPage'));
-const SegmentsPage         = lazy(() => import('./pages/school/SegmentsPage'));
 const StudentsPage         = lazy(() => import('./pages/school/StudentsPage'));
 const StudentImportPage    = lazy(() => import('./pages/school/StudentImportPage'));
 const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'));
@@ -81,7 +80,7 @@ export default function AdminRoutes() {
           <Route path="relatorios"   element={<ModuleGuard moduleKey="reports"><LazyPage><ReportsPage /></LazyPage></ModuleGuard>} />
 
           {/* School */}
-          <Route path="segmentos"      element={<ModuleGuard moduleKey="segments"><LazyPage><SegmentsPage /></LazyPage></ModuleGuard>} />
+          <Route path="segmentos"      element={<Navigate to="/admin/academico" replace />} />
           <Route path="alunos"         element={<ModuleGuard moduleKey="students"><LazyPage><StudentsPage /></LazyPage></ModuleGuard>} />
           <Route path="alunos/importar" element={<ModuleGuard moduleKey="students"><LazyPage><StudentImportPage /></LazyPage></ModuleGuard>} />
           <Route path="area-professor" element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherAreaPage /></LazyPage></ModuleGuard>} />

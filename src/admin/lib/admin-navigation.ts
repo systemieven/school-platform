@@ -125,14 +125,6 @@ export const ADMIN_NAV: NavGroup[] = [
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
         moduleKey: 'events',
       },
-      {
-        key: 'segments',
-        label: 'Segmentos e Turmas',
-        icon: 'School',
-        path: '/admin/segmentos',
-        roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'segments',
-      },
     ],
   },
   {
