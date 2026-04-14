@@ -359,9 +359,9 @@ ON CONFLICT (role, module_key) DO NOTHING;
 -- 10. WhatsApp — Nova categoria financeiro
 -- ══════════════════════════════════════════════════════════════════════════════
 
-INSERT INTO whatsapp_template_categories (key, label, color)
+INSERT INTO whatsapp_template_categories (slug, label, color)
 VALUES ('financeiro', 'Financeiro', '#14532d')
-ON CONFLICT (key) DO NOTHING;
+ON CONFLICT (slug) DO NOTHING;
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- 11. Funcao para gerar parcelas ao ativar contrato
