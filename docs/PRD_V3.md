@@ -1,8 +1,8 @@
 # PRD v3 — Plataforma Escolar (school-platform)
 
-> **Versao**: 3.0
-> **Data**: 13 de abril de 2026
-> **Status**: Documento unificado — estado atual + roadmap completo ate v1
+> **Versao**: 3.1
+> **Data**: 14 de abril de 2026
+> **Status**: Documento unificado — estado atual (Fases 1-8 concluidas) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos
 
 ---
@@ -12,7 +12,7 @@
 1. [Visao Geral](#1-visao-geral)
 2. [Arquitetura e Stack](#2-arquitetura-e-stack)
 3. [Sistema de Autenticacao e Roles](#3-sistema-de-autenticacao-e-roles)
-4. [Modulos Implementados (Fases 1-7)](#4-modulos-implementados-fases-1-7)
+4. [Modulos Implementados (Fases 1-8)](#4-modulos-implementados-fases-1-8)
 5. [Painel de Configuracoes](#5-painel-de-configuracoes)
 6. [Aparencia e Site Institucional](#6-aparencia-e-site-institucional)
 7. [Schema do Banco de Dados](#7-schema-do-banco-de-dados)
@@ -20,8 +20,8 @@
 9. [Rotas e Navegacao](#9-rotas-e-navegacao)
 10. [Roadmap de Desenvolvimento](#10-roadmap-de-desenvolvimento)
     - 10.1 Visao Geral das Fases
-    - 10.2 Fases Concluidas (6-7)
-    - 10.3 Fase 8 — Modulo Financeiro
+    - 10.2 Fases Concluidas (6-8)
+    - 10.3 Fase 8 — Modulo Financeiro (CONCLUIDA)
     - 10.4 Fase 9 — Academico Completo
     - 10.5 Fase 10 — Portal do Responsavel
     - 10.6 Fase 11 — Secretaria Digital
@@ -83,10 +83,10 @@ Todos os dados sao armazenados no Supabase (PostgreSQL + RLS + Realtime + Storag
 
 ### 2.2 Banco de Dados
 
-- **32+ tabelas** com Row Level Security (RLS) em todas
-- **26 migrations** aplicadas sequencialmente
-- **4 storage buckets**: `enrollment-documents`, `site-images`, `whatsapp-media`, `library-resources`, `avatars`
-- **13 Edge Functions** para logica server-side (5 publicas com rate limiting)
+- **40+ tabelas** com Row Level Security (RLS) em todas
+- **47 migrations** aplicadas sequencialmente
+- **5 storage buckets**: `enrollment-documents`, `site-images`, `whatsapp-media`, `library-resources`, `avatars`
+- **16 Edge Functions** para logica server-side (8 publicas com rate limiting ou auth customizada)
 - **Realtime** habilitado em `visit_appointments`, `enrollments`, `contact_requests`, `attendance_tickets` e `system_settings`
 
 ### 2.3 Arquitetura Multi-Tenant (Upstream + Client Repos)
@@ -191,7 +191,7 @@ Super Admin
 
 ---
 
-## 4. Modulos Implementados (Fases 1-7)
+## 4. Modulos Implementados (Fases 1-8)
 
 ### 4.1 Dashboard e Analytics
 
@@ -527,12 +527,70 @@ Interface de gestao de sala com 6 abas:
 
 ---
 
+### 4.17 Modulo Financeiro (Fase 8)
+
+**Rota**: `/admin/financeiro`
+**Roles**: super_admin, admin
+**Portal**: `/portal/financeiro`
+
+Gerencia mensalidades, cobrancas, inadimplencia e BI financeiro, integrado ao aluno matriculado. Opera com tab rail interna (pagina unica, 4 abas).
+
+#### 4.17.1 Dashboard Financeiro
+
+- **KPIs**: Receita total (pagas), Valores pendentes, Inadimplencia (vencidos), Contratos ativos
+- **Alerta**: Parcelas vencidas com contagem
+
+#### 4.17.2 Planos de Mensalidade
+
+- **CRUD** completo: nome, valor, parcelas, dia de vencimento, desconto por pontualidade (%), multa (%), juros (%)
+- **Segmentacao**: por segmento escolar e ano letivo
+- **Toggle** ativo/inativo
+
+#### 4.17.3 Contratos Financeiros
+
+- **Pipeline de status**: draft → active → suspended → cancelled → concluded
+- **Vinculo**: aluno + plano + ano letivo
+- **Desconto individual**: fixo (R$) ou percentual (%)
+- **Geracao automatica de parcelas** ao ativar contrato (RPC `generate_installments_for_contract`)
+
+#### 4.17.4 Parcelas e Cobrancas
+
+- **Listagem** com filtros por status (pending, overdue, paid)
+- **Registro de pagamento manual**: valor, metodo (boleto, PIX, cartao, dinheiro, transferencia), observacoes
+- **KPIs resumo**: total pendente, total vencido, total pago
+
+#### 4.17.5 Portal do Aluno — Financeiro
+
+- **3 cards KPI**: Pendente, Em Atraso, Pagas (com valor e contagem)
+- **Filtro por status**: Todas, Pendentes, Vencidas, Pagas
+- **Tabela/cards responsivos** com numero da parcela, vencimento, valor, status badge
+- **Copiar PIX**: via RPC `get_pix_key()` (SECURITY DEFINER)
+- **Ver Boleto**: link quando `boleto_url` preenchido
+
+#### 4.17.6 Regua de Cobranca WhatsApp
+
+- **Etapas customizaveis**: CRUD com offset em dias (negativo = antes do vencimento, positivo = apos, zero = no dia)
+- **Cada etapa**: toggle habilitado + seletor de template WhatsApp (categoria `financeiro`)
+- **Disparo por campanha**: agrupamento em lote via UazAPI `/sender/advanced` (folder por etapa/data)
+- **Dedup**: tabela `financial_notification_log` impede duplicidade (installment_id + trigger_type)
+- **pg_cron**: job `financial-notify-daily` executa 08:00 BRT diariamente
+
+#### 4.17.7 Gateway de Pagamento
+
+- **Adapter Pattern**: interface `GatewayAdapter` normaliza operacoes entre provedores
+- **V1**: Asaas implementado (`AsaasAdapter`); modo manual sempre disponivel
+- **Proxy autenticado**: `payment-gateway-proxy` (JWT admin+) com acoes `createCustomer`, `createCharge`, `getCharge`, `cancelCharge`
+- **Webhook**: `payment-gateway-webhook` (publico, idempotente via `gateway_webhook_log`) atualiza `financial_installments` automaticamente
+- **Multi-gateway**: cada escola pode ter mais de um gateway ativo
+
+---
+
 ## 5. Painel de Configuracoes
 
 **Rota**: `/admin/configuracoes`
 **Roles**: super_admin, admin
 
-Interface com **10 abas** (incluindo sub-abas), cada uma com cards recolhiveis (`SettingsCard`) e botao salvar flutuante. A aba "Site" contem 5 sub-abas: Aparencia, Branding, Navegacao, Conteudo e SEO.
+Interface com **13 abas** (incluindo sub-abas), cada uma com cards recolhiveis (`SettingsCard`) e botao salvar flutuante. A aba "Site" contem 5 sub-abas: Aparencia, Branding, Navegacao, Conteudo e SEO.
 
 ### 5.1 Dados Institucionais
 
@@ -627,6 +685,30 @@ Detalhado na secao [6. Aparencia e Site Institucional](#6-aparencia-e-site-insti
 | Complexidade | `password_policy.min_length`, `require_*` | Comprimento minimo (4-32), toggles uppercase/lowercase/numbers/special |
 | Tempo de Vida | `password_policy.password_lifetime_days` | 0-360 dias (0 = nunca expira) |
 | Reutilizacao | `password_policy.password_history_count` | 0-24 senhas anteriores impedidas |
+
+### 5.10 Usuarios
+
+Gerenciamento de contas de usuario com atribuicao de roles (ver secao 4.16).
+
+### 5.11 Permissoes
+
+Grid de permissoes por role (modulo x acao) com overrides por usuario.
+
+### 5.12 Auditoria
+
+Consulta de `audit_logs` com filtros por usuario, acao, modulo e periodo.
+
+### 5.13 Financeiro
+
+**Categoria**: `financial`
+
+Painel proprio (`FinancialSettingsPanel`) com botao salvar flutuante (dirty tracking).
+
+| Card | Descricao |
+|------|-----------|
+| Gateways de Pagamento | Lista de `payment_gateways` com provider, label, status; Drawer para adicionar/editar (provider, label, environment, API key, metodos, ativo/padrao) |
+| Regua de Cobranca WhatsApp | CRUD de etapas com offset em dias (D-5, D+3, etc.) + label customizado; toggle habilitado; seletor de template WhatsApp (categoria `financeiro`); sem presets fixos — cada escola define sua propria regua |
+| Chave PIX para Cobrancas | Select tipo (CPF/CNPJ/Email/Telefone/Aleatoria) + input valor; usada nas notificacoes e portal |
 
 ---
 
@@ -760,6 +842,25 @@ Configuravel na aba Aparencia > Home:
 | `school_events` | Eventos com RSVP |
 | `event_rsvps` | Respostas RSVP (confirmed/declined/maybe) |
 
+#### Financeiro (Fase 8)
+| Tabela | Descricao |
+|--------|-----------|
+| `financial_plans` | Planos de mensalidade: nome, valor, parcelas, vencimento, juros, multa, desconto |
+| `financial_contracts` | Contrato aluno+plano+ano com pipeline draft→active→concluded |
+| `financial_installments` | Parcelas com status, pagamento, gateway, boleto/PIX |
+| `financial_notification_log` | Dedup da regua de cobranca (installment_id + trigger_type) |
+| `payment_gateways` | Gateways configurados com credentials (JSONB), webhook_secret |
+| `gateway_customers` | Cache de clientes no gateway (gateway_id, student_id) |
+| `gateway_webhook_log` | Log de webhooks idempotente (normalized + raw) |
+
+#### Governanca
+| Tabela | Descricao |
+|--------|-----------|
+| `role_permissions` | Permissoes por role (modulo x acao) |
+| `user_permission_overrides` | Overrides de permissao por usuario |
+| `modules` | Modulos do sistema com toggle on/off e dependencias |
+| `audit_logs` | Log centralizado de acoes admin |
+
 ### 7.2 Storage Buckets
 
 | Bucket | Acesso | Uso |
@@ -770,7 +871,7 @@ Configuravel na aba Aparencia > Home:
 | `library-resources` | Privado (signed URL) | PDFs, videos, imagens da biblioteca |
 | `avatars` | Publico | Fotos de perfil dos usuarios |
 
-### 7.3 Migrations Aplicadas (26)
+### 7.3 Migrations Aplicadas (47)
 
 | # | Nome | Data | Descricao |
 |---|------|------|-----------|
@@ -798,6 +899,29 @@ Configuravel na aba Aparencia > Home:
 | 23 | `social_networks` | 09/04 | Links de redes sociais |
 | 24 | `attendance_module` | 09/04 | Modulo completo de atendimento (tickets, feedback, history, RLS) |
 | 25 | `attendance_priority_queue` | 11/04 | Prioridade na fila por agendamento |
+| 26 | `granular_permissions` | 11/04 | role_permissions, user_permission_overrides, modules |
+| 27 | `audit_logs` | 11/04 | Tabela audit_logs centralizada |
+| 28 | `attendance_improvements` | 11/04 | Setor, transferencia, historico expandido |
+| 29 | `attendance_ticket_effects` | 11/04 | Efeitos visuais na chamada de senha |
+| 30 | `attendance_sound_config` | 11/04 | Configuracao de som por setor |
+| 31 | `attendance_panel_password` | 11/04 | Senha de acesso ao painel TV |
+| 32 | `attendance_display_settings` | 11/04 | Settings do painel de exibicao |
+| 33 | `attendance_feedback_questions` | 12/04 | Perguntas customizaveis de feedback |
+| 34 | `branding_settings` | 12/04 | Categorias branding, navigation, content |
+| 35 | `seo_settings` | 12/04 | Configuracoes SEO dinamico |
+| 36 | `site_presets` | 12/04 | Save/restore de presets do site |
+| 37 | `branding_fonts_cta` | 12/04 | Fontes e CTAs no branding |
+| 38 | `testimonials_featured` | 12/04 | Flag de destaque em depoimentos |
+| 39 | `testimonials_admin_policy` | 12/04 | RLS para admin em depoimentos |
+| 40 | `sobre_estrutura_settings` | 12/04 | Conteudo das paginas Sobre e Estrutura |
+| 41 | `students_expanded` | 13/04 | Campos expandidos de alunos |
+| 42 | `student_import` | 13/04 | Import em lote de alunos |
+| 43 | `rename_attendance_to_student_attendance` | 13/04 | Rename para disambiguar de attendance_tickets |
+| 44 | `student_guardians` | 13/04 | Tabela N:N aluno-responsavel |
+| 45 | `add_testimonials_module` | 13/04 | Modulo testimonials no seed |
+| 46 | `financial_module` | 13/04 | Schema financeiro: plans, contracts, installments, gateways, logs |
+| 47 | `financial_portal_rpc` | 14/04 | RPC get_pix_key() SECURITY DEFINER |
+| 48 | `financial_notify_cron` | 14/04 | pg_cron job financial-notify-daily 08:00 BRT |
 
 ### 7.4 RLS Policies
 
@@ -822,19 +946,7 @@ Configuravel na aba Aparencia > Home:
 - Grades, Activities: filtradas por student_id/class_id
 - Announcements, Library, Events: filtradas por target_type + target_ids + is_published
 
-### 7.5 Tabelas Planejadas (Fases 8-12)
-
-#### Fase 8 — Financeiro (Migration 28)
-
-| Tabela | Campos-chave | Descricao |
-|--------|-------------|-----------|
-| `financial_plans` | name, amount, installments, due_day, punctuality_discount_pct, late_fee_pct, interest_rate_pct, segment_ids, school_year | Planos de mensalidade por ano letivo |
-| `financial_contracts` | student_id, plan_id, school_year, status (draft/active/suspended/cancelled/concluded), discount_type, discount_value, net_amount, gateway_id | Contrato financeiro por aluno/ano |
-| `financial_installments` | contract_id, student_id, installment_number, reference_month, due_date, amount, status (pending/paid/overdue/negotiated/cancelled/renegotiated), paid_at, paid_amount, provider_charge_id, boleto_url, pix_code, payment_link | Parcelas individuais |
-| `financial_notification_log` | installment_id, trigger_type (D-5/D-1/D+0/D+3/D+10/D+30), sent_at, whatsapp_message_id | Log da regua de cobranca |
-| `payment_gateways` | provider, label, is_active, is_default, environment, credentials (JSONB criptografado), webhook_secret, supported_methods | Gateways configurados por tenant |
-| `gateway_customers` | gateway_id, student_id, provider_customer_id | Cache de clientes no gateway |
-| `gateway_webhook_log` | gateway_id, provider, event_type, provider_charge_id, installment_id, normalized (JSONB), raw (JSONB) | Log de eventos de webhook |
+### 7.5 Tabelas Planejadas (Fases 9-12)
 
 #### Fase 9 — Academico Completo (Migrations 29-31)
 
@@ -876,29 +988,22 @@ Configuravel na aba Aparencia > Home:
 | `learning_objectives` | discipline_id, segment_id, school_year, title, bncc_code, sequence_order | Objetivos de aprendizagem |
 | `lesson_plan_objectives` | lesson_plan_id, objective_id | N:N plano de aula x objetivos |
 
-#### Modificacoes em Tabelas Existentes (Fases 8-12)
+#### Modificacoes em Tabelas Existentes (Fases 9-12)
 
 | Tabela | Campo adicionado | Tipo | Fase | Motivo |
 |--------|-----------------|------|------|--------|
-| `students` | `status` | TEXT | 8 | active/inactive/transferred/cancelled (expandir CHECK existente) |
-| `students` | `school_year` | INTEGER | 8 | Ano letivo ativo |
 | `activities` | `discipline_id` | UUID FK | 9 | Vinculo a tabela `disciplines` |
 | `student_attendance` | `school_calendar_event_id` | UUID FK | 9 | Vinculo a feriados/eventos |
 | `student_attendance` | `lesson_plan_id` | UUID FK | 12 | Vinculo ao plano de aula (chamada integrada ao diario) |
-| `financial_contracts` | `gateway_id` | UUID FK | 8 | Gateway de pagamento do contrato |
-| `financial_installments` | `gateway_id` | UUID FK | 8 | Gateway da parcela |
-| `financial_installments` | `provider_charge_id` | TEXT | 8 | ID da cobranca no gateway |
-| `financial_installments` | `payment_link` | TEXT | 8 | Link unificado de pagamento |
-| `financial_installments` | `gateway_fee_cents` | INTEGER | 8 | Taxa do gateway |
-| `financial_installments` | `gateway_raw_response` | JSONB | 8 | Ultima resposta bruta (debug) |
-| `whatsapp_template_categories` | 5 novas categorias seed | — | 8-11 | financeiro, academico, ocorrencia, responsavel, secretaria |
-| `system_settings` | chave `financial.*` | JSONB | 8 | Config financeira: PIX, gateway, regua |
+| `whatsapp_template_categories` | 4 novas categorias seed | — | 9-11 | academico, ocorrencia, responsavel, secretaria |
+
+> **Nota**: Campos financeiros (`students.status`, `students.school_year`, `financial_*.gateway_id`, etc.) ja aplicados na migration 46. Categoria `financeiro` ja seedada.
 
 ---
 
 ## 8. Edge Functions
 
-### 8.1 Edge Functions Implementadas (13)
+### 8.1 Edge Functions Implementadas (16)
 
 | Funcao | Auth | Rate Limit | Descricao |
 |--------|------|------------|-----------|
@@ -915,16 +1020,16 @@ Configuravel na aba Aparencia > Home:
 | `change-password` | JWT (auth) | — | Troca de senha com validacao de politica e historico |
 | `geocode-address` | JWT (admin+) | — | Proxy Google Maps Geocoding API; converte endereco em lat/lng |
 | `google-static-map` | JWT (admin+) | — | Proxy Google Static Maps API; retorna PNG com marcador + circulo |
+| `financial-notify` | Trigger secret (pg_cron) | — | Regua de cobranca automatica diaria (08:00 BRT); le billing_stages configuravel; agrupa por etapa em campanha via UazAPI `/sender/advanced`; dedup via `financial_notification_log` |
+| `payment-gateway-proxy` | JWT (admin+) | — | Proxy multi-gateway com Adapter Pattern; acoes: createCustomer, createCharge, getCharge, cancelCharge; adapters: Asaas (V1) |
+| `payment-gateway-webhook` | Secret URL param | — | Recebe webhooks de gateways; normaliza via adapter; atualiza installments; idempotente via `gateway_webhook_log`; verify_jwt=false |
 
 **Rate Limiting**: Endpoints publicos usam rate limiter in-memory com sliding window por IP (`_shared/rate-limit.ts`). Resposta 429 inclui headers `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`. Endpoints protegidos por JWT nao precisam de rate limiting adicional.
 
-### 8.2 Edge Functions Planejadas (Fases 8-12)
+### 8.2 Edge Functions Planejadas (Fases 9-12)
 
 | Funcao | Auth | Rate Limit | Fase | Descricao |
 |--------|------|------------|------|-----------|
-| `financial-notify` | Trigger secret (pg_cron) | — | 8 | Disparado diariamente as 08:00; itera parcelas overdue/pending por timing da regua; renderiza templates financeiros; envia via `uazapi-proxy` |
-| `payment-gateway-proxy` | JWT (admin+) | — | 8 | Proxy multi-gateway com GatewayRouter; actions: create_customer, create_charge, cancel_charge, get_charge, refresh_charge, ping; descriptografa credenciais AES-256-CBC |
-| `payment-gateway-webhook` | Secret URL param | 120/min | 8 | Recebe confirmacoes de pagamento de qualquer gateway; normaliza via adapter; atualiza installments; idempotente; verify_jwt = false |
 | `generate-document` | JWT (admin+) | — | 11 | Renderiza template HTML com variaveis → gera PDF; salva em Storage; retorna signed URL |
 | `create-guardian-user` | JWT (super_admin) | — | 10 | Cria usuario Supabase Auth para responsavel + `guardian_profiles`; gera senha temporaria |
 | `calculate-grades` | JWT (admin+) | — | 9 | Calcula medias e resultado final por turma/periodo usando a `grade_formula` do segmento |
@@ -960,7 +1065,7 @@ Configuravel na aba Aparencia > Home:
 | `/atendimento` | AtendimentoPublico | Check-in por QR Code |
 | `/painel-atendimento` | PainelAtendimento | Display TV/monitor |
 
-### 9.3 Admin — Rotas Implementadas (17 rotas)
+### 9.3 Admin — Rotas Implementadas (18 rotas)
 
 | Rota | Componente | Roles |
 |------|-----------|-------|
@@ -975,6 +1080,7 @@ Configuravel na aba Aparencia > Home:
 | `/admin/relatorios` | ReportsPage | admin+ |
 | `/admin/segmentos` | SegmentsPage | admin+ |
 | `/admin/alunos` | StudentsPage | admin+ |
+| `/admin/financeiro` | FinancialPage (tab rail: Dashboard, Planos, Contratos, Cobrancas) | admin+ |
 | `/admin/area-professor` | TeacherAreaPage | admin+, teacher |
 | `/admin/biblioteca` | LibraryPage | admin+, teacher |
 | `/admin/comunicados` | AnnouncementsPage | admin+, teacher |
@@ -984,7 +1090,7 @@ Configuravel na aba Aparencia > Home:
 
 *admin+ = super_admin, admin, coordinator*
 
-### 9.4 Portal do Aluno — Rotas Implementadas (8 rotas)
+### 9.4 Portal do Aluno — Rotas Implementadas (9 rotas)
 
 | Rota | Componente |
 |------|-----------|
@@ -995,16 +1101,13 @@ Configuravel na aba Aparencia > Home:
 | `/portal/comunicados` | AnnouncementsPage |
 | `/portal/biblioteca` | LibraryPage |
 | `/portal/eventos` | EventsPage |
+| `/portal/financeiro` | FinanceiroPage |
 | `/portal/perfil` | ProfilePage |
 
-### 9.5 Admin — Rotas Planejadas (16 novas)
+### 9.5 Admin — Rotas Planejadas (12 novas)
 
 | Rota | Modulo | Roles | Fase |
 |------|--------|-------|------|
-| `/admin/financeiro` | Dashboard Financeiro | admin+ | 8 |
-| `/admin/financeiro/planos` | Planos de Mensalidade | super_admin, admin | 8 |
-| `/admin/financeiro/contratos` | Contratos | admin+ | 8 |
-| `/admin/financeiro/cobrancas` | Parcelas / Cobrancas | admin+ | 8 |
 | `/admin/disciplinas` | Disciplinas | admin+ | 9 |
 | `/admin/grade-horaria` | Grade Horaria | admin+ | 9 |
 | `/admin/calendario` | Calendario Letivo | admin+ | 9 |
@@ -1037,11 +1140,10 @@ Configuravel na aba Aparencia > Home:
 | `/responsavel/perfil` | PerfilPage | Dados pessoais, troca de senha, dados do filho |
 | `/responsavel/biblioteca` | BibliotecaPage | Materiais da turma |
 
-### 9.7 Portal do Aluno — Rotas Planejadas (3 novas)
+### 9.7 Portal do Aluno — Rotas Planejadas (2 novas)
 
 | Rota | Pagina | Fase |
 |------|--------|------|
-| `/portal/financeiro` | FinanceiroPage | 8 |
 | `/portal/grade` | GradeHorariaPage | 9 |
 | `/portal/diario` | DiarioPage (read-only) | 12 |
 
@@ -1056,23 +1158,23 @@ Configuravel na aba Aparencia > Home:
 | 1-5 | Fundacao (site, admin, portal, atendimento, CRM) | ✅ Concluido | — | — |
 | 6 | Governanca e Escala (permissoes, modulos, audit) | ✅ Concluido | — | 1-5 |
 | 7 | Whitelabel (personalizacao total, multi-tenant) | ✅ Concluido | — | 6 |
-| 8 | Modulo Financeiro | ⏳ Pendente | Critica | 7 |
+| 8 | Modulo Financeiro | ✅ Concluido | Critica | 7 |
 | 9 | Academico Completo | ⏳ Pendente | Critica | 7 |
 | 10 | Portal do Responsavel | ⏳ Pendente | Critica | 8 + 9 |
 | 11 | Secretaria Digital | ⏳ Pendente | Alta | 10 |
 | 12 | Modulo Pedagogico | ⏳ Pendente | Media | 9 |
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
 
-**Dependencias**: Fases 8 e 9 podem ser desenvolvidas em paralelo. Fase 10 depende de ambas. Fase 11 depende de 10. Fase 12 depende de 9. Fase 13 depende de 8+9+10 (dados suficientes para insights).
+**Dependencias**: Fase 9 e a proxima prioridade (pode ser desenvolvida imediatamente). Fase 10 depende de 8+9. Fase 11 depende de 10. Fase 12 depende de 9. Fase 13 depende de 8+9+10 (dados suficientes para insights).
 
-**Pre-requisitos transversais** (antes das fases 8-12):
-- Renomear tabela `attendance` → `student_attendance` para disambiguar da fila presencial (`attendance_tickets`)
-- Criar tabela `student_guardians` (N:N) como fonte unica de verdade para responsaveis, substituindo campos `guardian_*` e `financial_guardian_*` de `students`
-- Adicionar `testimonials` ao seed da tabela `modules` (ausente na migration 26)
+**Pre-requisitos transversais** (antes das fases 9-12):
+- ✅ Renomear tabela `attendance` → `student_attendance` (migration 43)
+- ✅ Criar tabela `student_guardians` N:N (migration 44)
+- ✅ Adicionar `testimonials` ao seed da tabela `modules` (migration 45)
 
 ---
 
-### 10.2 Fases Concluidas (6-7)
+### 10.2 Fases Concluidas (6-8)
 
 #### Fase 6 — Governanca e Escala
 
@@ -1120,242 +1222,30 @@ Implementado em 12 de abril de 2026. Detalhes na secao 2.3.
 
 ---
 
-### 10.3 Fase 8 — Modulo Financeiro
+### 10.3 Fase 8 — Modulo Financeiro (CONCLUIDA)
 
-**Objetivo**: Gerenciar mensalidades, cobrancas, inadimplencia e BI financeiro de forma integrada ao aluno ja matriculado. Inclui regua de cobranca WhatsApp automatica e integracao multi-gateway.
+> **Concluido em**: 14 de abril de 2026
+> **Migrations**: 46, 47, 48
+> **Edge Functions**: financial-notify (v2), payment-gateway-proxy (v2), payment-gateway-webhook (v2)
+> **Detalhes completos**: secao 4.17, `docs/PRD_ERP_COMPLEMENTAR.md` secao 3, `docs/PRD_FINANCEIRO_GATEWAYS.md`
 
-**Dependencias**: Fase 7 (multi-tenant consolidado)
+| Item | Descricao | Status |
+|------|-----------|--------|
+| **Planos de Mensalidade** | CRUD com valor, parcelas, vencimento, juros, multa, desconto pontualidade; por segmento/ano letivo | ✅ Concluido (FinancialPlansPage) |
+| **Contratos Financeiros** | Pipeline draft→active→concluded; geracao automatica de parcelas via RPC; desconto individual | ✅ Concluido (FinancialContractsPage) |
+| **Parcelas e Cobrancas** | Listagem com filtros; registro de pagamento manual; KPIs | ✅ Concluido (FinancialInstallmentsPage) |
+| **Dashboard Financeiro** | KPIs: receita, pendente, inadimplencia, contratos ativos; alerta de vencidos | ✅ Concluido (FinancialDashboardPage) |
+| **Regua de Cobranca WhatsApp** | Etapas customizaveis CRUD (offset arbitrario); disparo por campanha via `/sender/advanced`; dedup | ✅ Concluido (FinancialSettingsPanel + financial-notify) |
+| **Portal do Aluno — Financeiro** | 3 KPIs, filtros, copiar PIX, ver boleto | ✅ Concluido (FinanceiroPage) |
+| **Gateway Asaas (V1)** | Adapter Pattern; proxy + webhook; idempotente | ✅ Concluido (AsaasAdapter deployed) |
+| **Settings — Financeiro** | 3 cards: Gateways, Regua, PIX; floating save com dirty tracking | ✅ Concluido (FinancialSettingsPanel) |
 
-#### 8.1 Sub-modulos
+**Decisoes de implementacao que divergiram do plano original:**
 
-| Feature | Descricao | Prioridade |
-|---------|-----------|------------|
-| Planos de Mensalidade | CRUD com valor, parcelas, vencimento, juros, multa, desconto pontualidade; por segmento/ano letivo | Alta |
-| Contratos Financeiros | Vincula aluno + plano + ano letivo; desconto individual; geracao automatica de parcelas ao ativar; pipeline draft → active → suspended → cancelled → concluded | Alta |
-| Parcelas e Cobrancas | Listagem com filtros; status pipeline; registro de pagamento manual; negociacao de divida; acoes em lote; calculo automatico de juros | Alta |
-| Dashboard Financeiro (BI) | Receita prevista/realizada, inadimplencia R$/%/, ticket medio, alunos em dia/inadimplentes; graficos de evolucao, distribuicao, aging, top 10 | Alta |
-| Regua de Cobranca WhatsApp | Gatilhos temporais (D-5, D-1, D+0, D+3, D+10, D+30) com templates configuraveis; pg_cron + financial-notify; destinatario = responsavel financeiro | Alta |
-| Relatorios Financeiros | Extrato por aluno, receita mensal, inadimplencia, fluxo de caixa, projecao, contratos por status; export PDF/CSV/XLSX | Media |
-| Portal do Aluno — Financeiro | `/portal/financeiro`: lista de parcelas, status visual, botao ver boleto/copiar PIX | Media |
-| Gateway de Pagamento | Integracao multi-gateway (ver secao 8.7); modulo opcional, modo manual sempre disponivel | Media |
-
-#### 8.2 Tabelas
-
-| Tabela | Campos-chave | Migration |
-|--------|-------------|-----------|
-| `financial_plans` | name, amount, installments, due_day, segment_ids, school_year | 28 |
-| `financial_contracts` | student_id, plan_id, school_year, status, discount_*, gateway_id | 28 |
-| `financial_installments` | contract_id, installment_number, due_date, amount, status, paid_*, provider_charge_id, boleto_url, pix_code | 28 |
-| `financial_notification_log` | installment_id, trigger_type, sent_at, whatsapp_message_id | 28 |
-| `payment_gateways` | provider, label, credentials (enc), webhook_secret, supported_methods | 28 |
-| `gateway_customers` | gateway_id, student_id, provider_customer_id | 28 |
-| `gateway_webhook_log` | gateway_id, event_type, provider_charge_id, normalized, raw | 28 |
-
-#### 8.3 Edge Functions
-
-| Funcao | Auth | Descricao |
-|--------|------|-----------|
-| `financial-notify` | Trigger (pg_cron) | Regua de cobranca automatica |
-| `payment-gateway-proxy` | JWT (admin+) | Proxy multi-gateway com GatewayRouter |
-| `payment-gateway-webhook` | Secret URL param | Recebe webhooks de qualquer gateway; normaliza; atualiza installments |
-
-#### 8.4 Rotas Admin
-
-| Rota | Descricao |
-|------|-----------|
-| `/admin/financeiro` | Pagina unica com tab rail interna (Dashboard, Planos, Contratos, Cobrancas) |
-
-#### 8.5 Rotas Portal
-
-| Rota | Portal | Descricao |
-|------|--------|-----------|
-| `/portal/financeiro` | Aluno | Parcelas e pagamentos |
-
-#### 8.6 WhatsApp
-
-**Nova categoria**: `financeiro` (cor: `#14532d` verde escuro)
-
-**Regua de cobranca completa**:
-
-| Gatilho | Timing | Descricao |
-|---------|--------|-----------|
-| Aviso pre-vencimento | D-5 | Valor + data de vencimento |
-| Lembrete vespera | D-1 | Valor atualizado + PIX/boleto |
-| Dia do vencimento | D+0 | Regularizar para evitar juros |
-| Primeiro aviso atraso | D+3 | Valor atualizado |
-| Segundo aviso atraso | D+10 | Dias de atraso + valor com juros |
-| Ultimo aviso | D+30 | Aviso final |
-| Pagamento confirmado | — | Confirmacao automatica via webhook |
-
-**Variaveis financeiras**: `{{nome_aluno}}`, `{{responsavel}}`, `{{turma}}`, `{{mes_referencia}}`, `{{valor}}`, `{{valor_atualizado}}`, `{{data_vencimento}}`, `{{dias_atraso}}`, `{{chave_pix}}`, `{{link_boleto}}`, `{{link_portal}}`
-
-#### 8.7 Gateway de Pagamento
-
-Subsistema de integracao multi-gateway dentro do modulo financeiro. Cada escola pode ter mais de um gateway ativo simultaneamente. Modo manual sempre disponivel.
-
-##### Arquitetura — Adapter Pattern
-
-O sistema nao fala diretamente com nenhum gateway. Toda operacao passa por uma camada de adaptadores que normaliza a API de cada provedor para um contrato interno comum. O modulo financeiro emite um `ChargeRequest` e recebe um `GatewayCharge`.
-
-```
-FinancialModule (React)
-    │  ChargeRequest (gateway-agnostic)
-    ▼
-Edge Function: payment-gateway-proxy
-    │  Le payment_gateways → seleciona adapter
-    ▼
-GatewayRouter → switch(provider)
-    │
-    ├─ AsaasAdapter
-    ├─ EfiAdapter
-    ├─ IuguAdapter
-    ├─ PagarmeAdapter
-    ├─ ManualAdapter
-    └─ ...
-    │
-    ▼
-GatewayCharge (normalizado)
-```
-
-##### Provider Roadmap
-
-| Versao | Gateways | Notas |
-|--------|----------|-------|
-| V1 (lancamento) | Manual + Asaas | API acessivel; conta PJ integrada |
-| V2 (3 meses) | Efi, Iugu, Pagar.me, Sicredi | mTLS para Efi/Sicredi PIX |
-| V3 (6 meses) | Vindi, PagSeguro, Mercado Pago | Sob demanda |
-
-##### Tabelas
-
-| Tabela | Descricao |
-|--------|-----------|
-| `payment_gateways` | Gateways configurados por tenant: provider, credentials (JSONB enc), webhook_secret, supported_methods, is_default, environment |
-| `gateway_customers` | Cache de clientes no gateway: gateway_id, student_id, provider_customer_id |
-| `gateway_webhook_log` | Log de eventos de webhook: normalized (NormalizedWebhookEvent), raw payload |
-
-##### Edge Functions
-
-| Funcao | Auth | Descricao |
-|--------|------|-----------|
-| `payment-gateway-proxy` | JWT (admin+) | Actions: create_customer, create_charge, cancel_charge, get_charge, refresh_charge, ping |
-| `payment-gateway-webhook` | Secret URL param, 120/min, verify_jwt=false | Normaliza webhooks de qualquer provider; idempotente via gateway_webhook_log |
-
-##### Seguranca — Criptografia de Credenciais
-
-**2 camadas de protecao**:
-
-1. **RLS**: tabela `payment_gateways` acessivel apenas por super_admin e admin
-2. **AES-256-CBC**: campo `credentials` criptografado antes de salvar, descriptografado apenas dentro de Edge Functions
-
-```typescript
-// Formato: "enc:{iv_hex}:{encrypted_hex}"
-// Chave: GATEWAY_ENCRYPTION_KEY (Supabase secret, 32 bytes hex)
-// Secret: supabase secrets set GATEWAY_ENCRYPTION_KEY=$(openssl rand -hex 32)
-```
-
-O frontend nunca recebe valores de campos `secret`, o campo `credentials` completo, nem o `webhook_secret` apos criacao.
-
-##### Admin UI — Wizard de 4 Etapas
-
-1. **Selecao do provedor**: grid de cards com logo/nome/descricao; badge V1/V2
-2. **Formulario de credenciais**: campos gerados dinamicamente de `GATEWAY_CREDENTIAL_SCHEMAS[provider]`; campos `secret` exibem `••••••` apos salvar
-3. **Configuracoes adicionais**: label, ambiente (producao/sandbox), metodos suportados, toggle padrao
-4. **Teste de conexao**: ping → ✅ Conectado / erro; salvar habilitado apos teste
-
-Apos salvar: URL de webhook exibida com botao "Copiar URL" + instrucoes.
-
-##### TypeScript Interfaces (Resumo)
-
-```typescript
-interface ChargeRequest {
-  external_ref: string          // installment_id
-  customer_external_id: string  // ID do cliente no gateway
-  amount_cents: number
-  due_date: string              // YYYY-MM-DD
-  description: string
-  payment_methods: Array<'boleto' | 'pix' | 'credit_card' | 'debit_card'>
-  interest_rate_pct?: number
-  late_fee_pct?: number
-  discount?: { type: 'fixed' | 'percentage'; value: number; deadline_days?: number }
-  metadata?: Record<string, string>
-}
-
-interface GatewayCharge {
-  provider_id: string
-  external_ref: string          // installment_id de volta
-  status: 'pending' | 'paid' | 'overdue' | 'cancelled' | 'refunded' | 'failed'
-  boleto_url?: string
-  pix_code?: string
-  payment_link?: string
-  due_date: string
-  amount_cents: number
-}
-
-interface GatewayAdapter {
-  createCustomer(data: GatewayCustomerData): Promise<GatewayCustomer>
-  findCustomer(externalRef: string): Promise<GatewayCustomer | null>
-  createCharge(charge: ChargeRequest): Promise<GatewayCharge>
-  cancelCharge(providerChargeId: string): Promise<void>
-  getCharge(providerChargeId: string): Promise<GatewayCharge>
-  normalizeWebhook(rawPayload: unknown): NormalizedWebhookEvent
-  ping(): Promise<{ ok: boolean; message?: string }>
-}
-
-interface NormalizedWebhookEvent {
-  provider_charge_id: string
-  installment_id: string
-  event_type: 'payment_received' | 'payment_failed' | 'payment_refunded' | 'charge_cancelled' | 'overdue'
-  status: GatewayChargeStatus
-  paid_at?: string
-  paid_amount_cents?: number
-  payment_method?: string
-  gateway_fee_cents?: number
-  raw: unknown
-}
-```
-
-##### Fluxos de Integracao
-
-1. **Ativar contrato**: Admin ativa contrato → seleciona gateway → createCustomer (se novo) → createCharge para cada parcela → salva provider_charge_id, boleto_url, pix_code
-2. **Pagamento confirmado (webhook)**: Gateway POST → payment-gateway-webhook → valida secret → normalizeWebhook → salva em gateway_webhook_log → atualiza installment (paid) → dispara auto-notify "pagamento-confirmado"
-3. **Regua de cobranca (pg_cron)**: Diariamente as 08:00 → seleciona parcelas elegiveis → calcula etapa da regua → verifica financial_notification_log → envia via financial-notify
-4. **Reenvio manual**: Admin clica "Reenviar" → getCharge (sincroniza status) → reenvia notificacao WhatsApp → retorna links atualizados
-5. **Cancelamento**: Admin cancela parcela → cancelCharge no gateway (se existe) → status = cancelled
-
-##### Modo Manual
-
-Adapter que nao faz chamadas externas. `createCharge()` retorna status pending sem links de pagamento. Baixa feita manualmente pelo admin (data, valor, forma de pagamento, observacao). Nenhum gateway e obrigatorio.
-
-#### 8.8 Settings — Adicoes
-
-| Aba | Card/Sub-aba | Descricao |
-|-----|-------------|-----------|
-| Financeiro | Gateways | Listagem de gateways configurados; wizard de adicao/edicao |
-| Financeiro | Regua de Cobranca | Toggle por etapa (D-5..D+30); seletor de template; preview |
-| Financeiro | Chave PIX | Tipo + chave para templates WhatsApp |
-
-#### 8.9 Integracao com Modulos Existentes
-
-| Modulo | Integracao |
-|--------|-----------|
-| `students` | Campos financial_guardian_*; visibilidade financeira na ficha |
-| `school_classes` | Filtros de cobranca por turma |
-| `enrollments` | Ao confirmar pre-matricula → sugerir criacao de contrato |
-| `whatsapp_templates` | Nova categoria `financeiro`; regua usa `auto-notify` existente |
-| `notifications` | Alerta: aluno inadimplente ha +30d; receita abaixo de meta |
-| Dashboard `/admin` | Card "Inadimplencia do mes" + "Receita realizada" |
-| `audit_logs` | Todos os pagamentos registrados |
-
-#### 8.10 Prioridade de Desenvolvimento Interna
-
-1. Schema + migrations financeiras
-2. Planos + contratos (admin)
-3. Geracao de parcelas (automatica ao ativar contrato)
-4. Tela de cobrancas + baixa manual
-5. Dashboard financeiro (BI)
-6. Regua de cobranca WhatsApp
-7. `/portal/financeiro` (Portal do Aluno)
-8. Integracao com gateway (Asaas) — ultima subetapa, ativavel como modulo
+1. **Regua customizavel**: O plano previa 6 etapas fixas (D-5, D-1, D+0, D+3, D+10, D+30). A implementacao permite CRUD de etapas com offset arbitrario — cada escola define sua propria regua.
+2. **Disparo por campanha**: O plano previa envio individual por parcela. A implementacao agrupa parcelas por etapa em campanha unica via UazAPI `/sender/advanced`, habilitando pause/resume/cancel via UI de Comunicados.
+3. **Tab rail interno**: O plano previa 4 rotas separadas. A implementacao usa pagina unica `/admin/financeiro` com tab rail interna (padrao do sistema).
+4. **Relatorios financeiros dedicados**: Planejados mas adiados — funcionalidades basicas cobertas pelo ReportsPage existente.
 
 ---
 
@@ -1363,7 +1253,7 @@ Adapter que nao faz chamadas externas. `createCharge()` retorna status pending s
 
 **Objetivo**: Completar o modulo academico com disciplinas, grade horaria, calendario letivo, boletim formal com formula configuravel, resultado final e historico escolar.
 
-**Dependencias**: Fase 7 (pode ser desenvolvida em paralelo com Fase 8)
+**Dependencias**: Fases 7 e 8 (ambas concluidas)
 
 #### 9.1 Sub-modulos
 
@@ -1673,6 +1563,7 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 | **OAuth para depoimentos** | Google e Facebook providers no Supabase Auth | Baixa | ⏳ Pendente |
 | **Mascaramento de dados** | CPF e telefone parcial para roles restritas | Baixa | ⏳ Pendente |
 | **Biblioteca Virtual publica** | Rota `/biblioteca-virtual` no site — decidir se migra para /portal/biblioteca | Baixa | ⏳ Pendente |
+| **PWA / Mobile-First** | Layout responsivo mobile-first, manifest, service worker, push notifications. Concern transversal — ver `docs/PRD_PWA_MOBILE_FIRST.md` para detalhamento completo. Nao e uma fase isolada; cada fase deve entregar componentes mobile-ready | Media | ⏳ Pendente |
 
 ---
 
@@ -1829,7 +1720,7 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 | `geral` | `#374151` (cinza) | Comunicados gerais | ✅ Implementado |
 | `boas_vindas` | `#7c3aed` (roxo) | Boas-vindas ao portal | ✅ Implementado |
 | `2fa` | `#be185d` (rosa) | Senhas temporarias (scaffold, sem OTP real) | ✅ Implementado |
-| `financeiro` | `#14532d` (verde escuro) | Cobrancas, inadimplencia, pagamento confirmado | ⏳ Fase 8 |
+| `financeiro` | `#14532d` (verde escuro) | Cobrancas, inadimplencia, pagamento confirmado | ✅ Implementado |
 | `academico` | `#1e3a5f` (azul escuro) | Notas, faltas, resultado final, atividades | ⏳ Fase 9 |
 | `ocorrencia` | `#7c2d12` (vermelho escuro) | Bilhetes/ocorrencias escolares | ⏳ Fase 10 |
 | `responsavel` | `#4c1d95` (roxo escuro) | Portal do responsavel, senha temporaria | ⏳ Fase 10 |
