@@ -5,9 +5,10 @@ import type { FinancialContract, FinancialPlan, FinancialContractStatus } from '
 import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_COLORS } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import PermissionGate from '../../components/PermissionGate';
+import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Plus, Loader2, Search, ChevronDown, Play, Pause, X as XIcon,
-  Save, Check, FileSignature, User, Calendar,
+  Save, Check, FileSignature, User, Calendar, Tag, DollarSign, Percent,
 } from 'lucide-react';
 
 export default function FinancialContractsPage() {
@@ -82,13 +83,12 @@ export default function FinancialContractsPage() {
       logAudit({ action: 'create', module: 'financial-contracts', description: 'Contrato criado', newData: payload });
       setSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
-      savedTimer.current = setTimeout(() => { setSaved(false); setShowNew(false); resetForm(); load(); }, 1200);
+      savedTimer.current = setTimeout(() => { setSaved(false); closeDrawer(); load(); }, 1200);
     }
     setSaving(false);
   }
 
   async function activateContract(id: string) {
-    // Activate + generate installments via RPC
     await supabase.from('financial_contracts').update({ status: 'active', activated_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', id);
     await supabase.rpc('generate_installments_for_contract', { p_contract_id: id });
     logAudit({ action: 'update', module: 'financial-contracts', description: 'Contrato ativado + parcelas geradas', newData: { id } });
@@ -103,13 +103,13 @@ export default function FinancialContractsPage() {
 
   async function cancelContract(id: string) {
     await supabase.from('financial_contracts').update({ status: 'cancelled', cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', id);
-    // Cancel pending installments
     await supabase.from('financial_installments').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('contract_id', id).in('status', ['pending', 'overdue']);
     logAudit({ action: 'update', module: 'financial-contracts', description: 'Contrato cancelado + parcelas pendentes canceladas', newData: { id } });
     load();
   }
 
-  function resetForm() {
+  function closeDrawer() {
+    setShowNew(false);
     setNewStudentId('');
     setNewPlanId('');
     setNewDiscountType('');
@@ -125,10 +125,7 @@ export default function FinancialContractsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Contratos</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{contracts.length} contrato{contracts.length !== 1 && 's'}</p>
-        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{contracts.length} contrato{contracts.length !== 1 && 's'}</p>
         <PermissionGate moduleKey="financial-contracts" action="create">
           <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-semibold hover:bg-brand-primary-dark transition-colors shadow-lg shadow-brand-primary/20">
             <Plus className="w-4 h-4" /> Novo Contrato
@@ -164,7 +161,7 @@ export default function FinancialContractsPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((c) => (
-            <div key={c.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+            <div key={c.id} className="bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-xl">
@@ -216,65 +213,68 @@ export default function FinancialContractsPage() {
         </div>
       )}
 
-      {/* New Contract Modal */}
-      {showNew && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white">Novo Contrato</h2>
-              <button onClick={() => { setShowNew(false); resetForm(); }} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><XIcon className="w-5 h-5 text-gray-400" /></button>
+      {/* Drawer: New Contract */}
+      <Drawer
+        open={showNew}
+        onClose={closeDrawer}
+        title="Novo Contrato"
+        icon={FileSignature}
+        width="w-[440px]"
+        footer={
+          <div className="flex justify-end gap-3">
+            <button onClick={closeDrawer} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancelar</button>
+            <button onClick={handleCreate} disabled={!newStudentId || !newPlanId || saving}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+              {saving ? 'Criando...' : saved ? 'Criado!' : 'Criar Contrato'}
+            </button>
+          </div>
+        }
+      >
+        <DrawerCard title="Aluno e Plano" icon={User}>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Aluno *</label>
+            <select value={newStudentId} onChange={(e) => setNewStudentId(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
+              <option value="">Selecione o aluno</option>
+              {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.enrollment_number})</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Plano *</label>
+            <select value={newPlanId} onChange={(e) => setNewPlanId(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
+              <option value="">Selecione o plano</option>
+              {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {fmt(p.amount)}</option>)}
+            </select>
+          </div>
+        </DrawerCard>
+
+        <DrawerCard title="Desconto" icon={Percent}>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tipo</label>
+              <select value={newDiscountType} onChange={(e) => setNewDiscountType(e.target.value as 'percentage' | 'fixed' | '')}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
+                <option value="">Sem desconto</option>
+                <option value="percentage">Percentual (%)</option>
+                <option value="fixed">Fixo (R$)</option>
+              </select>
             </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Aluno *</label>
-                <select value={newStudentId} onChange={(e) => setNewStudentId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
-                  <option value="">Selecione o aluno</option>
-                  {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.enrollment_number})</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Plano *</label>
-                <select value={newPlanId} onChange={(e) => setNewPlanId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
-                  <option value="">Selecione o plano</option>
-                  {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {fmt(p.amount)}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tipo desconto</label>
-                  <select value={newDiscountType} onChange={(e) => setNewDiscountType(e.target.value as 'percentage' | 'fixed' | '')}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
-                    <option value="">Sem desconto</option>
-                    <option value="percentage">Percentual (%)</option>
-                    <option value="fixed">Fixo (R$)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Valor desconto</label>
-                  <input type="number" step="0.01" min="0" value={newDiscountValue || ''} onChange={(e) => setNewDiscountValue(Number(e.target.value))}
-                    disabled={!newDiscountType}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none disabled:opacity-50" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Observações</label>
-                <textarea value={newNotes} onChange={(e) => setNewNotes(e.target.value)} rows={2} placeholder="Observações sobre o contrato..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none resize-none" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 p-5 border-t border-gray-100 dark:border-gray-700">
-              <button onClick={() => { setShowNew(false); resetForm(); }} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancelar</button>
-              <button onClick={handleCreate} disabled={!newStudentId || !newPlanId || saving}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                {saving ? 'Criando...' : saved ? 'Criado!' : 'Criar Contrato'}
-              </button>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Valor</label>
+              <input type="number" step="0.01" min="0" value={newDiscountValue || ''} onChange={(e) => setNewDiscountValue(Number(e.target.value))}
+                disabled={!newDiscountType}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none disabled:opacity-50" />
             </div>
           </div>
-        </div>
-      )}
+        </DrawerCard>
+
+        <DrawerCard title="Observações" icon={Tag}>
+          <textarea value={newNotes} onChange={(e) => setNewNotes(e.target.value)} rows={2} placeholder="Observações sobre o contrato..."
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none resize-none" />
+        </DrawerCard>
+      </Drawer>
     </div>
   );
 }

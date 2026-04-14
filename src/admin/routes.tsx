@@ -29,11 +29,8 @@ const AttendancePage       = lazy(() => import('./pages/attendance/AttendancePag
 const AttendanceHistoryPage = lazy(() => import('./pages/attendance/AttendanceHistoryPage'));
 const TestimonialsPage     = lazy(() => import('./pages/testimonials/TestimonialsPage'));
 
-// Financial
-const FinancialDashboardPage   = lazy(() => import('./pages/financial/FinancialDashboardPage'));
-const FinancialPlansPage       = lazy(() => import('./pages/financial/FinancialPlansPage'));
-const FinancialContractsPage   = lazy(() => import('./pages/financial/FinancialContractsPage'));
-const FinancialInstallmentsPage = lazy(() => import('./pages/financial/FinancialInstallmentsPage'));
+// Financial (single page with internal tabs)
+const FinancialPage            = lazy(() => import('./pages/financial/FinancialPage'));
 
 function PageFallback() {
   return (
@@ -90,11 +87,8 @@ export default function AdminRoutes() {
           <Route path="eventos"        element={<ModuleGuard moduleKey="events"><LazyPage><EventsPage /></LazyPage></ModuleGuard>} />
           <Route path="depoimentos"   element={<ModuleGuard moduleKey="testimonials"><LazyPage><TestimonialsPage /></LazyPage></ModuleGuard>} />
 
-          {/* Financial */}
-          <Route path="financeiro"            element={<ModuleGuard moduleKey="financial"><LazyPage><FinancialDashboardPage /></LazyPage></ModuleGuard>} />
-          <Route path="financeiro/planos"     element={<ModuleGuard moduleKey="financial-plans"><LazyPage><FinancialPlansPage /></LazyPage></ModuleGuard>} />
-          <Route path="financeiro/contratos"  element={<ModuleGuard moduleKey="financial-contracts"><LazyPage><FinancialContractsPage /></LazyPage></ModuleGuard>} />
-          <Route path="financeiro/cobrancas"  element={<ModuleGuard moduleKey="financial-installments"><LazyPage><FinancialInstallmentsPage /></LazyPage></ModuleGuard>} />
+          {/* Financial (single page with internal tab rail) */}
+          <Route path="financeiro"  element={<ModuleGuard moduleKey="financial"><LazyPage><FinancialPage /></LazyPage></ModuleGuard>} />
 
           {/* System */}
           <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />

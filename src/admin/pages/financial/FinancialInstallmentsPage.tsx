@@ -5,9 +5,10 @@ import type { FinancialInstallment, FinancialInstallmentStatus, PaymentMethod } 
 import { INSTALLMENT_STATUS_LABELS, INSTALLMENT_STATUS_COLORS } from '../../types/admin.types';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import PermissionGate from '../../components/PermissionGate';
+import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Loader2, Search, ChevronDown, Receipt, Calendar, DollarSign,
-  Check, Save, X as XIcon, AlertTriangle, CreditCard, User,
+  Check, Save, AlertTriangle, CreditCard, User, FileText,
 } from 'lucide-react';
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -27,8 +28,8 @@ export default function FinancialInstallmentsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FinancialInstallmentStatus | 'all'>('all');
 
-  // Payment modal
-  const [payingId, setPayingId] = useState<string | null>(null);
+  // Payment drawer
+  const [payingInst, setPayingInst] = useState<FinancialInstallment | null>(null);
   const [payAmount, setPayAmount] = useState(0);
   const [payMethod, setPayMethod] = useState<PaymentMethod>('pix');
   const [payNotes, setPayNotes] = useState('');
@@ -59,7 +60,6 @@ export default function FinancialInstallmentsPage() {
     return true;
   });
 
-  // Group stats
   const overdueCount = installments.filter((i) => i.status === 'overdue').length;
   const pendingCount = installments.filter((i) => i.status === 'pending').length;
   const paidCount = installments.filter((i) => i.status === 'paid').length;
@@ -74,15 +74,19 @@ export default function FinancialInstallmentsPage() {
     return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR');
   }
 
-  function openPayModal(inst: FinancialInstallment) {
-    setPayingId(inst.id);
+  function openPayDrawer(inst: FinancialInstallment) {
+    setPayingInst(inst);
     setPayAmount(Number(inst.total_due ?? inst.amount));
     setPayMethod('pix');
     setPayNotes('');
   }
 
+  function closePayDrawer() {
+    setPayingInst(null);
+  }
+
   async function handlePay() {
-    if (!payingId || !profile) return;
+    if (!payingInst || !profile) return;
     setSaving(true);
 
     const { error } = await supabase
@@ -95,20 +99,20 @@ export default function FinancialInstallmentsPage() {
         payment_notes: payNotes || null,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', payingId);
+      .eq('id', payingInst.id);
 
     if (!error) {
       logAudit({
         action: 'update',
         module: 'financial-installments',
         description: 'Pagamento registrado',
-        newData: { id: payingId, paid_amount: payAmount, payment_method: payMethod },
+        newData: { id: payingInst.id, paid_amount: payAmount, payment_method: payMethod },
       });
       setSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => {
         setSaved(false);
-        setPayingId(null);
+        closePayDrawer();
         load();
       }, 1200);
     }
@@ -121,15 +125,9 @@ export default function FinancialInstallmentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Cobranças</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Parcelas e pagamentos dos contratos</p>
-      </div>
-
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 flex items-center gap-3">
+        <div className="bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 flex items-center gap-3">
           <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
             <Calendar className="w-4 h-4 text-amber-500" />
           </div>
@@ -138,7 +136,7 @@ export default function FinancialInstallmentsPage() {
             <p className="text-lg font-bold text-gray-800 dark:text-white">{pendingCount} <span className="text-xs font-normal text-gray-400">({fmt(totalPending)})</span></p>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 flex items-center gap-3">
+        <div className="bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 flex items-center gap-3">
           <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-xl">
             <AlertTriangle className="w-4 h-4 text-red-500" />
           </div>
@@ -147,7 +145,7 @@ export default function FinancialInstallmentsPage() {
             <p className="text-lg font-bold text-gray-800 dark:text-white">{overdueCount} <span className="text-xs font-normal text-gray-400">({fmt(totalOverdue)})</span></p>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 flex items-center gap-3">
+        <div className="bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 flex items-center gap-3">
           <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
             <Check className="w-4 h-4 text-emerald-500" />
           </div>
@@ -184,12 +182,12 @@ export default function FinancialInstallmentsPage() {
           <p className="text-gray-500 dark:text-gray-400">Nenhuma parcela encontrada</p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
+                <tr className="border-b border-gray-200 dark:border-gray-700">
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Aluno</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Parcela</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Vencimento</th>
@@ -201,7 +199,7 @@ export default function FinancialInstallmentsPage() {
               </thead>
               <tbody>
                 {filtered.map((inst) => (
-                  <tr key={inst.id} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                  <tr key={inst.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-white/50 dark:hover:bg-gray-800/30 transition-colors">
                     <td className="px-5 py-3">
                       <p className="font-medium text-gray-800 dark:text-white">{inst.student?.full_name || '—'}</p>
                       <p className="text-[10px] text-gray-400">{inst.student?.enrollment_number} · {inst.contract?.plan?.name}</p>
@@ -222,7 +220,7 @@ export default function FinancialInstallmentsPage() {
                     <td className="px-5 py-3 text-right">
                       {(inst.status === 'pending' || inst.status === 'overdue') && (
                         <PermissionGate moduleKey="financial-installments" action="edit">
-                          <button onClick={() => openPayModal(inst)}
+                          <button onClick={() => openPayDrawer(inst)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors font-medium">
                             <CreditCard className="w-3 h-3" /> Baixa
                           </button>
@@ -260,7 +258,7 @@ export default function FinancialInstallmentsPage() {
                 )}
                 {(inst.status === 'pending' || inst.status === 'overdue') && (
                   <PermissionGate moduleKey="financial-installments" action="edit">
-                    <button onClick={() => openPayModal(inst)}
+                    <button onClick={() => openPayDrawer(inst)}
                       className="w-full mt-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors font-medium">
                       <CreditCard className="w-3 h-3" /> Registrar Pagamento
                     </button>
@@ -272,24 +270,57 @@ export default function FinancialInstallmentsPage() {
         </div>
       )}
 
-      {/* Payment Modal */}
-      {payingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white">Registrar Pagamento</h2>
-              <button onClick={() => setPayingId(null)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                <XIcon className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
+      {/* Drawer: Payment */}
+      <Drawer
+        open={!!payingInst}
+        onClose={closePayDrawer}
+        title="Registrar Pagamento"
+        icon={CreditCard}
+        badge={payingInst && (
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${INSTALLMENT_STATUS_COLORS[payingInst.status]}`}>
+            {INSTALLMENT_STATUS_LABELS[payingInst.status]}
+          </span>
+        )}
+        width="w-[400px]"
+        footer={
+          <div className="flex justify-end gap-3">
+            <button onClick={closePayDrawer} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancelar</button>
+            <button onClick={handlePay} disabled={!payAmount || saving}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+              {saving ? 'Salvando...' : saved ? 'Registrado!' : 'Confirmar Pagamento'}
+            </button>
+          </div>
+        }
+      >
+        {payingInst && (
+          <>
+            <DrawerCard title="Parcela" icon={FileText}>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Aluno</span>
+                  <span className="font-medium text-gray-800 dark:text-white">{payingInst.student?.full_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Parcela</span>
+                  <span className="text-gray-700 dark:text-gray-300">{payingInst.installment_number}/{payingInst.reference_month}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Vencimento</span>
+                  <span className="text-gray-700 dark:text-gray-300">{fmtDate(payingInst.due_date)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Valor original</span>
+                  <span className="font-semibold text-gray-800 dark:text-white">{fmt(Number(payingInst.amount))}</span>
+                </div>
+              </div>
+            </DrawerCard>
+
+            <DrawerCard title="Pagamento" icon={DollarSign}>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Valor pago *</label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input type="number" step="0.01" min="0" value={payAmount || ''} onChange={(e) => setPayAmount(Number(e.target.value))}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none" />
-                </div>
+                <input type="number" step="0.01" min="0" value={payAmount || ''} onChange={(e) => setPayAmount(Number(e.target.value))}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Forma de pagamento *</label>
@@ -305,18 +336,10 @@ export default function FinancialInstallmentsPage() {
                 <textarea value={payNotes} onChange={(e) => setPayNotes(e.target.value)} rows={2} placeholder="Comprovante, referência..."
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none resize-none" />
               </div>
-            </div>
-            <div className="flex justify-end gap-3 p-5 border-t border-gray-100 dark:border-gray-700">
-              <button onClick={() => setPayingId(null)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancelar</button>
-              <button onClick={handlePay} disabled={!payAmount || saving}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                {saving ? 'Salvando...' : saved ? 'Registrado!' : 'Confirmar Pagamento'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DrawerCard>
+          </>
+        )}
+      </Drawer>
     </div>
   );
 }

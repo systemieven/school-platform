@@ -1163,10 +1163,7 @@ Implementado em 12 de abril de 2026. Detalhes na secao 2.3.
 
 | Rota | Descricao |
 |------|-----------|
-| `/admin/financeiro` | Dashboard Financeiro |
-| `/admin/financeiro/planos` | Planos de Mensalidade |
-| `/admin/financeiro/contratos` | Contratos |
-| `/admin/financeiro/cobrancas` | Parcelas / Cobrancas |
+| `/admin/financeiro` | Pagina unica com tab rail interna (Dashboard, Planos, Contratos, Cobrancas) |
 
 #### 8.5 Rotas Portal
 
@@ -1731,6 +1728,12 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 - Confirmacao para acoes destrutivas
 - Cards recolhiveis com estado persistente nas configuracoes
 - Componente padronizado `SettingsCard` (head+body)
+
+#### Regras de Interacao
+- **Drawer-first**: Formularios de criar/editar usam o componente `<Drawer>` (painel lateral deslizante) em vez de modais centralizados. Modais somente quando ha telas sobrepostas que exigem bloqueio visual central (ex: confirmacao de acao destrutiva).
+- **DrawerCard**: Dentro do Drawer, cada secao do formulario e envolvida por `<DrawerCard title="..." icon={...}>` com cabecalho cinza + corpo branco, seguindo o padrao visual do sistema.
+- **Menu com tab rail interna**: Modulos com multiplas sub-secoes (Financeiro, futuro Academico, Secretaria, etc.) usam uma unica entrada no sidebar + tab rail interna colapsavel (padrao identico a Configuracoes). Evita sobrecarga do menu principal.
+- **Hierarquia de navegacao**: Sidebar → pagina com tabs → drawers para CRUD. Nunca sidebar com 4+ itens para o mesmo modulo.
 
 ### Observabilidade
 - Tabelas de historico por modulo (appointment_history, enrollment_history, contact_history, attendance_history)
