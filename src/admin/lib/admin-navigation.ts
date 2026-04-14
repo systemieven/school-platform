@@ -52,6 +52,43 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'Financeiro',
+    items: [
+      {
+        key: 'financial',
+        label: 'Financeiro',
+        icon: 'DollarSign',
+        path: '/admin/financeiro',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'financial',
+      },
+      {
+        key: 'financial-plans',
+        label: 'Planos',
+        icon: 'FileText',
+        path: '/admin/financeiro/planos',
+        roles: ['super_admin', 'admin'],
+        moduleKey: 'financial-plans',
+      },
+      {
+        key: 'financial-contracts',
+        label: 'Contratos',
+        icon: 'FileSignature',
+        path: '/admin/financeiro/contratos',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'financial-contracts',
+      },
+      {
+        key: 'financial-installments',
+        label: 'Cobranças',
+        icon: 'Receipt',
+        path: '/admin/financeiro/cobrancas',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'financial-installments',
+      },
+    ],
+  },
+  {
     label: 'Qualificação',
     items: [
       {

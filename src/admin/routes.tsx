@@ -29,6 +29,12 @@ const AttendancePage       = lazy(() => import('./pages/attendance/AttendancePag
 const AttendanceHistoryPage = lazy(() => import('./pages/attendance/AttendanceHistoryPage'));
 const TestimonialsPage     = lazy(() => import('./pages/testimonials/TestimonialsPage'));
 
+// Financial
+const FinancialDashboardPage   = lazy(() => import('./pages/financial/FinancialDashboardPage'));
+const FinancialPlansPage       = lazy(() => import('./pages/financial/FinancialPlansPage'));
+const FinancialContractsPage   = lazy(() => import('./pages/financial/FinancialContractsPage'));
+const FinancialInstallmentsPage = lazy(() => import('./pages/financial/FinancialInstallmentsPage'));
+
 function PageFallback() {
   return (
     <div className="flex items-center justify-center py-24">
@@ -83,6 +89,12 @@ export default function AdminRoutes() {
           <Route path="comunicados"    element={<ModuleGuard moduleKey="announcements"><LazyPage><AnnouncementsPage /></LazyPage></ModuleGuard>} />
           <Route path="eventos"        element={<ModuleGuard moduleKey="events"><LazyPage><EventsPage /></LazyPage></ModuleGuard>} />
           <Route path="depoimentos"   element={<ModuleGuard moduleKey="testimonials"><LazyPage><TestimonialsPage /></LazyPage></ModuleGuard>} />
+
+          {/* Financial */}
+          <Route path="financeiro"            element={<ModuleGuard moduleKey="financial"><LazyPage><FinancialDashboardPage /></LazyPage></ModuleGuard>} />
+          <Route path="financeiro/planos"     element={<ModuleGuard moduleKey="financial-plans"><LazyPage><FinancialPlansPage /></LazyPage></ModuleGuard>} />
+          <Route path="financeiro/contratos"  element={<ModuleGuard moduleKey="financial-contracts"><LazyPage><FinancialContractsPage /></LazyPage></ModuleGuard>} />
+          <Route path="financeiro/cobrancas"  element={<ModuleGuard moduleKey="financial-installments"><LazyPage><FinancialInstallmentsPage /></LazyPage></ModuleGuard>} />
 
           {/* System */}
           <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />

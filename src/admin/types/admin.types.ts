@@ -896,3 +896,137 @@ export interface InstitutionGeolocation {
   radius_m: number;
 }
 
+// ── Financial Module (Fase 8) ────────────────────────────────────────────────
+
+export type FinancialContractStatus = 'draft' | 'active' | 'suspended' | 'cancelled' | 'concluded';
+export type FinancialInstallmentStatus = 'pending' | 'paid' | 'overdue' | 'negotiated' | 'cancelled' | 'renegotiated';
+export type PaymentMethod = 'boleto' | 'pix' | 'credit_card' | 'debit_card' | 'cash' | 'transfer' | 'other';
+export type GatewayProvider = 'manual' | 'asaas' | 'efi' | 'iugu' | 'pagarme' | 'vindi' | 'pagseguro' | 'mercadopago' | 'sicredi';
+export type GatewayEnvironment = 'sandbox' | 'production';
+
+export interface FinancialPlan {
+  id: string;
+  name: string;
+  description: string | null;
+  amount: number;
+  installments: number;
+  due_day: number;
+  punctuality_discount_pct: number;
+  late_fee_pct: number;
+  interest_rate_pct: number;
+  segment_ids: string[];
+  school_year: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FinancialContract {
+  id: string;
+  student_id: string;
+  plan_id: string;
+  school_year: number;
+  status: FinancialContractStatus;
+  discount_type: 'percentage' | 'fixed' | null;
+  discount_value: number;
+  net_amount: number | null;
+  gateway_id: string | null;
+  notes: string | null;
+  activated_at: string | null;
+  cancelled_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  student?: { full_name: string; enrollment_number: string; class_id: string | null } | null;
+  plan?: FinancialPlan | null;
+}
+
+export interface FinancialInstallment {
+  id: string;
+  contract_id: string;
+  student_id: string;
+  installment_number: number;
+  reference_month: string;
+  due_date: string;
+  amount: number;
+  amount_with_discount: number | null;
+  status: FinancialInstallmentStatus;
+  paid_at: string | null;
+  paid_amount: number | null;
+  payment_method: PaymentMethod | null;
+  payment_notes: string | null;
+  gateway_id: string | null;
+  provider_charge_id: string | null;
+  boleto_url: string | null;
+  pix_code: string | null;
+  payment_link: string | null;
+  gateway_fee_cents: number | null;
+  late_fee_amount: number;
+  interest_amount: number;
+  total_due: number | null;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  student?: { full_name: string; enrollment_number: string } | null;
+  contract?: { school_year: number; plan?: { name: string } | null } | null;
+}
+
+export interface PaymentGateway {
+  id: string;
+  provider: GatewayProvider;
+  label: string;
+  is_active: boolean;
+  is_default: boolean;
+  environment: GatewayEnvironment;
+  supported_methods: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const CONTRACT_STATUS_LABELS: Record<FinancialContractStatus, string> = {
+  draft: 'Rascunho',
+  active: 'Ativo',
+  suspended: 'Suspenso',
+  cancelled: 'Cancelado',
+  concluded: 'Concluído',
+};
+
+export const CONTRACT_STATUS_COLORS: Record<FinancialContractStatus, string> = {
+  draft: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+  active: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  suspended: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+  cancelled: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  concluded: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+};
+
+export const INSTALLMENT_STATUS_LABELS: Record<FinancialInstallmentStatus, string> = {
+  pending: 'Pendente',
+  paid: 'Pago',
+  overdue: 'Vencida',
+  negotiated: 'Negociada',
+  cancelled: 'Cancelada',
+  renegotiated: 'Renegociada',
+};
+
+export const INSTALLMENT_STATUS_COLORS: Record<FinancialInstallmentStatus, string> = {
+  pending: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+  paid: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  overdue: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  negotiated: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  cancelled: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+  renegotiated: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+};
+
+export const GATEWAY_PROVIDER_LABELS: Record<GatewayProvider, string> = {
+  manual: 'Manual (sem gateway)',
+  asaas: 'Asaas',
+  efi: 'Efí (Gerencianet)',
+  iugu: 'Iugu',
+  pagarme: 'Pagar.me',
+  vindi: 'Vindi',
+  pagseguro: 'PagSeguro',
+  mercadopago: 'Mercado Pago',
+  sicredi: 'Sicredi',
+};
+
