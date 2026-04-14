@@ -7,8 +7,8 @@ import { useAdminAuth } from '../../hooks/useAdminAuth';
 import PermissionGate from '../../components/PermissionGate';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
-  Plus, Loader2, Search, ChevronDown, Play, Pause, X as XIcon,
-  Save, Check, FileSignature, User, Calendar, Tag, DollarSign, Percent,
+  Loader2, Search, ChevronDown, Play, Pause, X as XIcon,
+  Save, Check, FileSignature, User, Calendar, Tag, Percent,
 } from 'lucide-react';
 
 export default function FinancialContractsPage() {
@@ -128,7 +128,7 @@ export default function FinancialContractsPage() {
         <p className="text-sm text-gray-500 dark:text-gray-400">{contracts.length} contrato{contracts.length !== 1 && 's'}</p>
         <PermissionGate moduleKey="financial-contracts" action="create">
           <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-semibold hover:bg-brand-primary-dark transition-colors shadow-lg shadow-brand-primary/20">
-            <Plus className="w-4 h-4" /> Novo Contrato
+            <FileSignature className="w-4 h-4" /> Novo Contrato
           </button>
         </PermissionGate>
       </div>

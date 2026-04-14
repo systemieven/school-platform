@@ -7,7 +7,7 @@ import { usePermissions } from '../../contexts/PermissionsContext';
 import PermissionGate from '../../components/PermissionGate';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
-  Plus, Loader2, Pencil, Trash2, X, Save, Check,
+  FilePlus, Loader2, Pencil, Trash2, X, Save, Check,
   FileText, DollarSign, Calendar, Percent, Tag, Info,
 } from 'lucide-react';
 
@@ -129,7 +129,7 @@ export default function FinancialPlansPage() {
         </p>
         <PermissionGate moduleKey="financial-plans" action="create">
           <button onClick={openNew} className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-semibold hover:bg-brand-primary-dark transition-colors shadow-lg shadow-brand-primary/20">
-            <Plus className="w-4 h-4" /> Novo Plano
+            <FilePlus className="w-4 h-4" /> Novo Plano
           </button>
         </PermissionGate>
       </div>
