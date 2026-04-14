@@ -1,9 +1,10 @@
-# PRD v2 — Sistema de Gestao do Colegio Batista em Caruaru
+# PRD v2 — Plataforma Escolar (school-platform)
 
-> **Versao**: 2.0
-> **Data**: 12 de abril de 2026
+> **Versao**: 2.1
+> **Data**: 13 de abril de 2026
 > **Baseado em**: PRD v1 (07/04/2026) — `docs/PRD_BACKEND_V1.md`
 > **Status**: Documento de referencia — descreve o estado real do sistema
+> **Arquitetura**: Multi-tenant via upstream/client repos (ver secao 2.4)
 
 ---
 
@@ -21,7 +22,7 @@
 10. [Pendencias e Roadmap Futuro](#10-pendencias-e-roadmap-futuro)
     - 10.1 Fase 6 — Governanca e Escala
     - 10.2 Fase 7 — Whitelabel: Personalizacao Total
-    - 10.3 Fase Final — Script de Replicacao (Setup Script)
+    - 10.3 Multi-Tenancy: Upstream + Client Repos
     - 10.4 Melhorias Adicionais
 11. [Requisitos Nao Funcionais](#11-requisitos-nao-funcionais)
 12. [Apendices](#apendices)
@@ -32,7 +33,9 @@
 
 ### 1.1 Contexto
 
-O Colegio Batista em Caruaru opera um sistema completo composto por:
+A plataforma escolar e um produto multi-tenant que atende multiplas escolas. Cada cliente possui seu proprio repositorio e projeto Supabase, mas compartilha o mesmo codigo-base. O primeiro cliente e o Colegio Batista em Caruaru.
+
+O sistema e composto por:
 
 - **Site institucional** (React SPA) com formularios de pre-matricula, contato, agendamento de visitas, depoimentos e biblioteca virtual
 - **Painel administrativo** (`/admin`) com 16 modulos de gestao
@@ -80,7 +83,54 @@ Todos os dados sao armazenados no Supabase (PostgreSQL + RLS + Realtime + Storag
 - **13 Edge Functions** para logica server-side (5 publicas com rate limiting)
 - **Realtime** habilitado em `visit_appointments`, `enrollments`, `contact_requests`, `attendance_tickets` e `system_settings`
 
-### 2.3 Principios Arquiteturais
+### 2.3 Arquitetura Multi-Tenant (Upstream + Client Repos)
+
+O produto opera com um modelo de repositorios separados:
+
+| Repo | Funcao |
+|------|--------|
+| `systemieven/school-platform` | Repo base generico — todo o codigo-fonte sem dados de cliente |
+| `systemieven/batista-site` | Primeiro cliente — aponta upstream para school-platform |
+
+**Regras fundamentais:**
+
+- **Nenhum dado de cliente no codigo-fonte**. Nomes, CNPJs, telefones, enderecos e URLs especificas de um cliente **nunca** devem aparecer hardcoded em arquivos `.ts`/`.tsx`. Esses valores vem de:
+  1. `system_settings` no banco de dados (via `useBranding()`, `useSettings()`)
+  2. Variaveis de ambiente `VITE_*` (fallbacks em `src/config/client.ts`)
+- **Todo codigo e generico**. Features novas vao para o repo base e se propagam para todos os clientes.
+- **Customizacoes por cliente** (quando necessarias) ficam apenas no repo do cliente, nunca no base.
+
+**Configuracao por cliente:**
+
+| Fonte | O que configura | Exemplo |
+|-------|----------------|---------|
+| `.env` (por repo) | Credenciais Supabase, identidade da escola | `VITE_SCHOOL_NAME`, `VITE_SUPABASE_URL` |
+| `src/config/client.ts` | Fallbacks genericos lidos de env vars | `CLIENT_DEFAULTS.identity.school_name` |
+| `system_settings` (DB) | Cores, fontes, identidade, CTA, contato | Tabela no Supabase, editavel via admin |
+| `BrandingContext` | Cascata: DB > config/client.ts > defaults | Carrega na inicializacao do app |
+
+**Propagacao automatica:**
+
+- `.github/workflows/propagate.yml` no school-platform: a cada push em main, abre PR automaticamente em todos os repos clientes (matrix strategy)
+- Guard `if: github.repository == 'systemieven/school-platform'` impede execucao nos clientes
+- `.github/workflows/sync-upstream.yml` nos clientes: dispatch manual para buscar atualizacoes
+
+**Onboarding de novo cliente:**
+
+1. `scripts/new-client.sh <nome> <supabase-ref>` — cria repo, projeto Supabase, configura env
+2. `scripts/push-migrations.sh` — aplica todas as migrations no novo projeto
+3. `scripts/deploy-functions.sh` — deploy de todas as Edge Functions
+4. Configurar `system_settings` no banco do cliente via painel admin
+
+**Fluxo de push local:**
+
+```
+git push upstream main && git push origin main
+```
+
+Sempre enviar para upstream (base) E origin (cliente). O push para upstream dispara propagacao automatica.
+
+### 2.4 Principios Arquiteturais
 
 - **Modular**: cada modulo e independente com rotas, componentes e queries proprias
 - **Config-driven**: formularios do site leem `system_settings` em tempo real
@@ -1097,11 +1147,29 @@ Nova aba no painel de configuracoes:
 
 ---
 
-### 10.3 ~~Fase Final — Script de Replicacao (Setup Script)~~ (REMOVIDO)
+### 10.3 Multi-Tenancy: Upstream + Client Repos (CONCLUIDO)
 
-> **Descartado**: Abordagem de replicacao via SQL script nao sera utilizada. O projeto seguira outra estrategia de escalabilidade/multi-tenancy a ser definida.
+> **Implementado em**: 12 de abril de 2026
+> **Substitui**: Abordagem anterior de replicacao via SQL script (descartada)
 
-<details><summary>Planejamento original (historico)</summary>
+Arquitetura completa de multi-tenancy implementada. Detalhes na secao 2.3.
+
+**Itens concluidos:**
+
+| Item | Descricao | Status |
+|------|-----------|--------|
+| Genericizacao do codigo | Remocao de todos os dados hardcoded de cliente em 37+ arquivos | ✅ Concluido |
+| `src/config/client.ts` | Centralizacao de defaults com leitura de env vars `VITE_*` | ✅ Concluido |
+| `.env.example` | Template para novos clientes | ✅ Concluido |
+| Repo base `school-platform` | Criado e populado em `systemieven/school-platform` | ✅ Concluido |
+| Upstream remote | `batista-site` configurado com upstream apontando para school-platform | ✅ Concluido |
+| Propagacao automatica | `.github/workflows/propagate.yml` com guard de repo | ✅ Concluido |
+| Sync manual | `.github/workflows/sync-upstream.yml` para clientes | ✅ Concluido |
+| Scripts de onboarding | `new-client.sh`, `push-migrations.sh`, `deploy-functions.sh` | ✅ Concluido |
+| GitHub CLI | Instalado e autenticado (`~/.local/bin/gh`) | ✅ Concluido |
+| Supabase CLI | Instalado e autenticado (`~/.local/bin/supabase`) | ✅ Concluido |
+
+<details><summary>Planejamento original de replicacao via SQL (historico — descartado)</summary>
 
 **Objetivo original**: Gerar um kit de replicacao completo que permite criar uma instancia funcional do sistema em um projeto Supabase novo e limpo, pronta para customizacao via painel.
 
@@ -1425,11 +1493,14 @@ PRIMEIRO ACESSO
 - **Webhook**: recebe status via `uazapi-webhook` com validacao por secret
 - **Funcionalidades**: envio de texto, midia, botoes, listas; verificacao de numero; status de entrega
 
-### C. Repositorio
+### C. Repositorios
 
-- **GitHub**: `systemieven/batista-site`
-- **Branch principal**: `main`
+- **Repo base**: `systemieven/school-platform` — codigo generico, sem dados de cliente
+- **Primeiro cliente**: `systemieven/batista-site` — upstream → school-platform, origin → batista-site
+- **Branch principal**: `main` (em ambos)
 - **Areas do app**: site (`/`), admin (`/admin`), portal (`/portal`), atendimento (`/atendimento`)
+- **Propagacao**: push em school-platform abre PR automaticamente nos clientes
+- **Push local**: `git push upstream main && git push origin main`
 
 ### D. Credenciais Supabase
 
