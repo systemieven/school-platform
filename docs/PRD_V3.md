@@ -2,7 +2,7 @@
 
 > **Versao**: 3.3
 > **Data**: 15 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-11 concluidas) + Fase 11.B especificada (pendente) + roadmap ate v1
+> **Status**: Documento unificado — estado atual (Fases 1-11 concluidas) + Fases 11.B e 11.C especificadas (pendentes) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -28,6 +28,8 @@
     - 10.5 Fase 10 — Portal do Responsavel
     - 10.5B Fase 10.P — Portal do Professor / Diario de Classe (paralelo a Fase 10)
     - 10.6 Fase 11 — Secretaria Digital
+    - 10.6B Fase 11.B — Portal do Responsavel + Modulo de Portaria
+    - 10.6C Fase 11.C — Ficha de Saude Expandida
     - 10.7 Fase 12 — Modulo Pedagogico Avancado (BNCC)
     - 10.8 Fase 13 — IA e Analytics
     - 10.10 Melhorias Transversais
@@ -1230,7 +1232,9 @@ Configuravel na aba Aparencia > Home:
 |--------|-------------|-----------|
 | `document_templates` | name, type (enrollment/frequency/transfer/transcript/graduation/custom), html_content, variables, requires_signature | Templates de declaracao |
 | `document_requests` | student_id, template_id, requested_by, status (pending/approved/generated/delivered/rejected), file_url | Solicitacoes de documentos |
-| `student_health_records` | student_id, blood_type, allergies (JSONB), medications (JSONB), special_needs (JSONB), chronic_conditions, emergency_contact_*, health_insurance | Ficha de saude |
+| `student_health_records` | student_id, blood_type, allergies TEXT[], allergy_categories JSONB, food_restrictions, medications JSONB, can_receive_medication, chronic_conditions, emergency_contact_*, health_plan | Ficha de saude (Fase 11); expandida em Fase 11.C |
+| `student_medical_certificates` | student_id, issue_date, valid_until, doctor_name, doctor_crm, file_path, is_active, superseded_by | Atestados de aptidao fisica com historico (Fase 11.C) |
+| `health_record_update_requests` | student_id, guardian_id, proposed_data JSONB, current_snapshot JSONB, status | Propostas de atualizacao do responsavel (Fase 11.C) |
 | `reenrollment_campaigns` | title, school_year, start_date, end_date, early_discount_pct, default_plan_id, status (draft/active/closed) | Campanhas de rematricula |
 | `reenrollment_applications` | campaign_id, student_id, status (not_started/notified/in_progress/pending_signature/completed/cancelled), plan_id | Processos de rematricula |
 
@@ -1377,6 +1381,7 @@ Configuravel na aba Aparencia > Home:
 | `/admin/portaria` | Modulo de Portaria — frequencia e autorizacoes de saida | admin+, portaria | 11.B |
 | `/admin/faltas` | Fila de comunicacoes de falta do responsavel | admin+, coordinator | 11.B |
 | `/admin/autorizacoes-saida` | Fila de autorizacoes de saida excepcional | admin+, coordinator | 11.B |
+| `/admin/secretaria` (tab Fichas de Saúde expandida) | Atestados, alertas vencimento, fila de atualizacoes do responsavel | admin+, coordinator | 11.C |
 
 ### 9.6 Portal do Responsavel — Rotas Planejadas (13 rotas — Fase 10)
 
@@ -1398,6 +1403,7 @@ Configuravel na aba Aparencia > Home:
 | `/responsavel/biblioteca` | BibliotecaPage | Materiais da turma |
 | `/responsavel/faltas` | FaltasPage | Comunicar falta programada ou justificativa (Fase 11.B) |
 | `/responsavel/autorizacoes-saida` | AutorizacoesSaidaPage | Autorizar saida excepcional com confirmacao de senha (Fase 11.B) |
+| `/responsavel/saude` | SaudePage | Visualizar ficha + submeter atualizacoes + upload atestado + status (Fase 11.C) |
 
 ### 9.7 Portal do Aluno — Rotas Planejadas (1 nova)
 
@@ -1443,12 +1449,15 @@ Configuravel na aba Aparencia > Home:
 | 10.P | Portal do Professor / Diario de Classe | ✅ Concluido (migrations 77-81, 2026-04-15) | Alta | 9 + 9.M *(paralelo a Fase 10)* |
 | 11 | Secretaria Digital | ✅ Concluido (migrations 82-86, Edge Function generate-document, 2026-04-15) | Alta | 10 |
 | 11.B | Portal do Responsavel + Modulo de Portaria (Comunicacao de Faltas, Autorizacoes de Saida, Portaria) | ⏳ Pendente | Alta | 10 + 10.P + 11 |
+| 11.C | Ficha de Saude Expandida (atestado fisico, atualizacoes pelo responsavel, visao restrita professor, alertas de vencimento) | ⏳ Pendente | Alta | 11 + 10 |
 | 12 | Modulo Pedagogico Avancado (BNCC + Relatorios) | ⏳ Pendente | Media | 9 + 10.P |
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights).
 
 **Fase 11.B** pode ser desenvolvida em paralelo com Fase 12 — compartilha dependencias com 10 e 10.P mas nao com BNCC/pedagogico. A feature de indicador no diario (DiarioEntradaPage) requer coordenacao com a equipe que mantiver Fase 10.P.
+
+**Fase 11.C** expande a `student_health_records` criada na Fase 11 (migration 83) — pode ser desenvolvida logo apos Fase 11 sem bloquear 11.B ou 12.
 
 **Pre-requisitos transversais** (antes das fases 9-12):
 - ✅ Renomear tabela `attendance` → `student_attendance` (migration 43)
@@ -2133,11 +2142,11 @@ Reutiliza categoria `academico` existente (cor: `#065f46`).
 
 | Tabela | Migration | Descricao |
 |--------|-----------|-----------|
-| `document_templates` | 33 | Templates de declaracao com HTML + variaveis |
-| `document_requests` | 33 | Solicitacoes e status (pending → approved → generated → delivered) |
-| `student_health_records` | 33 | Ficha de saude por aluno |
-| `reenrollment_campaigns` | 33 | Campanhas de rematricula |
-| `reenrollment_applications` | 33 | Processos individuais de rematricula |
+| `document_templates` | 82 | Templates de declaracao com HTML + variaveis |
+| `document_requests` | 82 | Solicitacoes e status (pending → approved → generated → delivered) |
+| `student_health_records` | 83 | Ficha de saude por aluno (base); expandida em Fase 11.C (migration 90) |
+| `reenrollment_campaigns` | 84 | Campanhas de rematricula |
+| `reenrollment_applications` | 84 | Processos individuais de rematricula |
 
 #### 11.3 Edge Functions
 
@@ -2368,6 +2377,197 @@ Perfil `portaria`: view + edit em `portaria` e `exit-authorizations`; sem acesso
 7. `audit_log` nao pode ser reduzido (trigger append-only)
 8. `tsc -b` sem erros apos implementacao
 9. `SELECT * FROM modules WHERE module_key IN ('portaria','absence-communications','exit-authorizations')` → 3 linhas
+
+---
+
+### 10.6C Fase 11.C — Ficha de Saude Expandida
+
+**Objetivo**: Expandir a ficha de saude do aluno (base criada em Fase 11/migration 83) com categorizacao de alergias, restricoes alimentares, orientacoes de medicamentos, controle de atestado medico para atividades fisicas com historico de versoes e status calculado, fila de atualizacoes do responsavel com revisao obrigatoria pela secretaria, visao restrita para professores e painel de alertas de vencimento.
+
+**Dependencias**: Fase 11 (tabela `student_health_records` e tab Fichas de Saude na SecretariaPage), Fase 10 (guardian_profiles + portal do responsavel para o fluxo de atualizacoes)
+
+**Expansao de**: `student_health_records` (migration 83) — sem quebra de schema; todos os campos sao aditivos
+
+#### 11.C.1 Sub-modulos
+
+| Feature | Descricao | Prioridade |
+|---------|-----------|------------|
+| Ficha de Saude Expandida | Alergias categorizadas (alimentar/medicamentosa/ambiental/outras), restricoes alimentares, orientacao de medicamentos em horario escolar, campos can_receive_medication | Alta |
+| Atestado de Aptidao Fisica | Tabela com historico de versoes; status calculado (valido/vencido/pendente); upload Storage; medico + CRM; alerta de vencimento | Alta |
+| Atualizacoes pelo Responsavel | Responsavel submete proposta de atualizacao; secretaria confirma ou rejeita antes de efetivar; historico de tentativas | Alta |
+| Visao Restrita do Professor | VIEW `student_health_records_teacher_view` com apenas alergias, condicoes, medicamentos, restricoes alimentares; sem dados de emergencia, plano de saude ou autorizacoes | Alta |
+| Configuracoes (Config > Academico) | Exigir atestado por segmento; antecedencia do alerta; campos obrigatorios; permitir atualizacao pelo responsavel | Media |
+| Painel de Alertas (Secretaria) | Cards de atestados vencidos/proximos do vencimento + atestados pendentes em segmentos que exigem + medicamentos sem orientacao de administracao | Alta |
+| Relatorio de Pendencias | Listagem filtravel com exportacao CSV/Excel; filtra por segmento, status, tipo de pendencia | Media |
+| Portal do Responsavel `/responsavel/saude` | Visualizacao completa; formulario de atualizacao com diff antes/depois; upload de atestado; status em tempo real | Alta |
+
+#### 11.C.2 Integracao com Modulos Existentes
+
+| Modulo | Ponto de Integracao | Observacao |
+|--------|--------------------|----|
+| `student_health_records` (migration 83) | ALTER TABLE adiciona: `food_restrictions TEXT`, `allergy_categories JSONB [{type, description}]`, `can_receive_medication BOOLEAN DEFAULT true`, `medication_guidance TEXT` | Campos existentes preservados — migracao aditiva |
+| `SecretariaPage.tsx` (Fase 11) | Tab "Fichas de Saude" expandida: novos campos, aba de atestado, fila de atualizacoes pendentes, painel de alertas | Amplia funcionalidade existente |
+| `StudentDetailPage.tsx` (admin) | Nova aba/secao "Saude" no perfil do aluno com ficha completa + historico de atestados + atualizacoes recentes | Requer nova aba no detalhe do aluno |
+| Portal do Responsavel | Nova rota `/responsavel/saude` no sidebar (apos Rematricula) | Novo item de navegacao |
+| Config > Academico (`AcademicoSettingsPanel`) | Novo card "Ficha de Saude" com toggles por segmento para exigencia de atestado + campos de configuracao | Segue padrao SettingsCard existente |
+| `system_settings` | Keys: `health.require_certificate_segments UUID[]`, `health.certificate_alert_days INT DEFAULT 30`, `health.required_fields TEXT[]`, `health.allow_guardian_updates BOOLEAN DEFAULT true` | Padrao existente (billing_stages, installment_configs) |
+| pg_cron (migration existente 65) | Novo job diario `check_certificate_expiry`: varre `student_medical_certificates` onde `valid_until BETWEEN now() AND now() + alert_days`, insere em `alert_notifications` se ainda nao existe alerta para o par (student, certificate) no periodo | Reutiliza infraestrutura de cron ja existente |
+| Supabase Storage | Bucket `atestados` (privado) — signed URLs de 30 dias para acesso ao PDF/imagem | Mesmo padrao do bucket `documentos` |
+
+#### 11.C.3 Tabelas
+
+| Tabela | Migration | Descricao |
+|--------|-----------|-----------|
+| ALTER `student_health_records` | 90 | ADD COLUMNS: food_restrictions, allergy_categories JSONB, can_receive_medication BOOLEAN, medication_guidance |
+| `student_medical_certificates` | 90 | Atestados com historico de versoes; status calculado; upload; medico + CRM |
+| `health_record_update_requests` | 90 | Propostas de atualizacao do responsavel com snapshot para diff + status de revisao |
+| `student_health_records_teacher_view` | 90 | VIEW RLS para professores com apenas campos nao-sensiveis |
+| system_settings keys + modulo config | 91 | Chaves de configuracao + ajuste de permissoes |
+
+**Schema `student_medical_certificates` (migration 90):**
+```sql
+CREATE TABLE student_medical_certificates (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id        UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  issue_date        DATE NOT NULL,
+  valid_until       DATE NOT NULL,
+  doctor_name       TEXT NOT NULL,
+  doctor_crm        TEXT NOT NULL,
+  file_path         TEXT,                    -- Storage bucket 'atestados'
+  file_url          TEXT,
+  file_url_expires_at TIMESTAMPTZ,
+  observations      TEXT,
+  -- Status calculado: valido = valid_until >= today; vencido = valid_until < today
+  -- (nao armazenado — computado na query ou via generated column)
+  uploaded_by       UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  uploaded_via      TEXT NOT NULL DEFAULT 'admin'
+                      CHECK (uploaded_via IN ('admin','guardian_portal')),
+  is_active         BOOLEAN NOT NULL DEFAULT true,   -- false quando substituido
+  superseded_by     UUID REFERENCES student_medical_certificates(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_certificates_student ON student_medical_certificates(student_id);
+CREATE INDEX idx_certificates_valid_until ON student_medical_certificates(valid_until)
+  WHERE is_active = true;
+```
+
+> **Status calculado**: `CASE WHEN valid_until >= CURRENT_DATE THEN 'valid' WHEN valid_until < CURRENT_DATE THEN 'expired' ELSE 'pending' END`. Nao armazenado — evita inconsistencias. O pg_cron gera alertas, nao muda o status.
+
+**Schema `health_record_update_requests` (migration 90):**
+```sql
+CREATE TABLE health_record_update_requests (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id        UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  guardian_id       UUID NOT NULL REFERENCES guardian_profiles(id) ON DELETE CASCADE,
+  proposed_data     JSONB NOT NULL,   -- snapshot completo dos campos propostos
+  current_snapshot  JSONB NOT NULL,   -- snapshot dos dados vigentes no momento da proposta
+  status            TEXT NOT NULL DEFAULT 'pending'
+                      CHECK (status IN ('pending','confirmed','rejected')),
+  reviewed_by       UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  reviewed_at       TIMESTAMPTZ,
+  rejection_reason  TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**VIEW `student_health_records_teacher_view` (migration 90):**
+```sql
+CREATE VIEW student_health_records_teacher_view AS
+SELECT
+  id, student_id,
+  has_allergies, allergies, allergy_categories, allergy_notes,
+  has_special_needs, special_needs, learning_difficulties,
+  chronic_conditions,
+  food_restrictions,
+  uses_medication, medications,
+  can_receive_medication, medication_guidance,
+  updated_at
+FROM student_health_records;
+
+ALTER VIEW student_health_records_teacher_view OWNER TO authenticated;
+-- RLS na VIEW via security_invoker + policy em student_health_records para role='teacher'
+```
+
+> **Nota**: Os campos `health_plan`, `health_plan_number`, `emergency_contact_*`, `authorized_photo`, `authorized_first_aid`, `authorized_evacuation` e `notes` sao **excluidos** da view. O professor ve apenas dados operacionais para o dia a dia (alergias, condicoes, medicamentos, restricoes alimentares, necessidades especiais).
+
+#### 11.C.4 Configuracoes (system_settings)
+
+| Key | Tipo | Padrao | Descricao |
+|-----|------|--------|-----------|
+| `health.require_certificate_segments` | `UUID[]` | `[]` | Segmentos que exigem atestado de aptidao fisica |
+| `health.certificate_alert_days` | `INT` | `30` | Dias de antecedencia para alerta de vencimento |
+| `health.required_fields` | `TEXT[]` | `['blood_type']` | Campos obrigatorios para cadastro completo |
+| `health.allow_guardian_updates` | `BOOLEAN` | `true` | Habilita envio de atualizacoes pelo portal |
+
+Config card em *Config > Academico* — segue padrao `SettingsCard`. Campos:
+- Toggle individual por segmento cadastrado (fetch de `school_segments`)
+- Slider numerico para antecedencia do alerta (1-90 dias)
+- Checklist de campos obrigatorios
+- Toggle global para atualizacoes pelo responsavel
+
+#### 11.C.5 Edge Functions / Jobs
+
+| Funcao / Job | Tipo | Descricao |
+|---|---|---|
+| pg_cron `check_certificate_expiry` | Job diario 08:00 | Varre certificados ativos; compara `valid_until` com `now() + alert_days`; insere em `alert_notifications` se ja nao existe alerta ativo para o par (student_id, certificate_id) |
+| pg_cron `deactivate_expired_certs` | Job diario 00:05 | (Opcional) Marca `is_active=false` em certificados onde `valid_until < CURRENT_DATE - 90 days` — limpeza de historico antigo |
+| Trigger `on_certificate_upload` | AFTER INSERT | Marca como `is_active=false` o certificado anterior do mesmo aluno e preenche `superseded_by` no registro antigo |
+| Trigger `on_update_request_confirmed` | AFTER UPDATE status='confirmed' | Copia campos de `proposed_data` para `student_health_records` do aluno |
+
+#### 11.C.6 Permissoes
+
+| Perfil | student_health_records | student_medical_certificates | health_record_update_requests |
+|--------|----------------------|------------------------------|-------------------------------|
+| super_admin / admin | CRUD completo | CRUD completo | Visualizar + confirmar/rejeitar |
+| coordinator | CRUD completo | CRUD completo | Visualizar + confirmar/rejeitar |
+| teacher | VIEW restrita (`student_health_records_teacher_view`) — somente leitura | Sem acesso | Sem acesso |
+| responsavel | SELECT proprio filho (via RLS student_guardians) | SELECT + INSERT (upload atestado) | INSERT + SELECT proprios |
+| portaria | SELECT restrito (apenas alergias + medicamentos) | SELECT (validade apenas) | Sem acesso |
+
+**Modulo adicionado**: `health-records-management` (secretaria/admin gerenciam) + ajuste em `secretaria-saude` para incluir permissao de confirmacao de atualizacoes.
+
+#### 11.C.7 Rotas e Frontend
+
+| Camada | Componente | Alteracao |
+|--------|-----------|-----------|
+| `/admin/secretaria` (tab Fichas de Saude) | `SecretariaFichasSaudeTab` | Expandir drawer com novos campos; adicionar sub-tab Atestados; adicionar sub-tab Atualizacoes Pendentes; adicionar painel de alertas acima da tabela |
+| `/admin/alunos/:studentId` | `StudentDetailPage` | Nova aba "Saude" com ficha completa + historico de atestados + atualizacoes recentes |
+| `/responsavel/saude` | `SaudePage` (nova) | Visualizacao completa da ficha; formulario de proposta de atualizacao com diff antes/depois; upload de atestado; status atual |
+| `/admin/configuracoes` > Academico | `AcademicoSettingsPanel` | Novo card "Ficha de Saude" com todos os toggles de configuracao |
+
+#### 11.C.8 WhatsApp
+
+| Evento | Destinatario | Template |
+|--------|-------------|---------|
+| Atestado vencido ou proximo do vencimento | Responsavel | `atestado-vencimento` |
+| Atualizacao da ficha de saude confirmada pela secretaria | Responsavel | `saude-atualizada` |
+| Atualizacao recusada — documentacao insuficiente | Responsavel | `saude-recusada` |
+| Upload de novo atestado pelo responsavel | Secretaria (notificacao interna) | notificacao interna (alert_notifications) |
+
+#### 11.C.9 Oportunidades de Melhoria Identificadas
+
+| Oportunidade | Descricao | Prioridade |
+|---|---|---|
+| **Integracao com Fase 11.B (Portaria)** | Portaria visualiza alergias e medicamentos criticos do aluno na tela de confirmacao de saida — dado ja disponivel na view restrita do professor | Alta |
+| **Integracao com Atendimento (Fase 1-5)** | Em atendimentos presenciais, exibir alerta discreto se aluno possui alergia ou condicao relevante no perfil | Baixa |
+| **Notificacao de atualizacao pendente** | Badge na SecretariaPage quando ha atualizacoes pendentes de revisao (realtime via Supabase channels) | Media |
+| **Exportacao LGPD** | Incluir ficha de saude na exportacao de dados pessoais do aluno via painel LGPD (se existir) | Media |
+| **Campo "autorizado a receber medicamento"** | Futuro: vincular ao fluxo de registros de administracao de medicamentos pela enfermaria (modulo de saude escolar mais completo — Fase 14+) | Baixa |
+
+#### 11.C.10 Verificacao
+
+1. Aba "Saude" visivel no detalhe do aluno em `/admin/alunos/:id`
+2. Novos campos (food_restrictions, allergy_categories, can_receive_medication) salvos e recuperados corretamente
+3. Upload de atestado → bucket `atestados` → signed URL gerada → status calculado `valid`
+4. Atestado vencido → status `expired` calculado automaticamente sem job (query-time)
+5. pg_cron gera alerta antes do vencimento conforme `health.certificate_alert_days`
+6. Responsavel submete atualizacao → aparece em fila na SecretariaPage
+7. Secretaria confirma → `proposed_data` copiado para `student_health_records`; responsavel notificado
+8. Professor acessa `student_health_records_teacher_view` — nao ve `health_plan`, `emergency_contact_*` nem `notes`
+9. Config > Academico → card "Ficha de Saude" salva toggles em `system_settings`
+10. Relatorio de pendencias exporta CSV/Excel com filtros aplicados
 
 ---
 
