@@ -1,27 +1,30 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
-import Home from './pages/Home';
-import NotFound from './pages/NotFound';
 import { Loader2 } from 'lucide-react';
 
-// Lazy-load: public pages loaded on demand
-const EducacaoInfantil   = lazy(() => import('./pages/EducacaoInfantil'));
-const EnsinoFundamental1 = lazy(() => import('./pages/EnsinoFundamental1'));
-const EnsinoFundamental2 = lazy(() => import('./pages/EnsinoFundamental2'));
-const EnsinoMedio        = lazy(() => import('./pages/EnsinoMedio'));
-const Matricula          = lazy(() => import('./pages/Matricula'));
-const Contato            = lazy(() => import('./pages/Contato'));
-const AgendarVisita      = lazy(() => import('./pages/AgendarVisita'));
-const PoliticaPrivacidade = lazy(() => import('./pages/PoliticaPrivacidade'));
-const TermosUso          = lazy(() => import('./pages/TermosUso'));
-const Sobre              = lazy(() => import('./pages/Sobre'));
-const Estrutura          = lazy(() => import('./pages/Estrutura'));
-const EmConstrucao       = lazy(() => import('./pages/EmConstrucao'));
+// Public pages — eager imports for instant transitions (no Suspense delay)
+// Vendor libs (react, supabase, etc.) already split via manualChunks in vite.config.ts
+import Home              from './pages/Home';
+import EducacaoInfantil  from './pages/EducacaoInfantil';
+import EnsinoFundamental1 from './pages/EnsinoFundamental1';
+import EnsinoFundamental2 from './pages/EnsinoFundamental2';
+import EnsinoMedio       from './pages/EnsinoMedio';
+import Matricula         from './pages/Matricula';
+import Contato           from './pages/Contato';
+import AgendarVisita     from './pages/AgendarVisita';
+import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
+import TermosUso         from './pages/TermosUso';
+import Sobre             from './pages/Sobre';
+import Estrutura         from './pages/Estrutura';
+import EmConstrucao      from './pages/EmConstrucao';
+import NotFound          from './pages/NotFound';
+
+// These two standalone pages are lazy: large + rarely accessed by site visitors
 const AtendimentoPublico = lazy(() => import('./pages/AtendimentoPublico'));
 const PainelAtendimento  = lazy(() => import('./pages/PainelAtendimento'));
 
-// Lazy-load admin panel and student portal as separate bundle chunks
+// Admin panel and student portal — lazy: large bundles, authenticated only
 const AdminRoutes  = lazy(() => import('./admin/routes'));
 const PortalRoutes = lazy(() => import('./portal/routes'));
 
@@ -33,29 +36,25 @@ function FullPageFallback() {
   );
 }
 
-function Lazy({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={null}>{children}</Suspense>;
-}
-
 export default function App() {
   return (
     <Routes>
       {/* ── Public site ── */}
       <Route element={<Layout />}>
         <Route index element={<Home />} />
-        <Route path="educacao-infantil" element={<Lazy><EducacaoInfantil /></Lazy>} />
-        <Route path="ensino-fundamental-1" element={<Lazy><EnsinoFundamental1 /></Lazy>} />
-        <Route path="ensino-fundamental-2" element={<Lazy><EnsinoFundamental2 /></Lazy>} />
-        <Route path="ensino-medio" element={<Lazy><EnsinoMedio /></Lazy>} />
-        <Route path="matricula" element={<Lazy><Matricula /></Lazy>} />
-        <Route path="contato" element={<Lazy><Contato /></Lazy>} />
-        <Route path="agendar-visita" element={<Lazy><AgendarVisita /></Lazy>} />
-        <Route path="politica-privacidade" element={<Lazy><PoliticaPrivacidade /></Lazy>} />
-        <Route path="termos-de-uso" element={<Lazy><TermosUso /></Lazy>} />
-        <Route path="sobre" element={<Lazy><Sobre /></Lazy>} />
-        <Route path="estrutura" element={<Lazy><Estrutura /></Lazy>} />
-        <Route path="area-professor" element={<Lazy><EmConstrucao /></Lazy>} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="educacao-infantil"    element={<EducacaoInfantil />} />
+        <Route path="ensino-fundamental-1" element={<EnsinoFundamental1 />} />
+        <Route path="ensino-fundamental-2" element={<EnsinoFundamental2 />} />
+        <Route path="ensino-medio"         element={<EnsinoMedio />} />
+        <Route path="matricula"            element={<Matricula />} />
+        <Route path="contato"              element={<Contato />} />
+        <Route path="agendar-visita"       element={<AgendarVisita />} />
+        <Route path="politica-privacidade" element={<PoliticaPrivacidade />} />
+        <Route path="termos-de-uso"        element={<TermosUso />} />
+        <Route path="sobre"                element={<Sobre />} />
+        <Route path="estrutura"            element={<Estrutura />} />
+        <Route path="area-professor"       element={<EmConstrucao />} />
+        <Route path="*"                    element={<NotFound />} />
       </Route>
 
       {/* ── Public attendance (QR code, no site chrome) ── */}
