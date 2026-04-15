@@ -2,12 +2,14 @@ node_modules
 dist
 .DS_Store
 *.tsbuildinfo
+# Nenhum .env (com ou sem sufixo) vai pro git — a integração Lovable Cloud
+# injeta VITE_SUPABASE_* em preview e build, e a identidade da escola vem do
+# `system_settings` do banco. Para dev local, copie `.env.example` para
+# `.env.local` (gitignored via *.local abaixo). `.env.example` é versionado
+# via `!.env.example`.
+.env
 .env.*
 !.env.example
-# Nota: .env (sem sufixo) e' rastreado nos repos de cliente (batista-site etc.)
-# com credenciais Supabase + identidade da escola. Vite o carrega em TODOS os
-# modos (dev, preview, build). Use .env.local para overrides locais (gitignored
-# pelo pattern *.local abaixo).
 *.local
 
 # Secrets e credenciais (qualquer arquivo de secrets/service-account)

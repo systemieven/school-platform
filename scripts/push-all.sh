@@ -1,49 +1,43 @@
 #!/usr/bin/env bash
-# push-all.sh — envia commits genéricos para upstream e tudo (incluindo
-# .env.production do cliente) para origin, mantendo o repo base limpo.
+# push-all.sh — publica o branch atual em upstream (school-platform) e
+# origin (batista-site) apontando ambos para o mesmo SHA.
 #
-# Invariante: o branch `base` rastreia upstream/main (school-platform,
-# código genérico). O branch `main` rastreia origin/main (batista-site,
-# base + .env.production no topo).
+# Invariante pós-realinhamento: `base` e `main` devem estar sempre no
+# mesmo commit. Não existe mais divergência de `.env` entre eles —
+# credenciais Supabase vêm da integração Lovable Cloud e identidade da
+# escola fica no `system_settings` do banco.
 #
 # Uso:
-#   1. Para commits GENÉRICOS (features, fixes, docs):
-#        git checkout base
-#        # fazer mudanças e commitar
-#        ./scripts/push-all.sh
+#   git checkout base         # (ou main — tanto faz, são idênticos)
+#   # editar, testar, commitar
+#   ./scripts/push-all.sh
 #
-#   2. Para commits CLIENT-ONLY (.env.production, customizações Batista):
-#        git checkout main
-#        # fazer mudanças e commitar
-#        git push origin main
-#
-# O script detecta em qual branch está e age de acordo.
+# O script:
+#   1. Push do branch atual como `main` nos dois remotos (fast-forward).
+#   2. Alinha o outro branch local (main ou base) pro mesmo SHA.
 
 set -e
 
 CURRENT=$(git rev-parse --abbrev-ref HEAD)
 
-case "$CURRENT" in
-  base)
-    echo "→ Em branch 'base' — commits genéricos"
-    echo "→ Push upstream main..."
-    git push upstream base:main
-    echo "→ Rebasing main sobre base..."
-    git checkout main
-    git rebase base
-    echo "→ Push origin main (force-with-lease)..."
-    git push origin main --force-with-lease
-    echo "✓ Feito. upstream e origin sincronizados."
-    ;;
-  main)
-    echo "→ Em branch 'main' — commits client-specific"
-    echo "→ Push origin main..."
-    git push origin main
-    echo "✓ Feito. (upstream NÃO recebe esse commit — ok para client-only)"
-    ;;
-  *)
-    echo "✗ Erro: este script só funciona em 'base' ou 'main'."
-    echo "  Branch atual: $CURRENT"
-    exit 1
-    ;;
-esac
+if [ "$CURRENT" != "base" ] && [ "$CURRENT" != "main" ]; then
+  echo "✗ Erro: rode este script em 'base' ou 'main'. Branch atual: $CURRENT"
+  exit 1
+fi
+
+OTHER="main"
+[ "$CURRENT" = "main" ] && OTHER="base"
+
+echo "→ Push upstream main (school-platform)..."
+git push upstream "$CURRENT":main
+
+echo "→ Push origin main (batista-site)..."
+git push origin "$CURRENT":main
+
+# Alinha o branch local que não está checked out
+if git show-ref --verify --quiet "refs/heads/$OTHER"; then
+  echo "→ Alinhando branch local '$OTHER' com '$CURRENT'..."
+  git branch -f "$OTHER" "$CURRENT"
+fi
+
+echo "✓ upstream, origin e branches locais apontam para o mesmo commit."
