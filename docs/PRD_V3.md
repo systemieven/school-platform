@@ -1,8 +1,8 @@
 # PRD v3 — Plataforma Escolar (school-platform)
 
-> **Versao**: 3.2
-> **Data**: 14 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-8 concluidas; Fase 9 parcialmente concluida) + roadmap ate v1
+> **Versao**: 3.3
+> **Data**: 15 de abril de 2026
+> **Status**: Documento unificado — estado atual (Fases 1-9, 9.M e 8.5 concluidas) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -23,9 +23,12 @@
     - 10.2 Fases Concluidas (6-9)
     - 10.3 Fase 8 — Modulo Financeiro (CONCLUIDA)
     - 10.4 Fase 9 — Academico Completo
+    - 10.4B Fase 9.5 — Dashboards Analiticos (pendente)
+    - 10.4C Fase 8.5 — ERP Financeiro Completo (CONCLUIDA)
     - 10.5 Fase 10 — Portal do Responsavel
+    - 10.5B Fase 10.P — Portal do Professor / Diario de Classe (paralelo a Fase 10)
     - 10.6 Fase 11 — Secretaria Digital
-    - 10.7 Fase 12 — Modulo Pedagogico
+    - 10.7 Fase 12 — Modulo Pedagogico Avancado (BNCC)
     - 10.8 Fase 13 — IA e Analytics
     - 10.10 Melhorias Transversais
     - 10.11 F6.4 Documentacao Tecnica (ultima etapa da v1)
@@ -1364,12 +1367,13 @@ Configuravel na aba Aparencia > Home:
 |------|--------|-------|------|
 | `/admin/ocorrencias` | Ocorrencias | admin+, teacher | 10 |
 | `/admin/autorizacoes` | Autorizacoes | admin+ | 10 |
+| `/admin/diario` | Diario de Classe — leitura e alertas | coordinator, admin+ | 10.P |
+| `/admin/provas` | Provas criadas pelos professores | coordinator, admin+ | 10.P |
 | `/admin/secretaria/declaracoes` | Declaracoes | admin+ | 11 |
 | `/admin/secretaria/saude` | Fichas de Saude | admin+ | 11 |
 | `/admin/rematricula` | Campanhas de Rematricula | super_admin, admin | 11 |
 | `/admin/secretaria/transferencias` | Transferencias | admin+ | 11 |
-| `/admin/diario` | Diario / Plano de Aula | admin+, teacher | 12 |
-| `/admin/objetivos` | Objetivos de Aprendizagem | admin+, coordinator | 12 |
+| `/admin/objetivos` | Objetivos de Aprendizagem / BNCC | admin+, coordinator | 12 |
 
 ### 9.6 Portal do Responsavel — Rotas Planejadas (13 rotas — Fase 10)
 
@@ -1396,7 +1400,23 @@ Configuravel na aba Aparencia > Home:
 
 | Rota | Pagina | Fase |
 |------|--------|------|
-| `/portal/diario` | DiarioPage (read-only) | 12 |
+| `/portal/diario` | DiarioPage — conteudo das aulas (read-only) | 10.P |
+
+### 9.8 Portal do Professor — Rotas Planejadas (9 rotas — Fase 10.P)
+
+> Portal separado do Portal do Aluno (`/portal/*`). Autenticacao propria via Supabase Auth com `role = 'teacher'`. Professor acessa apenas suas turmas e disciplinas vinculadas.
+
+| Rota | Pagina | Descricao |
+|------|--------|-----------|
+| `/professor/login` | LoginPage | Autenticacao com e-mail + senha (role=teacher) |
+| `/professor` | DashboardPage | Turmas do dia, alertas pendentes, resumo semanal |
+| `/professor/turmas` | TurmasPage | Lista de turmas e disciplinas vinculadas |
+| `/professor/turmas/:classId/diario` | DiarioPage | Entradas do diario da turma em ordem cronologica |
+| `/professor/turmas/:classId/diario/:entryId` | DiarioEntradaPage | Edicao: presenca + conteudo + atividades |
+| `/professor/turmas/:classId/notas` | NotasPage | Grade de notas por atividade; media calculada |
+| `/professor/planos` | PlanosPage | CRUD de planos de aula (draft → published → executed) |
+| `/professor/provas` | ProvasPage | Criador de provas com questoes e exportacao PDF |
+| `/professor/turmas/:classId/alunos/:studentId` | AlunoPerfilPage | Historico individual: presenca + notas + observacoes |
 
 ---
 
@@ -1410,15 +1430,17 @@ Configuravel na aba Aparencia > Home:
 | 6 | Governanca e Escala (permissoes, modulos, audit) | ✅ Concluido | — | 1-5 |
 | 7 | Whitelabel (personalizacao total, multi-tenant) | ✅ Concluido | — | 6 |
 | 8 | Modulo Financeiro | ✅ Concluido | Critica | 7 |
+| 8.5 | ERP Financeiro Completo (Caixas, A/R, A/P, Relatorios) | ✅ Concluido (migrations 67-73, 2026-04-15) | Alta | 8 |
 | 9 | Academico Completo | ✅ Concluido (UI + backend + WhatsApp) | Critica | 7 |
 | 9.M | Migracao Arquitetural: Seguimento→Serie→Turma | ✅ Concluido (migrations 61-63, 2026-04-15) | Critica | 1-5 (gap) |
 | 9.5 | Dashboards Analiticos (Financeiro + Academico) | ⏳ Pendente | Alta | 8 + 9 |
 | 10 | Portal do Responsavel | ⏳ Pendente | Critica | 8 + 9 + 9.M |
+| 10.P | Portal do Professor / Diario de Classe | ⏳ Pendente | Alta | 9 + 9.M *(paralelo a Fase 10)* |
 | 11 | Secretaria Digital | ⏳ Pendente | Alta | 10 |
-| 12 | Modulo Pedagogico | ⏳ Pendente | Media | 9 |
+| 12 | Modulo Pedagogico Avancado (BNCC + Relatorios) | ⏳ Pendente | Media | 9 + 10.P |
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
 
-**Dependencias**: Fase 9 e a proxima prioridade (pode ser desenvolvida imediatamente). Fase 9.5 pode ser desenvolvida em paralelo com os itens restantes da Fase 9. Fase 10 depende de 8+9. Fase 11 depende de 10. Fase 12 depende de 9. Fase 13 depende de 8+9+10 (dados suficientes para insights).
+**Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights).
 
 **Pre-requisitos transversais** (antes das fases 9-12):
 - ✅ Renomear tabela `attendance` → `student_attendance` (migration 43)
@@ -1898,6 +1920,50 @@ Migration 63 e aditiva — colunas com default vazio/null. Planos e descontos ex
 
 ---
 
+### 10.4C Fase 8.5 — ERP Financeiro Completo ✅ Concluido (2026-04-15)
+
+**Objetivo**: Expandir o Modulo Financeiro (Fase 8) para cobrir o ciclo financeiro completo da instituicao — controle de caixas, movimentacoes avulsas, contas a receber geral (nao apenas mensalidades), contas a pagar, plano de contas hierarquico e relatorios gerenciais.
+
+**Dependencias**: Fase 8 concluida | **Status**: ✅ Concluido — migrations 67-73 aplicadas em 2026-04-15
+
+#### 8.5.1 Sub-modulos Entregues
+
+| Feature | Descricao |
+|---------|-----------|
+| Plano de Contas | Hierarquia receita/despesa com parent_id; defaults de sistema (is_system=true) protegidos; gerenciado em Config → Financeiro |
+| Formas de Pagamento | Lista configuravel em system_settings (key=payment_methods); editavel via Settings Panel |
+| Controle de Caixas | Multiplos caixas por escola; ciclo abertura → sangria/suprimento → fechamento; saldo snapshot (balance_after) por movimento |
+| Contas a Receber (A/R) | Separado de financial_installments (mensalidades mantidas); parcelamento automatico via RPC; recorrencia mensal/trimestral/anual; baixa manual com juros e multa; rastreamento de origem (manual/evento/matricula) |
+| Contas a Pagar (A/P) | Despesas fixas e variaveis; parcelamento e recorrencia; baixa com comprovante; alertas por alert_days_before |
+| Integracoes Automaticas | RPC create_enrollment_receivable: ao confirmar matricula → gera receivable com taxa de matricula; RPC create_event_receivables: ao publicar evento com taxa → gera receivable por participante |
+| Relatorios Gerenciais | Sub-tabs: Fluxo de Caixa (view SQL), DRE Simplificado (por categoria), Inadimplencia (por faixa de atraso), Previsao Financeira (3 meses), Extrato por categoria/forma; exportacao CSV |
+
+#### 8.5.2 Tabelas (Migrations 67-73)
+
+| Tabela / Objeto | Migration | Descricao |
+|----------------|-----------|-----------|
+| `financial_account_categories` | 67 | Plano de contas hierarquico sem school_id (single-tenant) |
+| `financial_cash_registers` | 68 | Caixas com status open/closed e current_balance |
+| `financial_cash_movements` | 68 | Movimentacoes com balance_after snapshot e reference polimorfic |
+| `financial_receivables` | 69 | A/R geral com parcelamento, recorrencia e source_type |
+| `financial_payables` | 70 | A/P com category_type fixed/variable e alert_days_before |
+| Permissoes (5 modulos) | 71 | financial-account-categories, financial-cash, financial-receivables, financial-payables, financial-reports-advanced |
+| RPCs de integracao | 72 | create_enrollment_receivable, create_event_receivables |
+| Views de relatorio | 73 | financial_cash_flow_view, financial_dre_view, financial_delinquency_view |
+
+#### 8.5.3 Arquivos Frontend
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `FinancialCashPage.tsx` | Lista de caixas com abertura/fechamento, drawers de movimentacao e historico |
+| `FinancialReceivablesPage.tsx` | KPIs, lista A/R, drawer de lancamento/baixa, parcelamento via RPC |
+| `FinancialPayablesPage.tsx` | KPIs, alertas de vencimento, filtro fixo/variavel, baixa com comprovante |
+| `FinancialReportsPage.tsx` | 5 sub-tabs com consultas SQL diretas + views + export CSV |
+| `FinancialPage.tsx` | 4 novas tabs: Caixas, A Receber, A Pagar, Relatorios |
+| `FinancialSettingsPanel.tsx` | Cards: Plano de Contas (CRUD hierarquico) + Formas de Pagamento |
+
+---
+
 ### 10.5 Fase 10 — Portal do Responsavel
 
 **Objetivo**: Criar um portal dedicado ao responsavel (pai/mae/guardiao), com autenticacao propria, acompanhamento completo do filho e canal de comunicacao escola-familia.
@@ -1955,6 +2021,88 @@ Migration 63 e aditiva — colunas com default vazio/null. Planos e descontos ex
 | Autorizacao solicitada | Responsavel | `nova-autorizacao` |
 | Prazo de autorizacao proximo (D-1) | Responsavel | `autorizacao-prazo` |
 | Senha temporaria do portal | Responsavel | `senha-portal-responsavel` |
+
+---
+
+### 10.5B Fase 10.P — Portal do Professor / Diario de Classe
+
+**Objetivo**: Criar o portal dedicado ao professor com o Diario de Classe como nucleo — registro diario de aulas, presenca, conteudo, atividades, notas e provas — executado **em paralelo com a Fase 10** (Portal do Responsavel), pois os dados gerados aqui alimentam diretamente as visualizacoes do responsavel.
+
+**Dependencias**: Fases 9 e 9.M concluidas (turmas com hierarquia 3 niveis, disciplinas, vinculos professor-turma-disciplina)
+
+**Paralelo com**: Fase 10 — o Portal do Responsavel deve ser lancado ja consumindo os dados do Diario
+
+#### 10.P.1 Sub-modulos
+
+| Feature | Descricao | Prioridade |
+|---------|-----------|------------|
+| Diario de Classe | Registro por aula: data, tipo, conteudo ministrado, objetivos, materiais, observacoes; vinculo opcional a plano de aula; visualizacao calendario com destaque de dias com registro | Alta |
+| Registro de Presenca | Por entrada do diario: presente / ausente / justificado / atraso; marcar todos como presentes com 1 clique; calculo automatico de frequencia acumulada por aluno; alerta visual ao atingir limite minimo | Alta |
+| Atividades e Notas | CRUD de atividades (exercicio, trabalho, prova, apresentacao, excursao, autoavaliacao); grade de notas por atividade; media calculada por peso configuravel; destaque para notas abaixo do minimo | Alta |
+| Planos de Aula | Titulo, objetivo, competencias, conteudo programatico, metodologia, recursos, avaliacao prevista; status draft → published → executed; pre-preenchimento automatico do diario ao vincular plano | Alta |
+| Elaboracao de Provas | Criador de provas com blocos e questoes (dissertativa, multipla escolha, verdadeiro/falso, associacao); pontuacao por questao com totalizacao automatica; gabarito para objetivas; exportacao PDF para impressao | Media |
+| Visao Consolidada (Turma) | Frequencia acumulada, media por atividade, progresso conteudo planejado vs. ministrado | Media |
+| Visao Individual (Aluno) | Historico completo de presenca, notas e observacoes por turma e disciplina | Media |
+| Alertas e Pendencias | Aulas sem presenca nos ultimos N dias; alunos com frequencia abaixo do minimo; atividades sem notas para todos os alunos; planos sem registro correspondente | Media |
+| Leitura Admin/Coordenacao | Dashboard read-only dos diarios de todas as turmas; alertas de pendencias por professor | Alta |
+
+#### 10.P.2 Melhorias e Integracoes Identificadas
+
+| Oportunidade | Descricao | Quando Avaliar |
+|-------------|-----------|----------------|
+| **Alerta WhatsApp por frequencia** | Ao atingir limite, notificar responsavel automaticamente via categoria `academico` (liga 10.P → Fase 10) | Durante implementacao |
+| **Importacao de notas via CSV** | Upload de planilha professor → parse → lancar notas em lote | Durante implementacao |
+| **Travamento do diario** | Entrada editavel ate 48h apos criacao; apos isso, apenas coordinator/admin pode alterar (conformidade legal) | Pos-lancamento |
+| **Calculo de media configuravel** | Por disciplina: media aritmetica / ponderada / maior nota / sistema EI-EP-EF | Durante implementacao |
+| **Assinatura digital do diario** | Gerar PDF assinado do diario para fins legais | Fase futura |
+
+#### 10.P.3 Tabelas
+
+| Tabela | Migration | Descricao |
+|--------|-----------|-----------|
+| `class_diary_entries` | 74 | Registro de aula: class_id, subject_id, teacher_id, entry_date, type, content, notes, lesson_plan_id |
+| `diary_attendance` | 74 | Presenca por entrada: diary_entry_id, student_id, status (present/absent/justified/late), justification |
+| `class_activities` | 75 | Atividades/avaliacoes: class_id, subject_id, teacher_id, title, type, activity_date, weight, max_score, diary_entry_id |
+| `activity_scores` | 75 | Notas: activity_id, student_id, score, is_exempt, notes; UNIQUE (activity_id, student_id) |
+| `lesson_plans` | 76 | Planos de aula: class_id, subject_id, teacher_id, title, objective, competencies[], content, methodology, resources, assessment, planned_date, status (draft/published/executed/cancelled) |
+| `class_exams` | 77 | Provas: class_id, subject_id, teacher_id, title, instructions, exam_date, total_score, activity_id |
+| `exam_questions` | 77 | Questoes: exam_id, block_number, question_number, type (dissertativa/multipla_escolha/verdadeiro_falso/associacao), stem, options (JSONB), correct_answer, score |
+| Permissoes | 78 | Modulos teacher-diary, teacher-activities, teacher-lesson-plans, teacher-exams; professor: CRUD proprias turmas; coordinator: read-only todos; admin: full |
+
+> **Nota**: `lesson_plans` absorve e expande a migration 34 originalmente planejada para Fase 12. A Fase 12 NAO tera mais migration propria para planos de aula.
+
+#### 10.P.4 RLS e Seguranca
+
+```
+class_diary_entries: professor ve/edita apenas registros onde teacher_id = auth.uid()
+diary_attendance:    cascateia da entry (professor so ve presenca das proprias aulas)
+class_activities:    professor ve/edita apenas activities onde teacher_id = auth.uid()
+activity_scores:     cascateia da activity
+lesson_plans:        professor ve/edita apenas os proprios planos
+class_exams:         professor ve/edita apenas as proprias provas
+exam_questions:      cascateia do exam
+Coordinator/Admin:   SELECT em tudo (via profiles.role)
+```
+
+#### 10.P.5 Rotas
+
+9 rotas no Portal do Professor — ver secao 9.8.
+
+#### 10.P.6 Rotas Admin (leitura)
+
+| Rota | Descricao |
+|------|-----------|
+| `/admin/diario` | Diario de todas as turmas — read-only (coordinator, admin+) |
+| `/admin/provas` | Provas criadas pelos professores — read-only (coordinator, admin+) |
+
+#### 10.P.7 WhatsApp
+
+Reutiliza categoria `academico` existente (cor: `#065f46`).
+
+| Evento | Destinatario | Template |
+|--------|-------------|---------|
+| Aluno atinge limite de faltas | Responsavel | `frequencia-alerta` |
+| Nota lancada para atividade (opcional, configuravel) | Responsavel | `nota-lancada` |
 
 ---
 
@@ -2018,49 +2166,43 @@ Migration 63 e aditiva — colunas com default vazio/null. Planos e descontos ex
 
 ---
 
-### 10.7 Fase 12 — Modulo Pedagogico
+### 10.7 Fase 12 — Modulo Pedagogico Avancado
 
-**Objetivo**: Dotar professores e coordenadores de ferramentas para planejamento, registro de conteudo e analise pedagogica.
+**Objetivo**: Complementar o Diario de Classe (Fase 10.P) com objetivos de aprendizagem referenciados na BNCC, associacao plano-objetivo e relatorios pedagogicos avancados para coordenadores.
 
-**Dependencias**: Fase 9 concluida
+**Dependencias**: Fases 9 e 10.P concluidas (requer dados do diario para calcular cobertura curriculo)
+
+> **Nota**: O Diario de Classe, Planos de Aula e Elaboracao de Provas foram extraidos para a **Fase 10.P** (executada em paralelo com a Fase 10). A migration 34 originalmente planejada para esta fase foi absorvida pela migration 76 da Fase 10.P. Esta fase foca exclusivamente em BNCC e analytics pedagogico avancado.
 
 #### 12.1 Sub-modulos
 
 | Feature | Descricao | Prioridade |
 |---------|-----------|------------|
-| Plano de Aula / Diario | Registro por aula: turma + disciplina + conteudo + metodologia + recursos + atividades + observacoes + frequencia; status planned → completed/cancelled; visualizacao em calendario | Alta |
-| Objetivos de Aprendizagem | CRUD por disciplina + segmento; referencia BNCC opcional; associacao ao plano de aula (N:N); relatorio de cobertura | Media |
-| Relatorios Pedagogicos | Desempenho por turma, alunos em risco, cobertura do curriculo, evolucao individual, analise comparativa, aulas registradas | Media |
+| Objetivos de Aprendizagem (BNCC) | CRUD por disciplina + segmento; referencia BNCC (codigo, habilidade, competencia); associacao ao plano de aula (N:N via lesson_plan_objectives); ativo/inativo | Media |
+| Relatorio de Cobertura Curricular | Por turma/segmento: % objetivos trabalhados no periodo vs. total; quais objetivos nunca foram associados a um plano executado | Media |
+| Relatorios Pedagogicos Avancados | Desempenho por turma (media diario vs. media notas), alunos em risco (frequencia + nota), evolucao individual, analise comparativa entre turmas do mesmo segmento, aulas registradas vs. previstas | Media |
 
 #### 12.2 Tabelas
 
 | Tabela | Migration | Descricao |
 |--------|-----------|-----------|
-| `lesson_plans` | 34 | Diario de classe / plano de aula |
-| `learning_objectives` | 34 | Objetivos de aprendizagem com BNCC |
-| `lesson_plan_objectives` | 34 | N:N plano x objetivos |
+| `learning_objectives` | 79 | Objetivos de aprendizagem com BNCC: subject_id, segment_id, code, description, competency, is_active |
+| `lesson_plan_objectives` | 79 | N:N lesson_plans x learning_objectives |
 
 #### 12.3 Rotas Admin
 
 | Rota | Descricao |
 |------|-----------|
-| `/admin/diario` | Diario / plano de aula (teacher, admin+) |
-| `/admin/objetivos` | Objetivos de aprendizagem (coordinator, admin+) |
+| `/admin/objetivos` | Objetivos de aprendizagem / BNCC (coordinator, admin+) |
 
-#### 12.4 Rotas Portal
-
-| Rota | Portal | Descricao |
-|------|--------|-----------|
-| `/portal/diario` | Aluno | Conteudo das aulas (read-only) |
-
-#### 12.5 Integracao com Modulos Existentes
+#### 12.4 Integracao com Modulos Existentes
 
 | Modulo | Integracao |
 |--------|-----------|
-| `activities` | Vinculadas ao plano de aula |
-| `student_attendance` | Registrada junto com o diario (via lesson_plan_id) |
+| `lesson_plans` (Fase 10.P) | Objetivos associados ao plano de aula |
+| `class_diary_entries` (Fase 10.P) | Dados de frequencia e conteudo para relatorios |
+| `activity_scores` (Fase 10.P) | Dados de notas para relatorios avancados |
 | `grades` | Metricas pedagogicas nos relatorios |
-| `library_resources` | Recursos utilizados na aula |
 
 ---
 
@@ -2120,7 +2262,7 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 | **Atendimento como Hub Operacional** | AttendanceQuickActions: acoes contextuais no drawer de atendimento (2a via boleto, ver matricula, gerar declaracao, agendar retorno, enviar WhatsApp) baseadas no `visitor_phone` | Alta | ⏳ Pendente |
 | **MessageOrchestrator** | Servico central de comunicacao WhatsApp com deduplicacao inteligente (nao enviar 2+ mensagens em <30min) e priorizacao entre modulos | Alta | ⏳ Pendente |
 | **Pipeline enrollment→student→contract** | Automacao: enrollment confirmada → cria student → sugere contrato financeiro → gera parcelas → ativa regua | Media | ⏳ Pendente |
-| **Portal do Professor dedicado** | `/professor/*` com interface focada (10 rotas): dashboard, turmas, diario, notas, atividades, ocorrencias, comunicados, biblioteca, perfil | Media | ⏳ Pendente |
+| **Portal do Professor dedicado** | Elevado para **Fase 10.P** (secao 10.5B) — especificacao completa disponivel, dependencias satisfeitas, execucao paralela a Fase 10 | — | → Ver Fase 10.P |
 | **2FA real via WhatsApp** | Geracao/verificacao de OTP com time-window; hoje so existe scaffold de categoria | Baixa | ⏳ Pendente |
 | **Relatorios agendados** | Envio periodico por e-mail (mensal/trimestral) | Baixa | ⏳ Pendente |
 | **OAuth para depoimentos** | Google e Facebook providers no Supabase Auth | Baixa | ⏳ Pendente |
