@@ -1697,12 +1697,12 @@ export type Database = {
           created_at: string
           description: string | null
           due_day: number
-          max_overdue_days: number
           id: string
           installments: number
           interest_rate_pct: number
           is_active: boolean
           late_fee_pct: number
+          max_overdue_days: number
           name: string
           school_year: number
           segment_ids: string[]
@@ -1713,12 +1713,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_day?: number
-          max_overdue_days?: number
           id?: string
           installments?: number
           interest_rate_pct?: number
           is_active?: boolean
           late_fee_pct?: number
+          max_overdue_days?: number
           name: string
           school_year?: number
           segment_ids?: string[]
@@ -1729,12 +1729,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_day?: number
-          max_overdue_days?: number
           id?: string
           installments?: number
           interest_rate_pct?: number
           is_active?: boolean
           late_fee_pct?: number
+          max_overdue_days?: number
           name?: string
           school_year?: number
           segment_ids?: string[]
