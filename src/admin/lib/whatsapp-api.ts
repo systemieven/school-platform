@@ -882,6 +882,16 @@ export const MODULE_VARIABLES: Record<string, string[]> = {
   auth: [
     'user_name', 'temp_password', 'system_url',
   ],
+  academico: [
+    'aluno_nome', 'disciplina', 'nota', 'media_minima',
+    'percentual_faltas', 'percentual_maximo',
+    'resultado', 'ano_letivo',
+    'atividade_titulo', 'data_entrega',
+  ],
+  financeiro: [
+    'due_date', 'amount', 'reference_month', 'payment_link',
+    'total_due', 'paid_amount', 'paid_at',
+  ],
 };
 
 export const ALL_VARIABLES = [...new Set(Object.values(MODULE_VARIABLES).flat())];

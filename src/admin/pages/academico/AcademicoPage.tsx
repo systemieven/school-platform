@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  School, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
+  GraduationCap, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
   CalendarRange, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import SegmentsPage from '../school/SegmentsPage';
@@ -24,10 +24,10 @@ interface TabDef {
 const TABS: TabDef[] = [
   {
     key: 'segmentos',
-    label: 'Segmentos e Turmas',
+    label: 'Segmentos, Séries e Turmas',
     shortLabel: 'Segmentos',
-    icon: School,
-    description: 'Segmentos (ex.: Infantil, Fundamental) e suas turmas',
+    icon: GraduationCap,
+    description: 'Gerencie a hierarquia acadêmica em três níveis',
   },
   {
     key: 'disciplinas',

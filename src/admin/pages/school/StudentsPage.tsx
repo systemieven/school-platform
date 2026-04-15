@@ -8,7 +8,7 @@ import { STUDENT_STATUS_LABELS, SHIFT_LABELS, type Shift } from '../../types/adm
 import CreateStudentDrawer from './CreateStudentDrawer';
 import {
   Users, Search, Loader2, X, GraduationCap, UserPlus, Upload,
-  Phone, Mail, Calendar, ChevronDown, Edit3, Save, AlertCircle,
+  Phone, Mail, Calendar, ChevronDown, Edit3, Save, AlertCircle, FileText,
 } from 'lucide-react';
 
 // ── Student Edit Drawer ───────────────────────────────────────────────────────
@@ -401,11 +401,15 @@ export default function StudentsPage() {
                   onClick={() => setExpandedId(isExpanded ? null : s.id)}
                   className="w-full flex items-center gap-4 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                 >
-                  {/* Avatar placeholder */}
-                  <div className="w-10 h-10 rounded-full bg-brand-primary/10 dark:bg-brand-primary/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-brand-primary dark:text-brand-secondary">
-                      {s.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}
-                    </span>
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-full bg-brand-primary/10 dark:bg-brand-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {s.photo_url ? (
+                      <img src={s.photo_url} alt={s.full_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-bold text-brand-primary dark:text-brand-secondary">
+                        {s.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -426,6 +430,13 @@ export default function StudentsPage() {
                     {STUDENT_STATUS_LABELS[s.status]}
                   </span>
 
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/admin/alunos/${s.id}`); }}
+                    className="p-1.5 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                    title="Ver ficha do aluno"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); setEditStudent(s); }}
                     className="p-1.5 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"

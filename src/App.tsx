@@ -42,7 +42,7 @@ function PageFallback() {
 }
 
 function Lazy({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
+  return <Suspense fallback={null}>{children}</Suspense>;
 }
 
 export default function App() {

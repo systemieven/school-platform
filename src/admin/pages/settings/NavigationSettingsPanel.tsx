@@ -5,12 +5,22 @@ import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
 import {
   Save, Loader2, Check, PanelTop, Menu, PanelBottom, MousePointer,
+  GripVertical, Trash2,
 } from 'lucide-react';
 import RoutePicker from '../../components/RoutePicker';
 import {
   InputField, SectionLabel, SectionDivider,
   ArrayItemCard, AddButton, RemoveButton, INPUT_CLS,
 } from '../../components/FormField';
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, sortableKeyboardCoordinates, useSortable,
+  verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface LinkItem {
@@ -86,6 +96,66 @@ const DEFAULT_CTA: CtaSettings = {
   band_route: '',
 };
 
+// ── SortableQuickLink ─────────────────────────────────────────────────────────
+interface SortableQuickLinkProps {
+  id: string;
+  index: number;
+  link: LinkItem;
+  onRemove: () => void;
+  onChangeLabel: (v: string) => void;
+  onChangeRoute: (v: string) => void;
+}
+
+function SortableQuickLink({ id, index, link, onRemove, onChangeLabel, onChangeRoute }: SortableQuickLinkProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div ref={setNodeRef} style={style} className={isDragging ? 'relative z-10 opacity-80' : ''}>
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800/30 overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50/80 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-700/40">
+          <button
+            type="button"
+            className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0"
+            title="Arrastar para reordenar"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="w-4 h-4" />
+          </button>
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-brand-primary/10 text-brand-primary text-[10px] font-bold">
+            {index}
+          </span>
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={onRemove}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+            title="Remover"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-4 py-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <InputField
+              label="Label"
+              value={link.label}
+              placeholder="Ex: Fale Conosco"
+              onChange={(e) => onChangeLabel(e.target.value)}
+            />
+            <RoutePicker
+              label="Rota"
+              value={link.route}
+              onChange={onChangeRoute}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Panel ────────────────────────────────────────────────────────────────────
 export default function NavigationSettingsPanel() {
   const [topbar, setTopbar] = useState<TopBarSettings>(DEFAULT_TOPBAR);
@@ -102,6 +172,20 @@ export default function NavigationSettingsPanel() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleQuickLinkDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setTopbar((p) => ({
+      ...p,
+      quick_links: arrayMove(p.quick_links, Number(active.id), Number(over.id)),
+    }));
+  }
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -205,36 +289,37 @@ export default function NavigationSettingsPanel() {
         {/* Quick links */}
         <div>
           <SectionLabel>Links Rápidos</SectionLabel>
-          <div className="space-y-3 mt-3">
-            {topbar.quick_links.map((link, i) => (
-              <ArrayItemCard key={i} index={i + 1} onRemove={() => {
-                const updated = topbar.quick_links.filter((_, idx) => idx !== i);
-                setTopbar((p) => ({ ...p, quick_links: updated }));
-              }}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <InputField
-                    label="Label"
-                    value={link.label}
-                    placeholder="Ex: Fale Conosco"
-                    onChange={(e) => {
-                      const updated = [...topbar.quick_links];
-                      updated[i] = { ...updated[i], label: e.target.value };
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleQuickLinkDragEnd}>
+            <SortableContext
+              items={topbar.quick_links.map((_, i) => String(i))}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3 mt-3">
+                {topbar.quick_links.map((link, i) => (
+                  <SortableQuickLink
+                    key={i}
+                    id={String(i)}
+                    index={i + 1}
+                    link={link}
+                    onRemove={() => {
+                      const updated = topbar.quick_links.filter((_, idx) => idx !== i);
                       setTopbar((p) => ({ ...p, quick_links: updated }));
                     }}
-                  />
-                  <RoutePicker
-                    label="Rota"
-                    value={link.route}
-                    onChange={(v) => {
+                    onChangeLabel={(v) => {
+                      const updated = [...topbar.quick_links];
+                      updated[i] = { ...updated[i], label: v };
+                      setTopbar((p) => ({ ...p, quick_links: updated }));
+                    }}
+                    onChangeRoute={(v) => {
                       const updated = [...topbar.quick_links];
                       updated[i] = { ...updated[i], route: v };
                       setTopbar((p) => ({ ...p, quick_links: updated }));
                     }}
                   />
-                </div>
-              </ArrayItemCard>
-            ))}
-          </div>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
           <div className="mt-3">
             <AddButton label="Adicionar link" onClick={() => {
               setTopbar((p) => ({ ...p, quick_links: [...p.quick_links, { label: '', route: '' }] }));

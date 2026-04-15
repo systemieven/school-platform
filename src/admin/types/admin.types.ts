@@ -415,6 +415,7 @@ export interface Student {
   internal_notes: string | null;
   origin: string | null;
   document_urls: string[];
+  photo_url: string | null;
   // joined
   class?: SchoolClass | null;
   segment_rel?: SchoolSegment | null;
@@ -743,6 +744,17 @@ export interface AttendancePriorityQueueConfig {
   window_minutes_before: number;
   window_minutes_after: number;
   show_type_indicator: boolean;
+}
+
+export interface AttendanceNoShowConfig {
+  /** Ativa marcação automática de não-comparecimento */
+  enabled: boolean;
+  /**
+   * Minutos após o horário agendado para marcar como no_show.
+   * Afeta apenas agendamentos com status 'pending' ou 'confirmed'.
+   * Sugerido: 30 | 60 | 120 | 240
+   */
+  timeout_minutes: number;
 }
 
 export interface AttendanceHistoryEntry {

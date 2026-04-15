@@ -279,15 +279,8 @@ export default function SegmentsPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
-            <GraduationCap className="w-8 h-8" />
-            Segmentos, Séries e Turmas
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie a hierarquia acadêmica em três níveis.</p>
-        </div>
+      {/* Actions */}
+      <div className="flex justify-end mb-6">
         <button
           onClick={startNewSegment}
           className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl text-sm font-medium hover:bg-[#002a5c] transition-colors"
