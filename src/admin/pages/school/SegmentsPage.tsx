@@ -302,9 +302,12 @@ export default function SegmentsPage() {
           return (
             <div key={seg.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
               {/* Segment header */}
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => toggleSeg(seg.id)}
-                className="w-full flex items-center gap-4 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleSeg(seg.id)}
+                className="w-full flex items-center gap-4 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
               >
                 {isOpen
                   ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -353,7 +356,7 @@ export default function SegmentsPage() {
                     </button>
                   )}
                 </div>
-              </button>
+              </div>
 
               {/* Series list */}
               {isOpen && (
