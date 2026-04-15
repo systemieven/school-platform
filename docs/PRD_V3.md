@@ -377,6 +377,16 @@ Display para TV/monitor na recepcao:
 - **Som configuravel**: preset (bell/chime/ding/buzzer) + repeticoes (1-3x)
 - **Realtime**: atualiza automaticamente ao chamar; senha atual so vai para historico quando a proxima e chamada; guarda contra duplicacao de eventos; reset automatico a meia-noite
 
+#### 4.5.4 Nao Comparecimento Automatico
+
+> ✅ **CONCLUIDO — 2026-04-15** (migration 65)
+
+Agendamentos passados sem transicao para `comparecimento` ou `completed` podem ser marcados automaticamente como `no_show` por um job periodico. Configura­vel na aba de configuracoes > Atendimentos.
+
+- **Funcao SQL**: `mark_appointment_no_shoots()` (`SECURITY DEFINER`) — le `attendance.no_show_config` de `system_settings`; atualiza `status = 'no_show'` quando `(appointment_date + appointment_time) AT TIME ZONE 'America/Recife' < now() - (timeout_minutes * INTERVAL '1 minute')`
+- **Cron**: pg_cron job `no-show-checker` executado a cada 15 min (registro manual no Supabase SQL Editor)
+- **Config**: `no_show_config: { enabled: boolean, timeout_minutes: 30 | 60 | 120 | 240 }`
+
 ---
 
 ### 4.6 Lead Kanban
@@ -415,8 +425,8 @@ Embutido nas configuracoes (aba WhatsApp) com 3 sub-abas:
 #### Templates (`TemplatesPage`)
 - **Editor visual** de templates com preview em tempo real
 - **Tipos**: texto, midia (imagem/video/documento), botoes (reply/URL/copy/call), lista de menu
-- **Variaveis dinamicas**: `{{variavel}}` com sugestoes por modulo
-- **Categorias** com cores: agendamento, matricula, contato, geral, boas-vindas, 2fa
+- **Variaveis dinamicas**: `{{variavel}}` com sugestoes por modulo — `MODULE_VARIABLES` no frontend define as variaveis por categoria
+- **Categorias** com cores: agendamento, matricula, contato, geral, boas-vindas, 2fa, financeiro, academico (migration 64 corrigiu os arrays `variables` destas duas ultimas)
 - **Gatilhos automaticos**: `on_create`, `on_status_change`, `on_reminder` com delay configuravel
 - **Condicoes**: enviar apenas para status/motivo especificos
 - **Suporte Pix**: botao de pagamento com chave CPF/CNPJ/Phone/Email/EVP
@@ -453,7 +463,7 @@ Embutido nas configuracoes (aba WhatsApp) com 3 sub-abas:
 
 ### 4.10 Seguimentos, Series, Turmas e Alunos
 
-**Rotas**: `/admin/segmentos` (redireciona para `/admin/academico`), `/admin/alunos`
+**Rotas**: `/admin/segmentos` (redireciona para `/admin/academico`), `/admin/alunos`, `/admin/alunos/:studentId` (ficha)
 **Roles**: super_admin, admin, coordinator
 
 > ✅ **HIERARQUIA 3-NIVEIS APLICADA — 2026-04-15** (PR1+PR2+PR3, migrations 61-63)
@@ -569,9 +579,14 @@ As tabelas abaixo possuem FK para `school_classes.id` e serao afetadas pela migr
 
 ---
 
-**Gestao de alunos** (inalterada):
+**Gestao de alunos**:
+
+> ✅ **FOTO E FICHA DO ALUNO — 2026-04-15** (migration 66, `StudentDetailPage`)
+
 - Ficha completa: dados pessoais, responsavel, turma, status
 - Conversao de pre-matricula em aluno: gera enrollment_number, vincula a turma do ano letivo
+- **Foto 3x4** (`photo_url TEXT`): upload com crop via `ImageCropModal` no `CreateStudentDrawer`; exibido como avatar na listagem (`StudentsPage`) e na ficha
+- **Ficha do Aluno** (`/admin/alunos/:studentId`): pagina dedicada com 5 abas internas — Resumo (dados pessoais + responsavel + filiacao + historico escolar), Academico (tabela de notas por bimestre + frequencia + resultado final do ano letivo corrente), Financeiro (ultimas 12 parcelas com status e valores), Documentos (links para arquivos anexados), Observacoes (notas internas); KPI strip com 4 cards; edicao de foto inline com hover overlay; botao "Imprimir ficha" (`window.print()`); layout `print:` com Tailwind CSS
 
 ---
 
@@ -836,6 +851,8 @@ Detalhado na secao [4.8 WhatsApp e Comunicacao](#48-whatsapp-e-comunicacao).
 | Tela do Cliente | `client_screen_fields` | Toggles: ultimo chamado, setor, estimativa, instrucoes + texto |
 | Feedback | `feedback` | Toggle, prompt text, escala (stars/numeric), comentarios, perguntas customizadas (7 tipos: rating, text, single_choice, multi_choice, scale, yes_no, emoji) |
 | Painel de Exibicao | `display_panel` | Senha de acesso, toggle historico (`show_history`), nome do visitante (`show_visitor_name`), efeito da senha (`ticket_effect`: glow/slide/bounce/neon), som (preset + repeticoes), qtd historico (`history_count`), filtro por setor, tema visual (4 opcoes) |
+| Visibilidade de Setores | `sector_visibility_mode` | ✅ Dois botoes estilizados em grid 2 colunas: "Todos os setores" (`all`) e "Restrito ao setor" (`restricted`); substitui radio buttons simples |
+| Nao Comparecimento | `no_show_config` | ✅ Toggle habilitado/desabilitado + 4 botoes de preset de timeout (30 min, 1 h, 2 h, 4 h); ativa o job pg_cron de fechamento automatico (migration 65) |
 
 ### 5.5 Pre-Matricula
 
@@ -1039,8 +1056,8 @@ Configuravel na aba Aparencia > Home:
 | Tabela | Descricao |
 |--------|-----------|
 | `school_segments` | Seguimentos escolares (Ed. Infantil, Fund. I/II, Medio) com coordinator_ids |
-| `school_series` | ⚠️ **NOVA — migration pendente** Series por seguimento (1º Ano, 2º Ano…); permanentes entre anos letivos |
-| `school_classes` | ⚠️ **MIGRACAO PENDENTE** Turmas por serie + ano letivo; receber FK `series_id`; campo `year` → renomear `school_year` |
+| `school_series` | ✅ Series por seguimento (1º Ano, 2º Ano…); permanentes entre anos letivos (migration 61) |
+| `school_classes` | ✅ Turmas por serie + ano letivo; `series_id NOT NULL` + campo `year` renomeado para `school_year` (migration 61) |
 | `students` | Alunos matriculados com enrollment_number e vinculo a turma do ano letivo corrente |
 | `activities` | Atividades (homework, test, project, quiz) por turma |
 | `grades` | Notas por aluno, atividade, periodo |
@@ -1085,8 +1102,9 @@ Configuravel na aba Aparencia > Home:
 | `whatsapp-media` | Privado | Midia para templates WhatsApp |
 | `library-resources` | Privado (signed URL) | PDFs, videos, imagens da biblioteca |
 | `avatars` | Publico | Fotos de perfil dos usuarios |
+| `student-photos` | Publico | Fotos 3x4 dos alunos (migration 66, max 5 MB) |
 
-### 7.3 Migrations Aplicadas (61)
+### 7.3 Migrations Aplicadas (66)
 
 | # | Nome | Data | Descricao |
 |---|------|------|-----------|
@@ -1152,6 +1170,9 @@ Configuravel na aba Aparencia > Home:
 | 61 | `school_series_hierarchy` | 15/04 | PR1 — tabela `school_series` + `series_id NOT NULL` em `school_classes` + rename `year → school_year` |
 | 62 | `capacity_and_year_progression` | 15/04 | PR2 — trigger `check_class_capacity` + RPCs `create_student_with_capacity`, `move_student_with_capacity`, `suggest_year_progression` |
 | 63 | `financial_series_scope` | 15/04 | PR3 — `financial_plans.series_ids[]`, `financial_discounts.series_id`, RPC `calculate_applicable_discounts` reescrita derivando series/segment via JOIN com prioridade student → class → series → segment → plan → global |
+| 64 | `fix_whatsapp_category_variables` | 15/04 | Corrige arrays `variables` nas categorias `academico` e `financeiro` do `whatsapp_template_categories`; as variaveis corretas agora correspondem ao `MODULE_VARIABLES` do frontend |
+| 65 | `attendance_no_show_auto` | 15/04 | Funcao `mark_appointment_no_shows()` SECURITY DEFINER: lê `no_show_config` de `system_settings`, marca `no_show` agendamentos passados conforme timeout configuravel; pg_cron job `no-show-checker` a cada 15 min (manual no Supabase SQL) |
+| 66 | `student_photo` | 15/04 | ADD COLUMN `photo_url TEXT` em `students`; bucket `student-photos` (publico, 5 MB, image/*) com 4 policies RLS (anon read, auth insert/update/delete) |
 
 ### 7.4 RLS Policies
 
@@ -1389,8 +1410,8 @@ Configuravel na aba Aparencia > Home:
 | 6 | Governanca e Escala (permissoes, modulos, audit) | ✅ Concluido | — | 1-5 |
 | 7 | Whitelabel (personalizacao total, multi-tenant) | ✅ Concluido | — | 6 |
 | 8 | Modulo Financeiro | ✅ Concluido | Critica | 7 |
-| 9 | Academico Completo | 🔄 Em andamento | Critica | 7 |
-| ⚠️ 9.M | **Migracao Arquitetural: Seguimento→Serie→Turma** | ⏳ Pendente (BLOQUEANTE) | Critica | 1-5 (gap) |
+| 9 | Academico Completo | ✅ Concluido (UI + backend + WhatsApp) | Critica | 7 |
+| 9.M | Migracao Arquitetural: Seguimento→Serie→Turma | ✅ Concluido (migrations 61-63, 2026-04-15) | Critica | 1-5 (gap) |
 | 9.5 | Dashboards Analiticos (Financeiro + Academico) | ⏳ Pendente | Alta | 8 + 9 |
 | 10 | Portal do Responsavel | ⏳ Pendente | Critica | 8 + 9 + 9.M |
 | 11 | Secretaria Digital | ⏳ Pendente | Alta | 10 |
@@ -1435,6 +1456,9 @@ Todas as 11 etapas concluidas: BrandingContext com Realtime, useBranding() hook,
 | Admin branding (LoginPage, Sidebar, Header de `branding.*`) | ✅ Concluido |
 | SEO dinamico (useSEO em 12 paginas, SEOSettingsPanel, favicon dinamico) | ✅ Concluido |
 | Config UI (BrandingSettingsPanel, NavigationSettingsPanel, ContentSettingsPanel, SEOSettingsPanel) | ✅ Concluido |
+| NavigationSettingsPanel — Links Rapidos com drag-to-reorder (`@dnd-kit/sortable`) | ✅ Concluido (2026-04-15) |
+| Rotas publicas sem spinner de carregamento (`<Lazy fallback={null}>`) | ✅ Concluido (2026-04-15) |
+| AcademicoPage — aba Segmentos com icone `GraduationCap` e label "Segmentos, Series e Turmas" | ✅ Concluido (2026-04-15) |
 | Seed defaults (site_presets com preset base) | ✅ Concluido |
 
 #### Multi-Tenancy: Upstream + Client Repos
@@ -1500,7 +1524,7 @@ Implementado em 12 de abril de 2026, refinado em 14 de abril de 2026 (sync merge
 
 ### 10.4 Fase 9 — Academico Completo
 
-**Status**: 🔄 Em andamento — UI e backend concluidos; WhatsApp academico pendente
+**Status**: ✅ Concluido — UI, backend e WhatsApp (categorias + variaveis corrigidas via migration 64)
 
 **Objetivo**: Completar o modulo academico com disciplinas, grade horaria, calendario letivo, boletim formal com formula configuravel, resultado final e historico escolar.
 
@@ -1733,7 +1757,7 @@ CREATE POLICY "tenant_access" ON dashboard_widgets
 
 > **Origem do gap**: Fases 1–5 (Fundacao) implementaram um modelo de **dois niveis** (`school_segments` → `school_classes`) que colapsou os conceitos de *serie* e *turma* em um unico registro. A regra de negocio real exige **tres niveis**. Esta lacuna foi identificada em 2026-04-15 e afeta diretamente as Fases 9.5, 10, 11 e 12.
 
-**Status**: 🔄 Em implementacao — entrega faseada em 3 PRs. **PR1 (Backbone)** aplicado em 2026-04-15: migration 61 cria `school_series`, adiciona `series_id NOT NULL` em `school_classes`, renomeia `year → school_year`. UI de Segmentos refatorada para 3 niveis com novo `SeriesDrawer`. Cascata Segmento → Serie → Turma no `CreateStudentDrawer`. Pages academico e Teacher fazem JOIN em `school_series`. **PR2 (Regras de negocio)** aplicado em 2026-04-15: migration 62 cria trigger `check_class_capacity` (bloqueio em `max_students`, override via GUC `app.capacity_override`), RPCs `create_student_with_capacity` (insere com override + audit), `move_student_with_capacity` (UPDATE de `class_id` com override + audit), e `suggest_year_progression` (sugestao avanca/repete por agregado de `student_results`). Componente `CapacityOverrideModal` integrado a `CreateStudentDrawer` e a transicao `confirmed` em `EnrollmentsPage` (corrige bug de `class_id` ausente). Nova aba **Ano Letivo** em `/admin/academico` lista sugestoes de promocao com selecao de turma do ano-alvo. **PR3 (Financeiro por serie)** segue em sequencia.
+**Status**: ✅ Concluido — entregue em 3 PRs aplicados em 2026-04-15. **PR1 (Backbone)** aplicado em 2026-04-15: migration 61 cria `school_series`, adiciona `series_id NOT NULL` em `school_classes`, renomeia `year → school_year`. UI de Segmentos refatorada para 3 niveis com novo `SeriesDrawer`. Cascata Segmento → Serie → Turma no `CreateStudentDrawer`. Pages academico e Teacher fazem JOIN em `school_series`. **PR2 (Regras de negocio)** aplicado em 2026-04-15: migration 62 cria trigger `check_class_capacity` (bloqueio em `max_students`, override via GUC `app.capacity_override`), RPCs `create_student_with_capacity` (insere com override + audit), `move_student_with_capacity` (UPDATE de `class_id` com override + audit), e `suggest_year_progression` (sugestao avanca/repete por agregado de `student_results`). Componente `CapacityOverrideModal` integrado a `CreateStudentDrawer` e a transicao `confirmed` em `EnrollmentsPage` (corrige bug de `class_id` ausente). Nova aba **Ano Letivo** em `/admin/academico` lista sugestoes de promocao com selecao de turma do ano-alvo. **PR3 (Financeiro por serie)** segue em sequencia.
 
 #### O gap em numeros
 
