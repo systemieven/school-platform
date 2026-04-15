@@ -23,7 +23,7 @@
     - 10.2 Fases Concluidas (6-9)
     - 10.3 Fase 8 — Modulo Financeiro (CONCLUIDA)
     - 10.4 Fase 9 — Academico Completo
-    - 10.4B Fase 9.5 — Dashboards Analiticos (pendente)
+    - 10.4B Fase 9.5 — Dashboards Analiticos (✅ concluido)
     - 10.4C Fase 8.5 — ERP Financeiro Completo (CONCLUIDA)
     - 10.5 Fase 10 — Portal do Responsavel
     - 10.5B Fase 10.P — Portal do Professor / Diario de Classe (paralelo a Fase 10)
@@ -1433,7 +1433,7 @@ Configuravel na aba Aparencia > Home:
 | 8.5 | ERP Financeiro Completo (Caixas, A/R, A/P, Relatorios) | ✅ Concluido (migrations 67-73, 2026-04-15) | Alta | 8 |
 | 9 | Academico Completo | ✅ Concluido (UI + backend + WhatsApp) | Critica | 7 |
 | 9.M | Migracao Arquitetural: Seguimento→Serie→Turma | ✅ Concluido (migrations 61-63, 2026-04-15) | Critica | 1-5 (gap) |
-| 9.5 | Dashboards Analiticos (Financeiro + Academico) | ⏳ Pendente | Alta | 8 + 9 |
+| 9.5 | Dashboards Analiticos (Financeiro + Academico) | ✅ Concluido (migration 74, Recharts, 2026-04-15) | Alta | 8 + 9 |
 | 10 | Portal do Responsavel | ⏳ Pendente | Critica | 8 + 9 + 9.M |
 | 10.P | Portal do Professor / Diario de Classe | ⏳ Pendente | Alta | 9 + 9.M *(paralelo a Fase 10)* |
 | 11 | Secretaria Digital | ⏳ Pendente | Alta | 10 |
