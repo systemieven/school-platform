@@ -1712,3 +1712,255 @@ export const ACADEMIC_DATA_SOURCES: { value: string; label: string; description:
   { value: 'alerts_by_severity',  label: 'Alertas por Severidade',       description: 'Alunos com alerta de frequência por nível',        suggested: ['donut'] },
   { value: 'top_absences',        label: 'Turmas com Mais Faltas',       description: 'Top 5 turmas com maior índice de ausência',        suggested: ['bar_horizontal'] },
 ];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE 10 — Portal do Responsável
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface GuardianProfile {
+  id: string;
+  name: string;
+  cpf: string | null;
+  phone: string | null;
+  email: string | null;
+  is_active: boolean;
+  must_change_password: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OccurrenceType = 'behavioral' | 'academic' | 'health' | 'administrative' | 'commendation' | 'absence_justification';
+export type OccurrenceSeverity = 'info' | 'warning' | 'critical';
+export type OccurrenceStatus = 'open' | 'read' | 'resolved';
+
+export interface StudentOccurrence {
+  id: string;
+  student_id: string;
+  class_id: string | null;
+  created_by: string | null;
+  type: OccurrenceType;
+  severity: OccurrenceSeverity;
+  title: string;
+  description: string;
+  attachments: string[] | null;
+  visible_to_guardian: boolean;
+  guardian_response: string | null;
+  guardian_responded_at: string | null;
+  status: OccurrenceStatus;
+  resolved_at: string | null;
+  occurrence_date: string;
+  created_at: string;
+  updated_at: string;
+  // Joins opcionais
+  student?: { id: string; full_name: string } | null;
+  class?: { id: string; name: string } | null;
+  creator?: { id: string; full_name: string } | null;
+}
+
+export interface ActivityAuthorization {
+  id: string;
+  title: string;
+  description: string;
+  activity_date: string | null;
+  deadline: string;
+  class_ids: string[] | null;
+  student_ids: string[] | null;
+  requires_response: boolean;
+  created_by: string | null;
+  status: 'active' | 'closed' | 'cancelled';
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthorizationResponse {
+  id: string;
+  authorization_id: string;
+  student_id: string;
+  guardian_id: string | null;
+  response: 'authorized' | 'not_authorized' | 'pending';
+  notes: string | null;
+  responded_at: string;
+}
+
+export const OCCURRENCE_TYPE_LABELS: Record<OccurrenceType, string> = {
+  behavioral: 'Comportamental',
+  academic: 'Acadêmico',
+  health: 'Saúde',
+  administrative: 'Administrativo',
+  commendation: 'Elogio',
+  absence_justification: 'Justificativa de Falta',
+};
+
+export const OCCURRENCE_SEVERITY_LABELS: Record<OccurrenceSeverity, string> = {
+  info: 'Informativo',
+  warning: 'Atenção',
+  critical: 'Crítico',
+};
+
+export const OCCURRENCE_STATUS_LABELS: Record<OccurrenceStatus, string> = {
+  open: 'Aberto',
+  read: 'Lido',
+  resolved: 'Resolvido',
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE 10.P — Portal do Professor / Diário de Classe
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type DiaryEntryType = 'aula' | 'reposicao' | 'avaliacao' | 'evento' | 'excursao' | 'outro';
+
+export interface ClassDiaryEntry {
+  id: string;
+  class_id: string;
+  subject_id: string | null;
+  teacher_id: string;
+  entry_date: string;
+  type: DiaryEntryType;
+  content: string;
+  objectives: string | null;
+  materials: string | null;
+  notes: string | null;
+  lesson_plan_id: string | null;
+  is_locked: boolean;
+  locked_by: string | null;
+  locked_at: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins opcionais
+  class?: { id: string; name: string } | null;
+  subject?: { id: string; name: string } | null;
+  attendance?: DiaryAttendance[];
+}
+
+// AttendanceStatus already defined above (line ~519) — reuse it here for DiaryAttendance
+
+export interface DiaryAttendance {
+  id: string;
+  diary_entry_id: string;
+  student_id: string;
+  status: AttendanceStatus;          // reuses existing AttendanceStatus
+  justification: string | null;
+  created_at: string;
+  updated_at: string;
+  student?: { id: string; full_name: string; photo_url?: string | null } | null;
+}
+
+export type ClassActivityType = 'exercicio' | 'trabalho' | 'prova' | 'apresentacao' | 'excursao' | 'autoavaliacao' | 'outro';
+
+export interface ClassActivity {
+  id: string;
+  class_id: string;
+  subject_id: string | null;
+  teacher_id: string;
+  title: string;
+  type: ClassActivityType;
+  activity_date: string;
+  weight: number;
+  max_score: number;
+  min_passing: number | null;
+  diary_entry_id: string | null;
+  description: string | null;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+  subject?: { id: string; name: string } | null;
+  scores?: ActivityScore[];
+}
+
+export interface ActivityScore {
+  id: string;
+  activity_id: string;
+  student_id: string;
+  score: number | null;
+  is_exempt: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  student?: { id: string; full_name: string } | null;
+}
+
+export type LessonPlanStatus = 'draft' | 'published' | 'executed' | 'cancelled';
+
+export interface LessonPlan {
+  id: string;
+  class_id: string;
+  subject_id: string | null;
+  teacher_id: string;
+  title: string;
+  objective: string | null;
+  competencies: string[] | null;
+  content: string | null;
+  methodology: string | null;
+  resources: string | null;
+  assessment: string | null;
+  planned_date: string | null;
+  status: LessonPlanStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  class?: { id: string; name: string } | null;
+  subject?: { id: string; name: string } | null;
+}
+
+export type ExamStatus = 'draft' | 'published' | 'applied' | 'corrected';
+export type QuestionType = 'dissertativa' | 'multipla_escolha' | 'verdadeiro_falso' | 'associacao';
+
+export interface ClassExam {
+  id: string;
+  class_id: string;
+  subject_id: string | null;
+  teacher_id: string;
+  title: string;
+  instructions: string | null;
+  exam_date: string | null;
+  total_score: number | null;
+  activity_id: string | null;
+  status: ExamStatus;
+  created_at: string;
+  updated_at: string;
+  class?: { id: string; name: string } | null;
+  subject?: { id: string; name: string } | null;
+  questions?: ExamQuestion[];
+}
+
+export interface ExamQuestion {
+  id: string;
+  exam_id: string;
+  block_number: number;
+  question_number: number;
+  type: QuestionType;
+  stem: string;
+  options: { key: string; text: string }[] | null;
+  correct_answer: string | null;
+  score: number;
+  created_at: string;
+}
+
+export const CLASS_ACTIVITY_TYPE_LABELS: Record<ClassActivityType, string> = {
+  exercicio: 'Exercício',
+  trabalho: 'Trabalho',
+  prova: 'Prova',
+  apresentacao: 'Apresentação',
+  excursao: 'Excursão',
+  autoavaliacao: 'Autoavaliação',
+  outro: 'Outro',
+};
+
+// ATTENDANCE_STATUS_LABELS already defined above — no re-export needed
+
+export const LESSON_PLAN_STATUS_LABELS: Record<LessonPlanStatus, string> = {
+  draft: 'Rascunho',
+  published: 'Publicado',
+  executed: 'Executado',
+  cancelled: 'Cancelado',
+};
+
+export const DIARY_ENTRY_TYPE_LABELS: Record<DiaryEntryType, string> = {
+  aula: 'Aula',
+  reposicao: 'Reposição',
+  avaliacao: 'Avaliação',
+  evento: 'Evento',
+  excursao: 'Excursão',
+  outro: 'Outro',
+};

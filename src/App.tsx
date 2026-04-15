@@ -24,9 +24,11 @@ import NotFound          from './pages/NotFound';
 const AtendimentoPublico = lazy(() => import('./pages/AtendimentoPublico'));
 const PainelAtendimento  = lazy(() => import('./pages/PainelAtendimento'));
 
-// Admin panel and student portal — lazy: large bundles, authenticated only
-const AdminRoutes  = lazy(() => import('./admin/routes'));
-const PortalRoutes = lazy(() => import('./portal/routes'));
+// Admin panel, student portal, guardian portal and teacher portal — lazy: large bundles
+const AdminRoutes      = lazy(() => import('./admin/routes'));
+const PortalRoutes     = lazy(() => import('./portal/routes'));
+const ResponsavelRoutes = lazy(() => import('./responsavel/routes'));
+const ProfessorRoutes   = lazy(() => import('./professor/routes'));
 
 function FullPageFallback() {
   return (
@@ -79,6 +81,26 @@ export default function App() {
         element={
           <Suspense fallback={<FullPageFallback />}>
             <PortalRoutes />
+          </Suspense>
+        }
+      />
+
+      {/* ── Guardian portal (lazy-loaded) ── */}
+      <Route
+        path="responsavel/*"
+        element={
+          <Suspense fallback={<FullPageFallback />}>
+            <ResponsavelRoutes />
+          </Suspense>
+        }
+      />
+
+      {/* ── Teacher portal (lazy-loaded) ── */}
+      <Route
+        path="professor/*"
+        element={
+          <Suspense fallback={<FullPageFallback />}>
+            <ProfessorRoutes />
           </Suspense>
         }
       />
