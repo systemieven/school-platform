@@ -6,6 +6,7 @@ dist
 .env
 .env.*
 !.env.example
+!.env.production
 
 # Secrets e credenciais (qualquer arquivo de secrets/service-account)
 **/secrets*.json
