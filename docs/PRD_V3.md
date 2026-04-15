@@ -2,7 +2,7 @@
 
 > **Versao**: 3.3
 > **Data**: 15 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-11 concluidas) + roadmap ate v1
+> **Status**: Documento unificado — estado atual (Fases 1-11 concluidas) + Fase 11.B especificada (pendente) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -1374,6 +1374,9 @@ Configuravel na aba Aparencia > Home:
 | `/admin/rematricula` | Campanhas de Rematricula | super_admin, admin | 11 |
 | `/admin/secretaria/transferencias` | Transferencias | admin+ | 11 |
 | `/admin/objetivos` | Objetivos de Aprendizagem / BNCC | admin+, coordinator | 12 |
+| `/admin/portaria` | Modulo de Portaria — frequencia e autorizacoes de saida | admin+, portaria | 11.B |
+| `/admin/faltas` | Fila de comunicacoes de falta do responsavel | admin+, coordinator | 11.B |
+| `/admin/autorizacoes-saida` | Fila de autorizacoes de saida excepcional | admin+, coordinator | 11.B |
 
 ### 9.6 Portal do Responsavel — Rotas Planejadas (13 rotas — Fase 10)
 
@@ -1393,6 +1396,8 @@ Configuravel na aba Aparencia > Home:
 | `/responsavel/rematricula` | RematriculaPage | Rematricula online (Fase 11) |
 | `/responsavel/perfil` | PerfilPage | Dados pessoais, troca de senha, dados do filho |
 | `/responsavel/biblioteca` | BibliotecaPage | Materiais da turma |
+| `/responsavel/faltas` | FaltasPage | Comunicar falta programada ou justificativa (Fase 11.B) |
+| `/responsavel/autorizacoes-saida` | AutorizacoesSaidaPage | Autorizar saida excepcional com confirmacao de senha (Fase 11.B) |
 
 ### 9.7 Portal do Aluno — Rotas Planejadas (1 nova)
 
@@ -1437,10 +1442,13 @@ Configuravel na aba Aparencia > Home:
 | 10 | Portal do Responsavel | ✅ Concluido (migrations 75-76, 2026-04-15) | Critica | 8 + 9 + 9.M |
 | 10.P | Portal do Professor / Diario de Classe | ✅ Concluido (migrations 77-81, 2026-04-15) | Alta | 9 + 9.M *(paralelo a Fase 10)* |
 | 11 | Secretaria Digital | ✅ Concluido (migrations 82-86, Edge Function generate-document, 2026-04-15) | Alta | 10 |
+| 11.B | Portal do Responsavel + Modulo de Portaria (Comunicacao de Faltas, Autorizacoes de Saida, Portaria) | ⏳ Pendente | Alta | 10 + 10.P + 11 |
 | 12 | Modulo Pedagogico Avancado (BNCC + Relatorios) | ⏳ Pendente | Media | 9 + 10.P |
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights).
+
+**Fase 11.B** pode ser desenvolvida em paralelo com Fase 12 — compartilha dependencias com 10 e 10.P mas nao com BNCC/pedagogico. A feature de indicador no diario (DiarioEntradaPage) requer coordenacao com a equipe que mantiver Fase 10.P.
 
 **Pre-requisitos transversais** (antes das fases 9-12):
 - ✅ Renomear tabela `attendance` → `student_attendance` (migration 43)
@@ -2163,6 +2171,203 @@ Reutiliza categoria `academico` existente (cor: `#065f46`).
 | Prazo de rematricula em 7 dias | Nao rematriculados | `rematricula-prazo` |
 | Rematricula confirmada | Responsavel | `rematricula-confirmada` |
 | Declaracao pronta para download | Responsavel | `declaracao-pronta` |
+
+---
+
+### 10.6B Fase 11.B — Portal do Responsavel + Modulo de Portaria
+
+**Objetivo**: Conectar o portal do responsavel ao modulo academico e ao novo modulo de portaria, cobrindo comunicacao de faltas (programadas e justificativas), autorizacoes de saida excepcional com confirmacao por senha e log de auditoria imutavel, pessoas autorizadas fixas no cadastro do aluno e controle operacional de entrada/saida na portaria.
+
+**Dependencias**: Fase 10 (guardian_profiles, student_guardians), Fase 10.P (class_diary_entries + diary_attendance para vincular falta justificada), Fase 11 (padrao de modulos/permissoes da secretaria como referencia)
+
+**Paralelo com**: Pode ser desenvolvida em paralelo com Fase 12 (pedagogico) — nao compartilham dependencias de dados.
+
+#### 11.B.1 Sub-modulos
+
+| Feature | Descricao | Prioridade |
+|---------|-----------|------------|
+| Comunicacao de Faltas (Responsavel) | Formulario com calendario (falta programada = data futura, justificativa = data passada), tipo, motivo seletor configuravel, texto livre, anexo opcional | Alta |
+| Fila de Analise de Faltas (/academico) | Coordenador aceita/recusa; aceita → registra justificativa no diario; recusa → notificacao ao responsavel com mensagem | Alta |
+| Indicador no Diario de Classe | Professor ve falta justificada aceita com resumo do motivo (somente leitura) | Alta |
+| Autorizacao de Saida Excepcional (Responsavel) | Dados do terceiro + foto opcional + confirmacao por senha + log imutavel | Alta |
+| Fila de Autorizacoes (/academico) | Coordenador autoriza ou recusa; autorizada fica disponivel na portaria | Alta |
+| Pessoas Autorizadas Fixas (Cadastro Aluno) | CRUD inline no perfil do aluno: nome, CPF, telefone, foto; visivel na portaria como referencia permanente | Media |
+| Modulo de Portaria | Busca frequencia do dia; cards de autorizacoes ativas; confirmacao de saida com timestamp + usuario; notificacao ao responsavel | Alta |
+
+#### 11.B.2 Integracao com Modulos Existentes
+
+| Modulo | Ponto de Integracao | Observacao |
+|--------|--------------------|----|
+| `student_occurrences` (migration 75) | Tipo `absence_justification` ja existe — o novo `absence_communications` e separado, pois o fluxo e diferente (responsavel inicia; status de aprovacao; vinculo ao diario). O tipo `absence_justification` em `student_occurrences` pode ser descontinuado ou mantido para ocorrencias internas | Sem conflito de schema |
+| `diary_attendance` (migration 77) | Ao aceitar uma comunicacao de falta, o coordenador vincula o registro ao `diary_attendance` do aluno na data informada. Campo nullable `absence_communication_id UUID REFERENCES absence_communications` adicionado via ALTER | Requer ALTER na migration 11.B |
+| `activity_authorizations` (migration 75) | Modelo diferente (escola → responsavel para autorizar atividades). `exit_authorizations` e responsavel → escola para autorizar saida — fluxo inverso, nova tabela | Sem conflito |
+| Portal do Responsavel (`/responsavel/*`) | Duas novas rotas: `/responsavel/faltas` e `/responsavel/autorizacoes-saida` | Requer nova entrada no sidebar |
+| `students` (tabela existente) | `authorized_persons` referencia por `student_id`; nao altera a tabela `students` em si | FK reversa |
+| WhatsApp (categoria existente) | Notificacoes por mudanca de status em ambos os fluxos (falta aceita/recusada; autorizacao aceita/recusada/saida efetivada) | Nova categoria `portaria` |
+
+#### 11.B.3 Tabelas
+
+| Tabela | Migration | Descricao |
+|--------|-----------|-----------|
+| `absence_communications` | 87 | Comunicacoes de falta do responsavel (falta programada + justificativa); status: sent → analyzing → accepted/rejected |
+| `authorized_persons` | 88 | Pessoas fixas autorizadas a retirar aluno — vinculadas ao cadastro permanente |
+| `exit_authorizations` | 88 | Autorizacoes excepcionais de saida; dados do terceiro; confirmacao senha; log imutavel JSONB; efetivacao na portaria |
+| ALTER `diary_attendance` | 87 | ADD COLUMN `absence_communication_id UUID REFERENCES absence_communications` |
+| Novo role `portaria` | 89 | ALTER profiles role CHECK; modulos portaria/absence-communications/exit-authorizations; permissoes por perfil |
+
+**Schema `absence_communications` (migration 87):**
+```sql
+CREATE TABLE absence_communications (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id          UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  guardian_id         UUID NOT NULL REFERENCES guardian_profiles(id) ON DELETE CASCADE,
+  comm_type           TEXT NOT NULL CHECK (comm_type IN ('programmed', 'justification')),
+  absence_type        TEXT NOT NULL CHECK (absence_type IN ('full_day', 'delay')),
+  absence_date        DATE NOT NULL,
+  reason_key          TEXT NOT NULL,  -- saude | compromisso_medico | viagem | familiar | outro
+  justification       TEXT NOT NULL,
+  attachment_url      TEXT,
+  attachment_path     TEXT,
+  status              TEXT NOT NULL DEFAULT 'sent'
+                        CHECK (status IN ('sent','analyzing','accepted','rejected')),
+  reviewed_by         UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  reviewed_at         TIMESTAMPTZ,
+  rejection_message   TEXT,
+  diary_attendance_id UUID REFERENCES diary_attendance(id) ON DELETE SET NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE diary_attendance
+  ADD COLUMN IF NOT EXISTS absence_communication_id UUID
+    REFERENCES absence_communications(id) ON DELETE SET NULL;
+```
+
+**Schema `authorized_persons` (migration 88):**
+```sql
+CREATE TABLE authorized_persons (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id   UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  full_name    TEXT NOT NULL,
+  cpf          TEXT NOT NULL,
+  phone        TEXT NOT NULL,
+  photo_url    TEXT,
+  photo_path   TEXT,
+  relationship TEXT,
+  is_active    BOOLEAN NOT NULL DEFAULT true,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**Schema `exit_authorizations` (migration 88):**
+```sql
+CREATE TABLE exit_authorizations (
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id                UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  guardian_id               UUID NOT NULL REFERENCES guardian_profiles(id) ON DELETE CASCADE,
+  -- Dados do terceiro
+  third_party_name          TEXT NOT NULL,
+  third_party_cpf           TEXT NOT NULL,
+  third_party_phone         TEXT NOT NULL,
+  third_party_rel           TEXT NOT NULL
+                              CHECK (third_party_rel IN ('tio_a','primo_a','vizinho_a','amigo_a','conhecido_a','outro')),
+  third_party_photo_url     TEXT,
+  third_party_photo_path    TEXT,
+  -- Periodo
+  valid_from                DATE NOT NULL,
+  valid_until               DATE NOT NULL,
+  period                    TEXT CHECK (period IN ('morning','afternoon','full_day')),
+  -- Seguranca
+  password_confirmed_at     TIMESTAMPTZ NOT NULL,
+  -- Fluxo
+  status                    TEXT NOT NULL DEFAULT 'requested'
+                              CHECK (status IN ('requested','analyzing','authorized','rejected','completed','expired')),
+  reviewed_by               UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  reviewed_at               TIMESTAMPTZ,
+  rejection_reason          TEXT,
+  -- Efetivacao na portaria
+  exited_at                 TIMESTAMPTZ,
+  exit_confirmed_by         UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  -- Log imutavel (append-only via trigger)
+  audit_log                 JSONB NOT NULL DEFAULT '[]',
+  created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+> **Nota de seguranca**: `audit_log` e append-only via trigger BEFORE UPDATE que bloqueia qualquer reducao do array. A efetivacao na portaria adiciona `{event:'exit_confirmed', at:now(), by:user_id, user_name}` ao JSONB antes de atualizar `exited_at`.
+
+#### 11.B.4 Novo Role `portaria`
+
+```sql
+-- Migration 89
+ALTER TABLE profiles DROP CONSTRAINT profiles_role_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_role_check
+  CHECK (role IN ('super_admin','admin','coordinator','teacher','student','user','responsavel','portaria'));
+```
+
+Modulos novos:
+
+| module_key | label | position | Roles com acesso |
+|---|---|---|---|
+| `absence-communications` | Comunicacoes de Falta | 64 | super_admin, admin, coordinator |
+| `portaria` | Portaria | 65 | super_admin, admin, coordinator, portaria |
+| `exit-authorizations` | Autorizacoes de Saida | 66 | super_admin, admin, coordinator, portaria |
+
+Perfil `portaria`: view + edit em `portaria` e `exit-authorizations`; sem acesso a outros modulos financeiros ou academicos.
+
+#### 11.B.5 Edge Functions
+
+| Funcao | Descricao |
+|--------|-----------|
+| `validate-guardian-password` | Valida senha do responsavel antes de gravar autorizacao de saida excepcional (recebe JWT + senha em plaintext, chama `supabase.auth.signInWithPassword` como confirmacao) |
+| `notify-exit-confirmed` | Envia notificacao WhatsApp ao responsavel quando portaria confirma saida (hora + nome do usuario de portaria) |
+
+#### 11.B.6 Rotas Admin
+
+| Rota | Componente | Roles | Descricao |
+|------|-----------|-------|-----------|
+| `/admin/faltas` | FaltasComunicacoesPage | admin+, coordinator | Fila de analise + aceitar/recusar; historico por aluno |
+| `/admin/autorizacoes-saida` | AutorizacoesSaidaAdminPage | admin+, coordinator | Fila de autorizacoes excepcionais + log de auditoria |
+| `/admin/portaria` | PortariaPage | admin+, portaria | Busca frequencia + cards autorizacoes ativas + confirmar saida |
+
+#### 11.B.7 Rotas Portal do Responsavel
+
+| Rota | Pagina | Descricao |
+|------|--------|-----------|
+| `/responsavel/faltas` | FaltasPage | Formulario (falta programada ou justificativa) + historico de comunicacoes + status |
+| `/responsavel/autorizacoes-saida` | AutorizacoesSaidaPage | Formulario de autorizacao excepcional com confirmacao por senha + historico |
+
+#### 11.B.8 WhatsApp
+
+**Nova categoria**: `portaria` (cor: `#1e40af` azul-escuro)
+
+| Evento | Destinatario | Template |
+|--------|-------------|---------|
+| Comunicacao de falta recebida (confirmacao) | Responsavel | `falta-recebida` |
+| Falta aceita pela coordenacao | Responsavel | `falta-aceita` |
+| Falta recusada — documentacao necessaria | Responsavel | `falta-recusada` |
+| Autorizacao de saida aprovada | Responsavel | `autorizacao-aprovada` |
+| Autorizacao de saida recusada | Responsavel | `autorizacao-recusada` |
+| Saida do aluno efetivada na portaria | Responsavel | `saida-efetivada` (inclui hora + identificacao do usuario) |
+
+#### 11.B.9 Ajuste no Modulo Academico
+
+**DiarioEntradaPage (professor)**: Adicionar indicador visual nas celulas de falta do aluno quando `diary_attendance.absence_communication_id` nao e NULL. Tooltip com motivo resumido. O professor ve mas nao pode alterar o status da justificativa.
+
+**FaltasComunicacoesPage (/admin/academico ou /admin/faltas)**: Fila com cards expandiveis mostrando dados do aluno, turma, data, tipo, motivo, justificativa e anexo. Acoes: Aceitar (select do registro diary_attendance para vincular) e Recusar (campo de mensagem obrigatorio).
+
+#### 11.B.10 Verificacao
+
+1. Responsavel envia falta programada → aparece em `/admin/faltas` com status `analyzing`
+2. Coordenador aceita vinculando ao diary_attendance → status `accepted`; professor ve indicador no DiarioEntradaPage
+3. Responsavel ve status `aceita` no portal `/responsavel/faltas`
+4. Responsavel cria autorizacao excepcional → confirmacao de senha (Edge Function) → status `requested`
+5. Coordenador autoriza → status `authorized`; card aparece em `/admin/portaria`
+6. Portaria confirma saida → `exited_at` + `audit_log` atualizado; responsavel recebe notificacao WhatsApp
+7. `audit_log` nao pode ser reduzido (trigger append-only)
+8. `tsc -b` sem erros apos implementacao
+9. `SELECT * FROM modules WHERE module_key IN ('portaria','absence-communications','exit-authorizations')` → 3 linhas
 
 ---
 
