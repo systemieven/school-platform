@@ -9,11 +9,14 @@ import {
   validateStudentRow,
   resolveClassId,
   downloadImportTemplate,
+  autoDetectMapping,
+  autoDetectClassColumn,
 } from '../../lib/import';
+import type { MappingConfidence } from '../../lib/import';
 import type { SchoolClass, ImportTemplate, ImportTemplateMapping } from '../../types/admin.types';
 import {
   Upload, ArrowLeft, ArrowRight, FileSpreadsheet, Check, X,
-  AlertTriangle, Loader2, Download, Save, Trash2,
+  AlertTriangle, Loader2, Download, Save, Trash2, Wand2, Sparkles,
 } from 'lucide-react';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -69,9 +72,11 @@ export default function StudentImportPage() {
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
 
-  // Step 2 — mapping
+  // Step 2 — mapping (fieldKey → columnHeader)
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [classColumn, setClassColumn] = useState('');
+  // Auto-detection confidence per field (cleared when user manually changes a row)
+  const [autoConfidence, setAutoConfidence] = useState<Record<string, MappingConfidence>>({});
   const [classes, setClasses] = useState<SchoolClass[]>([]);
 
   // Step 3 — validation
@@ -124,10 +129,23 @@ export default function StudentImportPage() {
       setRows(result.rows);
       setFileName(file.name);
 
-      // Initialize mapping with empty values
+      // Initialize mapping keyed by system field (field-first orientation)
       const init: Record<string, string> = {};
-      result.headers.forEach((h) => { init[h] = ''; });
+      STUDENT_IMPORT_FIELDS.forEach((f) => { init[f.key] = ''; });
+
+      // Run auto-detection
+      const detected = autoDetectMapping(result.headers, result.rows);
+      const confidence: Record<string, MappingConfidence> = {};
+      for (const [field, { column, confidence: conf }] of Object.entries(detected)) {
+        init[field] = column;
+        confidence[field] = conf;
+      }
       setMapping(init);
+      setAutoConfidence(confidence);
+
+      // Auto-detect class column
+      const detectedClass = autoDetectClassColumn(result.headers);
+      if (detectedClass) setClassColumn(detectedClass);
 
       // Load templates + classes then advance
       await Promise.all([loadTemplates(), loadClasses()]);
@@ -150,22 +168,42 @@ export default function StudentImportPage() {
     if (file) handleFile(file);
   }, [handleFile]);
 
+  // ── Re-run auto-detection ────────────────────────────────────────────────
+
+  const handleAutoDetect = useCallback(() => {
+    const init: Record<string, string> = {};
+    STUDENT_IMPORT_FIELDS.forEach((f) => { init[f.key] = ''; });
+    const detected = autoDetectMapping(headers, rows);
+    const confidence: Record<string, MappingConfidence> = {};
+    for (const [field, { column, confidence: conf }] of Object.entries(detected)) {
+      init[field] = column;
+      confidence[field] = conf;
+    }
+    setMapping(init);
+    setAutoConfidence(confidence);
+    const detectedClass = autoDetectClassColumn(headers);
+    if (detectedClass) setClassColumn(detectedClass);
+  }, [headers, rows]);
+
   // ── Apply template ───────────────────────────────────────────────────────
 
   const applyTemplate = useCallback((templateId: string) => {
     setSelectedTemplateId(templateId);
     const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
+    // Initialize empty field-first mapping
     const newMapping: Record<string, string> = {};
-    headers.forEach((h) => { newMapping[h] = ''; });
+    STUDENT_IMPORT_FIELDS.forEach((f) => { newMapping[f.key] = ''; });
+    // Apply template: field -> column
     tpl.mapping.forEach((m: ImportTemplateMapping) => {
-      if (m.column in newMapping) newMapping[m.column] = m.field;
+      if (m.field in newMapping) newMapping[m.field] = m.column;
     });
     setMapping(newMapping);
-    // Also try to restore class column
+    setAutoConfidence({}); // template-applied rows have no auto-confidence badge
+    // Restore class column
     const classMapped = tpl.mapping.find((m: ImportTemplateMapping) => m.field === '__class__');
     if (classMapped) setClassColumn(classMapped.column);
-  }, [templates, headers]);
+  }, [templates]);
 
   // ── Save template ────────────────────────────────────────────────────────
 
@@ -173,8 +211,8 @@ export default function StudentImportPage() {
     if (!templateName.trim()) return;
     setSavingTemplate(true);
     const mappingArr: ImportTemplateMapping[] = Object.entries(mapping)
-      .filter(([, v]) => v)
-      .map(([col, field], i) => ({ column: col, field, position: i }));
+      .filter(([, col]) => col)
+      .map(([field, col], i) => ({ column: col, field, position: i }));
     if (classColumn) {
       mappingArr.push({ column: classColumn, field: '__class__', position: mappingArr.length });
     }
@@ -200,7 +238,7 @@ export default function StudentImportPage() {
 
   const requiredFieldsMapped = STUDENT_IMPORT_FIELDS
     .filter((f) => f.required)
-    .every((f) => Object.values(mapping).includes(f.key));
+    .every((f) => !!mapping[f.key]);
 
   const handleValidate = useCallback(async () => {
     setValidating(true);
@@ -215,7 +253,7 @@ export default function StudentImportPage() {
     );
 
     // Build per-file CPF set for duplicate detection
-    const cpfField = Object.entries(mapping).find(([, v]) => v === 'cpf')?.[0];
+    const cpfField = mapping['cpf'] || '';
     const fileCpfCounts = new Map<string, number>();
     if (cpfField) {
       rows.forEach((row) => {
@@ -291,10 +329,10 @@ export default function StudentImportPage() {
       for (let i = 0; i < toImport.length; i += BATCH_SIZE) {
         const batch = toImport.slice(i, i + BATCH_SIZE);
         const records = batch.map((item, batchIdx) => {
-          // Build record from mapping
+          // Build record from mapping (fieldKey → columnHeader)
           const record: Record<string, unknown> = {};
-          for (const [column, field] of Object.entries(mapping)) {
-            if (field && field !== '__class__') {
+          for (const [field, column] of Object.entries(mapping)) {
+            if (column) {
               record[field] = item.row[column]?.trim() || null;
             }
           }
@@ -342,8 +380,8 @@ export default function StudentImportPage() {
 
   const handleDownloadTemplate = useCallback(() => {
     const fields = Object.entries(mapping)
-      .filter(([, v]) => v)
-      .map(([col, field]) => ({ column: col, field }));
+      .filter(([, col]) => col)
+      .map(([field, col]) => ({ column: col, field }));
     if (fields.length === 0) {
       // Default template with all fields
       downloadImportTemplate(
@@ -357,8 +395,8 @@ export default function StudentImportPage() {
   // ── Mapped name helper ───────────────────────────────────────────────────
 
   const getNameValue = (row: Record<string, string>) => {
-    const col = Object.entries(mapping).find(([, v]) => v === 'full_name')?.[0];
-    return col ? row[col] : '—';
+    const col = mapping['full_name'];
+    return col ? (row[col] || '—') : '—';
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -471,14 +509,52 @@ export default function StudentImportPage() {
       {/* ── Step 2: Mapeamento ─────────────────────────────────────────── */}
       {step === 2 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Mapeamento de Colunas
-            </h2>
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              {fileName} — {rows.length} linhas
-            </span>
+
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Mapeamento de Colunas
+              </h2>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                {fileName} — {rows.length} linhas • {headers.length} colunas detectadas
+              </p>
+            </div>
+            {/* Detection action buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleAutoDetect}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-primary/10 text-brand-primary dark:bg-brand-secondary/10 dark:text-brand-secondary hover:bg-brand-primary/20 dark:hover:bg-brand-secondary/20 transition-colors"
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                Detectar Automaticamente
+              </button>
+              <button
+                disabled
+                title="Disponível após configurar um Agente de IA em Config → Agentes"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-50 dark:bg-purple-900/10 text-purple-400 dark:text-purple-600 cursor-not-allowed opacity-60"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Mapear com IA
+              </button>
+            </div>
           </div>
+
+          {/* Auto-detection summary */}
+          {Object.keys(autoConfidence).length > 0 && (() => {
+            const high = Object.values(autoConfidence).filter((c) => c === 'high').length;
+            const low  = Object.values(autoConfidence).filter((c) => c === 'low').length;
+            return (
+              <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-xs text-emerald-700 dark:text-emerald-400">
+                <Wand2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>
+                  Detecção automática: <strong>{high}</strong> campo{high !== 1 ? 's' : ''} com alta confiança
+                  {low > 0 && <>, <strong>{low}</strong> para verificar</>}.
+                  {' '}Revise e ajuste antes de continuar.
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Template selector */}
           <div className="flex flex-wrap items-end gap-3">
@@ -508,37 +584,81 @@ export default function StudentImportPage() {
             )}
           </div>
 
-          {/* Column mapping rows */}
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-            {headers.map((header) => (
-              <div
-                key={header}
-                className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40"
-              >
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 w-1/3 truncate" title={header}>
-                  {header}
-                </span>
-                <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <select
-                  value={mapping[header] ?? ''}
-                  onChange={(e) => setMapping((m) => ({ ...m, [header]: e.target.value }))}
-                  className={`${INPUT_CLASS} flex-1`}
+          {/* Column mapping table — field-first orientation */}
+          <div className="space-y-1.5 max-h-[50vh] overflow-y-auto pr-1">
+            {/* Table header */}
+            <div className="grid grid-cols-2 gap-3 px-3 pb-1">
+              <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                Campo do sistema
+              </span>
+              <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                Coluna no arquivo
+              </span>
+            </div>
+
+            {STUDENT_IMPORT_FIELDS.map((field) => {
+              const currentColumn = mapping[field.key] ?? '';
+              const conf = autoConfidence[field.key];
+              const showHighBadge = conf === 'high' && !!currentColumn;
+              const showLowBadge  = conf === 'low'  && !!currentColumn;
+
+              return (
+                <div
+                  key={field.key}
+                  className={`grid grid-cols-2 gap-3 items-center p-3 rounded-lg ${
+                    field.required && !currentColumn
+                      ? 'bg-red-50/60 dark:bg-red-900/10'
+                      : 'bg-gray-50 dark:bg-gray-700/40'
+                  }`}
                 >
-                  <option value="">— Ignorar —</option>
-                  {STUDENT_IMPORT_FIELDS.map((f) => (
-                    <option key={f.key} value={f.key}>
-                      {f.label}{f.required ? ' *' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+                  {/* System field label */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                      {field.label}
+                      {field.required && (
+                        <span className="text-red-500 ml-0.5">*</span>
+                      )}
+                    </span>
+                    {showHighBadge && (
+                      <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        <Check className="w-2.5 h-2.5" /> Auto
+                      </span>
+                    )}
+                    {showLowBadge && (
+                      <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        <AlertTriangle className="w-2.5 h-2.5" /> Verificar
+                      </span>
+                    )}
+                  </div>
+
+                  {/* File column dropdown */}
+                  <select
+                    value={currentColumn}
+                    onChange={(e) => {
+                      setMapping((m) => ({ ...m, [field.key]: e.target.value }));
+                      // Remove auto-confidence badge when user manually changes
+                      setAutoConfidence((c) => { const n = { ...c }; delete n[field.key]; return n; });
+                    }}
+                    className={`${INPUT_CLASS} ${
+                      field.required && !currentColumn
+                        ? 'border-red-300 dark:border-red-700 focus:border-red-400'
+                        : ''
+                    }`}
+                  >
+                    <option value="">— Ignorar —</option>
+                    {headers.map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
           </div>
 
           {/* Class column */}
           <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
             <label className="block text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
-              Coluna da Turma (resolução por nome)
+              Turma (resolução automática por nome)
             </label>
             <select
               value={classColumn}
@@ -550,17 +670,20 @@ export default function StudentImportPage() {
                 <option key={h} value={h}>{h}</option>
               ))}
             </select>
+            <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">
+              O valor da coluna é comparado com os nomes das turmas cadastradas (correspondência aproximada).
+            </p>
           </div>
 
           {/* Save template */}
           <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
             <div className="flex-1 min-w-[200px]">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                Nome do template
+                Salvar como template
               </label>
               <input
                 type="text"
-                placeholder="Ex: Planilha Secretaria"
+                placeholder="Ex: Exportação Sistema Anterior"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 className={INPUT_CLASS}
@@ -572,18 +695,24 @@ export default function StudentImportPage() {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-brand-primary text-white hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {savingTemplate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Salvar Template
+              Salvar
+            </button>
+            <button
+              onClick={handleDownloadTemplate}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/5 dark:hover:bg-brand-secondary/5 rounded-lg transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Baixar Template
             </button>
           </div>
 
-          {/* Download template */}
-          <button
-            onClick={handleDownloadTemplate}
-            className="flex items-center gap-2 text-sm text-brand-primary dark:text-brand-secondary hover:underline"
-          >
-            <Download className="w-4 h-4" />
-            Baixar Template com este mapeamento
-          </button>
+          {/* Required fields reminder */}
+          {!requiredFieldsMapped && (
+            <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+              Mapeie os campos obrigatórios marcados com * para continuar.
+            </div>
+          )}
 
           {/* Navigation */}
           <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
@@ -600,7 +729,7 @@ export default function StudentImportPage() {
               className="flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg bg-brand-primary text-white hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-              Próximo
+              Validar e Continuar
             </button>
           </div>
         </div>
