@@ -5,11 +5,6 @@ import {
   Check, Loader2, Trash2, Plus, X, Search, ChevronDown,
   ShieldCheck,
 } from 'lucide-react';
-// Lightweight toast replacement (project has no toast library)
-const toast = {
-  success: (msg: string) => console.info('[✓]', msg),
-  error:   (msg: string) => console.error('[✗]', msg),
-};
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import type {
@@ -92,6 +87,7 @@ function TemplateDrawer({
   const isEdit = !!state.editing;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   const [name, setName] = useState('');
   const [documentType, setDocumentType] = useState<DocumentType>('declaracao_matricula');
@@ -121,11 +117,12 @@ function TemplateDrawer({
         setVariablesRaw('');
       }
       setSaved(false);
+      setError('');
     }
   }, [state.open, state.editing]);
 
   async function handleSave() {
-    if (!name.trim()) { toast.error('Nome obrigatório'); return; }
+    if (!name.trim()) { setError('Nome obrigatório'); return; }
     setSaving(true);
     try {
       const payload = {
@@ -137,16 +134,15 @@ function TemplateDrawer({
         html_content: htmlContent,
         variables: variablesRaw.split(',').map((v) => v.trim()).filter(Boolean),
       };
-      const { error } = isEdit
+      const { error: saveError } = isEdit
         ? await supabase.from('document_templates').update(payload).eq('id', state.editing!.id)
         : await supabase.from('document_templates').insert(payload);
-      if (error) throw error;
+      if (saveError) throw saveError;
       setSaved(true);
-      toast.success(isEdit ? 'Template atualizado' : 'Template criado');
       onSaved();
       setTimeout(() => { setSaved(false); onClose(); }, 900);
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao salvar');
+      setError((e as Error).message ?? 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
@@ -156,13 +152,12 @@ function TemplateDrawer({
     if (!state.editing) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from('document_templates').delete().eq('id', state.editing.id);
-      if (error) throw error;
-      toast.success('Template excluído');
+      const { error: deleteError } = await supabase.from('document_templates').delete().eq('id', state.editing.id);
+      if (deleteError) throw deleteError;
       onSaved();
       onClose();
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao excluir');
+      setError((e as Error).message ?? 'Erro ao excluir');
     } finally {
       setSaving(false);
     }
@@ -273,6 +268,11 @@ function TemplateDrawer({
           </div>
         </div>
       </DrawerCard>
+      {error && (
+        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg mx-1">
+          {error}
+        </p>
+      )}
     </Drawer>
   );
 }
@@ -321,9 +321,12 @@ function SecretariaDeclaracoesTab() {
   const [rejectModal, setRejectModal] = useState<{ open: boolean; requestId: string | null }>({ open: false, requestId: null });
   const [rejectLoading, setRejectLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { data, error } = await supabase
         .from('document_requests')
@@ -332,7 +335,7 @@ function SecretariaDeclaracoesTab() {
       if (error) throw error;
       setRequests((data ?? []) as unknown as DocumentRequest[]);
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao carregar solicitações');
+      setFetchError((e as Error).message ?? 'Erro ao carregar solicitações');
     } finally {
       setLoading(false);
     }
@@ -354,6 +357,7 @@ function SecretariaDeclaracoesTab() {
   };
 
   async function handleApprove(req: DocumentRequest) {
+    setActionError('');
     setActionLoading(req.id);
     try {
       const { error: updError } = await supabase
@@ -362,16 +366,16 @@ function SecretariaDeclaracoesTab() {
         .eq('id', req.id);
       if (updError) throw updError;
       await supabase.functions.invoke('generate-document', { body: { request_id: req.id } });
-      toast.success('Solicitação aprovada e documento em geração');
       fetchRequests();
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao aprovar');
+      setActionError((e as Error).message ?? 'Erro ao aprovar');
     } finally {
       setActionLoading(null);
     }
   }
 
   async function handleDeliver(req: DocumentRequest) {
+    setActionError('');
     setActionLoading(req.id);
     try {
       const { error } = await supabase
@@ -379,10 +383,9 @@ function SecretariaDeclaracoesTab() {
         .update({ status: 'delivered', delivered_at: new Date().toISOString() })
         .eq('id', req.id);
       if (error) throw error;
-      toast.success('Marcado como entregue');
       fetchRequests();
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao marcar entrega');
+      setActionError((e as Error).message ?? 'Erro ao marcar entrega');
     } finally {
       setActionLoading(null);
     }
@@ -390,6 +393,7 @@ function SecretariaDeclaracoesTab() {
 
   async function handleRejectConfirm(reason: string) {
     if (!rejectModal.requestId) return;
+    setActionError('');
     setRejectLoading(true);
     try {
       const { error } = await supabase
@@ -397,11 +401,10 @@ function SecretariaDeclaracoesTab() {
         .update({ status: 'rejected', rejection_reason: reason })
         .eq('id', rejectModal.requestId);
       if (error) throw error;
-      toast.success('Solicitação recusada');
       setRejectModal({ open: false, requestId: null });
       fetchRequests();
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao recusar');
+      setActionError((e as Error).message ?? 'Erro ao recusar');
     } finally {
       setRejectLoading(false);
     }
@@ -409,12 +412,23 @@ function SecretariaDeclaracoesTab() {
 
   return (
     <div className="space-y-5">
+      {fetchError && (
+        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+          {fetchError}
+        </p>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard label="Total Solicitações" value={kpi.total} />
         <KpiCard label="Aguardando" value={kpi.pending} />
         <KpiCard label="Geradas" value={kpi.generated} />
         <KpiCard label="Entregues" value={kpi.delivered} />
       </div>
+
+      {actionError && (
+        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+          {actionError}
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div className="flex gap-2 flex-wrap">
@@ -540,6 +554,7 @@ function HealthDrawer({
   const isEdit = !!record;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [bloodType, setBloodType] = useState<BloodType | ''>('');
@@ -593,6 +608,7 @@ function HealthDrawer({
         setAuthorizedEvacuation(false);
       }
       setSaved(false);
+      setError('');
     }
   }, [open, record]);
 
@@ -610,7 +626,7 @@ function HealthDrawer({
 
   async function handleSave() {
     const studentId = record?.student_id ?? selectedStudentId;
-    if (!studentId) { toast.error('Selecione um aluno'); return; }
+    if (!studentId) { setError('Selecione um aluno'); return; }
     setSaving(true);
     try {
       const payload = {
@@ -630,16 +646,15 @@ function HealthDrawer({
         authorized_first_aid: authorizedFirstAid,
         authorized_evacuation: authorizedEvacuation,
       };
-      const { error } = record
+      const { error: saveError } = record
         ? await supabase.from('student_health_records').update(payload).eq('id', record.id)
         : await supabase.from('student_health_records').upsert({ ...payload }, { onConflict: 'student_id' });
-      if (error) throw error;
+      if (saveError) throw saveError;
       setSaved(true);
-      toast.success(record ? 'Ficha atualizada' : 'Ficha criada');
       onSaved();
       setTimeout(() => { setSaved(false); onClose(); }, 900);
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao salvar');
+      setError((e as Error).message ?? 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
@@ -649,13 +664,12 @@ function HealthDrawer({
     if (!record) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from('student_health_records').delete().eq('id', record.id);
-      if (error) throw error;
-      toast.success('Ficha excluída');
+      const { error: deleteError } = await supabase.from('student_health_records').delete().eq('id', record.id);
+      if (deleteError) throw deleteError;
       onSaved();
       onClose();
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao excluir');
+      setError((e as Error).message ?? 'Erro ao excluir');
     } finally {
       setSaving(false);
     }
@@ -853,6 +867,11 @@ function HealthDrawer({
           </div>
         </div>
       </DrawerCard>
+      {error && (
+        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg mx-1">
+          {error}
+        </p>
+      )}
     </Drawer>
   );
 }
@@ -863,9 +882,11 @@ function SecretariaFichasSaudeTab() {
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<HealthRecordWithStudent | null>(null);
+  const [fetchError, setFetchError] = useState('');
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { data, error } = await supabase
         .from('student_health_records')
@@ -874,7 +895,7 @@ function SecretariaFichasSaudeTab() {
       if (error) throw error;
       setRecords((data ?? []) as unknown as HealthRecordWithStudent[]);
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao carregar fichas');
+      setFetchError((e as Error).message ?? 'Erro ao carregar fichas');
     } finally {
       setLoading(false);
     }
@@ -895,6 +916,11 @@ function SecretariaFichasSaudeTab() {
 
   return (
     <div className="space-y-5">
+      {fetchError && (
+        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+          {fetchError}
+        </p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <KpiCard label="Total de Fichas" value={kpi.total} />
         <KpiCard label="Com Alergias" value={kpi.allergies} />
@@ -977,6 +1003,7 @@ function CampaignDrawer({
   const isEdit = !!campaign;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -1018,11 +1045,12 @@ function CampaignDrawer({
         setInstructions('');
       }
       setSaved(false);
+      setError('');
     }
   }, [open, campaign]);
 
   async function handleSave() {
-    if (!title.trim()) { toast.error('Título obrigatório'); return; }
+    if (!title.trim()) { setError('Título obrigatório'); return; }
     setSaving(true);
     try {
       const payload = {
@@ -1038,16 +1066,15 @@ function CampaignDrawer({
         requires_signature: requiresSignature,
         instructions: instructions.trim() || null,
       };
-      const { error } = campaign
+      const { error: saveError } = campaign
         ? await supabase.from('reenrollment_campaigns').update(payload).eq('id', campaign.id)
         : await supabase.from('reenrollment_campaigns').insert(payload);
-      if (error) throw error;
+      if (saveError) throw saveError;
       setSaved(true);
-      toast.success(campaign ? 'Campanha atualizada' : 'Campanha criada');
       onSaved();
       setTimeout(() => { setSaved(false); onClose(); }, 900);
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao salvar');
+      setError((e as Error).message ?? 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
@@ -1057,13 +1084,12 @@ function CampaignDrawer({
     if (!campaign) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from('reenrollment_campaigns').delete().eq('id', campaign.id);
-      if (error) throw error;
-      toast.success('Campanha excluída');
+      const { error: deleteError } = await supabase.from('reenrollment_campaigns').delete().eq('id', campaign.id);
+      if (deleteError) throw deleteError;
       onSaved();
       onClose();
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao excluir');
+      setError((e as Error).message ?? 'Erro ao excluir');
     } finally {
       setSaving(false);
     }
@@ -1199,6 +1225,11 @@ function CampaignDrawer({
           </div>
         </div>
       </DrawerCard>
+      {error && (
+        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg mx-1">
+          {error}
+        </p>
+      )}
     </Drawer>
   );
 }
@@ -1218,9 +1249,11 @@ function SecretariaRematriculaTab() {
   const [editingCampaign, setEditingCampaign] = useState<ReenrollmentCampaign | null>(null);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<ApplicationWithJoins | null>(null);
+  const [fetchError, setFetchError] = useState('');
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { data, error } = await supabase
         .from('reenrollment_campaigns')
@@ -1229,7 +1262,7 @@ function SecretariaRematriculaTab() {
       if (error) throw error;
       setCampaigns(data ?? []);
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao carregar campanhas');
+      setFetchError((e as Error).message ?? 'Erro ao carregar campanhas');
     } finally {
       setLoading(false);
     }
@@ -1237,6 +1270,7 @@ function SecretariaRematriculaTab() {
 
   const fetchApplications = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { data, error } = await supabase
         .from('reenrollment_applications')
@@ -1245,7 +1279,7 @@ function SecretariaRematriculaTab() {
       if (error) throw error;
       setApplications((data ?? []) as unknown as ApplicationWithJoins[]);
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao carregar solicitações');
+      setFetchError((e as Error).message ?? 'Erro ao carregar solicitações');
     } finally {
       setLoading(false);
     }
@@ -1268,6 +1302,11 @@ function SecretariaRematriculaTab() {
 
   return (
     <div className="space-y-5">
+      {fetchError && (
+        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+          {fetchError}
+        </p>
+      )}
       <div className="flex gap-2">
         {(['campaigns', 'applications'] as const).map((v) => (
           <button key={v} onClick={() => setView(v)}
@@ -1479,6 +1518,7 @@ function TransferDrawer({
 }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   const [studentId, setStudentId] = useState('');
   const [type, setType] = useState<StudentTransferType>('internal');
@@ -1502,17 +1542,18 @@ function TransferDrawer({
       setNotes('');
       setDeclarationNeeded(false);
       setSaved(false);
+      setError('');
     }
   }, [open]);
 
   async function handleSave() {
-    if (!studentId) { toast.error('Selecione um aluno'); return; }
-    if (!effectiveDate) { toast.error('Data efetiva obrigatória'); return; }
-    if (!reason.trim()) { toast.error('Motivo obrigatório'); return; }
+    if (!studentId) { setError('Selecione um aluno'); return; }
+    if (!effectiveDate) { setError('Data efetiva obrigatória'); return; }
+    if (!reason.trim()) { setError('Motivo obrigatório'); return; }
     setSaving(true);
     try {
       if (type === 'internal') {
-        const { error } = await supabase.rpc('process_internal_transfer', {
+        const { error: rpcError } = await supabase.rpc('process_internal_transfer', {
           p_student_id: studentId,
           p_to_class_id: toClassId || null,
           p_effective_date: effectiveDate,
@@ -1521,9 +1562,9 @@ function TransferDrawer({
           p_declaration_needed: declarationNeeded,
           p_cancel_future_installments: cancelFutureInstallments,
         });
-        if (error) throw error;
+        if (rpcError) throw rpcError;
       } else {
-        const { error } = await supabase.rpc('process_student_cancellation', {
+        const { error: rpcError } = await supabase.rpc('process_student_cancellation', {
           p_student_id: studentId,
           p_type: type,
           p_effective_date: effectiveDate,
@@ -1533,14 +1574,13 @@ function TransferDrawer({
           p_declaration_needed: declarationNeeded,
           p_cancel_future_installments: cancelFutureInstallments,
         });
-        if (error) throw error;
+        if (rpcError) throw rpcError;
       }
       setSaved(true);
-      toast.success('Movimentação registrada com sucesso');
       onSaved();
       setTimeout(() => { setSaved(false); onClose(); }, 900);
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao registrar movimentação');
+      setError((e as Error).message ?? 'Erro ao registrar movimentação');
     } finally {
       setSaving(false);
     }
@@ -1656,6 +1696,11 @@ function TransferDrawer({
           </div>
         </div>
       </DrawerCard>
+      {error && (
+        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg mx-1">
+          {error}
+        </p>
+      )}
     </Drawer>
   );
 }
@@ -1682,9 +1727,11 @@ function SecretariaTransferenciasTab() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [studentOptions, setStudentOptions] = useState<StudentSimple[]>([]);
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
+  const [fetchError, setFetchError] = useState('');
 
   const fetchTransfers = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { data, error } = await supabase
         .from('student_transfers')
@@ -1693,7 +1740,7 @@ function SecretariaTransferenciasTab() {
       if (error) throw error;
       setTransfers((data ?? []) as unknown as TransferWithJoins[]);
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Erro ao carregar movimentações');
+      setFetchError((e as Error).message ?? 'Erro ao carregar movimentações');
     } finally {
       setLoading(false);
     }
@@ -1724,6 +1771,11 @@ function SecretariaTransferenciasTab() {
 
   return (
     <div className="space-y-5">
+      {fetchError && (
+        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+          {fetchError}
+        </p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <KpiCard label="Total Movimentações" value={kpi.total} />
         <KpiCard label="Transferências Internas" value={kpi.internal} />
