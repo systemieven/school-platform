@@ -175,7 +175,10 @@ Deno.serve(async (req: Request) => {
             .eq("id", actionData.installment_id as string);
         }
 
-        return json({ success: true, ...result });
+        // cancelCharge returns { success, raw } — strip its success to avoid
+        // the "specified more than once" TS error from the spread.
+        const { success: _canceled, ...rest } = result;
+        return json({ success: true, ...rest });
       }
 
       default:

@@ -45,6 +45,7 @@ function fmtCurrency(v: number): string {
 // ── Stage config ──────────────────────────────────────────────────────────────
 interface BillingStage {
   stage: string;        // "D-5", "D-1", "D+0", "D+3", "D+10", "D+30"
+  label?: string;       // User-defined label (optional)
   enabled: boolean;
   template_id: string;  // UUID of whatsapp_template
 }

@@ -122,13 +122,15 @@ Deno.serve(async (req: Request) => {
             if (row) { logId = row.id; currentStatus = row.status; }
 
             // DEBUG: record for inspection
-            await service.from("_webhook_debug").insert({
-              event:       eventType,
-              wa_key_id:   waKeyId,
-              track_id:    "",
-              status_code: null,
-              raw_update:  evtData,
-            }).then(() => {}).catch(() => {});
+            try {
+              await service.from("_webhook_debug").insert({
+                event:       eventType,
+                wa_key_id:   waKeyId,
+                track_id:    "",
+                status_code: null,
+                raw_update:  evtData,
+              });
+            } catch { /* best-effort debug log; ignore */ }
 
             if (!logId || !currentStatus) {
               console.log(`[webhook] ibotcloud: no log for waKeyId=${waKeyId}`);
@@ -195,13 +197,15 @@ Deno.serve(async (req: Request) => {
           }
 
           // DEBUG
-          await service.from("_webhook_debug").insert({
-            event:       eventType,
-            wa_key_id:   waKeyId,
-            track_id:    trackId,
-            status_code: statusCode,
-            raw_update:  upd,
-          }).then(() => {}).catch(() => {});
+          try {
+            await service.from("_webhook_debug").insert({
+              event:       eventType,
+              wa_key_id:   waKeyId,
+              track_id:    trackId,
+              status_code: statusCode,
+              raw_update:  upd,
+            });
+          } catch { /* best-effort debug log; ignore */ }
 
           if (!logId || !currentStatus) {
             console.log(`[webhook] baileys: no log for waKeyId=${waKeyId} trackId=${trackId}`);
@@ -409,18 +413,20 @@ Deno.serve(async (req: Request) => {
                   }
 
                   // Log incoming message
-                  await service.from("whatsapp_message_log").insert({
-                    recipient_phone: senderPhone,
-                    recipient_name: senderName,
-                    rendered_content: {
-                      body: selectedText || selectedId,
-                      type: "button_response",
-                      direction: "incoming",
-                    },
-                    status: "delivered",
-                    related_module: "agendamento",
-                    related_record_id: tracking.appointment_id,
-                  }).then(() => {}).catch(() => {});
+                  try {
+                    await service.from("whatsapp_message_log").insert({
+                      recipient_phone: senderPhone,
+                      recipient_name: senderName,
+                      rendered_content: {
+                        body: selectedText || selectedId,
+                        type: "button_response",
+                        direction: "incoming",
+                      },
+                      status: "delivered",
+                      related_module: "agendamento",
+                      related_record_id: tracking.appointment_id,
+                    });
+                  } catch { /* best-effort log; ignore */ }
                 }
               }
             }

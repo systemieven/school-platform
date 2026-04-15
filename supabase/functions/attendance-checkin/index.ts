@@ -164,7 +164,8 @@ function normalizeSettingValue(value: unknown): unknown {
   }
 }
 
-async function loadSettings(supabase: ReturnType<typeof createClient>) {
+// deno-lint-ignore no-explicit-any
+async function loadSettings(supabase: any) {
   // Carregamos todas as linhas das 3 categorias relevantes e filtramos em JS.
   // Evitamos o .or() com and() aninhado do PostgREST porque o parser dele eh
   // frageil e retorna 500 quando o encoding da query nao bate exatamente.

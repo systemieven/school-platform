@@ -56,7 +56,8 @@ interface VisitReason {
  * superestimar a espera do que subestimar e frustrar o cliente.
  */
 async function computeEstimatedServiceTime(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   reasons: VisitReason[],
 ): Promise<Record<string, number>> {
   const result: Record<string, number> = {};
