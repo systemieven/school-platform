@@ -33,14 +33,6 @@ function FullPageFallback() {
   );
 }
 
-function PageFallback() {
-  return (
-    <div className="flex items-center justify-center py-24">
-      <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
-    </div>
-  );
-}
-
 function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={null}>{children}</Suspense>;
 }
