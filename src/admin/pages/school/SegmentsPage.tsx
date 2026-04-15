@@ -84,7 +84,7 @@ export default function SegmentsPage() {
       supabase.from('school_segments').select('*').order('position'),
       supabase.from('school_series').select('*').order('order_index'),
       supabase.from('school_classes').select('*').order('name'),
-      supabase.from('profiles').select('id, full_name, role').in('role', ['coordinator', 'teacher', 'admin', 'super_admin']).eq('is_active', true).order('full_name'),
+      supabase.from('profiles').select('id, full_name, role').eq('role', 'teacher').eq('is_active', true).order('full_name'),
     ]);
     setSegments((segs ?? []) as SchoolSegment[]);
     setStaffProfiles((staff ?? []) as StaffProfile[]);
@@ -576,9 +576,16 @@ function SegmentDrawer({ isNew, form, onChange, onSave, onCancel, state, staffPr
             <GraduationCap className="w-4 h-4" />
             <h2 className="font-semibold text-sm">{isNew ? 'Novo Segmento' : 'Editar Segmento'}</h2>
           </div>
-          <button onClick={onCancel} className="p-1 rounded-md hover:bg-white/20 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            <Toggle
+              checked={form.is_active}
+              onChange={(v) => onChange({ ...form, is_active: v })}
+              onColor="bg-emerald-500"
+            />
+            <button onClick={onCancel} className="p-1 rounded-md hover:bg-white/20 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -616,16 +623,6 @@ function SegmentDrawer({ isNew, form, onChange, onSave, onCancel, state, staffPr
                 className={inputCls}
               />
             </div>
-          </SettingsCard>
-
-          <SettingsCard title="Status">
-            <Toggle
-              checked={form.is_active}
-              onChange={(v) => onChange({ ...form, is_active: v })}
-              label={form.is_active ? 'Segmento ativo' : 'Segmento inativo'}
-              description={form.is_active ? 'Visível no sistema' : 'Oculto no sistema'}
-              onColor="bg-emerald-500"
-            />
           </SettingsCard>
 
           {coordinators.length > 0 && (
@@ -691,9 +688,16 @@ function SeriesDrawer({ isNew, segmentName, form, onChange, onSave, onCancel, st
               {segmentName && <p className="text-[11px] text-white/60">{segmentName}</p>}
             </div>
           </div>
-          <button onClick={onCancel} className="p-1 rounded-md hover:bg-white/20 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            <Toggle
+              checked={form.is_active}
+              onChange={(v) => onChange({ ...form, is_active: v })}
+              onColor="bg-emerald-500"
+            />
+            <button onClick={onCancel} className="p-1 rounded-md hover:bg-white/20 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -726,15 +730,6 @@ function SeriesDrawer({ isNew, segmentName, form, onChange, onSave, onCancel, st
             </div>
           </SettingsCard>
 
-          <SettingsCard title="Status">
-            <Toggle
-              checked={form.is_active}
-              onChange={(v) => onChange({ ...form, is_active: v })}
-              label={form.is_active ? 'Série ativa' : 'Série inativa'}
-              description={form.is_active ? 'Visível no sistema' : 'Oculta no sistema'}
-              onColor="bg-emerald-500"
-            />
-          </SettingsCard>
         </div>
 
         <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3 flex-shrink-0">
@@ -760,7 +755,23 @@ function ClassDrawer({ isNew, segmentName, seriesName, form, onChange, onSave, o
   state: SaveState;
   staffProfiles: StaffProfile[];
 }) {
-  const teachers = staffProfiles.filter((p) => ['teacher', 'coordinator', 'admin', 'super_admin'].includes(p.role));
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [dropdownOpen, setDropdownOpen]   = useState(false);
+
+  const teachers        = staffProfiles.filter((p) => p.role === 'teacher');
+  const selectedTeachers = teachers.filter((p) => form.teacher_ids.includes(p.id));
+  const availableTeachers = teachers
+    .filter((p) => !form.teacher_ids.includes(p.id))
+    .filter((p) => !teacherSearch || p.full_name.toLowerCase().includes(teacherSearch.toLowerCase()));
+
+  function addTeacher(id: string) {
+    onChange({ ...form, teacher_ids: [...form.teacher_ids, id] });
+    setTeacherSearch('');
+    setDropdownOpen(false);
+  }
+  function removeTeacher(id: string) {
+    onChange({ ...form, teacher_ids: form.teacher_ids.filter((t) => t !== id) });
+  }
   return (
     <>
       <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40" onClick={onCancel} />
@@ -777,9 +788,16 @@ function ClassDrawer({ isNew, segmentName, seriesName, form, onChange, onSave, o
               )}
             </div>
           </div>
-          <button onClick={onCancel} className="p-1 rounded-md hover:bg-white/20 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            <Toggle
+              checked={form.is_active}
+              onChange={(v) => onChange({ ...form, is_active: v })}
+              onColor="bg-emerald-500"
+            />
+            <button onClick={onCancel} className="p-1 rounded-md hover:bg-white/20 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -812,7 +830,7 @@ function ClassDrawer({ isNew, segmentName, seriesName, form, onChange, onSave, o
                   >
                     <option value="morning">Manhã</option>
                     <option value="afternoon">Tarde</option>
-                    <option value="full">Integral</option>
+                    <option value="evening">Noite</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
@@ -828,44 +846,82 @@ function ClassDrawer({ isNew, segmentName, seriesName, form, onChange, onSave, o
             </div>
           </SettingsCard>
 
-          <SettingsCard title="Status">
-            <Toggle
-              checked={form.is_active}
-              onChange={(v) => onChange({ ...form, is_active: v })}
-              label={form.is_active ? 'Turma ativa' : 'Turma inativa'}
-              description={form.is_active ? 'Visível no sistema' : 'Oculta no sistema'}
-              onColor="bg-emerald-500"
-            />
-          </SettingsCard>
-
-          {teachers.length > 0 && (
-            <SettingsCard title="Professores">
-              <div className="flex flex-wrap gap-2">
-                {teachers.map((p) => {
-                  const active = form.teacher_ids.includes(p.id);
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        const next = active
-                          ? form.teacher_ids.filter((id) => id !== p.id)
-                          : [...form.teacher_ids, p.id];
-                        onChange({ ...form, teacher_ids: next });
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                        active
-                          ? 'bg-brand-primary text-white'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
-                    >
+          <SettingsCard title="Professores">
+            {/* Selected teachers — inline list */}
+            {selectedTeachers.length > 0 && (
+              <div className="space-y-1.5">
+                {selectedTeachers.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-2.5 px-3 py-2 bg-brand-primary/8 dark:bg-brand-primary/15 rounded-xl"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-brand-primary flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+                      {p.full_name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="flex-1 text-sm text-gray-800 dark:text-gray-200 truncate">
                       {p.full_name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeTeacher(p.id)}
+                      className="p-1 text-gray-400 hover:text-red-500 transition-colors shrink-0"
+                      title="Remover professor"
+                    >
+                      <X className="w-3.5 h-3.5" />
                     </button>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
-            </SettingsCard>
-          )}
+            )}
+
+            {/* Add teacher — search input + dropdown */}
+            {teachers.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-2">
+                Nenhum professor cadastrado no sistema.
+              </p>
+            ) : availableTeachers.length > 0 || teacherSearch ? (
+              <div className="relative">
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900">
+                  <Plus className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Adicionar professor…"
+                    value={teacherSearch}
+                    onChange={(e) => { setTeacherSearch(e.target.value); setDropdownOpen(true); }}
+                    onFocus={() => setDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
+                    className="flex-1 text-sm bg-transparent outline-none text-gray-700 dark:text-gray-300 placeholder-gray-400"
+                  />
+                </div>
+                {dropdownOpen && availableTeachers.length > 0 && (
+                  <div className="absolute top-full mt-1 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-10 max-h-52 overflow-y-auto">
+                    {availableTeachers.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={() => addTeacher(p.id)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 first:rounded-t-xl last:rounded-b-xl text-left transition-colors"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-brand-primary/15 flex items-center justify-center text-[10px] font-bold text-brand-primary shrink-0">
+                          {p.full_name.charAt(0).toUpperCase()}
+                        </div>
+                        {p.full_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {dropdownOpen && teacherSearch && availableTeachers.length === 0 && (
+                  <div className="absolute top-full mt-1 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-10 px-3 py-3">
+                    <p className="text-xs text-gray-400 text-center">Nenhum professor encontrado.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              selectedTeachers.length > 0 && (
+                <p className="text-xs text-gray-400 text-center">Todos os professores já foram adicionados.</p>
+              )
+            )}
+          </SettingsCard>
         </div>
 
         <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3 flex-shrink-0">

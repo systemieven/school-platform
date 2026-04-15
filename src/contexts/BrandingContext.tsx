@@ -54,6 +54,7 @@ interface BrandingContextValue {
   fonts: BrandingFonts;
   identity: BrandingIdentity;
   cta: BrandingCTA;
+  maintenanceMode: boolean;
   loading: boolean;
 }
 
@@ -86,6 +87,7 @@ const BrandingContext = createContext<BrandingContextValue>({
   fonts: DEFAULT_FONTS,
   identity: DEFAULT_IDENTITY,
   cta: DEFAULT_CTA,
+  maintenanceMode: false,
   loading: true,
 });
 
@@ -157,14 +159,15 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   const [fonts, setFonts] = useState<BrandingFonts>(DEFAULT_FONTS);
   const [identity, setIdentity] = useState<BrandingIdentity>(DEFAULT_IDENTITY);
   const [cta, setCta] = useState<BrandingCTA>(DEFAULT_CTA);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       // Branding settings
       supabase.from('system_settings').select('key, value').eq('category', 'branding'),
-      // Institutional settings (school_name, cnpj — single source of truth)
-      supabase.from('system_settings').select('key, value').eq('category', 'general').in('key', ['school_name', 'cnpj']),
+      // Institutional settings (school_name, cnpj, maintenance_mode — single source of truth)
+      supabase.from('system_settings').select('key, value').eq('category', 'general').in('key', ['school_name', 'cnpj', 'maintenance_mode']),
       // CTA settings (now in navigation category)
       supabase.from('system_settings').select('key, value').eq('category', 'navigation').eq('key', 'cta'),
     ]).then(([brandingRes, generalRes, ctaRes]) => {
@@ -181,6 +184,9 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
             ...(general.school_name ? { school_name: general.school_name } : {}),
             ...(general.cnpj ? { cnpj: general.cnpj } : {}),
           }));
+        }
+        if ('maintenance_mode' in general) {
+          setMaintenanceMode(general.maintenance_mode === 'true');
         }
       }
 
@@ -291,14 +297,30 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       )
       .subscribe();
 
+    // Listen for maintenance_mode changes in general category
+    const generalChannel = supabase
+      .channel('general-changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'system_settings', filter: "category=eq.general" },
+        (payload) => {
+          const { key, value } = payload.new as { key: string; value: unknown };
+          if (key === 'maintenance_mode') {
+            setMaintenanceMode(value === true || value === 'true');
+          }
+        },
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(brandingChannel);
       supabase.removeChannel(ctaChannel);
+      supabase.removeChannel(generalChannel);
     };
   }, []);
 
   return (
-    <BrandingContext.Provider value={{ colors, fonts, identity, cta, loading }}>
+    <BrandingContext.Provider value={{ colors, fonts, identity, cta, maintenanceMode, loading }}>
       {children}
     </BrandingContext.Provider>
   );

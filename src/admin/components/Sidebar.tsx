@@ -97,8 +97,12 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
     >
       {/* Brand */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-white/10 flex-shrink-0">
-        <div className="w-9 h-9 bg-brand-secondary rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-brand-primary font-bold text-sm">{identity.school_initials || 'CB'}</span>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden ${identity.logo_url ? 'bg-white p-1' : 'bg-brand-secondary'}`}>
+          {identity.logo_url ? (
+            <img src={identity.logo_url} alt={identity.school_short_name || ''} className="w-full h-full object-contain" />
+          ) : (
+            <span className="text-brand-primary font-bold text-sm">{identity.school_initials || 'CB'}</span>
+          )}
         </div>
         {!collapsed && (
           <div className="overflow-hidden">

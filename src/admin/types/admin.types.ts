@@ -342,7 +342,7 @@ export interface SchoolSeries {
 }
 
 // ── School Class ──
-export type Shift = 'morning' | 'afternoon' | 'full';
+export type Shift = 'morning' | 'afternoon' | 'evening' | 'full';
 
 export interface SchoolClass {
   id: string;
@@ -438,6 +438,7 @@ export interface ImportTemplate {
 export const SHIFT_LABELS: Record<Shift, string> = {
   morning: 'Manhã',
   afternoon: 'Tarde',
+  evening: 'Noite',
   full: 'Integral',
 };
 
