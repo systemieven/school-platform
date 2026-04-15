@@ -18,7 +18,9 @@ export default function Layout() {
       <Header />
       <Navbar />
       <main className="flex-1">
-        <Outlet />
+        <div key={pathname} className="page-content">
+          <Outlet />
+        </div>
       </main>
       <Footer />
     </div>
