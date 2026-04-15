@@ -492,6 +492,13 @@ export default function DisciplinasPage() {
         onClose={() => { setSaved(false); setEditId(null); }}
         title={editId === 'new' ? 'Nova Disciplina' : 'Editar Disciplina'}
         icon={BookOpen}
+        headerExtra={
+          <Toggle
+            checked={form.is_active}
+            onChange={(v) => setForm({ ...form, is_active: v })}
+            onColor="bg-emerald-500"
+          />
+        }
         footer={
           <div className="flex gap-3">
             <button
@@ -612,16 +619,7 @@ export default function DisciplinasPage() {
           )}
         </DrawerCard>
 
-        {/* Status */}
-        <DrawerCard title="Status" icon={Eye}>
-          <Toggle
-            checked={form.is_active}
-            onChange={(v) => setForm({ ...form, is_active: v })}
-            label={form.is_active ? 'Disciplina ativa' : 'Disciplina inativa'}
-            description={form.is_active ? 'Visível para atribuição' : 'Oculta no sistema'}
-            onColor="bg-emerald-500"
-          />
-        </DrawerCard>
+
       </Drawer>
     </div>
   );
