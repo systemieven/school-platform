@@ -1,27 +1,15 @@
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import { BrandingProvider } from './contexts/BrandingContext';
-import App from './App';
-import './index.css';
 
-console.log('[DEBUG] main.tsx executing');
-console.log('[DEBUG] VITE_SUPABASE_URL =', import.meta.env.VITE_SUPABASE_URL);
+console.log('[BOOT] main.tsx loaded');
 
-try {
-  const root = document.getElementById('root');
-  console.log('[DEBUG] root element:', root);
-  createRoot(root!).render(
-    <StrictMode>
-      <BrowserRouter>
-        <BrandingProvider>
-          <App />
-        </BrandingProvider>
-      </BrowserRouter>
-    </StrictMode>
+const root = document.getElementById('root');
+if (root) {
+  createRoot(root).render(
+    <div style={{ padding: '2rem', background: 'red', color: 'white', fontSize: '2rem' }}>
+      HELLO WORLD - App is working
+    </div>
   );
-  console.log('[DEBUG] render() called successfully');
-} catch (err) {
-  console.error('[DEBUG] RENDER ERROR:', err);
-  document.getElementById('root')!.innerHTML = '<pre style="color:red;padding:2rem">' + String(err) + '</pre>';
+  console.log('[BOOT] render called');
+} else {
+  console.error('[BOOT] #root not found');
 }
