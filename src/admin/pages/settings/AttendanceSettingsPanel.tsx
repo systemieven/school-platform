@@ -65,6 +65,7 @@ import {
   Link,
   ArrowRightLeft,
   AlertTriangle,
+  UserX,
 
   // Sector icon map
   Building2,
@@ -96,6 +97,7 @@ import type {
   AttendanceClientScreenFields,
   AttendanceFeedbackConfig,
   AttendancePriorityQueueConfig,
+  AttendanceNoShowConfig,
   AttendanceQuestion,
   AttendanceQuestionType,
   DisplayPanelConfig,
@@ -122,6 +124,7 @@ interface AttendanceState {
   display_panel: DisplayPanelConfig;
   sector_visibility_mode: 'all' | 'restricted';
   transfer: { enabled: boolean; quick_reasons: string[] };
+  no_show_config: AttendanceNoShowConfig;
 }
 
 const DEFAULTS: AttendanceState = {
@@ -174,6 +177,10 @@ const DEFAULTS: AttendanceState = {
       'Erro de triagem',
     ],
   },
+  no_show_config: {
+    enabled: false,
+    timeout_minutes: 60,
+  },
 };
 
 // NOTE: `estimated_service_time` foi removido — o tempo de atendimento é
@@ -192,6 +199,7 @@ const ATTENDANCE_KEYS: (keyof AttendanceState)[] = [
   'display_panel',
   'sector_visibility_mode',
   'transfer',
+  'no_show_config',
 ];
 
 const SECTOR_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -590,49 +598,27 @@ export default function AttendanceSettingsPanel() {
 
       {/* Visibilidade de Setores */}
       <SettingsCard collapseId="attendance.sectorVisibility" title="Visibilidade de Setores" icon={Users} description="Defina se cada atendente vê apenas os tickets dos seus setores ou se todos veem tudo.">
-        <div className="space-y-3">
-          <label
-            className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-              data.sector_visibility_mode === 'all'
-                ? 'border-brand-primary dark:border-brand-secondary bg-brand-primary/5 dark:bg-brand-secondary/5'
-                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-            }`}
-          >
-            <input
-              type="radio"
-              name="sector_visibility"
-              checked={data.sector_visibility_mode === 'all'}
-              onChange={() => setData((prev) => ({ ...prev, sector_visibility_mode: 'all' }))}
-              className="mt-0.5 accent-brand-primary"
-            />
-            <div>
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Todos os setores</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                Todos os atendentes veem e podem chamar senhas de qualquer setor.
-              </p>
-            </div>
-          </label>
-          <label
-            className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-              data.sector_visibility_mode === 'restricted'
-                ? 'border-brand-primary dark:border-brand-secondary bg-brand-primary/5 dark:bg-brand-secondary/5'
-                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-            }`}
-          >
-            <input
-              type="radio"
-              name="sector_visibility"
-              checked={data.sector_visibility_mode === 'restricted'}
-              onChange={() => setData((prev) => ({ ...prev, sector_visibility_mode: 'restricted' }))}
-              className="mt-0.5 accent-brand-primary"
-            />
-            <div>
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Restrito ao setor</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                Cada atendente vê apenas os tickets dos setores atribuídos ao seu perfil. Super Admin sempre vê tudo.
-              </p>
-            </div>
-          </label>
+        <div className="grid grid-cols-2 gap-3">
+          {(
+            [
+              { value: 'all', label: 'Todos os setores', desc: 'Todos os atendentes veem e podem chamar senhas de qualquer setor.' },
+              { value: 'restricted', label: 'Restrito ao setor', desc: 'Cada atendente vê apenas os tickets dos setores atribuídos. Super Admin sempre vê tudo.' },
+            ] as const
+          ).map(({ value, label, desc }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setData((prev) => ({ ...prev, sector_visibility_mode: value }))}
+              className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all ${
+                data.sector_visibility_mode === value
+                  ? 'border-brand-primary dark:border-brand-secondary bg-brand-primary/5 dark:bg-brand-secondary/5'
+                  : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+              }`}
+            >
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{label}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">{desc}</p>
+            </button>
+          ))}
         </div>
       </SettingsCard>
 
@@ -1852,6 +1838,79 @@ export default function AttendanceSettingsPanel() {
               <Plus className="w-3.5 h-3.5" />
               Adicionar justificativa
             </button>
+          </div>
+        )}
+      </SettingsCard>
+
+      {/* Não Comparecimento */}
+      <SettingsCard
+        collapseId="attendance.noShow"
+        title="Não Comparecimento"
+        icon={UserX}
+        description="Encerra automaticamente agendamentos pendentes que ultrapassaram o horário marcado sem check-in."
+      >
+        <button
+          type="button"
+          onClick={() =>
+            setData((prev) => ({
+              ...prev,
+              no_show_config: { ...prev.no_show_config, enabled: !prev.no_show_config.enabled },
+            }))
+          }
+          className={`
+            w-full flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200
+            ${data.no_show_config.enabled
+              ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-primary/40 hover:text-brand-primary'
+            }
+          `}
+        >
+          <UserX className={`w-4 h-4 shrink-0 mt-0.5 ${data.no_show_config.enabled ? 'text-brand-secondary' : 'text-gray-400'}`} />
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-semibold ${data.no_show_config.enabled ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+              Marcar automaticamente como "Não Veio"
+            </p>
+            <p className={`text-[11px] mt-0.5 leading-tight ${data.no_show_config.enabled ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+              Afeta apenas agendamentos com status <strong>Pendente</strong> ou <strong>Confirmado</strong> que não realizaram check-in.
+            </p>
+          </div>
+        </button>
+
+        {data.no_show_config.enabled && (
+          <div className="mt-4 space-y-3">
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Tolerância após o horário marcado
+            </label>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              Agendamentos ainda abertos serão marcados como "Não Veio" após este intervalo.
+              O processo roda a cada 15 minutos.
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {([
+                { minutes: 30,  label: '30 min' },
+                { minutes: 60,  label: '1 hora'  },
+                { minutes: 120, label: '2 horas' },
+                { minutes: 240, label: '4 horas' },
+              ] as const).map(({ minutes, label }) => (
+                <button
+                  key={minutes}
+                  type="button"
+                  onClick={() =>
+                    setData((prev) => ({
+                      ...prev,
+                      no_show_config: { ...prev.no_show_config, timeout_minutes: minutes },
+                    }))
+                  }
+                  className={`py-2 rounded-xl border text-sm font-medium transition-all ${
+                    data.no_show_config.timeout_minutes === minutes
+                      ? 'border-brand-primary dark:border-brand-secondary bg-brand-primary/5 dark:bg-brand-secondary/5 text-brand-primary dark:text-brand-secondary'
+                      : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </SettingsCard>

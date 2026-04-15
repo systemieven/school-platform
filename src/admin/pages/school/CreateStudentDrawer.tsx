@@ -10,7 +10,9 @@ import {
   Loader2,
   Trash2,
   Check,
+  Camera,
 } from 'lucide-react';
+import ImageCropModal from '../../components/ImageCropModal';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
@@ -98,6 +100,11 @@ export default function CreateStudentDrawer({ onClose, onCreated }: Props) {
   const [seriesId, setSeriesId] = useState('');
   const [classId, setClassId] = useState('');
   const currentSchoolYear = new Date().getFullYear();
+
+  // ── Photo (3×4) ──
+  const [cropPhotoSrc, setCropPhotoSrc] = useState<string | null>(null);
+  const [pendingPhotoDataUrl, setPendingPhotoDataUrl] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // ── Notes ──
   const [internalNotes, setInternalNotes] = useState('');
@@ -352,6 +359,30 @@ export default function CreateStudentDrawer({ onClose, onCreated }: Props) {
           .eq('id', inserted.id);
       }
 
+      // 4b. Upload photo if selected
+      let photoUrl: string | null = null;
+      if (pendingPhotoDataUrl) {
+        try {
+          const blob = await fetch(pendingPhotoDataUrl).then((r) => r.blob());
+          const path = `${inserted.id}/photo.jpg`;
+          const { error: photoErr } = await supabase.storage
+            .from('student-photos')
+            .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+          if (!photoErr) {
+            const { data: urlData } = supabase.storage
+              .from('student-photos')
+              .getPublicUrl(path);
+            photoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+            await supabase
+              .from('students')
+              .update({ photo_url: photoUrl })
+              .eq('id', inserted.id);
+          }
+        } catch {
+          /* photo upload failure is non-fatal */
+        }
+      }
+
       // 5. Audit
       await logAudit({
         action: 'create',
@@ -365,6 +396,7 @@ export default function CreateStudentDrawer({ onClose, onCreated }: Props) {
       const student = {
         ...inserted,
         document_urls: uploadedUrls.length > 0 ? uploadedUrls : inserted.document_urls,
+        photo_url: photoUrl ?? inserted.photo_url ?? null,
       } as Student;
 
       setSaved(true);
@@ -525,6 +557,81 @@ export default function CreateStudentDrawer({ onClose, onCreated }: Props) {
             {error}
           </div>
         )}
+
+        {/* ── 0. Foto do Aluno ── */}
+        <DrawerCard title="Foto do Aluno" icon={Camera}>
+          <div className="flex items-center gap-5">
+            {/* Preview */}
+            <div
+              className="relative w-20 h-[107px] rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700 border-2 border-dashed border-gray-200 dark:border-gray-600 flex-shrink-0 cursor-pointer group"
+              onClick={() => photoInputRef.current?.click()}
+              title="Clique para selecionar foto"
+            >
+              {pendingPhotoDataUrl ? (
+                <img
+                  src={pendingPhotoDataUrl}
+                  alt="Pré-visualização"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500">
+                  <Camera className="w-6 h-6" />
+                  <span className="text-[10px] text-center leading-tight px-1">Foto 3×4</span>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="w-5 h-5 text-white" />
+              </div>
+            </div>
+
+            {/* Instructions + actions */}
+            <div className="flex-1 space-y-2">
+              <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                Foto de identificação do aluno
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 leading-snug">
+                Recomendado: fundo branco, rosto centralizado.<br />
+                JPEG, PNG ou WebP · máx. 5 MB.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  {pendingPhotoDataUrl ? 'Trocar foto' : 'Selecionar foto'}
+                </button>
+                {pendingPhotoDataUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPendingPhotoDataUrl(null)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Remover
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Hidden file input */}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = () => setCropPhotoSrc(reader.result as string);
+              reader.readAsDataURL(file);
+              e.target.value = '';
+            }}
+          />
+        </DrawerCard>
 
         {/* ── 1. Responsável ── */}
         <DrawerCard title="Responsável" icon={Users}>
@@ -850,6 +957,14 @@ export default function CreateStudentDrawer({ onClose, onCreated }: Props) {
           )}
         </DrawerCard>
       </form>
+
+      {cropPhotoSrc && (
+        <ImageCropModal
+          src={cropPhotoSrc}
+          onSave={(dataUrl) => { setPendingPhotoDataUrl(dataUrl); setCropPhotoSrc(null); }}
+          onClose={() => setCropPhotoSrc(null)}
+        />
+      )}
 
       <CapacityOverrideModal
         open={!!capacityModal}

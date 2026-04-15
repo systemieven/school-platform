@@ -20,6 +20,7 @@ const KanbanPage           = lazy(() => import('./pages/leads/KanbanPage'));
 const ReportsPage          = lazy(() => import('./pages/reports/ReportsPage'));
 const StudentsPage         = lazy(() => import('./pages/school/StudentsPage'));
 const StudentImportPage    = lazy(() => import('./pages/school/StudentImportPage'));
+const StudentDetailPage    = lazy(() => import('./pages/school/StudentDetailPage'));
 const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'));
 const LibraryPage          = lazy(() => import('./pages/library/LibraryPage'));
 const AnnouncementsPage    = lazy(() => import('./pages/announcements/AnnouncementsPage'));
@@ -83,6 +84,7 @@ export default function AdminRoutes() {
           <Route path="segmentos"      element={<Navigate to="/admin/academico" replace />} />
           <Route path="alunos"         element={<ModuleGuard moduleKey="students"><LazyPage><StudentsPage /></LazyPage></ModuleGuard>} />
           <Route path="alunos/importar" element={<ModuleGuard moduleKey="students"><LazyPage><StudentImportPage /></LazyPage></ModuleGuard>} />
+          <Route path="alunos/:studentId" element={<ModuleGuard moduleKey="students"><LazyPage><StudentDetailPage /></LazyPage></ModuleGuard>} />
           <Route path="area-professor" element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherAreaPage /></LazyPage></ModuleGuard>} />
           <Route path="biblioteca"     element={<ModuleGuard moduleKey="library"><LazyPage><LibraryPage /></LazyPage></ModuleGuard>} />
           <Route path="comunicados"    element={<ModuleGuard moduleKey="announcements"><LazyPage><AnnouncementsPage /></LazyPage></ModuleGuard>} />
