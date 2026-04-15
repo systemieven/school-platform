@@ -18,8 +18,7 @@ import type { Student, SchoolClass, SchoolSegment } from '../../types/admin.type
 import {
   ArrowLeft, Camera, Printer, Loader2, GraduationCap, Users, Phone,
   Mail, Calendar, MapPin, FileText, BookOpen, BarChart2, DollarSign,
-  Paperclip, MessageSquare, AlertCircle, CheckCircle, Clock, XCircle,
-  Trash2, Check,
+  Paperclip, MessageSquare, AlertCircle, CheckCircle, Clock, XCircle, Check,
 } from 'lucide-react';
 import ImageCropModal from '../../components/ImageCropModal';
 
