@@ -1,9 +1,9 @@
 # PRD v3 — Plataforma Escolar (school-platform)
 
-> **Versao**: 3.1
+> **Versao**: 3.2
 > **Data**: 14 de abril de 2026
 > **Status**: Documento unificado — estado atual (Fases 1-8 concluidas) + roadmap ate v1
-> **Arquitetura**: Multi-tenant via upstream/client repos
+> **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
 
@@ -106,35 +106,83 @@ O produto opera com um modelo de repositorios separados:
 - **Todo codigo e generico**. Features novas vao para o repo base e se propagam para todos os clientes.
 - **Customizacoes por cliente** (quando necessarias) ficam apenas no repo do cliente, nunca no base.
 
+**Estrutura de branches (em cada clone local):**
+
+| Branch | Rastreia | O que contem |
+|--------|----------|--------------|
+| `base` | `upstream/main` (school-platform) | Codigo 100% generico, sem `.env`, sem dados de cliente. E o que todos os clientes compartilham. |
+| `main` | `origin/main` (repo do cliente) | `base` + um commit com o `.env` do cliente + merge commits dos syncs subsequentes. E o que o Lovable consome e publica. |
+
 **Configuracao por cliente:**
 
 | Fonte | O que configura | Exemplo |
 |-------|----------------|---------|
-| `.env` (por repo) | Credenciais Supabase, identidade da escola | `VITE_SCHOOL_NAME`, `VITE_SUPABASE_URL` |
+| `.env` (tracked em `main` do repo do cliente) | Credenciais Supabase + identidade da escola | `VITE_SUPABASE_URL`, `VITE_SCHOOL_NAME` |
 | `src/config/client.ts` | Fallbacks genericos lidos de env vars | `CLIENT_DEFAULTS.identity.school_name` |
-| `system_settings` (DB) | Cores, fontes, identidade, CTA, contato | Tabela no Supabase, editavel via admin |
+| `system_settings` (DB) | Cores, fontes, identidade, CTA, contato | Tabela no Supabase, editavel via `/admin/configuracoes` |
 | `BrandingContext` | Cascata: DB > config/client.ts > defaults | Carrega na inicializacao do app |
+
+**Integracao Lovable Cloud — importante:**
+
+A integracao Supabase do Lovable Cloud (botao "Cloud" no painel do projeto) injeta `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` **apenas no preview** (dev server do Lovable). **Nao injeta no `vite build` do publish.** Por isso `.env` precisa estar commitado em `origin/main`:
+
+- **Preview:** Lovable Cloud injeta as vars → funciona mesmo se `.env` estivesse ausente.
+- **Publish:** Lovable roda `vite build` contra o checkout do repo → `.env` do filesystem e a unica fonte.
+
+Tentativas anteriores de eliminar `.env` do git (confiando so no Lovable Cloud) quebraram o site publicado com o banner "Variaveis de ambiente ausentes". A regra e: **`.env` fica commitado em `main`, sem excecao.**
+
+**Sincronizacao base → main via merge (sem force-push):**
+
+Como `.env` so existe em `main`, a branch diverge de `base`. A sync usa `git merge --no-ff` (nunca rebase), preservando SHAs:
+
+```
+base:    A---B---C---D---F              (upstream/main — linear)
+                  \   \
+main:    A---B---C---E(.env)---M1---M2   (origin/main — com merges)
+                                /    /
+                               D    F
+```
+
+`upstream/main` recebe apenas a linha linear de `base` via `git push upstream base:main` — nunca ve `.env`, nunca ve merge commits, school-platform permanece 100% generico. `origin/main` avanca sempre em fast-forward, entao o Lovable nunca perde referencia de commit (problema recorrente do workflow rebase-based anterior).
+
+**Comando unificado:** `./scripts/push-all.sh`
+
+Detecta o branch atual e age de acordo:
+
+1. **Em `base`** (trabalho generico — a maior parte):
+   - `git push upstream base:main` (fast-forward)
+   - `git checkout main && git merge base --no-ff`
+   - `git push origin main` (fast-forward)
+   - `git checkout base`
+2. **Em `main`** (raro — ex.: rotacionar chave Supabase no `.env`):
+   - `git push origin main` (fast-forward)
+   - (`upstream` nunca recebe — ok para client-only)
 
 **Propagacao automatica:**
 
-- `.github/workflows/propagate.yml` no school-platform: a cada push em main, abre PR automaticamente em todos os repos clientes (matrix strategy)
-- Guard `if: github.repository == 'systemieven/school-platform'` impede execucao nos clientes
-- `.github/workflows/sync-upstream.yml` nos clientes: dispatch manual para buscar atualizacoes
+- `.github/workflows/propagate.yml` no school-platform: a cada push em main, abre PR automaticamente em todos os repos clientes (matrix strategy). Skip early se o cliente ja esta up-to-date com upstream.
+- Guard `if: github.repository == 'systemieven/school-platform'` impede execucao nos clientes.
+- `.github/workflows/sync-upstream.yml` nos clientes: dispatch manual para buscar atualizacoes.
 
 **Onboarding de novo cliente:**
 
-1. `scripts/new-client.sh <nome> <supabase-ref>` — cria repo, projeto Supabase, configura env
-2. `scripts/push-migrations.sh` — aplica todas as migrations no novo projeto
-3. `scripts/deploy-functions.sh` — deploy de todas as Edge Functions
-4. Configurar `system_settings` no banco do cliente via painel admin
+1. Fork de `systemieven/school-platform` para `systemieven/<cliente>-site`
+2. Criar projeto Supabase dedicado ao cliente
+3. No fork, copiar `.env.example` para `.env`, preencher com credenciais Supabase + identidade, commitar no `main` do fork (apenas `main`, nunca em `base`)
+4. Abrir o fork no Lovable, conectar Supabase via **Cloud** (cobre o preview)
+5. Clonar localmente e configurar os dois remotos:
+   ```bash
+   git clone git@github.com:systemieven/<cliente>-site.git
+   cd <cliente>-site
+   git remote add upstream https://github.com/systemieven/school-platform.git
+   git fetch upstream
+   git checkout -b base upstream/main
+   ```
+6. Aplicar migrations: `scripts/push-migrations.sh`
+7. Deploy de Edge Functions: `scripts/deploy-functions.sh`
+8. Configurar identidade/branding via `/admin/configuracoes` (grava em `system_settings`)
 
-**Fluxo de push local:**
-
-```
-git push upstream main && git push origin main
-```
-
-Sempre enviar para upstream (base) E origin (cliente). O push para upstream dispara propagacao automatica.
+**Dev local:** criar `.env.local` (gitignored via pattern `*.local`) com as credenciais de desenvolvimento. Vite carrega `.env.local` em todos os modos e sobrescreve o `.env` committado.
 
 ### 2.4 Principios Arquiteturais
 
@@ -1264,18 +1312,22 @@ Todas as 11 etapas concluidas: BrandingContext com Realtime, useBranding() hook,
 
 #### Multi-Tenancy: Upstream + Client Repos
 
-Implementado em 12 de abril de 2026. Detalhes na secao 2.3.
+Implementado em 12 de abril de 2026, refinado em 14 de abril de 2026 (sync merge-based, integracao Lovable Cloud). Detalhes na secao 2.3.
 
 | Item | Status |
 |------|--------|
 | Genericizacao do codigo (remocao de dados hardcoded em 37+ arquivos) | ✅ Concluido |
 | `src/config/client.ts` (defaults com env vars) | ✅ Concluido |
-| `.env.example` (template para novos clientes) | ✅ Concluido |
+| `.env.example` (template para novos clientes, com instrucoes Lovable Cloud) | ✅ Concluido |
 | Repo base `systemieven/school-platform` | ✅ Concluido |
 | Upstream remote configurado | ✅ Concluido |
-| Propagacao automatica (`.github/workflows/propagate.yml`) | ✅ Concluido |
+| Propagacao automatica (`.github/workflows/propagate.yml`, com skip de sync vazio) | ✅ Concluido |
 | Sync manual (`.github/workflows/sync-upstream.yml`) | ✅ Concluido |
 | Scripts de onboarding (`new-client.sh`, `push-migrations.sh`, `deploy-functions.sh`) | ✅ Concluido |
+| Estrutura de branches `base` (upstream) + `main` (client) | ✅ Concluido |
+| `push-all.sh` merge-based (sem rebase, sem force-push) | ✅ Concluido |
+| Integracao Lovable Cloud para preview (credenciais Supabase injetadas) | ✅ Concluido |
+| `.env` commitado em `main` (unica fonte para build publicado) | ✅ Concluido |
 
 ---
 
@@ -1745,12 +1797,15 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 
 ### C. Repositorios
 
-- **Repo base**: `systemieven/school-platform` — codigo generico, sem dados de cliente
+- **Repo base**: `systemieven/school-platform` — codigo generico, sem dados de cliente, nunca contem `.env`
 - **Primeiro cliente**: `systemieven/batista-site` — upstream → school-platform, origin → batista-site
-- **Branch principal**: `main` (em ambos)
+- **Branches locais (em cada clone)**:
+  - `base` rastreia `upstream/main` — so codigo generico
+  - `main` rastreia `origin/main` — `base` + `.env` do cliente + merge commits dos syncs
 - **Areas do app**: site (`/`), admin (`/admin`), portal (`/portal`), atendimento (`/atendimento`), responsavel (`/responsavel` — planejado)
-- **Propagacao**: push em school-platform abre PR automaticamente nos clientes
-- **Push local**: `git push upstream main && git push origin main`
+- **Propagacao automatica**: push em school-platform abre PR automaticamente nos clientes via `propagate.yml`
+- **Push local unificado**: `./scripts/push-all.sh` (detecta branch e faz merge-based sync — sem rebase, sem force-push)
+- **Lovable Cloud**: integracao Supabase injeta `VITE_SUPABASE_*` apenas no preview; o build publicado le do `.env` commitado em `main`
 
 ### D. Credenciais Supabase
 
