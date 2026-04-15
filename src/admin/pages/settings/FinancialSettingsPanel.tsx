@@ -719,10 +719,10 @@ export default function FinancialSettingsPanel() {
         icon={CreditCard}
         width="w-[440px]"
         footer={
-          <div className="flex justify-end gap-3">
-            <button onClick={closeGw} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancelar</button>
+          <div className="flex gap-3">
+            <button onClick={closeGw} disabled={gwSaving} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">Cancelar</button>
             <button onClick={saveGw} disabled={!editingGw?.label || !editingGw?.provider || gwSaving}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${gwSaved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${gwSaved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
               {gwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : gwSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
               {gwSaving ? 'Salvando...' : gwSaved ? 'Salvo!' : 'Salvar'}
             </button>

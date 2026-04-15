@@ -17,7 +17,9 @@ interface StudentRow {
 interface ClassOption {
   id: string;
   name: string;
+  school_year: number;
   segment_name: string;
+  series_name: string;
 }
 
 type PeriodKey = 'period1_avg' | 'period2_avg' | 'period3_avg' | 'period4_avg' | 'final_avg';
@@ -53,7 +55,7 @@ export default function BoletimPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('school_classes')
-      .select('id, name, segment:school_segments(name)')
+      .select('id, name, school_year, segment:school_segments(name), series:school_series(name)')
       .eq('is_active', true)
       .order('name');
 
@@ -64,7 +66,9 @@ export default function BoletimPage() {
         (data ?? []).map((c: any) => ({
           id: c.id,
           name: c.name,
+          school_year: c.school_year,
           segment_name: c.segment?.name ?? '',
+          series_name: c.series?.name ?? '',
         })),
       );
     }
@@ -187,7 +191,7 @@ export default function BoletimPage() {
             <option value="">Selecione uma turma</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} {c.segment_name ? `(${c.segment_name})` : ''}
+                {c.series_name ? `${c.series_name} ` : ''}{c.name} {c.school_year}
               </option>
             ))}
           </select>

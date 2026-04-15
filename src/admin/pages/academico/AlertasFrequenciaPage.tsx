@@ -23,8 +23,10 @@ interface AttendanceRow {
 interface ClassOption {
   id: string;
   name: string;
+  school_year: number;
   segment_id: string;
   segment_name: string;
+  series_name: string;
 }
 
 // ── Thresholds ───────────────────────────────────────────────────────────────
@@ -74,7 +76,7 @@ export default function AlertasFrequenciaPage() {
     const [classesRes, segRes] = await Promise.all([
       supabase
         .from('school_classes')
-        .select('id, name, segment_id, segment:school_segments(name)')
+        .select('id, name, school_year, segment_id, segment:school_segments(name), series:school_series(name)')
         .eq('is_active', true)
         .order('name'),
       supabase
@@ -87,8 +89,10 @@ export default function AlertasFrequenciaPage() {
     const classesData: ClassOption[] = (classesRes.data ?? []).map((c: any) => ({
       id: c.id,
       name: c.name,
+      school_year: c.school_year,
       segment_id: c.segment_id,
       segment_name: c.segment?.name ?? '',
+      series_name: c.series?.name ?? '',
     }));
     setClasses(classesData);
     setSegments(segRes.data ?? []);
@@ -227,7 +231,7 @@ export default function AlertasFrequenciaPage() {
           <option value="">Todas as turmas</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name} ({c.segment_name})
+              {c.series_name ? `${c.series_name} ` : ''}{c.name} {c.school_year}
             </option>
           ))}
         </select>

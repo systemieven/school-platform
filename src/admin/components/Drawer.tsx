@@ -24,6 +24,59 @@
  *       …conteúdo…
  *     </DrawerCard>
  *   </Drawer>
+ *
+ * ── Padrão de footer ────────────────────────────────────────────
+ *
+ * SEM botão de exclusão (criar / editar simples):
+ *
+ *   <div className="flex gap-3">
+ *     <button onClick={onClose} disabled={saving}
+ *       className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700
+ *                  text-sm text-gray-600 dark:text-gray-300
+ *                  hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">
+ *       Cancelar
+ *     </button>
+ *     <button onClick={handleSave} disabled={saving || !canSave}
+ *       className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl
+ *                   text-sm font-medium transition-all
+ *                   ${saved ? 'bg-emerald-500 text-white'
+ *                           : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}>
+ *       {saving ? <Loader2 className="w-4 h-4 animate-spin" />
+ *        : saved  ? <Check className="w-4 h-4" />
+ *                 : <ÍconeContextual className="w-4 h-4" />}
+ *       {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Texto da ação'}
+ *     </button>
+ *   </div>
+ *
+ * COM botão de exclusão (edição com opção de deletar):
+ *
+ *   <div className="flex items-center gap-2">
+ *     <button onClick={handleDelete} disabled={saving}
+ *       className="px-4 py-2 text-sm font-medium rounded-xl
+ *                  bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400
+ *                  hover:bg-red-100 dark:hover:bg-red-900/40
+ *                  transition-colors disabled:opacity-50 flex items-center gap-1.5">
+ *       <Trash2 className="w-3.5 h-3.5" /> Excluir
+ *     </button>
+ *     <div className="flex-1" />
+ *     <button onClick={onClose} disabled={saving}
+ *       className="px-4 py-2 text-sm font-medium rounded-xl
+ *                  border border-gray-200 dark:border-gray-600
+ *                  text-gray-600 dark:text-gray-300
+ *                  hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+ *       Cancelar
+ *     </button>
+ *     <button onClick={handleSave} disabled={saving || !canSave}
+ *       className={`px-4 py-2 text-sm font-medium rounded-xl
+ *                   transition-all flex items-center gap-2
+ *                   ${saved ? 'bg-emerald-500 text-white'
+ *                           : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}>
+ *       {saving ? <Loader2 className="w-4 h-4 animate-spin" />
+ *        : saved  ? <Check className="w-4 h-4" />
+ *                 : <ÍconeContextual className="w-4 h-4" />}
+ *       {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Texto da ação'}
+ *     </button>
+ *   </div>
  */
 
 import { X } from 'lucide-react';

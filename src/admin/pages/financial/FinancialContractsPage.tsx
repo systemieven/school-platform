@@ -45,6 +45,7 @@ export default function FinancialContractsPage() {
   const [contracts, setContracts] = useState<FinancialContract[]>([]);
   const [plans, setPlans] = useState<FinancialPlan[]>([]);
   const [students, setStudents] = useState<{ id: string; full_name: string; enrollment_number: string; class_id: string | null }[]>([]);
+  const [classMap, setClassMap] = useState<Record<string, { name: string; school_year: number; series_name: string | null }>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FinancialContractStatus | 'all'>('all');
@@ -60,16 +61,24 @@ export default function FinancialContractsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [cRes, pRes, sRes] = await Promise.all([
+    const [cRes, pRes, sRes, clsRes] = await Promise.all([
       supabase.from('financial_contracts')
         .select('*, student:students(full_name, enrollment_number, class_id), plan:financial_plans(name, amount, installments)')
         .order('created_at', { ascending: false }),
       supabase.from('financial_plans').select('*').eq('is_active', true).order('name'),
       supabase.from('students').select('id, full_name, enrollment_number, class_id').eq('status', 'active').order('full_name'),
+      supabase.from('school_classes').select('id, name, school_year, series:school_series(name)'),
     ]);
     setContracts((cRes.data ?? []) as unknown as FinancialContract[]);
     setPlans((pRes.data ?? []) as FinancialPlan[]);
     setStudents((sRes.data ?? []) as typeof students);
+    const map: Record<string, { name: string; school_year: number; series_name: string | null }> = {};
+    type ClsRow = { id: string; name: string; school_year: number; series: { name: string } | { name: string }[] | null };
+    for (const c of ((clsRes.data ?? []) as unknown as ClsRow[])) {
+      const ser = Array.isArray(c.series) ? c.series[0] ?? null : c.series;
+      map[c.id] = { name: c.name, school_year: c.school_year, series_name: ser?.name ?? null };
+    }
+    setClassMap(map);
     setLoading(false);
   }, []);
 
@@ -337,7 +346,15 @@ export default function FinancialContractsPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-800 dark:text-white">{c.student?.full_name || '—'}</p>
-                    <p className="text-xs text-gray-400">{c.student?.enrollment_number} · {c.plan?.name}</p>
+                    <p className="text-xs text-gray-400">
+                      {c.student?.enrollment_number} · {c.plan?.name}
+                      {(() => {
+                        const cls = c.student?.class_id ? classMap[c.student.class_id] : null;
+                        if (!cls) return null;
+                        const composed = [cls.series_name, cls.name].filter(Boolean).join(' ');
+                        return <> · {composed} {cls.school_year}</>;
+                      })()}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -391,10 +408,10 @@ export default function FinancialContractsPage() {
         icon={FileSignature}
         width="w-[480px]"
         footer={
-          <div className="flex justify-end gap-3">
-            <button onClick={closeDrawer} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancelar</button>
+          <div className="flex gap-3">
+            <button onClick={closeDrawer} disabled={saving || uploading} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">Cancelar</button>
             <button onClick={handleSave} disabled={!form.student_id || !form.plan_id || saving || uploading}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
               {(saving || uploading) ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
               {uploading ? 'Enviando...' : saving ? 'Salvando...' : saved ? 'Salvo!' : isEdit ? 'Salvar' : 'Criar Contrato'}
             </button>

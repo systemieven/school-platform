@@ -88,9 +88,26 @@ Arquivos historicamente problemáticos (revisar antes de editar):
 - `./scripts/push-migrations.sh` — aplica migrations em lote
 - `./scripts/deploy-functions.sh` — deploy de Edge Functions em lote
 
+## Padrão de Drawer (admin)
+
+Todo drawer admin usa `<Drawer>` + `<DrawerCard>` de `src/admin/components/Drawer.tsx`.
+O footer tem **dois templates** — consulte a documentação inline no arquivo ou `memory/feedback_drawer_pattern.md`.
+
+Regras obrigatórias:
+
+1. **Dois botões, mesma largura (`flex-1`)** — Cancelar (outlined) à esquerda, primário à direita. Nunca `justify-end` com largura natural.
+2. **Três estados no botão primário:**
+   - Idle → ícone contextual do objeto + texto da ação
+   - Saving → `<Loader2 className="w-4 h-4 animate-spin" />` + "Salvando…"
+   - Saved → `<Check className="w-4 h-4" />` + bg-emerald-500 + "Salvo!" (900 ms, então fecha/reseta)
+3. **Ícone contextual** = ícone Lucide do objeto salvo (ex.: `GraduationCap` para aluno, `CalendarDays` para evento, `ShieldCheck` para senha). Nunca `Save` genérico quando existe um mais específico.
+4. **Com Excluir:** botão vermelho ghost à esquerda (`bg-red-50 text-red-600` + `<Trash2>`), spacer `flex-1`, depois Cancelar + Salvar de largura natural.
+5. **Nunca** spinner CSS caseiro (`border-t-white rounded-full`) — sempre `<Loader2>` do Lucide.
+
 ## Referências
 
 - `docs/PRD_V3.md` — PRD atual (seção 2.3 tem a arquitetura multi-cliente completa)
 - `.env.example` — template versionado com comentários sobre Lovable Cloud
 - `memory/project_multi_client.md` — memória local do agente com o setup detalhado
 - `memory/feedback_git_push.md` — racional do workflow merge-based
+- `memory/feedback_drawer_pattern.md` — templates completos do padrão de drawer
