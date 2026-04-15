@@ -1,43 +1,77 @@
 #!/usr/bin/env bash
-# push-all.sh — publica o branch atual em upstream (school-platform) e
-# origin (batista-site) apontando ambos para o mesmo SHA.
+# push-all.sh — sincroniza os dois remotos (upstream/school-platform e
+# origin/cliente) sem rebase e sem force-push, usando merge.
 #
-# Invariante pós-realinhamento: `base` e `main` devem estar sempre no
-# mesmo commit. Não existe mais divergência de `.env` entre eles —
-# credenciais Supabase vêm da integração Lovable Cloud e identidade da
-# escola fica no `system_settings` do banco.
+# Arquitetura:
+#   • `base` = código genérico, rastreia upstream/main (school-platform).
+#     Nunca contém `.env`.
+#   • `main` = descendente de base com o commit do `.env` do cliente
+#     acima. Rastreia origin/main (o que o Lovable consome).
+#
+# Por que merge e não rebase: o rebase reescreve SHAs do topo de `main`
+# toda vez que `base` avança, exigindo force-push. O Lovable cacheia o
+# SHA publicado e às vezes falha com "commit not found" após force-push.
+# Com merge, a linha de commits de `main` só avança (fast-forward puro),
+# preservando SHAs e eliminando force-push de vez.
+#
+# Diagrama (após algumas syncs):
+#
+#     base:    A---B---C---D---F                   (upstream/main)
+#                        \\   \\
+#     main:    A---B---C---E(.env)---M1---M2       (origin/main)
+#                                    /     /
+#                                   D     F
 #
 # Uso:
-#   git checkout base         # (ou main — tanto faz, são idênticos)
-#   # editar, testar, commitar
-#   ./scripts/push-all.sh
+#   1. Trabalho genérico (features, fixes, docs — a maior parte):
+#        git checkout base
+#        # editar, testar, commitar
+#        ./scripts/push-all.sh
 #
-# O script:
-#   1. Push do branch atual como `main` nos dois remotos (fast-forward).
-#   2. Alinha o outro branch local (main ou base) pro mesmo SHA.
+#   2. Trabalho client-specific (raro — ex.: rotacionar chave Supabase):
+#        git checkout main
+#        # editar .env, commitar
+#        ./scripts/push-all.sh
 
 set -e
 
 CURRENT=$(git rev-parse --abbrev-ref HEAD)
 
-if [ "$CURRENT" != "base" ] && [ "$CURRENT" != "main" ]; then
-  echo "✗ Erro: rode este script em 'base' ou 'main'. Branch atual: $CURRENT"
-  exit 1
-fi
+case "$CURRENT" in
+  base)
+    echo "→ Em branch 'base' — commits genéricos"
+    echo "→ Push upstream main (fast-forward)..."
+    git push upstream base:main
 
-OTHER="main"
-[ "$CURRENT" = "main" ] && OTHER="base"
+    echo "→ Trazendo novidades de 'base' para 'main' via merge..."
+    git checkout main
+    # --no-ff força merge commit quando main diverge; se main ja estiver
+    # up-to-date com base (raro, ocorre apenas logo apos um merge sem
+    # commits novos em base), vira no-op silencioso.
+    git merge base --no-ff -m "merge: sync base into main" || {
+      echo "✗ Conflito no merge base→main. Resolva manualmente, commit e rode de novo."
+      exit 1
+    }
 
-echo "→ Push upstream main (school-platform)..."
-git push upstream "$CURRENT":main
+    echo "→ Push origin main (fast-forward)..."
+    git push origin main
 
-echo "→ Push origin main (batista-site)..."
-git push origin "$CURRENT":main
+    echo "→ Voltando para 'base'..."
+    git checkout base
 
-# Alinha o branch local que não está checked out
-if git show-ref --verify --quiet "refs/heads/$OTHER"; then
-  echo "→ Alinhando branch local '$OTHER' com '$CURRENT'..."
-  git branch -f "$OTHER" "$CURRENT"
-fi
+    echo "✓ upstream e origin sincronizados sem force-push."
+    ;;
 
-echo "✓ upstream, origin e branches locais apontam para o mesmo commit."
+  main)
+    echo "→ Em branch 'main' — commit client-specific"
+    echo "→ Push origin main (fast-forward)..."
+    git push origin main
+    echo "✓ Feito. (upstream NÃO recebe esse commit — ok para client-only)"
+    ;;
+
+  *)
+    echo "✗ Erro: este script só funciona em 'base' ou 'main'."
+    echo "  Branch atual: $CURRENT"
+    exit 1
+    ;;
+esac
