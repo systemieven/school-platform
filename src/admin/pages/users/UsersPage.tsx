@@ -799,9 +799,16 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
               <p className="text-xs text-gray-400">{user.id.slice(0, 8)}…</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <Toggle
+              checked={form.is_active}
+              onChange={(v) => set('is_active', v)}
+              onColor="bg-emerald-500"
+            />
+            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -842,16 +849,6 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
             </div>
-          </SettingsCard>
-
-          <SettingsCard title="Status">
-            <Toggle
-              checked={form.is_active}
-              onChange={(v) => set('is_active', v)}
-              label={form.is_active ? 'Usuário ativo' : 'Acesso bloqueado'}
-              description={form.is_active ? 'Usuário pode acessar o sistema normalmente' : 'Acesso ao sistema bloqueado'}
-              onColor="bg-emerald-500"
-            />
           </SettingsCard>
 
           <SettingsCard title="Permissões de Acesso" collapseId="drawer.edit.permissions">
