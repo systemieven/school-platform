@@ -13,6 +13,8 @@ import OcorrenciasPage    from './pages/ocorrencias/OcorrenciasPage';
 import AutorizacoesPage   from './pages/autorizacoes/AutorizacoesPage';
 import BibliotecaPage     from './pages/biblioteca/BibliotecaPage';
 import PerfilPage         from './pages/perfil/PerfilPage';
+import DeclaracoesPage    from './pages/declaracoes/DeclaracoesPage';
+import RematriculaPage    from './pages/rematricula/RematriculaPage';
 
 export default function ResponsavelRoutes() {
   return (
@@ -32,6 +34,8 @@ export default function ResponsavelRoutes() {
           <Route path="autorizacoes" element={<AutorizacoesPage />} />
           <Route path="biblioteca"   element={<BibliotecaPage />} />
           <Route path="perfil"       element={<PerfilPage />} />
+          <Route path="declaracoes"  element={<DeclaracoesPage />} />
+          <Route path="rematricula"  element={<RematriculaPage />} />
           <Route path="*"            element={<Navigate to="/responsavel" replace />} />
         </Route>
       </Routes>

@@ -30,6 +30,7 @@ import {
   Shield,
   FileSearch,
   DollarSign,
+  Archive,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -55,6 +56,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Shield,
   FileSearch,
   DollarSign,
+  Archive,
 };
 
 interface Props {
