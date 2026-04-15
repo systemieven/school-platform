@@ -3,8 +3,11 @@ import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { useRealtimeRows } from '../../hooks/useRealtimeRows';
-import type { Enrollment, EnrollmentStatus } from '../../types/admin.types';
+import type {
+  Enrollment, EnrollmentStatus, SchoolSegment, SchoolSeries, SchoolClass,
+} from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
+import CapacityOverrideModal, { parseCapacityError } from '../../components/CapacityOverrideModal';
 import {
   GraduationCap, Search, X, ChevronRight, Loader2, RefreshCw,
   User, Phone, MapPin, FileText, CheckCircle2,
@@ -298,7 +301,7 @@ interface DrawerProps {
 }
 
 function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
-  const { profile } = useAdminAuth();
+  const { profile, hasRole } = useAdminAuth();
   const { identity } = useBranding();
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
@@ -311,13 +314,64 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, string>>({});
 
+  // Cascata segment → série → turma para a transição "confirmed"
+  const [confirmSegments, setConfirmSegments] = useState<SchoolSegment[]>([]);
+  const [confirmSeries, setConfirmSeries] = useState<SchoolSeries[]>([]);
+  const [confirmClasses, setConfirmClasses] = useState<SchoolClass[]>([]);
+  const [confirmSegmentId, setConfirmSegmentId] = useState('');
+  const [confirmSeriesId, setConfirmSeriesId] = useState('');
+  const [confirmClassId, setConfirmClassId] = useState('');
+  const [loadingClasses, setLoadingClasses] = useState(false);
+  const [capacityModal, setCapacityModal] = useState<
+    { current: number; max: number; className: string } | null
+  >(null);
+
+  const canOverrideCapacity = hasRole('admin', 'super_admin');
+
   useEffect(() => {
     if (enr) {
       setNotes(enr.internal_notes || '');
       setNewStatus('');
       setArchiveReason('');
+      setConfirmSegmentId('');
+      setConfirmSeriesId('');
+      setConfirmClassId('');
     }
   }, [enr]);
+
+  // Carrega turmas (com série + segmento) quando o usuário escolhe "confirmed"
+  useEffect(() => {
+    if (newStatus !== 'confirmed') return;
+    let cancelled = false;
+    setLoadingClasses(true);
+    (async () => {
+      const [segRes, serRes, clsRes] = await Promise.all([
+        supabase.from('school_segments').select('*').eq('is_active', true).order('order_index'),
+        supabase.from('school_series').select('*').eq('is_active', true).order('order_index'),
+        supabase
+          .from('school_classes')
+          .select('*, segment:school_segments(*), series:school_series(*)')
+          .eq('is_active', true)
+          .order('school_year', { ascending: false })
+          .order('name'),
+      ]);
+      if (cancelled) return;
+      setConfirmSegments((segRes.data ?? []) as SchoolSegment[]);
+      setConfirmSeries((serRes.data ?? []) as SchoolSeries[]);
+      setConfirmClasses((clsRes.data ?? []) as SchoolClass[]);
+      setLoadingClasses(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [newStatus]);
+
+  // Reseta cascata em níveis abaixo quando seleção pai muda
+  useEffect(() => { setConfirmSeriesId(''); setConfirmClassId(''); }, [confirmSegmentId]);
+  useEffect(() => { setConfirmClassId(''); }, [confirmSeriesId]);
+
+  const filteredSeries = confirmSeries.filter((s) => s.segment_id === confirmSegmentId);
+  const filteredClasses = confirmClasses.filter((c) => c.series_id === confirmSeriesId);
 
   if (!enr) return null;
 
@@ -365,7 +419,13 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
 
   async function changeStatus() {
     if (!newStatus || !enr) return;
+    if (newStatus === 'confirmed' && !confirmClassId) return;
     setSaving(true);
+    await runStatusChange(false);
+  }
+
+  async function runStatusChange(force: boolean) {
+    if (!enr || !newStatus) { setSaving(false); return; }
     const patch: Record<string, unknown> = {
       status: newStatus,
       reviewed_by: profile?.id || null,
@@ -378,54 +438,87 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
       patch.archive_reason = archiveReason;
       patch.archived_at = new Date().toISOString();
     }
+
+    // Para confirmed, criamos student ANTES de atualizar enrollment — se a turma
+    // estiver cheia, abortamos sem mexer no status da matrícula.
+    let enrollNum: string | null = null;
+    if (newStatus === 'confirmed') {
+      const { data: numData } = await supabase.rpc('generate_enrollment_number');
+      enrollNum = (numData as string) || `${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+
+      const studentPayload = {
+        enrollment_id: enr.id,
+        enrollment_number: enrollNum,
+        full_name: enr.student_name,
+        birth_date: enr.student_birth_date || null,
+        cpf: enr.student_cpf || null,
+        class_id: confirmClassId,
+        // Responsável
+        guardian_name: enr.guardian_name,
+        guardian_phone: enr.guardian_phone,
+        guardian_email: enr.guardian_email || null,
+        guardian_cpf: enr.guardian_cpf || null,
+        guardian_zip_code: enr.guardian_zip_code || null,
+        guardian_street: enr.guardian_street || null,
+        guardian_number: enr.guardian_number || null,
+        guardian_complement: enr.guardian_complement || null,
+        guardian_neighborhood: enr.guardian_neighborhood || null,
+        guardian_city: enr.guardian_city || null,
+        guardian_state: enr.guardian_state || null,
+        // Pais
+        father_name: enr.father_name || null,
+        father_cpf: enr.father_cpf || null,
+        father_phone: enr.father_phone || null,
+        father_email: enr.father_email || null,
+        mother_name: enr.mother_name || null,
+        mother_cpf: enr.mother_cpf || null,
+        mother_phone: enr.mother_phone || null,
+        mother_email: enr.mother_email || null,
+        // Histórico escolar
+        first_school: enr.first_school ?? false,
+        last_grade: enr.last_grade || null,
+        previous_school_name: enr.previous_school_name || null,
+        segment: enr.segment || null,
+        // Origem
+        origin: 'enrollment',
+        status: 'active',
+      };
+
+      const { error: insErr } = await supabase.rpc('create_student_with_capacity', {
+        payload: studentPayload as unknown as Record<string, unknown>,
+        force,
+      });
+      if (insErr) {
+        const cap = parseCapacityError(insErr);
+        if (cap) {
+          const cls = confirmClasses.find((c) => c.id === cap.classId);
+          setCapacityModal({
+            current: cap.current,
+            max: cap.max,
+            className: cls?.name ?? '',
+          });
+          setSaving(false);
+          return;
+        }
+        console.error('Erro ao criar aluno:', insErr);
+        setSaving(false);
+        return;
+      }
+    }
+
     const { error } = await supabase.from('enrollments').update(patch).eq('id', enr.id);
     if (!error) {
       logAudit({ action: 'status_change', module: 'enrollments', recordId: enr.id, description: `Status da matrícula de ${enr.student_name || enr.guardian_name} alterado para ${newStatus}`, oldData: { status: enr.status }, newData: { status: newStatus } });
-      if (newStatus === 'confirmed') {
-        const { data: numData } = await supabase.rpc('generate_enrollment_number');
-        const enrollNum = (numData as string) || `${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+      if (newStatus === 'confirmed' && enrollNum) {
         await supabase.from('enrollments').update({ enrollment_number: enrollNum }).eq('id', enr.id);
-        await supabase.from('students').insert({
-          enrollment_id: enr.id,
-          enrollment_number: enrollNum,
-          full_name: enr.student_name,
-          birth_date: enr.student_birth_date || null,
-          cpf: enr.student_cpf || null,
-          // Responsável
-          guardian_name: enr.guardian_name,
-          guardian_phone: enr.guardian_phone,
-          guardian_email: enr.guardian_email || null,
-          guardian_cpf: enr.guardian_cpf || null,
-          guardian_zip_code: enr.guardian_zip_code || null,
-          guardian_street: enr.guardian_street || null,
-          guardian_number: enr.guardian_number || null,
-          guardian_complement: enr.guardian_complement || null,
-          guardian_neighborhood: enr.guardian_neighborhood || null,
-          guardian_city: enr.guardian_city || null,
-          guardian_state: enr.guardian_state || null,
-          // Pais
-          father_name: enr.father_name || null,
-          father_cpf: enr.father_cpf || null,
-          father_phone: enr.father_phone || null,
-          father_email: enr.father_email || null,
-          mother_name: enr.mother_name || null,
-          mother_cpf: enr.mother_cpf || null,
-          mother_phone: enr.mother_phone || null,
-          mother_email: enr.mother_email || null,
-          // Histórico escolar
-          first_school: enr.first_school ?? false,
-          last_grade: enr.last_grade || null,
-          previous_school_name: enr.previous_school_name || null,
-          segment: enr.segment || null,
-          // Origem
-          origin: 'enrollment',
-          status: 'active',
-        });
       }
       onUpdate(enr.id, patch as Partial<Enrollment>);
     }
     setSaving(false);
     setNewStatus('');
+    setConfirmSegmentId('');
+    setConfirmSeriesId('');
+    setConfirmClassId('');
   }
 
   async function saveNotes() {
@@ -758,10 +851,77 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                   />
                 )}
 
+                {newStatus === 'confirmed' && (
+                  <div className="mt-3 space-y-2 rounded-xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/60 dark:bg-emerald-900/10 p-3">
+                    <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+                      Vincular aluno a uma turma
+                    </p>
+                    {loadingClasses ? (
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 py-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Carregando turmas…
+                      </div>
+                    ) : (
+                      <>
+                        <div className="relative">
+                          <select
+                            value={confirmSegmentId}
+                            onChange={(e) => setConfirmSegmentId(e.target.value)}
+                            className="w-full px-3 py-2 pr-9 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500 appearance-none"
+                          >
+                            <option value="">Segmento…</option>
+                            {confirmSegments.map((s) => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+
+                        <div className="relative">
+                          <select
+                            value={confirmSeriesId}
+                            onChange={(e) => setConfirmSeriesId(e.target.value)}
+                            disabled={!confirmSegmentId}
+                            className="w-full px-3 py-2 pr-9 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500 appearance-none disabled:opacity-50"
+                          >
+                            <option value="">Série…</option>
+                            {filteredSeries.map((s) => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+
+                        <div className="relative">
+                          <select
+                            value={confirmClassId}
+                            onChange={(e) => setConfirmClassId(e.target.value)}
+                            disabled={!confirmSeriesId}
+                            className="w-full px-3 py-2 pr-9 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500 appearance-none disabled:opacity-50"
+                          >
+                            <option value="">Turma…</option>
+                            {filteredClasses.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name} · {c.school_year}
+                                {c.max_students ? ` · max ${c.max_students}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
                 {newStatus && (
                   <button
                     onClick={changeStatus}
-                    disabled={saving || (newStatus === 'archived' && !archiveReason.trim())}
+                    disabled={
+                      saving
+                      || (newStatus === 'archived' && !archiveReason.trim())
+                      || (newStatus === 'confirmed' && !confirmClassId)
+                    }
                     className="mt-2 w-full py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-40"
                   >
                     {saving ? 'Salvando...' : `Mover para "${PIPELINE.find((p) => p.key === newStatus)?.label}"`}
@@ -831,6 +991,20 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
           onClose={() => setShowWhatsApp(false)}
         />
       )}
+
+      <CapacityOverrideModal
+        open={!!capacityModal}
+        onClose={() => setCapacityModal(null)}
+        canOverride={canOverrideCapacity}
+        currentCount={capacityModal?.current ?? 0}
+        maxStudents={capacityModal?.max ?? 0}
+        className={capacityModal?.className}
+        onConfirm={async () => {
+          setCapacityModal(null);
+          setSaving(true);
+          await runStatusChange(true);
+        }}
+      />
     </>
   );
 }

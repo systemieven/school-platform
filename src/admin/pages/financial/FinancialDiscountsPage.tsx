@@ -21,7 +21,8 @@ import {
 const CURRENT_YEAR = new Date().getFullYear();
 
 type Segment = { id: string; name: string };
-type SchoolClass = { id: string; name: string };
+type SchoolSeriesLite = { id: string; name: string; segment_id: string };
+type SchoolClass = { id: string; name: string; series_id: string | null; school_year: number };
 type Student = { id: string; full_name: string };
 
 const EMPTY: Omit<FinancialDiscount, 'id' | 'created_at' | 'updated_at'> = {
@@ -30,6 +31,7 @@ const EMPTY: Omit<FinancialDiscount, 'id' | 'created_at' | 'updated_at'> = {
   scope: 'global',
   plan_id: null,
   segment_id: null,
+  series_id: null,
   class_id: null,
   student_id: null,
   discount_type: 'percentage',
@@ -51,6 +53,7 @@ export default function FinancialDiscountsPage() {
   const [discounts, setDiscounts] = useState<FinancialDiscount[]>([]);
   const [plans, setPlans] = useState<FinancialPlan[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
+  const [seriesList, setSeriesList] = useState<SchoolSeriesLite[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,16 +67,18 @@ export default function FinancialDiscountsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [dRes, pRes, segRes, classRes, stuRes] = await Promise.all([
+    const [dRes, pRes, segRes, serRes, classRes, stuRes] = await Promise.all([
       supabase.from('financial_discounts').select('*').order('priority', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('financial_plans').select('*').eq('is_active', true).order('name'),
       supabase.from('school_segments').select('id, name').order('position'),
-      supabase.from('school_classes').select('id, name').order('name'),
+      supabase.from('school_series').select('id, name, segment_id').eq('is_active', true).order('order_index'),
+      supabase.from('school_classes').select('id, name, series_id, school_year').order('school_year', { ascending: false }).order('name'),
       supabase.from('students').select('id, full_name').eq('status', 'active').order('full_name').limit(500),
     ]);
     setDiscounts((dRes.data ?? []) as FinancialDiscount[]);
     setPlans((pRes.data ?? []) as FinancialPlan[]);
     setSegments((segRes.data ?? []) as Segment[]);
+    setSeriesList((serRes.data ?? []) as SchoolSeriesLite[]);
     setClasses((classRes.data ?? []) as SchoolClass[]);
     setStudents((stuRes.data ?? []) as Student[]);
     setLoading(false);
@@ -108,6 +113,7 @@ export default function FinancialDiscountsPage() {
         scope,
         plan_id: null,
         segment_id: null,
+        series_id: null,
         class_id: null,
         student_id: null,
       };
@@ -128,6 +134,7 @@ export default function FinancialDiscountsPage() {
       scope: editing.scope,
       plan_id: editing.scope === 'group' ? editing.plan_id : null,
       segment_id: editing.scope === 'group' ? editing.segment_id : null,
+      series_id: editing.scope === 'group' ? editing.series_id : null,
       class_id: editing.scope === 'group' ? editing.class_id : null,
       student_id: editing.scope === 'student' ? editing.student_id : null,
       discount_type: editing.discount_type,
@@ -214,6 +221,7 @@ export default function FinancialDiscountsPage() {
     const parts: string[] = [];
     if (d.plan_id) parts.push(plans.find((p) => p.id === d.plan_id)?.name || 'Plano');
     if (d.segment_id) parts.push(segments.find((s) => s.id === d.segment_id)?.name || 'Segmento');
+    if (d.series_id) parts.push(seriesList.find((s) => s.id === d.series_id)?.name || 'Série');
     if (d.class_id) parts.push(classes.find((c) => c.id === d.class_id)?.name || 'Turma');
     return parts.join(' · ') || 'Grupo';
   }
@@ -340,10 +348,10 @@ export default function FinancialDiscountsPage() {
         icon={Percent}
         width="w-[440px]"
         footer={
-          <div className="flex justify-end gap-3">
-            <button onClick={close} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Cancelar</button>
+          <div className="flex gap-3">
+            <button onClick={close} disabled={saving} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">Cancelar</button>
             <button onClick={handleSave} disabled={!editing?.name.trim() || (!isProgressive && (editing?.discount_value ?? 0) <= 0) || (isProgressive && (editing?.progressive_rules?.length ?? 0) === 0) || saving}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
               {saving ? 'Salvando...' : saved ? 'Salvo!' : 'Salvar'}
             </button>
@@ -414,18 +422,50 @@ export default function FinancialDiscountsPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Segmento</label>
-                    <select value={editing.segment_id || ''} onChange={(e) => updateField('segment_id', e.target.value || null)}
+                    <select
+                      value={editing.segment_id || ''}
+                      onChange={(e) => {
+                        const next = e.target.value || null;
+                        updateField('segment_id', next);
+                        // Reset série/turma se o segmento mudou
+                        if (editing.series_id) {
+                          const ser = seriesList.find((s) => s.id === editing.series_id);
+                          if (!next || ser?.segment_id !== next) updateField('series_id', null);
+                        }
+                      }}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
                       <option value="">— Qualquer segmento —</option>
                       {segments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
                   <div>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Série</label>
+                    <select
+                      value={editing.series_id || ''}
+                      onChange={(e) => updateField('series_id', e.target.value || null)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
+                      <option value="">— Qualquer série —</option>
+                      {seriesList
+                        .filter((s) => !editing.segment_id || s.segment_id === editing.segment_id)
+                        .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <p className="text-[11px] text-gray-400 mt-1">Mais específico que segmento, menos que turma.</p>
+                  </div>
+                  <div>
                     <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Turma</label>
                     <select value={editing.class_id || ''} onChange={(e) => updateField('class_id', e.target.value || null)}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
                       <option value="">— Qualquer turma —</option>
-                      {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {classes
+                        .filter((c) => !editing.series_id || c.series_id === editing.series_id)
+                        .map((c) => {
+                          const ser = seriesList.find((s) => s.id === c.series_id);
+                          return (
+                            <option key={c.id} value={c.id}>
+                              {ser ? `${ser.name} ${c.name}` : c.name} {c.school_year}
+                            </option>
+                          );
+                        })}
                     </select>
                   </div>
                 </div>

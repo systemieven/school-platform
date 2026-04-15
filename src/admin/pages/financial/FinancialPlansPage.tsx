@@ -24,15 +24,24 @@ const EMPTY: Omit<FinancialPlan, 'id' | 'created_at' | 'updated_at'> = {
   late_fee_pct: 2,
   interest_rate_pct: 0.033,
   segment_ids: [],
+  series_ids: [],
   school_year: CURRENT_YEAR,
   is_active: true,
 };
+
+interface SeriesLite {
+  id: string;
+  name: string;
+  segment_id: string;
+  order_index: number;
+}
 
 export default function FinancialPlansPage() {
   const { profile } = useAdminAuth();
   usePermissions();
   const [plans, setPlans] = useState<FinancialPlan[]>([]);
   const [segments, setSegments] = useState<{ id: string; name: string }[]>([]);
+  const [seriesList, setSeriesList] = useState<SeriesLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<FinancialPlan | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -43,12 +52,14 @@ export default function FinancialPlansPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [plansRes, segRes] = await Promise.all([
+    const [plansRes, segRes, serRes] = await Promise.all([
       supabase.from('financial_plans').select('*').order('school_year', { ascending: false }).order('name'),
       supabase.from('school_segments').select('id, name').order('position'),
+      supabase.from('school_series').select('id, name, segment_id, order_index').eq('is_active', true).order('order_index'),
     ]);
     setPlans((plansRes.data ?? []) as FinancialPlan[]);
     setSegments((segRes.data ?? []) as { id: string; name: string }[]);
+    setSeriesList((serRes.data ?? []) as SeriesLite[]);
     setLoading(false);
   }, []);
 
@@ -87,6 +98,7 @@ export default function FinancialPlansPage() {
       late_fee_pct: Number(editing.late_fee_pct),
       interest_rate_pct: Number(editing.interest_rate_pct),
       segment_ids: editing.segment_ids,
+      series_ids: editing.series_ids ?? [],
       school_year: Number(editing.school_year),
       is_active: editing.is_active,
     };
@@ -175,12 +187,18 @@ export default function FinancialPlansPage() {
                 </div>
               </div>
 
-              {plan.segment_ids.length > 0 && (
+              {(plan.segment_ids.length > 0 || (plan.series_ids?.length ?? 0) > 0) && (
                 <div className="flex flex-wrap gap-1 mt-3">
                   {plan.segment_ids.map((sid) => {
                     const seg = segments.find((s) => s.id === sid);
                     return seg ? (
-                      <span key={sid} className="text-[10px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">{seg.name}</span>
+                      <span key={`seg-${sid}`} className="text-[10px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">{seg.name}</span>
+                    ) : null;
+                  })}
+                  {(plan.series_ids ?? []).map((sid) => {
+                    const ser = seriesList.find((s) => s.id === sid);
+                    return ser ? (
+                      <span key={`ser-${sid}`} className="text-[10px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">{ser.name}</span>
                     ) : null;
                   })}
                 </div>
@@ -218,10 +236,10 @@ export default function FinancialPlansPage() {
         icon={FileText}
         width="w-[440px]"
         footer={
-          <div className="flex justify-end gap-3">
-            <button onClick={close} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Cancelar</button>
+          <div className="flex gap-3">
+            <button onClick={close} disabled={saving} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">Cancelar</button>
             <button onClick={handleSave} disabled={!editing?.name.trim() || (editing?.amount ?? 0) <= 0 || saving}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
               {saving ? 'Salvando...' : saved ? 'Salvo!' : 'Salvar'}
             </button>
@@ -341,7 +359,45 @@ export default function FinancialPlansPage() {
                     );
                   })}
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1">Deixe vazio para aplicar a todos os segmentos</p>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Plano vincula segmentos inteiros. Deixe vazio (e use Séries abaixo) para granularidade fina.
+                </p>
+              </DrawerCard>
+            )}
+
+            {seriesList.length > 0 && (
+              <DrawerCard title="Séries" icon={Info}>
+                <div className="space-y-2">
+                  {segments.map((seg) => {
+                    const segSeries = seriesList.filter((s) => s.segment_id === seg.id);
+                    if (segSeries.length === 0) return null;
+                    return (
+                      <div key={seg.id}>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+                          {seg.name}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {segSeries.map((ser) => {
+                            const selected = (editing.series_ids ?? []).includes(ser.id);
+                            return (
+                              <button key={ser.id} type="button"
+                                onClick={() => updateField('series_ids', selected
+                                  ? (editing.series_ids ?? []).filter((s) => s !== ser.id)
+                                  : [...(editing.series_ids ?? []), ser.id])}
+                                className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${selected ? 'border-brand-primary bg-brand-primary/10 text-brand-primary font-semibold' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'}`}
+                              >
+                                {ser.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-2">
+                  Mais específico que segmento — útil para planos diferenciados por série (ex.: 9º Ano).
+                </p>
               </DrawerCard>
             )}
           </>

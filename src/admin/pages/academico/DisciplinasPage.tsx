@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import type { Discipline, ClassDiscipline } from '../../types/admin.types';
 import {
-  BookOpen, Loader2, Pencil, Eye, EyeOff, Tag, Clock, Layers,
+  BookOpen, Check, Loader2, Pencil, Eye, EyeOff, Save, Tag, Clock, Layers,
   ChevronDown, ChevronRight, Trash2,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
@@ -12,7 +12,7 @@ import { Toggle } from '../../components/Toggle';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface Segment { id: string; name: string; }
-interface SchoolClassOption { id: string; name: string; segment_id: string; segment_name?: string; }
+interface SchoolClassOption { id: string; name: string; school_year: number; segment_id: string; segment_name?: string; series_name?: string; }
 interface TeacherOption { id: string; full_name: string; }
 
 interface DisciplineForm {
@@ -50,6 +50,7 @@ export default function DisciplinasPage() {
   const [editId, setEditId]     = useState<string | null>(null); // null=closed, 'new'=create, uuid=edit
   const [form, setForm]         = useState<DisciplineForm>(emptyForm());
   const [saving, setSaving]     = useState(false);
+  const [saved,  setSaved]      = useState(false);
 
   // Class disciplines section
   const [classesOpen, setClassesOpen]           = useState(false);
@@ -84,16 +85,20 @@ export default function DisciplinasPage() {
 
   const fetchClassesAndTeachers = useCallback(async () => {
     const [{ data: cls }, { data: tch }] = await Promise.all([
-      supabase.from('school_classes').select('id, name, segment_id').eq('is_active', true).order('name'),
+      supabase.from('school_classes').select('id, name, school_year, segment_id, series:school_series(name)').eq('is_active', true).order('name'),
       supabase.from('profiles').select('id, full_name').in('role', ['teacher', 'coordinator']).eq('is_active', true).order('full_name'),
     ]);
 
-    // Enrich classes with segment name
+    // Enrich classes with segment name + series name
     const segMap = new Map(segments.map((s) => [s.id, s.name]));
-    const enriched = ((cls ?? []) as SchoolClassOption[]).map((c) => ({
-      ...c,
+    const enriched = ((cls ?? []) as any[]).map((c) => ({
+      id: c.id,
+      name: c.name,
+      school_year: c.school_year,
+      segment_id: c.segment_id,
       segment_name: segMap.get(c.segment_id) ?? '',
-    }));
+      series_name: c.series?.name ?? '',
+    })) as SchoolClassOption[];
     setClasses(enriched);
     setTeachers((tch ?? []) as TeacherOption[]);
   }, [segments]);
@@ -172,11 +177,11 @@ export default function DisciplinasPage() {
         logAudit({ action: 'update', module: 'disciplines', recordId: editId!, description: `Disciplina "${payload.name}" atualizada`, newData: payload as Record<string, unknown> });
         console.log('Disciplina atualizada.');
       }
-      setEditId(null);
+      setSaved(true);
       await fetchData();
+      setTimeout(() => { setSaved(false); setEditId(null); }, 900);
     } catch (err) {
       console.error('[DisciplinasPage] save error:', err);
-      console.error('Erro ao salvar disciplina.');
     } finally {
       setSaving(false);
     }
@@ -366,7 +371,7 @@ export default function DisciplinasPage() {
                   <option value="">-- Escolha uma turma --</option>
                   {classes.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}{c.segment_name ? ` (${c.segment_name})` : ''}
+                      {c.series_name ? `${c.series_name} ` : ''}{c.name} {c.school_year}
                     </option>
                   ))}
                 </select>
@@ -484,7 +489,7 @@ export default function DisciplinasPage() {
       {/* ── Create/Edit Drawer ──────────────────────────────────────────────── */}
       <Drawer
         open={editId !== null}
-        onClose={() => setEditId(null)}
+        onClose={() => { setSaved(false); setEditId(null); }}
         title={editId === 'new' ? 'Nova Disciplina' : 'Editar Disciplina'}
         icon={BookOpen}
         footer={
@@ -500,9 +505,12 @@ export default function DisciplinasPage() {
               type="button"
               onClick={saveDiscipline}
               disabled={!form.name || !form.code || saving}
-              className="flex-1 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}
             >
-              {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando...</> : 'Salvar'}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" />
+               : saved  ? <Check className="w-4 h-4" />
+                        : <Save className="w-4 h-4" />}
+              {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
             </button>
           </div>
         }

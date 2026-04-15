@@ -1451,6 +1451,7 @@ export type Database = {
           school_year: number | null
           scope: string
           segment_id: string | null
+          series_id: string | null
           student_id: string | null
           updated_at: string
           valid_from: string | null
@@ -1474,6 +1475,7 @@ export type Database = {
           school_year?: number | null
           scope: string
           segment_id?: string | null
+          series_id?: string | null
           student_id?: string | null
           updated_at?: string
           valid_from?: string | null
@@ -1497,6 +1499,7 @@ export type Database = {
           school_year?: number | null
           scope?: string
           segment_id?: string | null
+          series_id?: string | null
           student_id?: string | null
           updated_at?: string
           valid_from?: string | null
@@ -1529,6 +1532,13 @@ export type Database = {
             columns: ["segment_id"]
             isOneToOne: false
             referencedRelation: "school_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_discounts_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "school_series"
             referencedColumns: ["id"]
           },
           {
@@ -1706,6 +1716,7 @@ export type Database = {
           name: string
           school_year: number
           segment_ids: string[]
+          series_ids: string[]
           updated_at: string
         }
         Insert: {
@@ -1722,6 +1733,7 @@ export type Database = {
           name: string
           school_year?: number
           segment_ids?: string[]
+          series_ids?: string[]
           updated_at?: string
         }
         Update: {
@@ -1738,6 +1750,7 @@ export type Database = {
           name?: string
           school_year?: number
           segment_ids?: string[]
+          series_ids?: string[]
           updated_at?: string
         }
         Relationships: []
@@ -2639,11 +2652,12 @@ export type Database = {
           is_active: boolean | null
           max_students: number | null
           name: string
+          school_year: number
           segment_id: string
+          series_id: string
           shift: string | null
           teacher_ids: string[] | null
           updated_at: string | null
-          year: number
         }
         Insert: {
           created_at?: string | null
@@ -2651,11 +2665,12 @@ export type Database = {
           is_active?: boolean | null
           max_students?: number | null
           name: string
+          school_year?: number
           segment_id: string
+          series_id: string
           shift?: string | null
           teacher_ids?: string[] | null
           updated_at?: string | null
-          year?: number
         }
         Update: {
           created_at?: string | null
@@ -2663,11 +2678,12 @@ export type Database = {
           is_active?: boolean | null
           max_students?: number | null
           name?: string
+          school_year?: number
           segment_id?: string
+          series_id?: string
           shift?: string | null
           teacher_ids?: string[] | null
           updated_at?: string | null
-          year?: number
         }
         Relationships: [
           {
@@ -2675,6 +2691,13 @@ export type Database = {
             columns: ["segment_id"]
             isOneToOne: false
             referencedRelation: "school_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_classes_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "school_series"
             referencedColumns: ["id"]
           },
         ]
@@ -2771,6 +2794,47 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      school_series: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          order_index: number
+          segment_id: string
+          short_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          order_index?: number
+          segment_id: string
+          short_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          order_index?: number
+          segment_id?: string
+          short_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_series_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "school_segments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       site_presets: {
         Row: {
@@ -3738,35 +3802,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      calculate_applicable_discounts:
-        | {
-            Args: {
-              p_amount: number
-              p_plan_id: string
-              p_ref_date?: string
-              p_student_id: string
-            }
-            Returns: {
-              discount_ids: string[]
-              scholarship_ids: string[]
-              total_discount: number
-            }[]
-          }
-        | {
-            Args: {
-              p_amount: number
-              p_due_date?: string
-              p_payment_date?: string
-              p_plan_id: string
-              p_ref_date?: string
-              p_student_id: string
-            }
-            Returns: {
-              discount_ids: string[]
-              scholarship_ids: string[]
-              total_discount: number
-            }[]
-          }
+      calculate_applicable_discounts: {
+        Args: {
+          p_amount: number
+          p_due_date?: string
+          p_payment_date?: string
+          p_plan_id: string
+          p_ref_date?: string
+          p_student_id: string
+        }
+        Returns: {
+          discount_ids: string[]
+          scholarship_ids: string[]
+          total_discount: number
+        }[]
+      }
       calculate_overdue_amounts: {
         Args: { p_installment_id: string }
         Returns: {
@@ -3816,6 +3866,64 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      create_student_with_capacity: {
+        Args: { force?: boolean; payload: Json }
+        Returns: {
+          auth_user_id: string | null
+          birth_date: string | null
+          class_id: string | null
+          cpf: string | null
+          created_at: string | null
+          document_urls: string[] | null
+          enrolled_at: string | null
+          enrollment_id: string | null
+          enrollment_number: string
+          father_cpf: string | null
+          father_email: string | null
+          father_name: string | null
+          father_phone: string | null
+          first_school: boolean | null
+          full_name: string
+          guardian_city: string | null
+          guardian_complement: string | null
+          guardian_cpf: string | null
+          guardian_email: string | null
+          guardian_name: string
+          guardian_neighborhood: string | null
+          guardian_number: string | null
+          guardian_phone: string
+          guardian_state: string | null
+          guardian_street: string | null
+          guardian_zip_code: string | null
+          id: string
+          internal_notes: string | null
+          last_grade: string | null
+          mother_cpf: string | null
+          mother_email: string | null
+          mother_name: string | null
+          mother_phone: string | null
+          origin: string | null
+          previous_school_name: string | null
+          school_year: number | null
+          segment: string | null
+          status: string | null
+          student_city: string | null
+          student_complement: string | null
+          student_neighborhood: string | null
+          student_number: string | null
+          student_state: string | null
+          student_street: string | null
+          student_zip_code: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "students"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       expire_pending_confirmations: { Args: never; Returns: undefined }
       generate_enrollment_number: { Args: never; Returns: string }
       generate_enrollment_numbers: {
@@ -3850,6 +3958,64 @@ export type Database = {
           p_record_id?: string
         }
         Returns: string
+      }
+      move_student_with_capacity: {
+        Args: { p_class_id: string; p_force?: boolean; p_student_id: string }
+        Returns: {
+          auth_user_id: string | null
+          birth_date: string | null
+          class_id: string | null
+          cpf: string | null
+          created_at: string | null
+          document_urls: string[] | null
+          enrolled_at: string | null
+          enrollment_id: string | null
+          enrollment_number: string
+          father_cpf: string | null
+          father_email: string | null
+          father_name: string | null
+          father_phone: string | null
+          first_school: boolean | null
+          full_name: string
+          guardian_city: string | null
+          guardian_complement: string | null
+          guardian_cpf: string | null
+          guardian_email: string | null
+          guardian_name: string
+          guardian_neighborhood: string | null
+          guardian_number: string | null
+          guardian_phone: string
+          guardian_state: string | null
+          guardian_street: string | null
+          guardian_zip_code: string | null
+          id: string
+          internal_notes: string | null
+          last_grade: string | null
+          mother_cpf: string | null
+          mother_email: string | null
+          mother_name: string | null
+          mother_phone: string | null
+          origin: string | null
+          previous_school_name: string | null
+          school_year: number | null
+          segment: string | null
+          status: string | null
+          student_city: string | null
+          student_complement: string | null
+          student_neighborhood: string | null
+          student_number: string | null
+          student_state: string | null
+          student_street: string | null
+          student_zip_code: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "students"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       next_attendance_ticket_number: {
         Args: { p_format: Json; p_sector_key: string }
@@ -3906,6 +4072,24 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      suggest_year_progression: {
+        Args: { target_year: number }
+        Returns: {
+          current_class_id: string
+          current_class_name: string
+          current_school_year: number
+          current_series_id: string
+          current_series_name: string
+          overall_result: string
+          segment_id: string
+          segment_name: string
+          student_id: string
+          student_name: string
+          suggested_action: string
+          suggested_series_id: string
+          suggested_series_name: string
+        }[]
       }
     }
     Enums: {
@@ -4039,3 +4223,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

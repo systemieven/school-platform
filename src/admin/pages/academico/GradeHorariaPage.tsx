@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import type { SchoolClass, ClassSchedule, Discipline, ClassDiscipline } from '../../types/admin.types';
 import { DAY_OF_WEEK_SHORT } from '../../types/admin.types';
 import {
-  CalendarClock, Loader2, Clock, FileDown, AlertTriangle,
+  CalendarClock, Check, Clock, FileDown, AlertTriangle, Loader2, Save, Trash2,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 
@@ -41,7 +41,7 @@ function getInitials(name: string): string {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function GradeHorariaPage() {
-  const [classes, setClasses] = useState<(SchoolClass & { segment_name?: string })[]>([]);
+  const [classes, setClasses] = useState<(SchoolClass & { segment_name?: string; series_name?: string })[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [schedules, setSchedules] = useState<ClassSchedule[]>([]);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
@@ -57,6 +57,7 @@ export default function GradeHorariaPage() {
   const [formDisciplineId, setFormDisciplineId] = useState('');
   const [formTeacherId, setFormTeacherId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
   const [teachers, setTeachers] = useState<{ id: string; full_name: string }[]>([]);
 
   // ── Fetch classes ───────────────────────────────────────────────────────────
@@ -64,7 +65,7 @@ export default function GradeHorariaPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('school_classes')
-      .select('*, segment:school_segments(name)')
+      .select('*, segment:school_segments(name), series:school_series(name)')
       .eq('is_active', true)
       .order('name');
 
@@ -76,6 +77,7 @@ export default function GradeHorariaPage() {
     const mapped = (data ?? []).map((c: any) => ({
       ...c,
       segment_name: c.segment?.name ?? '',
+      series_name: c.series?.name ?? '',
     }));
     setClasses(mapped);
     setLoading(false);
@@ -218,9 +220,9 @@ export default function GradeHorariaPage() {
     if (error) {
       console.error('Erro ao salvar horário');
     } else {
-      console.log('Horário salvo');
-      setDrawerOpen(false);
+      setSaved(true);
       fetchSchedule(selectedClassId);
+      setTimeout(() => { setSaved(false); setDrawerOpen(false); }, 900);
     }
     setSaving(false);
   }
@@ -266,7 +268,7 @@ export default function GradeHorariaPage() {
             <option value="">Selecione uma turma</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} {c.segment_name ? `(${c.segment_name})` : ''}
+                {c.series_name ? `${c.series_name} ` : ''}{c.name} {c.school_year}{c.segment_name ? ` · ${c.segment_name}` : ''}
               </option>
             ))}
           </select>
@@ -384,25 +386,29 @@ export default function GradeHorariaPage() {
               <button
                 onClick={handleDelete}
                 disabled={saving}
-                className="px-4 py-2 text-sm font-medium rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
+                <Trash2 className="w-3.5 h-3.5" />
                 Remover
               </button>
             )}
             <div className="flex-1" />
             <button
-              onClick={() => setDrawerOpen(false)}
-              className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              onClick={() => { setSaved(false); setDrawerOpen(false); }}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 text-sm font-medium rounded-xl bg-brand-primary text-white hover:bg-brand-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2"
+              disabled={saving || saved}
+              className={`px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}
             >
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Salvar
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" />
+               : saved  ? <Check className="w-4 h-4" />
+                        : <Save className="w-4 h-4" />}
+              {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
             </button>
           </div>
         }

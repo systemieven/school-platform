@@ -10,7 +10,7 @@
  *  4. On submit → calls Edge Function `change-password`
  */
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff, KeyRound, Lock, ShieldCheck } from 'lucide-react';
+import { Check, Eye, EyeOff, KeyRound, Lock, Loader2, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { DEFAULT_PASSWORD_POLICY, type PasswordPolicy } from '../types/admin.types';
@@ -156,15 +156,12 @@ export default function ChangePasswordDrawer({ open, onClose }: Props) {
           <button
             onClick={handleSave}
             disabled={saving || !canSubmit || saved}
-            className="flex-1 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}
           >
-            {saving ? (
-              <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Salvando…</>
-            ) : saved ? (
-              'Senha alterada!'
-            ) : (
-              'Alterar senha'
-            )}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" />
+             : saved  ? <Check className="w-4 h-4" />
+                      : <ShieldCheck className="w-4 h-4" />}
+            {saving ? 'Salvando…' : saved ? 'Senha alterada!' : 'Alterar senha'}
           </button>
         </div>
       }

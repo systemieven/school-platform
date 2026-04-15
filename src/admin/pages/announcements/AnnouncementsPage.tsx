@@ -1201,7 +1201,7 @@ export default function AnnouncementsPage() {
         .select('*, creator:profiles(full_name), reads:announcement_reads(user_id)')
         .order('publish_at', { ascending: false }),
       supabase.from('school_segments').select('id, name').eq('is_active', true).order('position'),
-      supabase.from('school_classes').select('id, name, year, segment_id').eq('is_active', true).order('name'),
+      supabase.from('school_classes').select('id, name, school_year, segment_id, series_id').eq('is_active', true).order('name'),
     ]);
     setItems((annRes.data ?? []) as Announcement[]);
     setSegments((segRes.data ?? []) as SchoolSegment[]);

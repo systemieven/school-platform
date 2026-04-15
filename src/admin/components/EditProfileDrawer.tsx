@@ -7,7 +7,7 @@
  *   - Email and role are read-only
  */
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Mail, Phone, Shield, Trash2, User } from 'lucide-react';
+import { Camera, Check, Loader2, Mail, Phone, Shield, Trash2, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { ROLE_LABELS } from '../types/admin.types';
@@ -178,15 +178,12 @@ export default function EditProfileDrawer({ open, onClose }: Props) {
             <button
               onClick={handleSave}
               disabled={saving || !isDirty || saved}
-              className="flex-1 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}
             >
-              {saving ? (
-                <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Salvando…</>
-              ) : saved ? (
-                'Salvo!'
-              ) : (
-                'Salvar alterações'
-              )}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" />
+               : saved  ? <Check className="w-4 h-4" />
+                        : <User className="w-4 h-4" />}
+              {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar perfil'}
             </button>
           </div>
         }

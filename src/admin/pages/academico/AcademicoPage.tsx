@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   School, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
-  PanelLeftClose, PanelLeftOpen,
+  CalendarRange, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import SegmentsPage from '../school/SegmentsPage';
 import DisciplinasPage from './DisciplinasPage';
@@ -11,6 +11,7 @@ import BoletimPage from './BoletimPage';
 import ResultadoFinalPage from './ResultadoFinalPage';
 import AlertasFrequenciaPage from './AlertasFrequenciaPage';
 import HistoricoEscolarPage from './HistoricoEscolarPage';
+import AnoLetivoPage from './AnoLetivoPage';
 
 interface TabDef {
   key: string;
@@ -76,6 +77,13 @@ const TABS: TabDef[] = [
     shortLabel: 'Histórico',
     icon: ScrollText,
     description: 'Histórico escolar e transcrições dos alunos',
+  },
+  {
+    key: 'ano-letivo',
+    label: 'Ano Letivo',
+    shortLabel: 'Ano Letivo',
+    icon: CalendarRange,
+    description: 'Sugestões de progressão de série para o próximo ano letivo',
   },
 ];
 
@@ -177,6 +185,7 @@ export default function AcademicoPage() {
               {activeTab === 'resultado' && <ResultadoFinalPage />}
               {activeTab === 'alertas' && <AlertasFrequenciaPage />}
               {activeTab === 'historico' && <HistoricoEscolarPage />}
+              {activeTab === 'ano-letivo' && <AnoLetivoPage />}
             </div>
           </div>
         </div>

@@ -3,8 +3,8 @@ import { supabase } from '../../../lib/supabase';
 import type { SchoolCalendarEvent, CalendarEventType } from '../../types/admin.types';
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } from '../../types/admin.types';
 import {
-  Calendar, ChevronLeft, ChevronRight, Loader2, List, LayoutGrid,
-  Plus, Pencil, Trash2, CalendarDays,
+  Calendar, CalendarDays, Check, ChevronLeft, ChevronRight, LayoutGrid,
+  List, Loader2, Pencil, Plus, Trash2,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 
@@ -137,6 +137,7 @@ export default function CalendarioPage() {
   const [editingEvent, setEditingEvent] = useState<SchoolCalendarEvent | null>(null);
   const [form, setForm] = useState<EventForm>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
 
   const schoolYear = currentDate.getFullYear();
 
@@ -264,8 +265,9 @@ export default function CalendarioPage() {
     if (error) {
       console.error('Erro ao salvar evento:', error);
     } else {
-      setDrawerOpen(false);
+      setSaved(true);
       fetchEvents();
+      setTimeout(() => { setSaved(false); setDrawerOpen(false); }, 900);
     }
     setSaving(false);
   }
@@ -535,18 +537,21 @@ export default function CalendarioPage() {
             )}
             <div className="flex-1" />
             <button
-              onClick={() => setDrawerOpen(false)}
-              className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              onClick={() => { setSaved(false); setDrawerOpen(false); }}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 text-sm font-medium rounded-xl bg-brand-primary text-white hover:bg-brand-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2"
+              disabled={saving || saved}
+              className={`px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}
             >
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Salvar
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" />
+               : saved  ? <Check className="w-4 h-4" />
+                        : <CalendarDays className="w-4 h-4" />}
+              {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
             </button>
           </div>
         }

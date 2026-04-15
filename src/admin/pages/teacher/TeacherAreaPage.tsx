@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
-import type { SchoolClass, SchoolSegment } from '../../types/admin.types';
+import type { SchoolClass, SchoolSegment, SchoolSeries } from '../../types/admin.types';
 import { SHIFT_LABELS } from '../../types/admin.types';
 import {
   BookOpen, LayoutDashboard, Users, FileText, ClipboardList, Star, CalendarCheck, ChevronDown,
@@ -29,6 +29,7 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ className?: s
 
 interface ClassWithSegment extends SchoolClass {
   segment?: SchoolSegment | null;
+  series?: SchoolSeries | null;
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -46,7 +47,7 @@ export default function TeacherAreaPage() {
     async function loadClasses() {
       let query = supabase
         .from('school_classes')
-        .select('*, segment:school_segments(*)');
+        .select('*, segment:school_segments(*), series:school_series(*)');
 
       // Teachers only see their own classes
       if (!hasRole('super_admin', 'admin', 'coordinator')) {
@@ -99,7 +100,7 @@ export default function TeacherAreaPage() {
             >
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} {c.year} {c.shift ? `· ${SHIFT_LABELS[c.shift]}` : ''} {c.segment ? `· ${(c.segment as SchoolSegment).name}` : ''}
+                  {c.series ? `${(c.series as SchoolSeries).name} ` : ''}{c.name} {c.school_year} {c.shift ? `· ${SHIFT_LABELS[c.shift]}` : ''}
                 </option>
               ))}
             </select>

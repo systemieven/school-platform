@@ -2,7 +2,7 @@
 
 > **Versao**: 3.2
 > **Data**: 14 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-8 concluidas) + roadmap ate v1
+> **Status**: Documento unificado — estado atual (Fases 1-8 concluidas; Fase 9 parcialmente concluida) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -20,7 +20,7 @@
 9. [Rotas e Navegacao](#9-rotas-e-navegacao)
 10. [Roadmap de Desenvolvimento](#10-roadmap-de-desenvolvimento)
     - 10.1 Visao Geral das Fases
-    - 10.2 Fases Concluidas (6-8)
+    - 10.2 Fases Concluidas (6-9)
     - 10.3 Fase 8 — Modulo Financeiro (CONCLUIDA)
     - 10.4 Fase 9 — Academico Completo
     - 10.5 Fase 10 — Portal do Responsavel
@@ -451,17 +451,127 @@ Embutido nas configuracoes (aba WhatsApp) com 3 sub-abas:
 
 ---
 
-### 4.10 Segmentos, Turmas e Alunos
+### 4.10 Seguimentos, Series, Turmas e Alunos
 
-**Rotas**: `/admin/segmentos`, `/admin/alunos`
+**Rotas**: `/admin/segmentos` (redireciona para `/admin/academico`), `/admin/alunos`
 **Roles**: super_admin, admin, coordinator
 
-- **CRUD de segmentos**: Educacao Infantil, Fund. I, Fund. II, Ensino Medio
-- **CRUD de turmas** por segmento: nome, ano, turno (morning/afternoon/full), max alunos, professores atribuidos
-- **Atribuicao de coordenadores** por segmento
-- **Atribuicao de professores** por turma (array de IDs)
-- **Gestao de alunos**: ficha completa (dados pessoais, responsavel, turma, status)
-- **Conversao de pre-matricula** em aluno: gera enrollment_number, vincula a turma
+> ✅ **HIERARQUIA 3-NIVEIS APLICADA — 2026-04-15** (PR1+PR2+PR3, migrations 61-63)
+>
+> Modelo `school_segments → school_series → school_classes` aplicado completo: backbone, regras de negocio (capacidade + progressao) e granularidade financeira por serie. Detalhes em **10.4C.1** a **10.4C.7**.
+>
+> Descricao original (OBSOLETA — mantida para rastreabilidade):
+> ~~CRUD de turmas por segmento: nome, ano, turno, max alunos, professores atribuidos~~
+> ~~Tabela unica `school_classes` com FK direto para `school_segments`~~
+
+#### 4.10.A Hierarquia Correta (3 niveis)
+
+```
+Seguimento
+  └── Serie (1..N por seguimento)
+        └── Turma (1..N por serie, por ano letivo)
+              └── Alunos matriculados
+```
+
+---
+
+##### Seguimento (`school_segments` — tabela existente, modelo valido)
+
+Agrupamento de series por faixa etaria. Exemplos: Educacao Infantil, Fundamental I, Fundamental II, Ensino Medio.
+
+| Campo | Tipo | Descricao |
+|-------|------|-----------|
+| `name` | text | Nome do seguimento |
+| `slug` | text | Identificador URL |
+| `description` | text | Descricao opcional |
+| `coordinator_ids` | uuid[] | **1 ou 2 coordenadores** responsaveis pelo seguimento |
+| `position` | int | Ordem de exibicao |
+| `is_active` | boolean | — |
+
+Regras:
+- Cada seguimento tem 0, 1 ou 2 coordenadores (nao ha limite formal, mas a pratica e 1–2).
+- Coordenadores do seguimento tem acesso a todas as series e turmas daquele seguimento.
+
+---
+
+##### Serie (`school_series` — **TABELA NOVA, NAO EXISTE AINDA**)
+
+Estagio escolar do aluno dentro de um seguimento. Exemplos: 1º Ano, 2º Ano, 3º Ano, Maternal I, Maternal II.
+
+| Campo | Tipo | Descricao |
+|-------|------|-----------|
+| `segment_id` | uuid FK | Seguimento pai |
+| `name` | text | Nome completo: "1º Ano", "2º Ano", etc. |
+| `short_name` | text | Abreviacao para display: "1A", "2A" |
+| `order_index` | int | Ordem dentro do seguimento (define progressao) |
+| `is_active` | boolean | — |
+
+Regras:
+- Series sao cadastradas **uma unica vez** e reutilizadas indefinidamente.
+- Alunos **avancam de serie** ao final do ano letivo (aprovados) ou **permanecem** (reprovados).
+- Series sao independentes de ano letivo — elas existem permanentemente no seguimento.
+- Nao e possivel excluir uma serie que tenha turmas ou alunos associados.
+
+---
+
+##### Turma (`school_classes` — **TABELA EXISTENTE, PRECISA DE MIGRACAO**)
+
+Subdivisao organizacional dentro de uma serie para um determinado ano letivo. Exemplo: "1º Ano A 2026", "1º Ano B 2026".
+
+| Campo | Tipo | Status | Descricao |
+|-------|------|--------|-----------|
+| `series_id` | uuid FK | **NOVO** | Serie a qual a turma pertence |
+| `segment_id` | uuid FK | ~~Deprecado~~ | Substituido por `series_id → segment_id`; manter por compatibilidade durante migracao |
+| `school_year` | int | Renomear de `year` | Ano letivo (ex.: 2026) |
+| `name` | text | Existente | Letra identificadora: "A", "B", "C" |
+| `shift` | text | Existente | morning / afternoon / full |
+| `max_students` | int | Existente | **Capacidade maxima da turma** |
+| `teacher_ids` | uuid[] | Existente | Professores atribuidos |
+| `is_active` | boolean | Existente | — |
+
+Regras:
+- Turmas sao criadas a cada ano letivo e podem ter capacidade, turno e professores diferentes entre anos.
+- O **nome** da turma e apenas a letra (A, B, C); o nome completo e exibido como `{serie.name} {turma.name} {school_year}` — ex.: "1º Ano A 2026".
+- **Limite de capacidade**: ao atingir `max_students`, nenhum aluno pode ser adicionado a turma sem autorizacao explicita de um gestor (role `admin` ou `super_admin`) com confirmacao de senha/pin.
+- Alunos podem **transferir de turma** durante o ano, mas NAO podem mudar de serie.
+- Pre-matriculas do proximo ano letivo vao preenchendo as novas turmas a medida que sao confirmadas.
+- Turmas **sem serie** (legadas) devem ser migradas antes de habilitar o novo fluxo.
+
+---
+
+#### 4.10.B Fluxo de Ano Letivo
+
+```
+1. Admin cria as turmas do proximo ano (school_year = N+1), vinculadas as series existentes.
+2. Pre-matriculas de veteranos sao confirmadas → aluno e movido para a turma do novo ano.
+3. Pre-matriculas de novos → aluno criado e vinculado a turma.
+4. Ao atingir max_students: novas tentativas sao bloqueadas no sistema.
+   - Gestor pode autorizar com override (role admin+, confirmacao de senha).
+5. Ao final do ano letivo: resultado final determina se aluno avanca de serie ou repete.
+6. Inicio do proximo ano: alunos aprovados sao vinculados a turma da serie seguinte.
+```
+
+---
+
+#### 4.10.C Impacto em Tabelas Existentes
+
+As tabelas abaixo possuem FK para `school_classes.id` e serao afetadas pela migracao:
+
+| Tabela | FK atual | Acao necessaria |
+|--------|----------|-----------------|
+| `students` | `class_id` | Manter; agora aponta para turma do ano letivo corrente |
+| `class_disciplines` | `class_id` | Manter; vinculo disciplina+professor e por turma |
+| `class_schedules` | `class_id` | Manter; grade horaria e por turma |
+| `student_results` | `class_id` | Manter; resultado e por aluno+turma+ano |
+| `student_transcripts` | `class_id` | Manter; historico ja tem `school_year` |
+| `financial_discounts` | `class_id` | Manter; desconto por turma |
+| `grade_formulas` | `segment_id` | Avaliar se deve migrar para `series_id` (mais granular) |
+
+---
+
+**Gestao de alunos** (inalterada):
+- Ficha completa: dados pessoais, responsavel, turma, status
+- Conversao de pre-matricula em aluno: gera enrollment_number, vincula a turma do ano letivo
 
 ---
 
@@ -681,7 +791,7 @@ Gerencia mensalidades, cobrancas, descontos, bolsas, templates de contrato, inad
 **Rota**: `/admin/configuracoes`
 **Roles**: super_admin, admin
 
-Interface com **13 abas** (incluindo sub-abas), cada uma com cards recolhiveis (`SettingsCard`) e botao salvar flutuante. A aba "Site" contem 5 sub-abas: Aparencia, Branding, Navegacao, Conteudo e SEO.
+Interface com **14 abas** (incluindo sub-abas), cada uma com cards recolhiveis (`SettingsCard`) e botao salvar flutuante. A aba "Site" contem 5 sub-abas: Aparencia, Branding, Navegacao, Conteudo e SEO.
 
 ### 5.1 Dados Institucionais
 
@@ -801,6 +911,16 @@ Painel proprio (`FinancialSettingsPanel`) com botao salvar flutuante (dirty trac
 | Regua de Cobranca WhatsApp | CRUD de etapas com offset em dias (D-5, D+3, etc.) + label customizado; toggle habilitado; seletor de template WhatsApp (categoria `financeiro`); sem presets fixos — cada escola define sua propria regua |
 | Chave PIX para Cobrancas | Select tipo (CPF/CNPJ/Email/Telefone/Aleatoria) + input valor; usada nas notificacoes e portal |
 
+### 5.14 Academico
+
+**Categoria**: `academic` — Painel proprio (`AcademicoSettingsPanel`). Adicionado na Fase 9.
+
+| Card | Descricao |
+|------|-----------|
+| Periodos Letivos | Tipo (bimestre/trimestre/semestre), datas de inicio/fim por periodo |
+| Formula de Media | Por segmento: tipo (simples/ponderada/por_periodo/customizada), pesos, nota minima de aprovacao, nota minima de recuperacao, frequencia minima (%), escala numerica ou conceitual |
+| Alertas de Frequencia | Thresholds de % de presenca para disparo de alerta WhatsApp ao responsavel |
+
 ---
 
 ## 6. Aparencia e Site Institucional
@@ -918,9 +1038,10 @@ Configuravel na aba Aparencia > Home:
 #### Academico
 | Tabela | Descricao |
 |--------|-----------|
-| `school_segments` | Segmentos escolares (Ed. Infantil, Fund. I/II, Medio) |
-| `school_classes` | Turmas por segmento com professores atribuidos |
-| `students` | Alunos matriculados com enrollment_number e vinculo a turma |
+| `school_segments` | Seguimentos escolares (Ed. Infantil, Fund. I/II, Medio) com coordinator_ids |
+| `school_series` | ⚠️ **NOVA — migration pendente** Series por seguimento (1º Ano, 2º Ano…); permanentes entre anos letivos |
+| `school_classes` | ⚠️ **MIGRACAO PENDENTE** Turmas por serie + ano letivo; receber FK `series_id`; campo `year` → renomear `school_year` |
+| `students` | Alunos matriculados com enrollment_number e vinculo a turma do ano letivo corrente |
 | `activities` | Atividades (homework, test, project, quiz) por turma |
 | `grades` | Notas por aluno, atividade, periodo |
 | `student_attendance` | Frequencia diaria (present/absent/justified/late). Nota: renomeada de `attendance` para evitar ambiguidade com `attendance_tickets` (fila presencial) |
@@ -965,7 +1086,7 @@ Configuravel na aba Aparencia > Home:
 | `library-resources` | Privado (signed URL) | PDFs, videos, imagens da biblioteca |
 | `avatars` | Publico | Fotos de perfil dos usuarios |
 
-### 7.3 Migrations Aplicadas (58)
+### 7.3 Migrations Aplicadas (61)
 
 | # | Nome | Data | Descricao |
 |---|------|------|-----------|
@@ -1027,6 +1148,10 @@ Configuravel na aba Aparencia > Home:
 | 57 | `financial_plans_grace_progressive` | 14/04 | DROP `punctuality_discount_pct`; ADD `grace_days` em plans; ADD `progressive_rules` JSONB em discounts; RPC com `payment_date` |
 | 58 | `financial_plans_rename_max_overdue` | 14/04 | Rename `grace_days` → `max_overdue_days` (0-90); semantica de prazo maximo no portal antes da cobranca extrajudicial |
 | 59 | `drop_contract_discount` | 14/04 | DROP `discount_type` / `discount_value` de `financial_contracts`; fonte unica de desconto = modulo Descontos |
+| 60 | `financial_contracts_signed_documents` | 14/04 | Suporte a documentos assinados em contratos financeiros |
+| 61 | `school_series_hierarchy` | 15/04 | PR1 — tabela `school_series` + `series_id NOT NULL` em `school_classes` + rename `year → school_year` |
+| 62 | `capacity_and_year_progression` | 15/04 | PR2 — trigger `check_class_capacity` + RPCs `create_student_with_capacity`, `move_student_with_capacity`, `suggest_year_progression` |
+| 63 | `financial_series_scope` | 15/04 | PR3 — `financial_plans.series_ids[]`, `financial_discounts.series_id`, RPC `calculate_applicable_discounts` reescrita derivando series/segment via JOIN com prioridade student → class → series → segment → plan → global |
 
 ### 7.4 RLS Policies
 
@@ -1195,7 +1320,7 @@ Configuravel na aba Aparencia > Home:
 
 *admin+ = super_admin, admin, coordinator*
 
-### 9.4 Portal do Aluno — Rotas Implementadas (9 rotas)
+### 9.4 Portal do Aluno — Rotas Implementadas (10 rotas)
 
 | Rota | Componente |
 |------|-----------|
@@ -1203,20 +1328,19 @@ Configuravel na aba Aparencia > Home:
 | `/portal` | DashboardPage |
 | `/portal/atividades` | ActivitiesPage |
 | `/portal/notas` | GradesPage |
+| `/portal/grade` | GradePage (grade horaria pessoal — Fase 9) |
 | `/portal/comunicados` | AnnouncementsPage |
 | `/portal/biblioteca` | LibraryPage |
 | `/portal/eventos` | EventsPage |
 | `/portal/financeiro` | FinanceiroPage |
 | `/portal/perfil` | ProfilePage |
 
-### 9.5 Admin — Rotas Planejadas (12 novas)
+### 9.5 Admin — Rotas Planejadas (8 novas)
+
+> **Nota Fase 9**: As rotas de Disciplinas, Grade Horaria, Calendario Letivo e Boletim foram implementadas como **abas internas** de `/admin/academico` (nao como rotas separadas). O redirect `/admin/segmentos` → `/admin/academico` tambem esta ativo.
 
 | Rota | Modulo | Roles | Fase |
 |------|--------|-------|------|
-| `/admin/disciplinas` | Disciplinas | admin+ | 9 |
-| `/admin/grade-horaria` | Grade Horaria | admin+ | 9 |
-| `/admin/calendario` | Calendario Letivo | admin+ | 9 |
-| `/admin/boletim` | Boletim Formal | admin+ | 9 |
 | `/admin/ocorrencias` | Ocorrencias | admin+, teacher | 10 |
 | `/admin/autorizacoes` | Autorizacoes | admin+ | 10 |
 | `/admin/secretaria/declaracoes` | Declaracoes | admin+ | 11 |
@@ -1245,11 +1369,12 @@ Configuravel na aba Aparencia > Home:
 | `/responsavel/perfil` | PerfilPage | Dados pessoais, troca de senha, dados do filho |
 | `/responsavel/biblioteca` | BibliotecaPage | Materiais da turma |
 
-### 9.7 Portal do Aluno — Rotas Planejadas (2 novas)
+### 9.7 Portal do Aluno — Rotas Planejadas (1 nova)
+
+> **Nota Fase 9**: `/portal/grade` ja foi implementada e movida para a secao 9.4.
 
 | Rota | Pagina | Fase |
 |------|--------|------|
-| `/portal/grade` | GradeHorariaPage | 9 |
 | `/portal/diario` | DiarioPage (read-only) | 12 |
 
 ---
@@ -1264,13 +1389,15 @@ Configuravel na aba Aparencia > Home:
 | 6 | Governanca e Escala (permissoes, modulos, audit) | ✅ Concluido | — | 1-5 |
 | 7 | Whitelabel (personalizacao total, multi-tenant) | ✅ Concluido | — | 6 |
 | 8 | Modulo Financeiro | ✅ Concluido | Critica | 7 |
-| 9 | Academico Completo | ⏳ Pendente | Critica | 7 |
-| 10 | Portal do Responsavel | ⏳ Pendente | Critica | 8 + 9 |
+| 9 | Academico Completo | 🔄 Em andamento | Critica | 7 |
+| ⚠️ 9.M | **Migracao Arquitetural: Seguimento→Serie→Turma** | ⏳ Pendente (BLOQUEANTE) | Critica | 1-5 (gap) |
+| 9.5 | Dashboards Analiticos (Financeiro + Academico) | ⏳ Pendente | Alta | 8 + 9 |
+| 10 | Portal do Responsavel | ⏳ Pendente | Critica | 8 + 9 + 9.M |
 | 11 | Secretaria Digital | ⏳ Pendente | Alta | 10 |
 | 12 | Modulo Pedagogico | ⏳ Pendente | Media | 9 |
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
 
-**Dependencias**: Fase 9 e a proxima prioridade (pode ser desenvolvida imediatamente). Fase 10 depende de 8+9. Fase 11 depende de 10. Fase 12 depende de 9. Fase 13 depende de 8+9+10 (dados suficientes para insights).
+**Dependencias**: Fase 9 e a proxima prioridade (pode ser desenvolvida imediatamente). Fase 9.5 pode ser desenvolvida em paralelo com os itens restantes da Fase 9. Fase 10 depende de 8+9. Fase 11 depende de 10. Fase 12 depende de 9. Fase 13 depende de 8+9+10 (dados suficientes para insights).
 
 **Pre-requisitos transversais** (antes das fases 9-12):
 - ✅ Renomear tabela `attendance` → `student_attendance` (migration 43)
@@ -1373,21 +1500,24 @@ Implementado em 12 de abril de 2026, refinado em 14 de abril de 2026 (sync merge
 
 ### 10.4 Fase 9 — Academico Completo
 
+**Status**: 🔄 Em andamento — UI e backend concluidos; WhatsApp academico pendente
+
 **Objetivo**: Completar o modulo academico com disciplinas, grade horaria, calendario letivo, boletim formal com formula configuravel, resultado final e historico escolar.
 
 **Dependencias**: Fases 7 e 8 (ambas concluidas)
 
 #### 9.1 Sub-modulos
 
-| Feature | Descricao | Prioridade |
-|---------|-----------|------------|
-| Disciplinas | CRUD com nome, codigo, carga horaria, cor, associacao por segmento, atribuicao turma+professor (class_disciplines) | Alta |
-| Grade Horaria | Cadastro por turma: dia x horario x disciplina x professor; visualizacao em grade; conflito de professor; export PDF | Alta |
-| Calendario Letivo | Periodos configuraveis (bimestres/trimestres/semestres); tipos de evento (holiday, exam_period, recess, deadline, institutional); visao mensal/anual | Alta |
-| Boletim Formal | Formula de media configuravel por segmento (simples, ponderada, por periodo, customizada); nota minima aprovacao/recuperacao; frequencia minima; escala numerica ou conceitual | Alta |
-| Resultado Final | Calculo automatico ao fechar periodo: aprovado/recuperacao/reprovado (nota)/reprovado (falta); tabela student_results | Alta |
-| Alertas de Frequencia | Calculo de % por disciplina/periodo/ano; alerta WhatsApp ao responsavel ao atingir X% de faltas; painel de alunos em risco | Media |
-| Historico Escolar | Registro automatico ao fechar ano letivo; visualizacao formal; export PDF; tabela student_transcripts | Media |
+| Feature | Descricao | Prioridade | Status |
+|---------|-----------|------------|--------|
+| Disciplinas | CRUD com nome, codigo, carga horaria, cor, associacao por segmento, atribuicao turma+professor (class_disciplines) | Alta | ✅ Concluido |
+| Grade Horaria | Cadastro por turma: dia x horario x disciplina x professor; visualizacao em grade; conflito de professor; export PDF | Alta | ✅ Concluido |
+| Calendario Letivo | Periodos configuraveis (bimestres/trimestres/semestres); tipos de evento (holiday, exam_period, recess, deadline, institutional); visao mensal/anual | Alta | ✅ Concluido |
+| Boletim Formal | Formula de media configuravel por segmento (simples, ponderada, por periodo, customizada); nota minima aprovacao/recuperacao; frequencia minima; escala numerica ou conceitual | Alta | ✅ Concluido |
+| Resultado Final | Calculo automatico ao fechar periodo: aprovado/recuperacao/reprovado (nota)/reprovado (falta); tabela student_results | Alta | ✅ Concluido |
+| Alertas de Frequencia | Calculo de % por disciplina/periodo/ano; alerta WhatsApp ao responsavel ao atingir X% de faltas; painel de alunos em risco | Media | ✅ Concluido |
+| Historico Escolar | Registro automatico ao fechar ano letivo; visualizacao formal; export PDF; tabela student_transcripts | Media | ✅ Concluido |
+| WhatsApp categoria `academico` | 5 templates: nota-baixa, alerta-faltas, resultado-final, nova-atividade, prazo-atividade; seed via migration 52 | Alta | ✅ Concluido (migration 52) |
 
 #### 9.2 Tabelas
 
@@ -1454,6 +1584,293 @@ Implementado em 12 de abril de 2026, refinado em 14 de abril de 2026 (sync merge
 | `students` | `student_results` + `student_transcripts` |
 | Portal do Aluno | Grade horaria + calendario + boletim enriquecido |
 | `school_events` | Integracao com calendario letivo |
+
+---
+
+### 10.4B Fase 9.5 — Dashboards Analiticos com Graficos Personalizaveis
+
+**Objetivo**: Enriquecer os dashboards dos modulos Financeiro e Academico com KPIs contextuais, graficos nativos e uma area de graficos personalizaveis pelo usuario (tipo, fonte de dados, periodo), persistidos no banco como templates editaveis a qualquer momento.
+
+**Dependencias**: Fases 8 e 9 concluidas (dados suficientes para analise). Pode ser desenvolvida em paralelo com itens restantes da Fase 9.
+
+**Biblioteca de graficos**: Recharts `2.x` — instalar pinado sem caret (`"recharts": "2.15.0"`).
+
+#### 9.5.1 Sub-modulos
+
+| Feature | Descricao | Prioridade |
+|---------|-----------|------------|
+| **Financial Dashboard — Graficos** | Adicionar secao de graficos personalizaveis em `FinancialDashboardPage`, abaixo dos KPIs existentes; manter KPIs atuais intactos | Alta |
+| **Academic Dashboard — Nova Aba** | Nova aba "Dashboard" como primeira aba de `AcademicoPage`; KPIs fixos + widget de eventos da semana + area de graficos personalizaveis | Alta |
+| **ChartBuilderDrawer (compartilhado)** | Componente `src/admin/components/ChartBuilderDrawer.tsx`: drawer de criacao/edicao de widget; seletor de tipo (galeria de thumbnails), fonte de dados, periodo, titulo; salva em `dashboard_widgets` | Alta |
+| **ChartWidget (compartilhado)** | Componente `src/admin/components/ChartWidget.tsx`: renderiza um widget a partir de sua config JSONB; busca dados de acordo com `data_source`; suporta todos os tipos de grafico | Alta |
+
+#### 9.5.2 Componente ChartBuilderDrawer — UX
+
+Drawer padrao (`<Drawer>` + `<DrawerCard>`) de 560px, footer com Cancelar + Salvar Widget (3 estados):
+
+1. **Titulo** — campo de texto livre (`DrawerCard "Identificacao" icon={Tag}`)
+2. **Tipo de grafico** — galeria de thumbnails 3-col com icones SVG miniatura (`DrawerCard "Tipo de Grafico" icon={BarChart2}`):
+   - Barras verticais, Barras horizontais, Linha, Area preenchida, Pizza, Rosca, Metrica grande
+3. **Fonte de dados** — select descritivo com label + descricao resumida do que o grafico mostra (`DrawerCard "Dados" icon={Database}`)
+4. **Periodo** — select: Ultimos 3 meses, Ultimos 6 meses, Ultimo ano, Ano atual, Ano anterior (`DrawerCard "Periodo" icon={Calendar}`)
+
+#### 9.5.3 UX do Painel de Graficos (em ambos os modulos)
+
+- Grid responsivo: 1 col em tablet, 2 cols em desktop, 3 cols em wide (minimo 320px por widget)
+- Botao `+ Adicionar Grafico` (icone `LayoutDashboard`) abre ChartBuilderDrawer
+- Cada widget tem menu de acoes no hover: `Pencil` (editar) + `Trash2` (remover com confirmacao inline)
+- Empty state: ilustracao + "Nenhum grafico adicionado. Clique em + Adicionar para comecar."
+- Skeleton loading enquanto dados carregam (pulse animation)
+- Altura fixa de 280px por widget para grid uniforme
+
+#### 9.5.4 Academic Dashboard — KPIs Fixos (nao personalizaveis)
+
+Sempre exibidos no topo, antes da area de graficos personalizaveis:
+
+| KPI | Dado | Fonte |
+|-----|------|-------|
+| Taxa de ocupacao | Alunos matriculados / vagas totais das turmas | `school_classes` |
+| Indice de frequencia | Media de % de presenca de todos os alunos ativos | `student_attendance` |
+| Media geral | Media das medias finais do ultimo periodo fechado | `student_results` |
+| Alertas ativos | Alunos com % frequencia abaixo do threshold configurado | `student_results` |
+| Eventos esta semana | Contagem de eventos no calendário letivo nos proximos 7 dias | `school_calendar_events` |
+
+Widget adicional fixo: **"Proximos Eventos"** — lista dos proximos 5 eventos do calendario letivo (icone por tipo, data relativa, cor da categoria). Link "Ver calendario" aponta para a aba Calendario Letivo.
+
+#### 9.5.5 Fontes de Dados Disponiveis
+
+**Modulo Financeiro** (`module = 'financeiro'`):
+
+| data_source | Descricao | Tipos Sugeridos |
+|-------------|-----------|-----------------|
+| `revenue_by_month` | Receita recebida mes a mes (ultimos N meses) | bar, line, area |
+| `overdue_trend` | Evolucao do valor inadimplente mes a mes | line, area |
+| `contracts_by_segment` | Contratos ativos agrupados por segmento | pie, donut |
+| `installments_status_dist` | Distribuicao de parcelas: pago/pendente/vencido/bloq. | pie, donut |
+| `collection_funnel` | Pago vs Pendente vs Vencido (valor total por status) | bar_horizontal |
+| `monthly_revenue_vs_overdue` | Receita recebida x inadimplencia por mes | bar (grouped) |
+
+**Modulo Academico** (`module = 'academico'`):
+
+| data_source | Descricao | Tipos Sugeridos |
+|-------------|-----------|-----------------|
+| `class_occupancy` | Ocupacao (%) por turma | bar |
+| `attendance_by_class` | Indice medio de presenca por turma | bar |
+| `grades_distribution` | Distribuicao de medias por faixa (0-4, 4-6, 6-8, 8-10) | bar, pie |
+| `learning_curve` | Evolucao das medias gerais por periodo letivo | line, area |
+| `alerts_by_severity` | Alertas de frequencia agrupados por nivel (critico/alerta/ok) | donut |
+| `top_absences` | Top 5 turmas com mais faltas | bar_horizontal |
+
+#### 9.5.6 Tabelas
+
+| Tabela | Migration | Descricao |
+|--------|-----------|-----------|
+| `dashboard_widgets` | 61 | Graficos personalizados por modulo; uma row por widget |
+
+**Schema `dashboard_widgets`**:
+
+```sql
+CREATE TABLE dashboard_widgets (
+  id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id   uuid        NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  module      text        NOT NULL CHECK (module IN ('financeiro', 'academico')),
+  created_by  uuid        REFERENCES profiles(id),
+  title       text        NOT NULL,
+  chart_type  text        NOT NULL CHECK (chart_type IN (
+                            'bar', 'bar_horizontal', 'line', 'area',
+                            'pie', 'donut', 'metric'
+                          )),
+  data_source text        NOT NULL,
+  config      jsonb       NOT NULL DEFAULT '{}',
+  -- config contem: { period, color_scheme, show_legend, show_grid, ... }
+  position    int         NOT NULL DEFAULT 0,
+  is_visible  boolean     NOT NULL DEFAULT true,
+  created_at  timestamptz DEFAULT now(),
+  updated_at  timestamptz DEFAULT now()
+);
+
+ALTER TABLE dashboard_widgets ENABLE ROW LEVEL SECURITY;
+
+-- Acesso por school_id (multi-tenant)
+CREATE POLICY "tenant_access" ON dashboard_widgets
+  USING (school_id = (SELECT school_id FROM profiles WHERE id = auth.uid()))
+  WITH CHECK (school_id = (SELECT school_id FROM profiles WHERE id = auth.uid()));
+```
+
+#### 9.5.7 Arquivos a Criar / Modificar
+
+**Novos**:
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/admin/components/ChartBuilderDrawer.tsx` | Drawer criacao/edicao de widget (compartilhado) |
+| `src/admin/components/ChartWidget.tsx` | Renderizador de widget com Recharts (compartilhado) |
+| `src/admin/pages/academico/AcademicoDashboardPage.tsx` | Nova aba Dashboard do modulo academico |
+| `supabase/migrations/61_dashboard_widgets.sql` | Tabela + RLS |
+
+**Modificados**:
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/admin/pages/financial/FinancialDashboardPage.tsx` | Adicionar secao "Graficos" com grid de ChartWidgets + botao adicionar |
+| `src/admin/pages/academico/AcademicoPage.tsx` | Inserir aba "Dashboard" (icon `LayoutDashboard`) como primeira tab |
+| `package.json` | Adicionar `"recharts": "2.15.0"` (pinado, sem caret) |
+
+#### 9.5.8 Verificacao
+
+1. `npm install` apos adicionar recharts — build sem erros
+2. Abrir `/admin/financeiro` → aba Dashboard → clicar "+ Adicionar Grafico" → criar widget "Receita por Mes" (bar, revenue_by_month, 12 meses) → confirmar row em `dashboard_widgets`
+3. Recarregar pagina → widget persiste com dados reais
+4. Editar widget → config atualizada no banco
+5. Remover widget → row deletada
+6. Abrir `/admin/academico` → primeira aba e "Dashboard" → KPIs carregam com dados das tabelas `school_classes`, `student_attendance`, `student_results`
+7. Criar widget academico → persiste com `module = 'academico'`
+8. Verificar que widgets financeiros NAO aparecem no dashboard academico (filtro por `module`)
+
+---
+
+### 10.4C Lacuna Arquitetural — Hierarquia Seguimento → Serie → Turma
+
+> **Origem do gap**: Fases 1–5 (Fundacao) implementaram um modelo de **dois niveis** (`school_segments` → `school_classes`) que colapsou os conceitos de *serie* e *turma* em um unico registro. A regra de negocio real exige **tres niveis**. Esta lacuna foi identificada em 2026-04-15 e afeta diretamente as Fases 9.5, 10, 11 e 12.
+
+**Status**: 🔄 Em implementacao — entrega faseada em 3 PRs. **PR1 (Backbone)** aplicado em 2026-04-15: migration 61 cria `school_series`, adiciona `series_id NOT NULL` em `school_classes`, renomeia `year → school_year`. UI de Segmentos refatorada para 3 niveis com novo `SeriesDrawer`. Cascata Segmento → Serie → Turma no `CreateStudentDrawer`. Pages academico e Teacher fazem JOIN em `school_series`. **PR2 (Regras de negocio)** aplicado em 2026-04-15: migration 62 cria trigger `check_class_capacity` (bloqueio em `max_students`, override via GUC `app.capacity_override`), RPCs `create_student_with_capacity` (insere com override + audit), `move_student_with_capacity` (UPDATE de `class_id` com override + audit), e `suggest_year_progression` (sugestao avanca/repete por agregado de `student_results`). Componente `CapacityOverrideModal` integrado a `CreateStudentDrawer` e a transicao `confirmed` em `EnrollmentsPage` (corrige bug de `class_id` ausente). Nova aba **Ano Letivo** em `/admin/academico` lista sugestoes de promocao com selecao de turma do ano-alvo. **PR3 (Financeiro por serie)** segue em sequencia.
+
+#### O gap em numeros
+
+| Item | Situacao atual | Situacao correta |
+|------|---------------|------------------|
+| Tabelas de hierarquia | 2 (`segments` → `classes`) | 3 (`segments` → `series` → `classes`) |
+| Conceito de "serie" | Inexistente (embutido no nome da turma) | Tabela `school_series` dedicada |
+| Nome da turma | "1º Ano A" (inclui serie e letra) | "A" (apenas letra; serie e separada) |
+| Ano letivo na turma | campo `year` | renomear para `school_year` |
+| Coordenadores | Array em `school_segments` | Correto — nenhuma mudanca |
+| Limite de capacidade | `max_students` existe | Correto, mas falta regra de override |
+| Progressao de serie | Sem modelo | Nova regra: avanca/repete por `student_results` |
+
+#### 10.4C.1 Migracao Aplicada (migration 61) — ✅ PR1
+
+Aplicada em ambiente limpo (`SELECT count(*) FROM school_classes` retornou 0), entao `series_id` ja entra como `NOT NULL` direto.
+
+```sql
+-- 1. Nova tabela school_series
+CREATE TABLE school_series (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  segment_id  UUID        NOT NULL REFERENCES school_segments(id) ON DELETE RESTRICT,
+  name        TEXT        NOT NULL,          -- "1º Ano", "Maternal I"
+  short_name  TEXT,                          -- "1A", "Mat.I" (display compacto)
+  order_index INT         NOT NULL DEFAULT 0,
+  is_active   BOOLEAN     NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (segment_id, name)
+);
+CREATE INDEX idx_school_series_segment ON school_series (segment_id, order_index);
+ALTER TABLE school_series ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admin full access on school_series" ON school_series FOR ALL
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin','admin','coordinator')));
+
+-- 2. Adicionar series_id em school_classes (NOT NULL — ambiente limpo)
+ALTER TABLE school_classes
+  ADD COLUMN series_id UUID NOT NULL REFERENCES school_series(id) ON DELETE RESTRICT;
+CREATE INDEX idx_school_classes_series ON school_classes (series_id);
+
+-- 3. Renomear year -> school_year (consistencia com student_results.school_year)
+ALTER TABLE school_classes RENAME COLUMN year TO school_year;
+CREATE INDEX idx_school_classes_series_year ON school_classes (series_id, school_year);
+```
+
+#### 10.4C.2 Impacto em Tabelas Filhas
+
+Nenhuma FK precisa mudar — todas apontam para `school_classes.id` que permanece estavel. Apenas a geracao do nome exibido e a navegacao hierarquica na UI mudam.
+
+#### 10.4C.3 Regra de Override de Capacidade — ✅ PR2 (migration 62)
+
+```
+max_students atingido → trigger check_class_capacity bloqueia INSERT/UPDATE OF class_id
+Erro: capacity_exceeded com HINT "class:<uuid> current:<n> max:<n>"
+Override: GUC de sessao app.capacity_override = true (bypassa o trigger)
+RPCs SECURITY INVOKER que setam o GUC e validam role:
+  - create_student_with_capacity(payload jsonb, force boolean)
+  - move_student_with_capacity(p_student_id, p_class_id, p_force boolean)
+Roles autorizados: admin / super_admin (RAISE forbidden_override caso contrario)
+UI: CapacityOverrideModal — admin ve botao "Autorizar e adicionar"; coordinator/teacher ve mensagem de bloqueio
+Auditoria: log_audit('capacity_override', ...) com previous_count, max_students, class_id
+```
+
+#### 10.4C.4 Regra de Progressao de Serie — ✅ PR2 (migration 62)
+
+Ao fechar o ano letivo (`student_results.result`):
+
+| Resultado | Acao no proximo ano |
+|-----------|---------------------|
+| `approved` | Aluno avanca para a serie seguinte (order_index + 1, mesmo segment) |
+| `recovery` | Repete a mesma serie ate que recuperacao seja resolvida |
+| `failed_grade` / `failed_attendance` | Aluno repete a mesma serie |
+| `in_progress` (resultado pendente) | `pending` — sem sugestao automatica |
+
+Implementacao: RPC `suggest_year_progression(target_year int)` agrega resultados do `target_year - 1` e retorna `{ student, current_class, current_series, segment, overall_result, suggested_action, suggested_series_id }`. **Nao aplica nada** — admin confirma manualmente cada vinculacao via aba `/admin/academico → Ano Letivo` (componente `AnoLetivoPage`). A movimentacao final usa a RPC `move_student_with_capacity` que respeita o trigger de capacidade.
+
+#### 10.4C.5 Arquivos a Criar / Modificar
+
+**Novos**:
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `supabase/migrations/00000000000061_school_series_hierarchy.sql` | Tabela + RLS + indice + FK em school_classes (✅ aplicada em 2026-04-15) |
+| `supabase/migrations/00000000000062_capacity_and_year_progression.sql` | Trigger `check_class_capacity` + RPCs `create_student_with_capacity`, `move_student_with_capacity`, `suggest_year_progression` (✅ aplicada em 2026-04-15) |
+| `src/admin/components/CapacityOverrideModal.tsx` | Modal de autorizacao de override + helper `parseCapacityError` |
+| `src/admin/pages/academico/AnoLetivoPage.tsx` | Aba "Ano Letivo" com sugestoes de promocao via `suggest_year_progression` |
+
+**Modificados**:
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/admin/pages/school/SegmentsPage.tsx` | Expandir UI para 3 niveis: Seguimento → Series → Turmas |
+| `src/admin/types/admin.types.ts` | Adicionar interface `SchoolSeries`; atualizar `SchoolClass` (campo `series_id`, `school_year`) |
+| `src/admin/pages/school/CreateStudentDrawer.tsx` | Seletor de turma deve filtrar por ano letivo corrente |
+| `src/admin/pages/academico/GradeHorariaPage.tsx` | Seletor de turma exibe serie + letra + ano |
+| `src/admin/pages/academico/BoletimPage.tsx` | Idem |
+| `src/admin/pages/academico/AlertasFrequenciaPage.tsx` | Idem |
+
+#### 10.4C.6 Verificacao
+
+1. Criar serie "1º Ano" no seguimento "Fundamental I" → row em `school_series`
+2. Criar turma "A" vinculada a "1º Ano" com `max_students = 30` e `school_year = 2026`
+3. Nome exibido na UI: "1º Ano A 2026"
+4. Adicionar 30 alunos → 31º aluno bloqueado
+5. Admin com role correto autoriza override → aluno adicionado + audit log com `override: true`
+6. Ao fechar ano com `approved` → sistema sugere vincular aluno ao "2º Ano A 2027"
+
+#### 10.4C.7 Granularidade Financeira por Serie — ✅ PR3 (migration 63)
+
+A hierarquia de 3 niveis abre granularidade nova no modulo financeiro. Antes da migration 63, planos so podiam ser segmentados por `segment_ids[]` e descontos so cobriam `plan_id`/`segment_id`/`class_id`/`student_id` — a serie estava no "vacuo" entre segmento e turma.
+
+**Schema (migration 63)**:
+
+- `financial_plans.series_ids uuid[]` — vinculacao de plano a uma ou mais series. Coexiste com `segment_ids[]` (um plano pode marcar segmentos inteiros, ou apenas series especificas, ou ambos).
+- `financial_discounts.series_id uuid REFERENCES school_series(id) ON DELETE CASCADE` — desconto pode ter escopo de serie (`scope = 'group'` + `series_id` preenchido).
+
+**RPC `calculate_applicable_discounts` reescrita**:
+
+A versao antiga referenciava `v_student.segment_id` — coluna que **nunca existiu** em `students` (ela so tem `segment text` legado e `class_id`). O bug nunca quebrou em prod porque a tabela esta vazia, mas a funcao ja chamada com aluno real teria erro de coluna inexistente.
+
+A nova versao deriva `series_id` e `segment_id` via JOIN com `school_classes` (a fonte de verdade da hierarquia 3-niveis). Ordem de especificidade explicita no `ORDER BY`:
+
+```
+student → class → series → segment → plan → global
+```
+
+A flag `is_cumulative` continua determinando se descontos somam ou se apenas o primeiro (mais especifico) entra.
+
+**UI (PR3)**:
+
+- `FinancialPlansPage` — novo `DrawerCard "Series"` com chips multi-select agrupados por segmento. Cards de plano exibem chips de serie (purple) ao lado dos chips de segmento (blue).
+- `FinancialDiscountsPage` — novo seletor "Serie" no escopo `group`, posicionado entre Segmento e Turma. Filtra serie pelo segmento escolhido (cascata) e turma pela serie escolhida. `scopeTargetLabel` agora inclui o nome da serie.
+- `FinancialContractsPage` — display do contrato exibe `{serie} {turma} {ano_letivo}` derivado via `school_classes` (carregado em `classMap`).
+
+**Compatibilidade**:
+
+Migration 63 e aditiva — colunas com default vazio/null. Planos e descontos existentes continuam funcionando inalterados; series_ids/series_id sao opt-in.
 
 ---
 
@@ -1846,7 +2263,7 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 | `boas_vindas` | `#7c3aed` (roxo) | Boas-vindas ao portal | ✅ Implementado |
 | `2fa` | `#be185d` (rosa) | Senhas temporarias (scaffold, sem OTP real) | ✅ Implementado |
 | `financeiro` | `#14532d` (verde escuro) | Cobrancas, inadimplencia, pagamento confirmado | ✅ Implementado |
-| `academico` | `#1e3a5f` (azul escuro) | Notas, faltas, resultado final, atividades | ⏳ Fase 9 |
+| `academico` | `#1e3a5f` (azul escuro) | Notas, faltas, resultado final, atividades | ✅ Implementado (migration 52) |
 | `ocorrencia` | `#7c2d12` (vermelho escuro) | Bilhetes/ocorrencias escolares | ⏳ Fase 10 |
 | `responsavel` | `#4c1d95` (roxo escuro) | Portal do responsavel, senha temporaria | ⏳ Fase 10 |
 | `secretaria` | `#374151` (cinza) | Declaracoes, rematricula | ⏳ Fase 11 |

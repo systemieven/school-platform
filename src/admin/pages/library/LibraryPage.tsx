@@ -394,7 +394,7 @@ function ResourceDrawer({ resource, segments, classes, students, onClose, onSave
                       form.target_ids.includes(c.id)
                         ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:border-brand-secondary dark:bg-brand-secondary/10 dark:text-brand-secondary'
                         : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
-                    }`}>{c.name} {c.year}</button>
+                    }`}>{c.name} {c.school_year}</button>
                 ))}
               </div>
             )}
@@ -455,7 +455,7 @@ export default function LibraryPage() {
         .order('created_at', { ascending: false }),
       supabase.from('school_segments').select('id, name, slug, position, is_active, coordinator_ids')
         .eq('is_active', true).order('position'),
-      supabase.from('school_classes').select('id, name, year, segment_id, shift, max_students, teacher_ids, is_active')
+      supabase.from('school_classes').select('id, name, school_year, segment_id, series_id, shift, max_students, teacher_ids, is_active')
         .eq('is_active', true).order('name'),
       supabase.from('students').select('id, full_name, enrollment_number')
         .eq('status', 'active').order('full_name'),

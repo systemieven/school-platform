@@ -327,20 +327,38 @@ export interface SchoolSegment {
   updated_at: string;
 }
 
+// ── School Series ──
+export interface SchoolSeries {
+  id: string;
+  segment_id: string;
+  name: string;
+  short_name: string | null;
+  order_index: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // joined
+  segment?: SchoolSegment | null;
+}
+
 // ── School Class ──
 export type Shift = 'morning' | 'afternoon' | 'full';
 
 export interface SchoolClass {
   id: string;
   segment_id: string;
+  series_id: string;
   name: string;
-  year: number;
+  school_year: number;
   shift: Shift | null;
   max_students: number | null;
   teacher_ids: string[];
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // joined
+  segment?: SchoolSegment | null;
+  series?: SchoolSeries | null;
 }
 
 // ── Student ──
@@ -915,6 +933,7 @@ export interface FinancialPlan {
   late_fee_pct: number;
   interest_rate_pct: number;
   segment_ids: string[];
+  series_ids: string[];
   school_year: number;
   is_active: boolean;
   created_at: string;
@@ -1037,6 +1056,8 @@ export const GATEWAY_PROVIDER_LABELS: Record<GatewayProvider, string> = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export type DiscountScope = 'global' | 'group' | 'student';
+// Note: 'group' acomoda escopos por plan_id, segment_id, series_id ou class_id —
+// o RPC determina a especificidade pela coluna preenchida.
 export type DiscountType = 'percentage' | 'fixed';
 
 export interface ProgressiveDiscountRule {
@@ -1051,6 +1072,7 @@ export interface FinancialDiscount {
   scope: DiscountScope;
   plan_id: string | null;
   segment_id: string | null;
+  series_id: string | null;
   class_id: string | null;
   student_id: string | null;
   discount_type: DiscountType;
@@ -1069,6 +1091,7 @@ export interface FinancialDiscount {
   // Joins opcionais
   plan?: FinancialPlan | null;
   segment?: { id: string; name: string } | null;
+  series?: { id: string; name: string } | null;
   class_info?: { id: string; name: string } | null;
   student?: { id: string; full_name: string } | null;
 }
