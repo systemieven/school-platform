@@ -4,11 +4,11 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
 // ── Fail-safe for missing env vars ────────────────────────────────────────────
-// When the bundle is built without VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
-// (typical when Secrets aren't configured on the host — e.g., fresh Lovable deploy
-// after the multi-tenancy refactor, or a new client repo without .env.production),
-// calling createClient(undefined, undefined) throws "supabaseUrl is required" at
-// module init. That crashes main.tsx before React mounts → silent blank page.
+// When the bundle is built/served without VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
+// (typical when a new client repo hasn't committed its .env yet, or when Secrets
+// aren't configured on the host), calling createClient(undefined, undefined) throws
+// "supabaseUrl is required" at module init. That crashes main.tsx before React
+// mounts → silent blank page.
 //
 // Instead: log a clear error, render a visible red banner telling the operator
 // exactly what to configure, and pass stub values to createClient so the bundle
@@ -17,7 +17,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string 
 if (!supabaseUrl || !supabaseAnonKey) {
   const msg =
     '[supabase] Variáveis de ambiente ausentes. ' +
-    'Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no .env.production ' +
+    'Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no .env ' +
     'do repositório do cliente (ou nos Secrets do host) e refaça o deploy.';
   // eslint-disable-next-line no-console
   console.error(msg);
@@ -37,7 +37,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
       'e/ou ' +
       '<code style="background:rgba(0,0,0,.25);padding:1px 6px;border-radius:4px">VITE_SUPABASE_PUBLISHABLE_KEY</code> ' +
       'não foram definidas no build. ' +
-      'Adicione as chaves em <code>.env.production</code> (ver <code>.env.example</code>) ' +
+      'Adicione as chaves em <code>.env</code> (ver <code>.env.example</code>) ' +
       'ou configure nos Secrets do host e refaça o deploy.';
     const attach = () => (document.body || document.documentElement).appendChild(banner);
     if (document.body) attach();

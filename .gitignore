@@ -1,12 +1,14 @@
 node_modules
 dist
 .DS_Store
-*.local
 *.tsbuildinfo
-.env
 .env.*
 !.env.example
-!.env.production
+# Nota: .env (sem sufixo) e' rastreado nos repos de cliente (batista-site etc.)
+# com credenciais Supabase + identidade da escola. Vite o carrega em TODOS os
+# modos (dev, preview, build). Use .env.local para overrides locais (gitignored
+# pelo pattern *.local abaixo).
+*.local
 
 # Secrets e credenciais (qualquer arquivo de secrets/service-account)
 **/secrets*.json
