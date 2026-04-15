@@ -2,20 +2,15 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// NOTE: env var fallbacks match src/lib/supabase.ts — both clients must
-// survive a build without VITE_SUPABASE_* so the bundle doesn't crash at
-// module init (Lovable deploys without Secrets configured would otherwise
-// render a completely blank page). The banner in src/lib/supabase.ts is
-// the single source of user-facing messaging.
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://missing-env.invalid';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'missing-env-key';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: typeof localStorage !== 'undefined' ? localStorage : undefined,
+    storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
   }
