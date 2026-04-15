@@ -1,15 +1,33 @@
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 
-console.log('[BOOT] main.tsx loaded');
+console.log('[BOOT] before BrandingProvider import');
 
-const root = document.getElementById('root');
-if (root) {
-  createRoot(root).render(
-    <div style={{ padding: '2rem', background: 'red', color: 'white', fontSize: '2rem' }}>
-      HELLO WORLD - App is working
-    </div>
+import { BrandingProvider } from './contexts/BrandingContext';
+
+console.log('[BOOT] before App import');
+
+import App from './App';
+
+console.log('[BOOT] before CSS import');
+
+import './index.css';
+
+console.log('[BOOT] all imports loaded, rendering...');
+
+try {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <BrowserRouter>
+        <BrandingProvider>
+          <App />
+        </BrandingProvider>
+      </BrowserRouter>
+    </StrictMode>
   );
-  console.log('[BOOT] render called');
-} else {
-  console.error('[BOOT] #root not found');
+  console.log('[BOOT] render() done');
+} catch (err) {
+  console.error('[BOOT] RENDER ERROR:', err);
+  document.getElementById('root')!.innerHTML = '<pre style="color:red;padding:2rem">' + String(err) + '\n' + (err as Error).stack + '</pre>';
 }
