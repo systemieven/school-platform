@@ -35,6 +35,15 @@ const FinancialPage            = lazy(() => import('./pages/financial/FinancialP
 // Academic (single page with internal tab rail)
 const AcademicoPage            = lazy(() => import('./pages/academico/AcademicoPage'));
 
+// Fase 10 — Portal do Responsavel (admin pages)
+const OcorrenciasPage          = lazy(() => import('./pages/school/OcorrenciasPage'));
+const AutorizacoesPage         = lazy(() => import('./pages/school/AutorizacoesPage'));
+const ResponsaveisPage         = lazy(() => import('./pages/school/ResponsaveisPage'));
+
+// Fase 10.P — Portal do Professor (admin read-only pages)
+const DiarioAdminPage          = lazy(() => import('./pages/academico/DiarioAdminPage'));
+const ProvasAdminPage          = lazy(() => import('./pages/academico/ProvasAdminPage'));
+
 function PageFallback() {
   return (
     <div className="flex items-center justify-center py-24">
@@ -96,6 +105,15 @@ export default function AdminRoutes() {
 
           {/* Academic (single page with internal tab rail) */}
           <Route path="academico"   element={<ModuleGuard moduleKey="academico"><LazyPage><AcademicoPage /></LazyPage></ModuleGuard>} />
+
+          {/* Fase 10 — Portal do Responsavel */}
+          <Route path="ocorrencias"   element={<ModuleGuard moduleKey="occurrences"><LazyPage><OcorrenciasPage /></LazyPage></ModuleGuard>} />
+          <Route path="autorizacoes"  element={<ModuleGuard moduleKey="activity-auth"><LazyPage><AutorizacoesPage /></LazyPage></ModuleGuard>} />
+          <Route path="responsaveis"  element={<ModuleGuard moduleKey="guardian-portal"><LazyPage><ResponsaveisPage /></LazyPage></ModuleGuard>} />
+
+          {/* Fase 10.P — Diario e Provas (leitura admin/coordenador) */}
+          <Route path="diario"   element={<ModuleGuard moduleKey="teacher-portal-admin"><LazyPage><DiarioAdminPage /></LazyPage></ModuleGuard>} />
+          <Route path="provas"   element={<ModuleGuard moduleKey="teacher-portal-admin"><LazyPage><ProvasAdminPage /></LazyPage></ModuleGuard>} />
 
           {/* System */}
           <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />

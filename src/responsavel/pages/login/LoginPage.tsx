@@ -1,0 +1,174 @@
+import { useState } from 'react';
+import { useNavigate, Navigate } from 'react-router-dom';
+import { useGuardian, normalizeCpf } from '../../contexts/GuardianAuthContext';
+import { Loader2, Eye, EyeOff, UserCheck } from 'lucide-react';
+import { useBranding } from '../../../contexts/BrandingContext';
+
+type Mode = 'login' | 'first-access';
+
+function formatCpf(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+export default function GuardianLoginPage() {
+  const { signIn, firstAccess, session } = useGuardian();
+  const { identity } = useBranding();
+  const navigate = useNavigate();
+
+  const [mode, setMode]                   = useState<Mode>('login');
+  const [cpf, setCpf]                     = useState('');
+  const [password, setPassword]           = useState('');
+  const [newPassword, setNewPassword]     = useState('');
+  const [confirmPwd, setConfirmPwd]       = useState('');
+  const [showPwd, setShowPwd]             = useState(false);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState('');
+  const [success, setSuccess]             = useState('');
+
+  if (session) return <Navigate to="/responsavel" replace />;
+
+  function handleCpfChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setCpf(formatCpf(e.target.value));
+  }
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cpf.trim() || !password) { setError('Preencha todos os campos.'); return; }
+    if (normalizeCpf(cpf).length !== 11) { setError('CPF inválido.'); return; }
+    setLoading(true); setError('');
+    const res = await signIn(cpf, password);
+    if (res.error) { setError(res.error); setLoading(false); return; }
+    navigate('/responsavel');
+  }
+
+  async function handleFirstAccess(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cpf.trim() || !newPassword || !confirmPwd) {
+      setError('Preencha todos os campos.'); return;
+    }
+    if (normalizeCpf(cpf).length !== 11) { setError('CPF inválido.'); return; }
+    if (newPassword.length < 6) { setError('A senha deve ter ao menos 6 caracteres.'); return; }
+    if (newPassword !== confirmPwd) { setError('As senhas não conferem.'); return; }
+    setLoading(true); setError('');
+    const res = await firstAccess(cpf, newPassword);
+    if (res.error) { setError(res.error); setLoading(false); return; }
+    setSuccess('Acesso ativado com sucesso! Você já pode entrar com seu CPF e nova senha.');
+    setMode('login');
+    setNewPassword(''); setConfirmPwd('');
+    setLoading(false);
+  }
+
+  const inp = `w-full px-4 py-3 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none transition-colors`;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-brand-primary to-[#002255] flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 rounded-2xl bg-brand-secondary flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <UserCheck className="w-8 h-8 text-brand-primary" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">{identity.school_short_name || ''}</h1>
+          <p className="text-white/60 text-sm mt-1">Portal do Responsável</p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6">
+          {/* Mode tabs */}
+          <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+            <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${mode === 'login' ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+              Entrar
+            </button>
+            <button onClick={() => { setMode('first-access'); setError(''); setSuccess(''); }}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${mode === 'first-access' ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+              Primeiro acesso
+            </button>
+          </div>
+
+          {error   && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg mb-4">{error}</p>}
+          {success && <p className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 rounded-lg mb-4">{success}</p>}
+
+          {mode === 'login' ? (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">CPF</label>
+                <input
+                  value={cpf}
+                  onChange={handleCpfChange}
+                  placeholder="000.000.000-00"
+                  autoComplete="username"
+                  inputMode="numeric"
+                  className={inp}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Senha</label>
+                <div className="relative">
+                  <input type={showPwd ? 'text' : 'password'} value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password" className={`${inp} pr-10`} />
+                  <button type="button" onClick={() => setShowPwd((p) => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <button type="submit" disabled={loading}
+                className="w-full py-3 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {loading ? 'Entrando...' : 'Entrar'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleFirstAccess} className="space-y-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+                Informe seu CPF cadastrado pela escola para ativar o acesso ao portal.
+              </p>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">CPF</label>
+                <input
+                  value={cpf}
+                  onChange={handleCpfChange}
+                  placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  className={inp}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Nova senha</label>
+                <div className="relative">
+                  <input type={showPwd ? 'text' : 'password'} value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres" className={`${inp} pr-10`} />
+                  <button type="button" onClick={() => setShowPwd((p) => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Confirmar senha</label>
+                <input type={showPwd ? 'text' : 'password'} value={confirmPwd}
+                  onChange={(e) => setConfirmPwd(e.target.value)}
+                  placeholder="Repita a senha" className={inp} />
+              </div>
+              <button type="submit" disabled={loading}
+                className="w-full py-3 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {loading ? 'Ativando...' : 'Ativar acesso'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        <p className="text-center text-white/40 text-xs mt-6">
+          {identity.school_name || ''} · {new Date().getFullYear()}
+        </p>
+      </div>
+    </div>
+  );
+}
