@@ -2,7 +2,7 @@
  * FinancialSettingsPanel
  *
  * Painel da aba "Financeiro" em /admin/configuracoes.
- * 3 seções: Gateways de Pagamento, Régua de Cobrança, Chave PIX.
+ * Seções: Plano de Contas, Formas de Pagamento, Gateways, Régua de Cobrança, Chave PIX, Parcelamento.
  * Self-contained — carrega/salva direto no Supabase.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -11,14 +11,36 @@ import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import { Toggle } from '../../components/Toggle';
-import type { PaymentGateway, GatewayProvider, GatewayEnvironment, InstallmentConfig } from '../../types/admin.types';
+import type {
+  PaymentGateway, GatewayProvider, GatewayEnvironment, InstallmentConfig,
+  FinancialAccountCategory, AccountCategoryType,
+} from '../../types/admin.types';
 import { GATEWAY_PROVIDER_LABELS } from '../../types/admin.types';
 import {
   CreditCard, Loader2, Save, Check, Pencil, Trash2,
   X, ToggleLeft, ToggleRight, Zap, QrCode,
   Shield, Tag, Settings, Star, Wifi, WifiOff,
   Webhook, Copy, RefreshCcw, ExternalLink, Layers, Plus,
+  BookOpen, Wallet, ChevronRight, ChevronDown, GripVertical,
 } from 'lucide-react';
+
+// ── Default payment methods ───────────────────────────────────────────────────
+interface PaymentMethodItem {
+  value: string;
+  label: string;
+  is_active: boolean;
+}
+
+const DEFAULT_PAYMENT_METHODS: PaymentMethodItem[] = [
+  { value: 'cash',        label: 'Dinheiro',         is_active: true },
+  { value: 'pix',         label: 'PIX',              is_active: true },
+  { value: 'credit_card', label: 'Cartão de Crédito', is_active: true },
+  { value: 'debit_card',  label: 'Cartão de Débito',  is_active: true },
+  { value: 'transfer',    label: 'Transferência',     is_active: true },
+  { value: 'boleto',      label: 'Boleto',            is_active: true },
+  { value: 'check',       label: 'Cheque',            is_active: false },
+  { value: 'other',       label: 'Outro',             is_active: true },
+];
 
 // Webhook endpoint base (same host used by the supabase client)
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -279,6 +301,23 @@ function GatewayGuideBlock({ provider, guide }: { provider: GatewayProvider; gui
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function FinancialSettingsPanel() {
+  // ── Account categories (Plano de Contas) ───────────────────────────────────
+  const [categories, setCategories] = useState<FinancialAccountCategory[]>([]);
+  const [editingCat, setEditingCat] = useState<Partial<FinancialAccountCategory> | null>(null);
+  const [isNewCat, setIsNewCat] = useState(false);
+  const [catSaving, setCatSaving] = useState(false);
+  const [catSaved, setCatSaved] = useState(false);
+  const [deleteCatId, setDeleteCatId] = useState<string | null>(null);
+  const [catExpanded, setCatExpanded] = useState<Set<string>>(new Set());
+
+  // ── Payment methods ────────────────────────────────────────────────────────
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodItem[]>(DEFAULT_PAYMENT_METHODS);
+  const [pmSaving, setPmSaving] = useState(false);
+  const [pmSaved, setPmSaved] = useState(false);
+  const [initialPm, setInitialPm] = useState(JSON.stringify(DEFAULT_PAYMENT_METHODS));
+  const [newPmValue, setNewPmValue] = useState('');
+  const [newPmLabel, setNewPmLabel] = useState('');
+
   // Gateways
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [gwLoading, setGwLoading] = useState(true);
@@ -328,15 +367,20 @@ export default function FinancialSettingsPanel() {
   const load = useCallback(async () => {
     setGwLoading(true);
 
-    const [gwRes, settingsRes, tplRes] = await Promise.all([
+    const [gwRes, settingsRes, tplRes, catRes] = await Promise.all([
       supabase.from('payment_gateways').select('*').order('created_at'),
       supabase.from('system_settings').select('*').eq('category', 'financial'),
       supabase.from('whatsapp_templates')
         .select('id, name')
         .eq('is_active', true)
         .order('name'),
+      supabase.from('financial_account_categories')
+        .select('*')
+        .order('position')
+        .order('name'),
     ]);
 
+    setCategories((catRes.data ?? []) as FinancialAccountCategory[]);
     setGateways((gwRes.data ?? []) as PaymentGateway[]);
 
     // Filter templates by financeiro category
@@ -375,10 +419,86 @@ export default function FinancialSettingsPanel() {
     setInstallConfigs(loadedInstall);
     setInitialInstall(JSON.stringify(loadedInstall));
 
+    // Payment methods
+    const pmRaw = ss.find((s) => s.key === 'payment_methods');
+    let loadedPm: PaymentMethodItem[] = DEFAULT_PAYMENT_METHODS;
+    if (pmRaw?.value) {
+      try { loadedPm = JSON.parse(pmRaw.value) as PaymentMethodItem[]; } catch { /**/ }
+    }
+    setPaymentMethods(loadedPm);
+    setInitialPm(JSON.stringify(loadedPm));
+
     setGwLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // ── Account Categories CRUD ────────────────────────────────────────────────
+
+  async function saveCat() {
+    if (!editingCat?.name?.trim() || !editingCat.type) return;
+    setCatSaving(true);
+    if (isNewCat) {
+      const { data } = await supabase
+        .from('financial_account_categories')
+        .insert({
+          name: editingCat.name.trim(),
+          type: editingCat.type,
+          parent_id: editingCat.parent_id ?? null,
+          code: editingCat.code ?? null,
+          is_active: true,
+          position: categories.length,
+        })
+        .select()
+        .single();
+      if (data) setCategories([...categories, data as FinancialAccountCategory]);
+      logAudit({ action: 'create', module: 'settings', description: `Categoria "${editingCat.name}" criada` });
+    } else {
+      const { data } = await supabase
+        .from('financial_account_categories')
+        .update({
+          name: editingCat.name.trim(),
+          type: editingCat.type,
+          parent_id: editingCat.parent_id ?? null,
+          code: editingCat.code ?? null,
+        })
+        .eq('id', editingCat.id!)
+        .select()
+        .single();
+      if (data) setCategories(categories.map((c) => c.id === editingCat.id ? data as FinancialAccountCategory : c));
+      logAudit({ action: 'update', module: 'settings', description: `Categoria "${editingCat.name}" atualizada` });
+    }
+    setCatSaving(false);
+    setCatSaved(true);
+    setTimeout(() => { setCatSaved(false); setEditingCat(null); }, 900);
+  }
+
+  async function toggleCatActive(cat: FinancialAccountCategory) {
+    await supabase.from('financial_account_categories').update({ is_active: !cat.is_active }).eq('id', cat.id);
+    setCategories(categories.map((c) => c.id === cat.id ? { ...c, is_active: !cat.is_active } : c));
+  }
+
+  async function deleteCat(id: string) {
+    await supabase.from('financial_account_categories').delete().eq('id', id);
+    setCategories(categories.filter((c) => c.id !== id));
+    setDeleteCatId(null);
+    logAudit({ action: 'delete', module: 'settings', description: 'Categoria excluída' });
+  }
+
+  // ── Payment Methods save ───────────────────────────────────────────────────
+
+  async function savePaymentMethods() {
+    setPmSaving(true);
+    await supabase.from('system_settings').upsert(
+      { category: 'financial', key: 'payment_methods', value: JSON.stringify(paymentMethods) },
+      { onConflict: 'category,key' },
+    );
+    setInitialPm(JSON.stringify(paymentMethods));
+    logAudit({ action: 'update', module: 'settings', description: 'Formas de pagamento atualizadas' });
+    setPmSaving(false);
+    setPmSaved(true);
+    setTimeout(() => setPmSaved(false), 2500);
+  }
 
   // ── Gateway CRUD ───────────────────────────────────────────────────────────
 
@@ -544,8 +664,222 @@ export default function FinancialSettingsPanel() {
     );
   }
 
+  // ── Helpers for category tree ──────────────────────────────────────────────
+
+  const rootCategories = categories.filter((c) => !c.parent_id);
+  const childrenOf = (parentId: string) => categories.filter((c) => c.parent_id === parentId);
+
   return (
     <div className="p-6 space-y-4">
+
+      {/* ── 0. Plano de Contas ── */}
+      <SettingsCard
+        title="Plano de Contas"
+        description="Categorias de receitas e despesas para classificação dos lançamentos financeiros"
+        icon={BookOpen}
+        collapseId="financial.account-categories"
+        headerExtra={
+          <button
+            onClick={() => { setEditingCat({ type: 'receita' as AccountCategoryType }); setIsNewCat(true); }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-primary text-white rounded-lg hover:bg-brand-primary-dark transition-colors font-medium"
+          >
+            <Plus className="w-3 h-3" /> Nova categoria
+          </button>
+        }
+      >
+        {categories.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">
+            Nenhuma categoria configurada. As categorias padrão serão criadas na próxima migração do banco.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {rootCategories.map((cat) => {
+              const children = childrenOf(cat.id);
+              const isExpanded = catExpanded.has(cat.id);
+              const isReceita = cat.type === 'receita';
+              return (
+                <div key={cat.id}>
+                  {/* Parent row */}
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ${cat.is_active ? '' : 'opacity-50'} hover:bg-gray-50 dark:hover:bg-gray-900/30 group`}>
+                    {children.length > 0 ? (
+                      <button onClick={() => setCatExpanded((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id);
+                        return next;
+                      })} className="p-0.5 text-gray-400">
+                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                      </button>
+                    ) : (
+                      <span className="w-5 inline-block" />
+                    )}
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isReceita ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
+                      {isReceita ? 'R' : 'D'}
+                    </span>
+                    {cat.code && <span className="text-[10px] text-gray-400 font-mono">{cat.code}</span>}
+                    <p className={`flex-1 text-sm font-medium ${cat.is_active ? 'text-gray-800 dark:text-white' : 'text-gray-400'}`}>
+                      {cat.name}
+                    </p>
+                    {cat.is_system && (
+                      <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">Sistema</span>
+                    )}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Toggle
+                        checked={cat.is_active}
+                        onChange={() => { void toggleCatActive(cat); }}
+                      />
+                      <button
+                        onClick={() => { setEditingCat({ ...cat }); setIsNewCat(false); }}
+                        className="p-1.5 text-gray-400 hover:text-brand-primary rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      {!cat.is_system && (
+                        deleteCatId === cat.id ? (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => deleteCat(cat.id)} className="px-2 py-0.5 text-[10px] bg-red-500 text-white rounded-lg">Confirmar</button>
+                            <button onClick={() => setDeleteCatId(null)} className="p-1 text-gray-400"><X className="w-3 h-3" /></button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setDeleteCatId(cat.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+                  {/* Children */}
+                  {isExpanded && children.length > 0 && (
+                    <div className="ml-8 space-y-0.5">
+                      {children.map((child) => (
+                        <div key={child.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${child.is_active ? '' : 'opacity-50'} hover:bg-gray-50 dark:hover:bg-gray-900/30 group`}>
+                          <span className="w-5 inline-block" />
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${isReceita ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
+                            {isReceita ? 'R' : 'D'}
+                          </span>
+                          {child.code && <span className="text-[10px] text-gray-400 font-mono">{child.code}</span>}
+                          <p className={`flex-1 text-sm ${child.is_active ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>
+                            {child.name}
+                          </p>
+                          {child.is_system && (
+                            <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">Sistema</span>
+                          )}
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Toggle checked={child.is_active} onChange={() => { void toggleCatActive(child); }} />
+                            <button onClick={() => { setEditingCat({ ...child }); setIsNewCat(false); }} className="p-1.5 text-gray-400 hover:text-brand-primary rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            {!child.is_system && (
+                              deleteCatId === child.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => deleteCat(child.id)} className="px-2 py-0.5 text-[10px] bg-red-500 text-white rounded-lg">Confirmar</button>
+                                  <button onClick={() => setDeleteCatId(null)} className="p-1 text-gray-400"><X className="w-3 h-3" /></button>
+                                </div>
+                              ) : (
+                                <button onClick={() => setDeleteCatId(child.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SettingsCard>
+
+      {/* ── 1. Formas de Pagamento ── */}
+      <SettingsCard
+        title="Formas de Pagamento"
+        description="Formas de pagamento disponíveis para lançamentos no sistema"
+        icon={Wallet}
+        collapseId="financial.payment-methods"
+      >
+        <div className="space-y-2">
+          {paymentMethods.map((pm, idx) => (
+            <div key={pm.value} className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700">
+              <GripVertical className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+              <Toggle
+                checked={pm.is_active}
+                onChange={() => {
+                  const next = [...paymentMethods];
+                  next[idx] = { ...pm, is_active: !pm.is_active };
+                  setPaymentMethods(next);
+                }}
+              />
+              <p className={`flex-1 text-sm ${pm.is_active ? 'text-gray-800 dark:text-white' : 'text-gray-400'}`}>{pm.label}</p>
+              <span className="text-[10px] text-gray-400 font-mono">{pm.value}</span>
+              <button
+                onClick={() => setPaymentMethods(paymentMethods.filter((_, i) => i !== idx))}
+                className="p-1.5 text-gray-300 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+
+          {/* Add new method */}
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              type="text"
+              value={newPmValue}
+              onChange={(e) => setNewPmValue(e.target.value)}
+              placeholder="Chave (ex: pix2)"
+              className="w-28 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600
+                         bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                         placeholder:text-gray-400 focus:border-brand-primary outline-none"
+            />
+            <input
+              type="text"
+              value={newPmLabel}
+              onChange={(e) => setNewPmLabel(e.target.value)}
+              placeholder="Rótulo (ex: PIX Pessoa Jurídica)"
+              className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600
+                         bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                         placeholder:text-gray-400 focus:border-brand-primary outline-none"
+            />
+            <button
+              onClick={() => {
+                if (!newPmValue.trim() || !newPmLabel.trim()) return;
+                setPaymentMethods([...paymentMethods, { value: newPmValue.trim(), label: newPmLabel.trim(), is_active: true }]);
+                setNewPmValue('');
+                setNewPmLabel('');
+              }}
+              className="px-3 py-1.5 text-xs font-medium bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 rounded-lg transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Save bar */}
+          {JSON.stringify(paymentMethods) !== initialPm && (
+            <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+              <button
+                onClick={savePaymentMethods}
+                disabled={pmSaving}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl transition-all ${
+                  pmSaved
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-brand-primary text-white hover:bg-brand-primary-dark'
+                }`}
+              >
+                {pmSaving ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando…</>
+                ) : pmSaved ? (
+                  <><Check className="w-3.5 h-3.5" /> Salvo!</>
+                ) : (
+                  <><Wallet className="w-3.5 h-3.5" /> Salvar formas de pagamento</>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </SettingsCard>
+
       {/* ── A. Gateways de Pagamento ── */}
       <SettingsCard
         title="Gateways de Pagamento"
@@ -1170,6 +1504,120 @@ export default function FinancialSettingsPanel() {
                 Deixe "Até R$" em branco na última faixa para indicar "qualquer valor acima".
               </p>
             </DrawerCard>
+          </>
+        )}
+      </Drawer>
+
+      {/* ── Drawer: Categoria do Plano de Contas ── */}
+      <Drawer
+        open={editingCat !== null}
+        onClose={() => setEditingCat(null)}
+        title={isNewCat ? 'Nova Categoria' : 'Editar Categoria'}
+      >
+        {editingCat && (
+          <>
+            <DrawerCard title="Dados da Categoria" icon={BookOpen}>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                    Nome *
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCat.name ?? ''}
+                    onChange={(e) => setEditingCat({ ...editingCat, name: e.target.value })}
+                    placeholder="Ex: Aluguel, Mensalidades..."
+                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600
+                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                               placeholder:text-gray-400 focus:border-brand-primary outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                    Tipo *
+                  </label>
+                  <div className="flex gap-2">
+                    {(['receita', 'despesa'] as AccountCategoryType[]).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setEditingCat({ ...editingCat, type: t })}
+                        className={`flex-1 py-2.5 text-sm rounded-xl border font-medium capitalize transition-colors ${
+                          editingCat.type === t
+                            ? t === 'receita'
+                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                              : 'border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'
+                        }`}
+                      >
+                        {t === 'receita' ? 'Receita' : 'Despesa'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                    Categoria Pai (opcional)
+                  </label>
+                  <select
+                    value={editingCat.parent_id ?? ''}
+                    onChange={(e) => setEditingCat({ ...editingCat, parent_id: e.target.value || null })}
+                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600
+                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                               focus:border-brand-primary outline-none"
+                  >
+                    <option value="">— Nenhuma (categoria raiz) —</option>
+                    {categories
+                      .filter((c) => !c.parent_id && c.id !== editingCat.id)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
+                      ))
+                    }
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                    Código Contábil (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCat.code ?? ''}
+                    onChange={(e) => setEditingCat({ ...editingCat, code: e.target.value || null })}
+                    placeholder="Ex: 1.1.1, 4.2..."
+                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600
+                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                               placeholder:text-gray-400 focus:border-brand-primary outline-none"
+                  />
+                </div>
+              </div>
+            </DrawerCard>
+
+            {/* Footer */}
+            <div className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+              <button
+                onClick={() => setEditingCat(null)}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveCat}
+                disabled={catSaving || !editingCat.name?.trim() || !editingCat.type}
+                className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+                  catSaved
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
+                }`}
+              >
+                {catSaving ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
+                ) : catSaved ? (
+                  <><Check className="w-4 h-4" /> Salvo!</>
+                ) : (
+                  <><BookOpen className="w-4 h-4" /> {isNewCat ? 'Criar categoria' : 'Salvar'}</>
+                )}
+              </button>
+            </div>
           </>
         )}
       </Drawer>

@@ -3,11 +3,16 @@ import {
   LayoutDashboard, FileText, FileSignature, Receipt,
   Percent, GraduationCap, FileCode2,
   PanelLeftClose, PanelLeftOpen,
+  Vault, TrendingUp, TrendingDown, BarChart3,
 } from 'lucide-react';
 import FinancialDashboardPage from './FinancialDashboardPage';
 import FinancialPlansPage from './FinancialPlansPage';
 import FinancialContractsPage from './FinancialContractsPage';
 import FinancialInstallmentsPage from './FinancialInstallmentsPage';
+import FinancialCashPage from './FinancialCashPage';
+import FinancialReceivablesPage from './FinancialReceivablesPage';
+import FinancialPayablesPage from './FinancialPayablesPage';
+import FinancialReportsPage from './FinancialReportsPage';
 import FinancialDiscountsPage from './FinancialDiscountsPage';
 import FinancialScholarshipsPage from './FinancialScholarshipsPage';
 import FinancialTemplatesPage from './FinancialTemplatesPage';
@@ -48,6 +53,34 @@ const TABS: TabDef[] = [
     shortLabel: 'Cobranças',
     icon: Receipt,
     description: 'Parcelas, pagamentos e baixas manuais',
+  },
+  {
+    key: 'cash',
+    label: 'Caixas',
+    shortLabel: 'Caixas',
+    icon: Vault,
+    description: 'Controle de caixas, abertura/fechamento e movimentações',
+  },
+  {
+    key: 'receivables',
+    label: 'Contas a Receber',
+    shortLabel: 'A Receber',
+    icon: TrendingUp,
+    description: 'Contas a receber gerais (taxas, eventos, matrículas)',
+  },
+  {
+    key: 'payables',
+    label: 'Contas a Pagar',
+    shortLabel: 'A Pagar',
+    icon: TrendingDown,
+    description: 'Contas a pagar (despesas fixas e variáveis)',
+  },
+  {
+    key: 'reports',
+    label: 'Relatórios',
+    shortLabel: 'Relatórios',
+    icon: BarChart3,
+    description: 'Fluxo de caixa, DRE, inadimplência e previsão',
   },
   {
     key: 'discounts',
@@ -166,6 +199,10 @@ export default function FinancialPage() {
               {activeTab === 'plans' && <FinancialPlansPage />}
               {activeTab === 'contracts' && <FinancialContractsPage />}
               {activeTab === 'installments' && <FinancialInstallmentsPage />}
+              {activeTab === 'cash' && <FinancialCashPage />}
+              {activeTab === 'receivables' && <FinancialReceivablesPage />}
+              {activeTab === 'payables' && <FinancialPayablesPage />}
+              {activeTab === 'reports' && <FinancialReportsPage />}
               {activeTab === 'discounts' && <FinancialDiscountsPage />}
               {activeTab === 'scholarships' && <FinancialScholarshipsPage />}
               {activeTab === 'templates' && <FinancialTemplatesPage />}

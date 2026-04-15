@@ -1430,3 +1430,216 @@ export const GRADE_SCALE_LABELS: Record<GradeScale, string> = {
   conceptual: 'Conceitual (A-E)',
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE 8.5 — ERP Financeiro: Plano de Contas, Caixas, A/R Geral, A/P
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Plano de Contas ──────────────────────────────────────────────────────────
+
+export type AccountCategoryType = 'receita' | 'despesa';
+
+export interface FinancialAccountCategory {
+  id: string;
+  name: string;
+  type: AccountCategoryType;
+  parent_id: string | null;
+  code: string | null;
+  is_system: boolean;
+  is_active: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  // Join opcional — construído no frontend para renderizar árvore
+  children?: FinancialAccountCategory[];
+}
+
+// ── Caixas ───────────────────────────────────────────────────────────────────
+
+export type CashRegisterStatus = 'open' | 'closed';
+
+export interface FinancialCashRegister {
+  id: string;
+  name: string;
+  description: string | null;
+  responsible_user_id: string | null;
+  status: CashRegisterStatus;
+  current_balance: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Join opcional
+  responsible?: { id: string; full_name: string } | null;
+}
+
+export type CashMovementType =
+  | 'opening'
+  | 'closing'
+  | 'sangria'
+  | 'suprimento'
+  | 'inflow'
+  | 'outflow';
+
+export type CashMovementSubType =
+  | 'recebimento'
+  | 'devolucao'
+  | 'taxa_evento'
+  | 'taxa_passeio'
+  | 'taxa_diversa'
+  | 'despesa_operacional';
+
+export interface FinancialCashMovement {
+  id: string;
+  cash_register_id: string;
+  type: CashMovementType;
+  sub_type: CashMovementSubType | null;
+  amount: number;
+  balance_after: number;
+  description: string;
+  payer_name: string | null;
+  payment_method: string | null;
+  account_category_id: string | null;
+  event_id: string | null;
+  reference_id: string | null;
+  reference_type: 'receivable' | 'payable' | null;
+  receipt_url: string | null;
+  receipt_path: string | null;
+  recorded_by: string | null;
+  movement_date: string;
+  created_at: string;
+  // Joins opcionais
+  account_category?: FinancialAccountCategory | null;
+}
+
+export const CASH_MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
+  opening:    'Abertura',
+  closing:    'Fechamento',
+  sangria:    'Sangria',
+  suprimento: 'Suprimento',
+  inflow:     'Entrada',
+  outflow:    'Saída',
+};
+
+export const CASH_MOVEMENT_SUB_TYPE_LABELS: Record<CashMovementSubType, string> = {
+  recebimento:          'Recebimento',
+  devolucao:            'Devolução',
+  taxa_evento:          'Taxa de Evento',
+  taxa_passeio:         'Taxa de Passeio',
+  taxa_diversa:         'Taxa Diversa',
+  despesa_operacional:  'Despesa Operacional',
+};
+
+// ── Contas a Receber (Geral) ─────────────────────────────────────────────────
+
+export type ReceivableStatus = 'pending' | 'paid' | 'partial' | 'overdue' | 'cancelled';
+export type ReceivablePayerType = 'student' | 'responsible' | 'external';
+export type ReceivableSourceType = 'manual' | 'event' | 'enrollment' | 'cash_movement';
+
+export interface FinancialReceivable {
+  id: string;
+  payer_name: string;
+  payer_type: ReceivablePayerType;
+  student_id: string | null;
+  amount: number;
+  account_category_id: string | null;
+  description: string;
+  due_date: string;
+  payment_method: string | null;
+  status: ReceivableStatus;
+  amount_paid: number;
+  paid_at: string | null;
+  late_fee_pct: number;
+  interest_rate_pct: number;
+  parent_id: string | null;
+  installment_number: number | null;
+  total_installments: number | null;
+  is_recurring: boolean;
+  recurrence_interval: 'monthly' | 'quarterly' | 'yearly' | null;
+  recurrence_end_date: string | null;
+  source_type: ReceivableSourceType;
+  source_id: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins opcionais
+  student?: { id: string; full_name: string } | null;
+  account_category?: FinancialAccountCategory | null;
+}
+
+export const RECEIVABLE_STATUS_LABELS: Record<ReceivableStatus, string> = {
+  pending:   'Pendente',
+  paid:      'Pago',
+  partial:   'Parcialmente Pago',
+  overdue:   'Vencido',
+  cancelled: 'Cancelado',
+};
+
+export const RECEIVABLE_STATUS_COLORS: Record<ReceivableStatus, string> = {
+  pending:   'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  paid:      'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+  partial:   'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+  overdue:   'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  cancelled: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400',
+};
+
+// ── Contas a Pagar ───────────────────────────────────────────────────────────
+
+export type PayableStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
+export type PayableCreditorType = 'supplier' | 'employee' | 'other';
+export type PayableCategoryType = 'fixed' | 'variable';
+
+export interface FinancialPayable {
+  id: string;
+  creditor_name: string;
+  creditor_type: PayableCreditorType;
+  amount: number;
+  account_category_id: string | null;
+  category_type: PayableCategoryType;
+  description: string;
+  due_date: string;
+  payment_method: string | null;
+  status: PayableStatus;
+  amount_paid: number;
+  paid_at: string | null;
+  receipt_url: string | null;
+  receipt_path: string | null;
+  parent_id: string | null;
+  installment_number: number | null;
+  total_installments: number | null;
+  is_recurring: boolean;
+  recurrence_interval: 'monthly' | 'quarterly' | 'yearly' | null;
+  recurrence_end_date: string | null;
+  alert_days_before: number;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins opcionais
+  account_category?: FinancialAccountCategory | null;
+}
+
+export const PAYABLE_STATUS_LABELS: Record<PayableStatus, string> = {
+  pending:   'Pendente',
+  paid:      'Pago',
+  overdue:   'Vencido',
+  cancelled: 'Cancelado',
+};
+
+export const PAYABLE_STATUS_COLORS: Record<PayableStatus, string> = {
+  pending:   'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  paid:      'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+  overdue:   'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  cancelled: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400',
+};
+
+export const PAYABLE_CREDITOR_TYPE_LABELS: Record<PayableCreditorType, string> = {
+  supplier: 'Fornecedor',
+  employee: 'Funcionário',
+  other:    'Outro',
+};
+
+export const PAYABLE_CATEGORY_TYPE_LABELS: Record<PayableCategoryType, string> = {
+  fixed:    'Despesa Fixa',
+  variable: 'Despesa Variável',
+};
+
