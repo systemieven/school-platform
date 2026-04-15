@@ -37,17 +37,27 @@ jobs:
           git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/systemieven/${{ matrix.client }}.git /tmp/client
 
       - name: Create sync branch and merge upstream
+        id: merge
         working-directory: /tmp/client
         run: |
           git remote add upstream https://github.com/systemieven/school-platform.git
           git fetch upstream main
+          # Skip entirely if client is already up-to-date with upstream.
+          # Avoids spamming empty sync/upstream-* branches on every push.
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Client is already up-to-date with upstream — nothing to sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           BRANCH="sync/upstream-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH"
           git merge upstream/main --no-edit || true
           git push origin "$BRANCH"
-          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Create Pull Request
+        if: steps.merge.outputs.skip != 'true'
         working-directory: /tmp/client
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
