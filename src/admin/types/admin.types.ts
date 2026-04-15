@@ -1108,6 +1108,23 @@ export interface FinancialDiscount {
   student?: { id: string; full_name: string } | null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FINANCIAL — Regras de Parcelamento
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface InstallmentRule {
+  max_amount: number | null;   // null = sem teto (última faixa)
+  max_installments: number;    // 1..24
+}
+
+export interface InstallmentConfig {
+  id: string;                  // crypto.randomUUID() gerado no frontend
+  gateway_id: string;          // FK para payment_gateways.id
+  payment_method: string;      // 'credit_card' | 'debit_card'
+  enabled: boolean;
+  rules: InstallmentRule[];    // ordenado por max_amount ASC, último pode ter null
+}
+
 export type ScholarshipType = 'percentage' | 'fixed' | 'full';
 export type ScholarshipStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
 

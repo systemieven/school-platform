@@ -92,17 +92,20 @@ export interface DrawerCardProps {
   children: React.ReactNode;
   /** Classes extras para o body (ex.: `'divide-y divide-gray-100'`) */
   bodyClassName?: string;
+  /** Conteúdo extra no canto direito do cabeçalho (ex.: botão "+ Adicionar") */
+  headerExtra?: React.ReactNode;
 }
 
-export function DrawerCard({ title, icon: Icon, children, bodyClassName }: DrawerCardProps) {
+export function DrawerCard({ title, icon: Icon, children, bodyClassName, headerExtra }: DrawerCardProps) {
   return (
     <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
       {/* Cabeçalho cinza */}
       <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center gap-2">
         {Icon && <Icon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-        <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400">
+        <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-400 flex-1">
           {title}
         </span>
+        {headerExtra}
       </div>
       {/* Corpo branco */}
       <div className={`bg-white dark:bg-gray-900 px-4 py-4 space-y-3${bodyClassName ? ` ${bodyClassName}` : ''}`}>
