@@ -4,6 +4,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, AlertTriangle,
   Users, Loader2, Gavel,
 } from 'lucide-react';
+import DashboardChartGrid from '../../components/DashboardChartGrid';
 
 interface Stats {
   totalContracts: number;
@@ -158,6 +159,12 @@ export default function FinancialDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Divider */}
+      <div className="border-t border-gray-100 dark:border-gray-700 pt-2" />
+
+      {/* Chart grid */}
+      <DashboardChartGrid module="financeiro" />
     </div>
   );
 }

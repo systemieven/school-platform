@@ -1643,3 +1643,72 @@ export const PAYABLE_CATEGORY_TYPE_LABELS: Record<PayableCategoryType, string> =
   variable: 'Despesa Variável',
 };
 
+
+// ── Dashboard Widgets (Fase 9.5) ─────────────────────────────────────────────
+
+export type ChartType =
+  | 'bar' | 'bar_horizontal' | 'line' | 'area'
+  | 'pie' | 'donut' | 'metric';
+
+export type ChartPeriod =
+  | '3months' | '6months' | '12months'
+  | 'current_year' | 'previous_year';
+
+export type DashboardModule = 'financeiro' | 'academico';
+
+export interface WidgetConfig {
+  period?: ChartPeriod;
+  color_scheme?: string;
+  show_legend?: boolean;
+  show_grid?: boolean;
+}
+
+export interface DashboardWidget {
+  id: string;
+  module: DashboardModule;
+  created_by: string | null;
+  title: string;
+  chart_type: ChartType;
+  data_source: string;
+  config: WidgetConfig;
+  position: number;
+  is_visible: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const CHART_TYPE_LABELS: Record<ChartType, string> = {
+  bar:            'Barras Verticais',
+  bar_horizontal: 'Barras Horizontais',
+  line:           'Linha',
+  area:           'Área',
+  pie:            'Pizza',
+  donut:          'Rosca',
+  metric:         'Métrica Grande',
+};
+
+export const CHART_PERIOD_LABELS: Record<ChartPeriod, string> = {
+  '3months':      'Últimos 3 meses',
+  '6months':      'Últimos 6 meses',
+  '12months':     'Últimos 12 meses',
+  'current_year': 'Ano atual',
+  'previous_year':'Ano anterior',
+};
+
+export const FINANCIAL_DATA_SOURCES: { value: string; label: string; description: string; suggested: ChartType[] }[] = [
+  { value: 'revenue_by_month',          label: 'Receita por Mês',               description: 'Receita recebida mês a mês',                          suggested: ['bar', 'line', 'area'] },
+  { value: 'overdue_trend',             label: 'Evolução da Inadimplência',      description: 'Valor inadimplente acumulado mês a mês',               suggested: ['line', 'area'] },
+  { value: 'contracts_by_segment',      label: 'Contratos por Segmento',         description: 'Contratos ativos agrupados por segmento',              suggested: ['pie', 'donut'] },
+  { value: 'installments_status_dist',  label: 'Distribuição de Parcelas',       description: 'Parcelas por status: pago / pendente / vencido',       suggested: ['pie', 'donut'] },
+  { value: 'collection_funnel',         label: 'Funil de Cobrança',              description: 'Valor total por status de cobrança',                  suggested: ['bar_horizontal'] },
+  { value: 'monthly_revenue_vs_overdue',label: 'Receita × Inadimplência',        description: 'Receita recebida vs. inadimplência por mês',           suggested: ['bar'] },
+];
+
+export const ACADEMIC_DATA_SOURCES: { value: string; label: string; description: string; suggested: ChartType[] }[] = [
+  { value: 'class_occupancy',     label: 'Ocupação por Turma',           description: 'Taxa de ocupação (%) de cada turma',              suggested: ['bar'] },
+  { value: 'attendance_by_class', label: 'Frequência por Turma',         description: 'Índice médio de presença por turma (%)',           suggested: ['bar'] },
+  { value: 'grades_distribution', label: 'Distribuição de Notas',        description: 'Alunos por faixa de nota (0-4, 4-6, 6-8, 8-10)', suggested: ['bar', 'pie'] },
+  { value: 'learning_curve',      label: 'Curva de Aprendizado',         description: 'Evolução das médias por período letivo',           suggested: ['line', 'area'] },
+  { value: 'alerts_by_severity',  label: 'Alertas por Severidade',       description: 'Alunos com alerta de frequência por nível',        suggested: ['donut'] },
+  { value: 'top_absences',        label: 'Turmas com Mais Faltas',       description: 'Top 5 turmas com maior índice de ausência',        suggested: ['bar_horizontal'] },
+];

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   GraduationCap, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
-  CalendarRange, PanelLeftClose, PanelLeftOpen,
+  CalendarRange, PanelLeftClose, PanelLeftOpen, LayoutDashboard,
 } from 'lucide-react';
+import AcademicoDashboardPage from './AcademicoDashboardPage';
 import SegmentsPage from '../school/SegmentsPage';
 import DisciplinasPage from './DisciplinasPage';
 import GradeHorariaPage from './GradeHorariaPage';
@@ -22,6 +23,13 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
+  {
+    key: 'dashboard',
+    label: 'Dashboard',
+    shortLabel: 'Dashboard',
+    icon: LayoutDashboard,
+    description: 'KPIs, eventos da semana e gráficos personalizáveis',
+  },
   {
     key: 'segmentos',
     label: 'Segmentos, Séries e Turmas',
@@ -88,8 +96,18 @@ const TABS: TabDef[] = [
 ];
 
 export default function AcademicoPage() {
-  const [activeTab, setActiveTab] = useState('segmentos');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
+
+  // Listen for "Ver calendário" link from AcademicoDashboardPage
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (detail) setActiveTab(detail);
+    };
+    window.addEventListener('academico:switch-tab', handler);
+    return () => window.removeEventListener('academico:switch-tab', handler);
+  }, []);
 
   const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
 
@@ -177,6 +195,7 @@ export default function AcademicoPage() {
 
             {/* Panel content */}
             <div className="p-6">
+              {activeTab === 'dashboard'   && <AcademicoDashboardPage />}
               {activeTab === 'segmentos' && <SegmentsPage />}
               {activeTab === 'disciplinas' && <DisciplinasPage />}
               {activeTab === 'grade-horaria' && <GradeHorariaPage />}
