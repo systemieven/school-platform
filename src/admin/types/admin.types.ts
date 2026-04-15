@@ -1964,3 +1964,252 @@ export const DIARY_ENTRY_TYPE_LABELS: Record<DiaryEntryType, string> = {
   excursao: 'Excursão',
   outro: 'Outro',
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FASE 11 — SECRETARIA DIGITAL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Declarações — Document Templates ─────────────────────────────────────────
+export type DocumentType =
+  | 'declaracao_matricula'
+  | 'declaracao_frequencia'
+  | 'declaracao_conclusao'
+  | 'historico_escolar'
+  | 'declaracao_transferencia'
+  | 'outro';
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  declaracao_matricula:    'Declaração de Matrícula',
+  declaracao_frequencia:   'Declaração de Frequência',
+  declaracao_conclusao:    'Declaração de Conclusão',
+  historico_escolar:       'Histórico Escolar',
+  declaracao_transferencia:'Declaração de Transferência',
+  outro:                   'Outro',
+};
+
+export interface DocumentTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  document_type: DocumentType;
+  html_content: string;
+  variables: string[];
+  is_active: boolean;
+  requires_approval: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DocumentRequestStatus =
+  | 'pending'
+  | 'approved'
+  | 'generating'
+  | 'generated'
+  | 'delivered'
+  | 'rejected';
+
+export type DocumentRequesterType = 'guardian' | 'admin' | 'coordinator';
+
+export interface DocumentRequest {
+  id: string;
+  template_id: string;
+  student_id: string;
+  requested_by: string | null;
+  requester_type: DocumentRequesterType;
+  status: DocumentRequestStatus;
+  notes: string | null;
+  rejection_reason: string | null;
+  generated_at: string | null;
+  delivered_at: string | null;
+  pdf_path: string | null;
+  pdf_url: string | null;
+  pdf_url_expires_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  template?: DocumentTemplate;
+  student?: { id: string; full_name: string; enrollment_code: string | null } | null;
+}
+
+export const DOCUMENT_REQUEST_STATUS_LABELS: Record<DocumentRequestStatus, string> = {
+  pending:    'Aguardando',
+  approved:   'Aprovado',
+  generating: 'Gerando',
+  generated:  'Gerado',
+  delivered:  'Entregue',
+  rejected:   'Recusado',
+};
+
+export const DOCUMENT_REQUEST_STATUS_COLORS: Record<DocumentRequestStatus, string> = {
+  pending:    'yellow',
+  approved:   'blue',
+  generating: 'purple',
+  generated:  'indigo',
+  delivered:  'green',
+  rejected:   'red',
+};
+
+// ── Fichas de Saúde ───────────────────────────────────────────────────────────
+export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+
+export interface MedicationEntry {
+  name: string;
+  dose: string;
+  frequency: string;
+  instructions: string;
+}
+
+export interface StudentHealthRecord {
+  id: string;
+  student_id: string;
+  has_allergies: boolean;
+  allergies: string[] | null;
+  allergy_notes: string | null;
+  uses_medication: boolean;
+  medications: MedicationEntry[] | null;
+  has_special_needs: boolean;
+  special_needs: string | null;
+  learning_difficulties: string | null;
+  blood_type: BloodType | null;
+  chronic_conditions: string[] | null;
+  health_plan: string | null;
+  health_plan_number: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  emergency_contact_rel: string | null;
+  authorized_photo: boolean;
+  authorized_first_aid: boolean;
+  authorized_evacuation: boolean;
+  notes: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Join
+  student?: { id: string; full_name: string } | null;
+}
+
+// ── Rematrícula ───────────────────────────────────────────────────────────────
+export type ReenrollmentCampaignStatus = 'draft' | 'active' | 'closed' | 'cancelled';
+
+export const REENROLLMENT_CAMPAIGN_STATUS_LABELS: Record<ReenrollmentCampaignStatus, string> = {
+  draft:     'Rascunho',
+  active:    'Ativa',
+  closed:    'Encerrada',
+  cancelled: 'Cancelada',
+};
+
+export const REENROLLMENT_CAMPAIGN_STATUS_COLORS: Record<ReenrollmentCampaignStatus, string> = {
+  draft:     'gray',
+  active:    'green',
+  closed:    'blue',
+  cancelled: 'red',
+};
+
+export interface ReenrollmentCampaign {
+  id: string;
+  title: string;
+  description: string | null;
+  school_year: number;
+  start_date: string;
+  end_date: string;
+  early_deadline: string | null;
+  early_discount_pct: number;
+  default_plan_id: string | null;
+  eligible_segments: string[] | null;
+  status: ReenrollmentCampaignStatus;
+  auto_generate_contract: boolean;
+  requires_signature: boolean;
+  instructions: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ReenrollmentApplicationStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'signed'
+  | 'contract_generated'
+  | 'completed'
+  | 'cancelled';
+
+export const REENROLLMENT_APPLICATION_STATUS_LABELS: Record<ReenrollmentApplicationStatus, string> = {
+  pending:            'Pendente',
+  confirmed:          'Confirmado',
+  signed:             'Assinado',
+  contract_generated: 'Contrato Gerado',
+  completed:          'Concluído',
+  cancelled:          'Cancelado',
+};
+
+export interface ReenrollmentApplication {
+  id: string;
+  campaign_id: string;
+  student_id: string;
+  guardian_id: string | null;
+  status: ReenrollmentApplicationStatus;
+  early_discount_applied: boolean;
+  plan_id: string | null;
+  contract_id: string | null;
+  confirmed_at: string | null;
+  signed_at: string | null;
+  signature_data: string | null;
+  notes: string | null;
+  processed_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  campaign?: ReenrollmentCampaign;
+  student?: { id: string; full_name: string } | null;
+}
+
+// ── Transferências ────────────────────────────────────────────────────────────
+export type StudentTransferType =
+  | 'internal'
+  | 'transfer_out'
+  | 'trancamento'
+  | 'cancellation';
+
+export const STUDENT_TRANSFER_TYPE_LABELS: Record<StudentTransferType, string> = {
+  internal:     'Transferência Interna',
+  transfer_out: 'Transferência para Outra Escola',
+  trancamento:  'Trancamento de Matrícula',
+  cancellation: 'Cancelamento de Matrícula',
+};
+
+export type StudentTransferStatus = 'pending' | 'processing' | 'completed' | 'reversed';
+
+export const STUDENT_TRANSFER_STATUS_LABELS: Record<StudentTransferStatus, string> = {
+  pending:    'Pendente',
+  processing: 'Processando',
+  completed:  'Concluído',
+  reversed:   'Revertido',
+};
+
+export interface StudentTransfer {
+  id: string;
+  student_id: string;
+  type: StudentTransferType;
+  from_class_id: string | null;
+  to_class_id: string | null;
+  effective_date: string;
+  reason: string;
+  destination_school: string | null;
+  declaration_needed: boolean;
+  declaration_request_id: string | null;
+  cancel_future_installments: boolean;
+  installments_cancelled: number;
+  notes: string | null;
+  processed_by: string;
+  status: StudentTransferStatus;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  student?: { id: string; full_name: string } | null;
+  from_class?: { id: string; name: string } | null;
+  to_class?: { id: string; name: string } | null;
+}

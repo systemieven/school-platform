@@ -99,6 +99,19 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'Secretaria',
+    items: [
+      {
+        key: 'secretaria',
+        label: 'Secretaria Digital',
+        icon: 'Archive',
+        path: '/admin/secretaria',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'secretaria-declaracoes',
+      },
+    ],
+  },
+  {
     label: 'Instituição',
     items: [
       {

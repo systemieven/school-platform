@@ -44,6 +44,9 @@ const ResponsaveisPage         = lazy(() => import('./pages/school/ResponsaveisP
 const DiarioAdminPage          = lazy(() => import('./pages/academico/DiarioAdminPage'));
 const ProvasAdminPage          = lazy(() => import('./pages/academico/ProvasAdminPage'));
 
+// Fase 11 — Secretaria Digital
+const SecretariaPage           = lazy(() => import('./pages/secretaria/SecretariaPage'));
+
 function PageFallback() {
   return (
     <div className="flex items-center justify-center py-24">
@@ -114,6 +117,9 @@ export default function AdminRoutes() {
           {/* Fase 10.P — Diario e Provas (leitura admin/coordenador) */}
           <Route path="diario"   element={<ModuleGuard moduleKey="teacher-portal-admin"><LazyPage><DiarioAdminPage /></LazyPage></ModuleGuard>} />
           <Route path="provas"   element={<ModuleGuard moduleKey="teacher-portal-admin"><LazyPage><ProvasAdminPage /></LazyPage></ModuleGuard>} />
+
+          {/* Fase 11 — Secretaria Digital */}
+          <Route path="secretaria" element={<ModuleGuard moduleKey="secretaria-declaracoes"><LazyPage><SecretariaPage /></LazyPage></ModuleGuard>} />
 
           {/* System */}
           <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />

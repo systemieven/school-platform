@@ -2,7 +2,7 @@
 
 > **Versao**: 3.3
 > **Data**: 15 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-9, 9.M e 8.5 concluidas) + roadmap ate v1
+> **Status**: Documento unificado — estado atual (Fases 1-11 concluidas) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -1436,7 +1436,7 @@ Configuravel na aba Aparencia > Home:
 | 9.5 | Dashboards Analiticos (Financeiro + Academico) | ✅ Concluido (migration 74, Recharts, 2026-04-15) | Alta | 8 + 9 |
 | 10 | Portal do Responsavel | ✅ Concluido (migrations 75-76, 2026-04-15) | Critica | 8 + 9 + 9.M |
 | 10.P | Portal do Professor / Diario de Classe | ✅ Concluido (migrations 77-81, 2026-04-15) | Alta | 9 + 9.M *(paralelo a Fase 10)* |
-| 11 | Secretaria Digital | ⏳ Pendente | Alta | 10 |
+| 11 | Secretaria Digital | ✅ Concluido (migrations 82-86, Edge Function generate-document, 2026-04-15) | Alta | 10 |
 | 12 | Modulo Pedagogico Avancado (BNCC + Relatorios) | ⏳ Pendente | Media | 9 + 10.P |
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
 
