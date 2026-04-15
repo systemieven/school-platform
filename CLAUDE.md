@@ -103,6 +103,7 @@ Regras obrigatórias:
 3. **Ícone contextual** = ícone Lucide do objeto salvo (ex.: `GraduationCap` para aluno, `CalendarDays` para evento, `ShieldCheck` para senha). Nunca `Save` genérico quando existe um mais específico.
 4. **Com Excluir:** botão vermelho ghost à esquerda (`bg-red-50 text-red-600` + `<Trash2>`), spacer `flex-1`, depois Cancelar + Salvar de largura natural.
 5. **Nunca** spinner CSS caseiro (`border-t-white rounded-full`) — sempre `<Loader2>` do Lucide.
+6. **Toggle ativo/inativo na barra de título:** quando o drawer tem um campo `is_active` (ativar/desativar o recurso), o toggle fica no lado direito do header, **antes** do botão fechar — nunca em SettingsCard separado dentro do body. Padrão: `<div className="flex items-center gap-3"><Toggle checked={form.is_active} onChange={...} onColor="bg-emerald-500" /><button onClick={onCancel}>...</button></div>`.
 
 ## Referências
 

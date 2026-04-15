@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import { Loader2 } from 'lucide-react';
+import { useBranding } from './contexts/BrandingContext';
+import MaintenancePage from './pages/MaintenancePage';
 
 // Public pages — eager imports for instant transitions (no Suspense delay)
 // Vendor libs (react, supabase, etc.) already split via manualChunks in vite.config.ts
@@ -39,25 +41,34 @@ function FullPageFallback() {
 }
 
 export default function App() {
+  const { maintenanceMode } = useBranding();
+
   return (
     <Routes>
       {/* ── Public site ── */}
-      <Route element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="educacao-infantil"    element={<EducacaoInfantil />} />
-        <Route path="ensino-fundamental-1" element={<EnsinoFundamental1 />} />
-        <Route path="ensino-fundamental-2" element={<EnsinoFundamental2 />} />
-        <Route path="ensino-medio"         element={<EnsinoMedio />} />
-        <Route path="matricula"            element={<Matricula />} />
-        <Route path="contato"              element={<Contato />} />
-        <Route path="agendar-visita"       element={<AgendarVisita />} />
-        <Route path="politica-privacidade" element={<PoliticaPrivacidade />} />
-        <Route path="termos-de-uso"        element={<TermosUso />} />
-        <Route path="sobre"                element={<Sobre />} />
-        <Route path="estrutura"            element={<Estrutura />} />
-        <Route path="area-professor"       element={<EmConstrucao />} />
-        <Route path="*"                    element={<NotFound />} />
-      </Route>
+      {!maintenanceMode && (
+        <Route element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route path="educacao-infantil"    element={<EducacaoInfantil />} />
+          <Route path="ensino-fundamental-1" element={<EnsinoFundamental1 />} />
+          <Route path="ensino-fundamental-2" element={<EnsinoFundamental2 />} />
+          <Route path="ensino-medio"         element={<EnsinoMedio />} />
+          <Route path="matricula"            element={<Matricula />} />
+          <Route path="contato"              element={<Contato />} />
+          <Route path="agendar-visita"       element={<AgendarVisita />} />
+          <Route path="politica-privacidade" element={<PoliticaPrivacidade />} />
+          <Route path="termos-de-uso"        element={<TermosUso />} />
+          <Route path="sobre"                element={<Sobre />} />
+          <Route path="estrutura"            element={<Estrutura />} />
+          <Route path="area-professor"       element={<EmConstrucao />} />
+          <Route path="*"                    element={<NotFound />} />
+        </Route>
+      )}
+
+      {/* ── Maintenance — standalone, no site chrome ── */}
+      {maintenanceMode && (
+        <Route path="*" element={<MaintenancePage />} />
+      )}
 
       {/* ── Public attendance (QR code, no site chrome) ── */}
       <Route path="atendimento" element={<Suspense fallback={<FullPageFallback />}><AtendimentoPublico /></Suspense>} />
