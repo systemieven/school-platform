@@ -1459,6 +1459,8 @@ Configuravel na aba Aparencia > Home:
 
 **Fase 11.C** expande a `student_health_records` criada na Fase 11 (migration 83) — pode ser desenvolvida logo apos Fase 11 sem bloquear 11.B ou 12.
 
+**Decisao de arquitetura (11.B)**: Portaria acessa o sistema como `user` com permissao granular no modulo `portaria` — sem novo role no CHECK constraint. RLS das novas tabelas usa `JOIN role_permissions` em vez de `role IN (...)`.
+
 **Pre-requisitos transversais** (antes das fases 9-12):
 - ✅ Renomear tabela `attendance` → `student_attendance` (migration 43)
 - ✅ Criar tabela `student_guardians` N:N (migration 44)
@@ -2212,6 +2214,7 @@ Reutiliza categoria `academico` existente (cor: `#065f46`).
 | `activity_authorizations` (migration 75) | Modelo diferente (escola → responsavel para autorizar atividades). `exit_authorizations` e responsavel → escola para autorizar saida — fluxo inverso, nova tabela | Sem conflito |
 | Portal do Responsavel (`/responsavel/*`) | Duas novas rotas: `/responsavel/faltas` e `/responsavel/autorizacoes-saida` | Requer nova entrada no sidebar |
 | `students` (tabela existente) | `authorized_persons` referencia por `student_id`; nao altera a tabela `students` em si | FK reversa |
+| Sistema de permissoes granulares (`role_permissions`) | Portaria nao e um novo role — usuarios `user` recebem `can_view + can_edit` no modulo `portaria` via admin. RLS das tabelas de portaria usa JOIN em `role_permissions` em vez de `role IN (...)` | Sem ALTER TABLE profiles; consistente com ModuleGuard do frontend |
 | WhatsApp (categoria existente) | Notificacoes por mudanca de status em ambos os fluxos (falta aceita/recusada; autorizacao aceita/recusada/saida efetivada) | Nova categoria `portaria` |
 
 #### 11.B.3 Tabelas
@@ -2219,6 +2222,7 @@ Reutiliza categoria `academico` existente (cor: `#065f46`).
 | Tabela | Migration | Descricao |
 |--------|-----------|-----------|
 | `absence_communications` | 87 | Comunicacoes de falta do responsavel (falta programada + justificativa); status: sent → analyzing → accepted/rejected |
+| `absence_reason_options` | 87 | Opcoes configuráveis de motivo de ausencia; CRUD pelo admin em Config > Academico |
 | `authorized_persons` | 88 | Pessoas fixas autorizadas a retirar aluno — vinculadas ao cadastro permanente |
 | `exit_authorizations` | 88 | Autorizacoes excepcionais de saida; dados do terceiro; confirmacao senha; log imutavel JSONB; efetivacao na portaria |
 | ALTER `diary_attendance` | 87 | ADD COLUMN `absence_communication_id UUID REFERENCES absence_communications` |
@@ -2250,6 +2254,32 @@ ALTER TABLE diary_attendance
   ADD COLUMN IF NOT EXISTS absence_communication_id UUID
     REFERENCES absence_communications(id) ON DELETE SET NULL;
 ```
+
+**Schema `absence_reason_options` (migration 87):**
+```sql
+CREATE TABLE absence_reason_options (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key         TEXT NOT NULL UNIQUE,
+  label       TEXT NOT NULL,
+  description TEXT,
+  icon        TEXT,                    -- nome do icone Lucide (opcional)
+  color       TEXT,                    -- cor hex para badge (opcional)
+  is_active   BOOLEAN NOT NULL DEFAULT true,
+  position    INT NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Seeds iniciais
+INSERT INTO absence_reason_options (key, label, position) VALUES
+  ('saude',              'Saude',              1),
+  ('compromisso_medico', 'Compromisso Medico', 2),
+  ('viagem',             'Viagem',             3),
+  ('familiar',           'Questao Familiar',   4),
+  ('outro',              'Outro',              5);
+```
+
+> CRUD inline em *Config > Academico* — card "Motivos de Ausencia". Segue padrao `SettingsCard` existente. Admin pode adicionar, reordenar e desativar opcoes sem migration.
 
 **Schema `authorized_persons` (migration 88):**
 ```sql
@@ -2306,37 +2336,57 @@ CREATE TABLE exit_authorizations (
 
 > **Nota de seguranca**: `audit_log` e append-only via trigger BEFORE UPDATE que bloqueia qualquer reducao do array. A efetivacao na portaria adiciona `{event:'exit_confirmed', at:now(), by:user_id, user_name}` ao JSONB antes de atualizar `exited_at`.
 
-#### 11.B.4 Novo Role `portaria`
+#### 11.B.4 Acesso de Portaria via Permissoes Granulares
+
+Nenhum novo role e adicionado ao CHECK constraint de `profiles`. O acesso ao modulo de portaria e controlado exclusivamente pelo sistema de permissoes granulares existente (`role_permissions`):
+
+- Usuarios com role `user` recebem `can_view=true, can_edit=true` no modulo `portaria` via painel de admin (Usuarios → Permissoes)
+- A mesma logica se aplica ao modulo `exit-authorizations`
+- Admins e coordinators continuam com acesso completo via suas permissoes de role
+
+**RLS das tabelas de portaria** usa subquery em `role_permissions` em vez de checar `role IN (...)` diretamente:
 
 ```sql
--- Migration 89
-ALTER TABLE profiles DROP CONSTRAINT profiles_role_check;
-ALTER TABLE profiles ADD CONSTRAINT profiles_role_check
-  CHECK (role IN ('super_admin','admin','coordinator','teacher','student','user','responsavel','portaria'));
+-- Exemplo de policy para exit_authorizations (leitura por portaria)
+CREATE POLICY "portaria view exit_authorizations"
+  ON exit_authorizations FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles p
+      JOIN role_permissions rp ON rp.role = p.role
+      WHERE p.id = auth.uid()
+        AND rp.module_key = 'portaria'
+        AND rp.can_view = true
+    )
+  );
 ```
 
-Modulos novos:
+Este padrao e consistente com o `ModuleGuard` do frontend — ambos consultam `role_permissions` como fonte de verdade, sem duplicar logica de autorização em campos de role.
 
-| module_key | label | position | Roles com acesso |
-|---|---|---|---|
-| `absence-communications` | Comunicacoes de Falta | 64 | super_admin, admin, coordinator |
-| `portaria` | Portaria | 65 | super_admin, admin, coordinator, portaria |
-| `exit-authorizations` | Autorizacoes de Saida | 66 | super_admin, admin, coordinator, portaria |
-
-Perfil `portaria`: view + edit em `portaria` e `exit-authorizations`; sem acesso a outros modulos financeiros ou academicos.
+**Migration 89** nao inclui mais `ALTER TABLE profiles` — apenas os `INSERT INTO modules` e `INSERT INTO role_permissions` para os tres novos modulos.
 
 #### 11.B.5 Edge Functions
 
 | Funcao | Descricao |
 |--------|-----------|
-| `validate-guardian-password` | Valida senha do responsavel antes de gravar autorizacao de saida excepcional (recebe JWT + senha em plaintext, chama `supabase.auth.signInWithPassword` como confirmacao) |
+| `validate-guardian-password` | Valida senha do responsavel antes de gravar autorizacao de saida excepcional — Tier 2 do fluxo de re-autenticacao |
+| `get-reauth-challenge` | Gera e armazena challenge efemero (TTL 2 min) para re-autenticacao WebAuthn — Tier 1; implementado em sprint de melhorias apos 11.B |
 | `notify-exit-confirmed` | Envia notificacao WhatsApp ao responsavel quando portaria confirma saida (hora + nome do usuario de portaria) |
+
+**Re-autenticacao em dois niveis (Autorizacao de Saida Excepcional):**
+
+| Nivel | Tecnologia | Condicao de ativacao | Status |
+|-------|-----------|---------------------|--------|
+| Tier 1 — Biometria | WebAuthn (`navigator.credentials.get` com autenticador de plataforma) | `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable() === true` AND credencial registrada em `/responsavel/perfil` | Implementar em sprint de melhorias pos-11.B |
+| Tier 2 — Senha | Modal de senha → Edge Function `validate-guardian-password` → `supabase.auth.signInWithPassword` | Fallback universal; unico nivel entregue na Fase 11.B | ✅ Entregue em 11.B |
+
+O registro de credencial WebAuthn e gerenciado em `/responsavel/perfil` como opt-in ("Ativar autenticacao biometrica"). A arquitetura de re-auth nao muda entre Tier 1 e Tier 2 — apenas a camada de verificacao e substituida. Nenhuma breaking change na migration ou na tabela `exit_authorizations`.
 
 #### 11.B.6 Rotas Admin
 
 | Rota | Componente | Roles | Descricao |
 |------|-----------|-------|-----------|
-| `/admin/faltas` | FaltasComunicacoesPage | admin+, coordinator | Fila de analise + aceitar/recusar; historico por aluno |
+| `/admin/faltas` | FaltasComunicacoesPage | admin+, coordinator | Fila de analise + aceitar/recusar; historico por aluno; opcoes de motivo configuradas em Config > Academico |
 | `/admin/autorizacoes-saida` | AutorizacoesSaidaAdminPage | admin+, coordinator | Fila de autorizacoes excepcionais + log de auditoria |
 | `/admin/portaria` | PortariaPage | admin+, portaria | Busca frequencia + cards autorizacoes ativas + confirmar saida |
 
@@ -2412,7 +2462,7 @@ Perfil `portaria`: view + edit em `portaria` e `exit-authorizations`; sem acesso
 | Config > Academico (`AcademicoSettingsPanel`) | Novo card "Ficha de Saude" com toggles por segmento para exigencia de atestado + campos de configuracao | Segue padrao SettingsCard existente |
 | `system_settings` | Keys: `health.require_certificate_segments UUID[]`, `health.certificate_alert_days INT DEFAULT 30`, `health.required_fields TEXT[]`, `health.allow_guardian_updates BOOLEAN DEFAULT true` | Padrao existente (billing_stages, installment_configs) |
 | pg_cron (migration existente 65) | Novo job diario `check_certificate_expiry`: varre `student_medical_certificates` onde `valid_until BETWEEN now() AND now() + alert_days`, insere em `alert_notifications` se ainda nao existe alerta para o par (student, certificate) no periodo | Reutiliza infraestrutura de cron ja existente |
-| Supabase Storage | Bucket `atestados` (privado) — signed URLs de 30 dias para acesso ao PDF/imagem | Mesmo padrao do bucket `documentos` |
+| Supabase Storage | Bucket `atestados` (privado, 10 MB, PDF + image/*) — upload direto via RLS do portal do responsavel sem Edge Function intermediaria; signed URLs de 30 dias para leitura | Mesmo padrao do bucket `student-photos` (upload direto) |
 
 #### 11.C.3 Tabelas
 
@@ -2533,7 +2583,7 @@ Config card em *Config > Academico* — segue padrao `SettingsCard`. Campos:
 | Camada | Componente | Alteracao |
 |--------|-----------|-----------|
 | `/admin/secretaria` (tab Fichas de Saude) | `SecretariaFichasSaudeTab` | Expandir drawer com novos campos; adicionar sub-tab Atestados; adicionar sub-tab Atualizacoes Pendentes; adicionar painel de alertas acima da tabela |
-| `/admin/alunos/:studentId` | `StudentDetailPage` | Nova aba "Saude" com ficha completa + historico de atestados + atualizacoes recentes |
+| `/admin/alunos/:studentId` | `StudentDetailPage` | Nova aba "Saude" na 4a posicao: Resumo | Academico | Financeiro | **Saude** | Documentos | Observacoes; ficha completa + historico de atestados + atualizacoes recentes |
 | `/responsavel/saude` | `SaudePage` (nova) | Visualizacao completa da ficha; formulario de proposta de atualizacao com diff antes/depois; upload de atestado; status atual |
 | `/admin/configuracoes` > Academico | `AcademicoSettingsPanel` | Novo card "Ficha de Saude" com todos os toggles de configuracao |
 
@@ -2674,6 +2724,7 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 | **Mascaramento de dados** | CPF e telefone parcial para roles restritas | Baixa | ⏳ Pendente |
 | **Biblioteca Virtual publica** | Rota `/biblioteca-virtual` no site — decidir se migra para /portal/biblioteca | Baixa | ⏳ Pendente |
 | **PWA / Mobile-First** | Layout responsivo mobile-first, manifest, service worker, push notifications. Concern transversal — ver `docs/PRD_PWA_MOBILE_FIRST.md` para detalhamento completo. Nao e uma fase isolada; cada fase deve entregar componentes mobile-ready | Media | ⏳ Pendente |
+| **WebAuthn / Biometria no Portal do Responsavel** | Registro e uso de credencial de plataforma (`TouchID`, `FaceID`, `Windows Hello`) para re-autenticacao no fluxo de autorizacao de saida excepcional; fallback para senha ja entregue em Fase 11.B | Alta | ⏳ Pendente (pos-11.B) |
 
 ---
 
