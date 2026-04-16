@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useGuardian } from '../../contexts/GuardianAuthContext';
+import BiometricAuth from '../../components/BiometricAuth';
 import {
-  DoorOpen, Loader2, Check, CalendarDays, Lock,
+  DoorOpen, Loader2, CalendarDays,
   Camera,
 } from 'lucide-react';
 import type {
@@ -66,10 +67,8 @@ export default function AutorizacoesSaidaPage() {
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [formError, setFormError] = useState('');
 
-  // Password confirmation
-  const [password, setPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [confirming, setConfirming] = useState(false);
+  // Biometric credential
+  const [credentialId, setCredentialId] = useState<string | null>(null);
 
   const currentStudent = students.find((s) => s.student_id === currentStudentId);
 
@@ -93,6 +92,19 @@ export default function AutorizacoesSaidaPage() {
     load();
   }, [currentStudentId, guardian]);
 
+  // ── Load biometric credential ─────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!guardian?.id) return;
+    supabase
+      .from('webauthn_credentials')
+      .select('credential_id')
+      .eq('guardian_id', guardian.id)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setCredentialId(data?.credential_id ?? null));
+  }, [guardian?.id]);
+
   // ── Photo handler ─────────────────────────────────────────────────────────────
 
   function handlePhoto(file: File) {
@@ -115,25 +127,10 @@ export default function AutorizacoesSaidaPage() {
     setStep('confirm-password');
   }
 
-  // ── Password confirmation + insert ────────────────────────────────────────────
+  // ── Insert after identity confirmed ──────────────────────────────────────────
 
-  async function handleConfirmPassword() {
+  async function handleConfirmAndInsert() {
     if (!guardian || !currentStudentId) return;
-    if (!password.trim()) { setPasswordError('Informe sua senha.'); return; }
-    setPasswordError('');
-    setConfirming(true);
-
-    // Derive email from guardian CPF (same convention as auth)
-    const cpfClean = guardian.cpf?.replace(/\D/g, '') ?? '';
-    const email = `${cpfClean}${GUARDIAN_EMAIL_SUFFIX}`;
-
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (authError) {
-      setPasswordError('Senha incorreta. Tente novamente.');
-      setConfirming(false);
-      return;
-    }
 
     setSaveState('saving');
 
@@ -171,11 +168,8 @@ export default function AutorizacoesSaidaPage() {
       audit_log:             [{ event: 'created', at: now, by: guardian.id }],
     });
 
-    setConfirming(false);
-
     if (insertError) {
       setSaveState('idle');
-      setPasswordError('Erro ao enviar autorização. Tente novamente.');
       return;
     }
 
@@ -186,7 +180,6 @@ export default function AutorizacoesSaidaPage() {
       setForm(EMPTY_FORM);
       setPhotoFile(null);
       setPhotoPreview(null);
-      setPassword('');
       // Refresh history
       supabase
         .from('exit_authorizations')
@@ -220,58 +213,15 @@ export default function AutorizacoesSaidaPage() {
         </div>
       </div>
 
-      {/* Password confirmation overlay */}
+      {/* Identity confirmation overlay */}
       {step === 'confirm-password' && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-amber-200 dark:border-amber-700/50 overflow-hidden">
-          <div className="bg-amber-50 dark:bg-amber-900/20 px-4 py-3 border-b border-amber-100 dark:border-amber-700/50 flex items-center gap-2">
-            <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">Confirmação de Identidade</span>
-          </div>
-          <div className="p-4 space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Por segurança, confirme sua senha para enviar a autorização de saída.
-            </p>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Sua Senha</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmPassword(); }}
-                placeholder="Digite sua senha..."
-                className={inp}
-                autoFocus
-              />
-              {passwordError && <p className="text-xs text-red-500 mt-1">{passwordError}</p>}
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setStep('form'); setPassword(''); setPasswordError(''); }}
-                disabled={confirming || saveState === 'saving'}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-              >
-                Voltar
-              </button>
-              <button
-                onClick={handleConfirmPassword}
-                disabled={confirming || saveState !== 'idle' || !password.trim()}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  saveState === 'saved'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'
-                }`}
-              >
-                {confirming || saveState === 'saving' ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Verificando…</>
-                ) : saveState === 'saved' ? (
-                  <><Check className="w-4 h-4" /> Enviado!</>
-                ) : (
-                  <><Lock className="w-4 h-4" /> Confirmar e Enviar</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <BiometricAuth
+          credentialId={credentialId}
+          guardianEmail={`${(guardian?.cpf ?? '').replace(/\D/g, '')}${GUARDIAN_EMAIL_SUFFIX}`}
+          title="Por segurança, confirme sua identidade para enviar a autorização de saída."
+          onSuccess={handleConfirmAndInsert}
+          onCancel={() => { setStep('form'); }}
+        />
       )}
 
       {/* Request form */}
