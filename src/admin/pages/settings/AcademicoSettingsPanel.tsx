@@ -944,7 +944,7 @@ export default function AcademicoSettingsPanel() {
       >
         <button
           onClick={handleSave}
-          disabled={!hasChanges || saving}
+          disabled={saving || (!hasChanges && !saved)}
           className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
               ? 'bg-emerald-500 text-white shadow-emerald-500/25'

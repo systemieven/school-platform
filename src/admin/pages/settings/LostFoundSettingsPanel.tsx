@@ -437,7 +437,7 @@ export default function LostFoundSettingsPanel() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={!isDirty || saving}
+          disabled={saving || (!isDirty && !saved)}
           className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
               ? 'bg-emerald-500 text-white shadow-emerald-500/25'
@@ -451,7 +451,7 @@ export default function LostFoundSettingsPanel() {
           ) : (
             <PackageSearch className="w-4 h-4" />
           )}
-          {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar Configurações'}
+          {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
         </button>
       </div>
 
