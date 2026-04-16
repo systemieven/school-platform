@@ -281,15 +281,8 @@ export default function StudentsPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
-            <Users className="w-8 h-8" />
-            Alunos
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Alunos com matrícula confirmada.</p>
-        </div>
+      {/* Actions bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 mb-6">
         <div className="flex items-center gap-3">
           <p className="text-sm text-gray-400 mr-2">
             {students.filter((s) => s.status === 'active').length} ativo{students.filter((s) => s.status === 'active').length !== 1 ? 's' : ''}
