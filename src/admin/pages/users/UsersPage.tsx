@@ -26,6 +26,29 @@ const inputCls = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:bord
 const labelCls = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5';
 
 // ── Quick Permissions: module groups matching sidebar navigation ──────────────
+type QuickActionPerms = {
+  can_view: boolean;
+  can_create: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  can_import: boolean;
+};
+const DEFAULT_ACTION_PERMS: QuickActionPerms = {
+  can_view: false, can_create: false, can_edit: false,
+  can_delete: false, can_import: false,
+};
+const FULL_ACCESS_PERMS: QuickActionPerms = {
+  can_view: true, can_create: true, can_edit: true,
+  can_delete: false, can_import: false,
+};
+const QUICK_ACTIONS: { key: keyof QuickActionPerms; label: string }[] = [
+  { key: 'can_view',   label: 'Visualizar' },
+  { key: 'can_create', label: 'Criar' },
+  { key: 'can_edit',   label: 'Editar' },
+  { key: 'can_delete', label: 'Excluir' },
+  { key: 'can_import', label: 'Importar' },
+];
+
 const MODULE_GROUPS = [
   {
     label: 'Principal',
@@ -41,26 +64,32 @@ const MODULE_GROUPS = [
     ],
   },
   {
-    label: 'Qualificação',
-    modules: [
-      { key: 'kanban', label: 'Kanban de Leads' },
-      { key: 'reports', label: 'Relatórios' },
-    ],
+    label: 'Financeiro',
+    modules: [{ key: 'financial', label: 'Financeiro' }],
+  },
+  {
+    label: 'Acadêmico',
+    modules: [{ key: 'academico', label: 'Acadêmico' }],
+  },
+  {
+    label: 'Secretaria',
+    modules: [{ key: 'secretaria-declaracoes', label: 'Secretaria Digital' }],
   },
   {
     label: 'Instituição',
     modules: [
-      { key: 'students', label: 'Alunos' },
       { key: 'announcements', label: 'Comunicados' },
       { key: 'events', label: 'Eventos' },
       { key: 'segments', label: 'Segmentos e Turmas' },
+      { key: 'teacher-area', label: 'Área do Professor' },
+      { key: 'library', label: 'Biblioteca Virtual' },
     ],
   },
   {
     label: 'Ferramentas',
     modules: [
-      { key: 'teacher-area', label: 'Área do Professor' },
-      { key: 'library', label: 'Biblioteca Virtual' },
+      { key: 'kanban', label: 'Kanban de Leads' },
+      { key: 'reports', label: 'Relatórios' },
       { key: 'testimonials', label: 'Depoimentos' },
     ],
   },
@@ -557,7 +586,8 @@ interface EditDrawerProps {
 function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onUpdated, onDeleted }: EditDrawerProps) {
   const { identity } = useBranding();
   const [form, setForm] = useState({ full_name: user.full_name || '', phone: user.phone || '', role: user.role, is_active: user.is_active, sector_keys: user.sector_keys ?? [] });
-  const [modulePerms, setModulePerms] = useState<Record<string, boolean>>({});
+  const [modulePerms, setModulePerms] = useState<Record<string, QuickActionPerms>>({});
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -580,23 +610,27 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
   useEffect(() => {
     supabase
       .from('user_permission_overrides')
-      .select('module_key, can_view')
+      .select('module_key, can_view, can_create, can_edit, can_delete, can_import')
       .eq('user_id', user.id)
       .in('module_key', ALL_MODULE_KEYS)
       .then(({ data }) => {
-        if (!data || data.length === 0) {
-          // No overrides: inherit from role. Admin/coordinator have broad access by default.
-          const roleHasAccess = ['super_admin', 'admin', 'coordinator'].includes(user.role);
-          const defaults: Record<string, boolean> = {};
-          ALL_MODULE_KEYS.forEach(key => { defaults[key] = roleHasAccess; });
-          setModulePerms(defaults);
-        } else {
-          const perms: Record<string, boolean> = {};
-          // Start with false for all, then apply overrides
-          ALL_MODULE_KEYS.forEach(key => { perms[key] = false; });
-          data.forEach(d => { perms[d.module_key] = d.can_view === true; });
-          setModulePerms(perms);
+        const roleHasAccess = ['super_admin', 'admin', 'coordinator'].includes(user.role);
+        const perms: Record<string, QuickActionPerms> = {};
+        ALL_MODULE_KEYS.forEach(key => {
+          perms[key] = roleHasAccess ? { ...FULL_ACCESS_PERMS } : { ...DEFAULT_ACTION_PERMS };
+        });
+        if (data && data.length > 0) {
+          data.forEach(d => {
+            perms[d.module_key] = {
+              can_view:   d.can_view   ?? false,
+              can_create: d.can_create ?? false,
+              can_edit:   d.can_edit   ?? false,
+              can_delete: d.can_delete ?? false,
+              can_import: d.can_import ?? false,
+            };
+          });
         }
+        setModulePerms(perms);
       });
   }, [user.id, user.role]);
 
@@ -643,12 +677,14 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
       .in('module_key', ALL_MODULE_KEYS);
 
     const permOverrides = Object.entries(modulePerms)
-      .filter(([, enabled]) => enabled !== undefined)
-      .map(([key, enabled]) => ({
+      .map(([key, perms]) => ({
         user_id: user.id,
         module_key: key,
-        can_view: enabled, can_create: enabled, can_edit: enabled,
-        can_delete: false,
+        can_view:   perms.can_view,
+        can_create: perms.can_create,
+        can_edit:   perms.can_edit,
+        can_delete: perms.can_delete,
+        can_import: perms.can_import,
         granted_by: currentUserId,
       }));
     if (permOverrides.length > 0) {
@@ -858,30 +894,71 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
             {MODULE_GROUPS.map((group) => (
               <div key={group.label} className="mb-3 last:mb-0">
                 <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{group.label}</p>
-                <div className="space-y-1">
-                  {group.modules.map((mod) => (
-                    <Toggle
-                      key={mod.key}
-                      checked={modulePerms[mod.key] ?? false}
-                      onChange={(v) => {
-                        setModulePerms(p => {
-                          const next = { ...p, [mod.key]: v };
-                          // Atendimentos ON → auto-ativar Agendamentos (dependência)
-                          if (mod.key === 'attendance' && v) next['appointments'] = true;
-                          // Atendimentos OFF → limpar setores
-                          if (mod.key === 'attendance' && !v) setForm(f => ({ ...f, sector_keys: [] }));
-                          return next;
-                        });
-                      }}
-                      label={mod.label}
-                    />
-                  ))}
+                <div className="space-y-1.5">
+                  {group.modules.map((mod) => {
+                    const perms = modulePerms[mod.key] ?? DEFAULT_ACTION_PERMS;
+                    const masterOn = perms.can_view;
+                    const isExpanded = expandedModules.has(mod.key);
+                    const activeCount = QUICK_ACTIONS.filter(a => perms[a.key]).length;
+                    return (
+                      <div key={mod.key} className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div className="flex items-center gap-2 px-3 py-2">
+                          <Toggle
+                            checked={masterOn}
+                            onChange={(v) => {
+                              setModulePerms(p => {
+                                const next = { ...p };
+                                next[mod.key] = v ? { ...FULL_ACCESS_PERMS } : { ...DEFAULT_ACTION_PERMS };
+                                if (mod.key === 'attendance' && v) next['appointments'] = { ...FULL_ACCESS_PERMS };
+                                if (mod.key === 'attendance' && !v) setForm(f => ({ ...f, sector_keys: [] }));
+                                return next;
+                              });
+                            }}
+                            onColor="bg-emerald-500"
+                          />
+                          <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">{mod.label}</span>
+                          {masterOn && activeCount > 0 && (
+                            <span className="text-[10px] text-gray-400 tabular-nums">{activeCount}/5</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setExpandedModules(prev => {
+                              const next = new Set(prev);
+                              next.has(mod.key) ? next.delete(mod.key) : next.add(mod.key);
+                              return next;
+                            })}
+                            className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                          >
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+                        {isExpanded && (
+                          <div className="border-t border-gray-100 dark:border-gray-700 px-3 py-2.5 bg-gray-50 dark:bg-gray-800/40 flex flex-wrap gap-x-5 gap-y-2">
+                            {QUICK_ACTIONS.map((action) => (
+                              <label key={action.key} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={perms[action.key] ?? false}
+                                  onChange={(e) => setModulePerms(p => ({
+                                    ...p,
+                                    [mod.key]: { ...(p[mod.key] ?? DEFAULT_ACTION_PERMS), [action.key]: e.target.checked },
+                                  }))}
+                                  className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-brand-primary focus:ring-brand-primary"
+                                />
+                                {action.label}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
           </SettingsCard>
 
-          {sectors.length > 0 && modulePerms['attendance'] && (
+          {sectors.length > 0 && modulePerms['attendance']?.can_view && (
             <SettingsCard title="Setores de Atendimento">
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
                 Selecione os setores que este usuário poderá atender.

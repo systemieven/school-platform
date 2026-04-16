@@ -456,11 +456,17 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
   }, {});
 
   const GROUP_LABELS: Record<string, string> = {
-    principal: 'Principal',
-    gestao: 'Gestão',
+    principal:    'Principal',
+    gestao:       'Gestão',
     qualificacao: 'Qualificação',
-    escola: 'Escola',
-    sistema: 'Sistema',
+    escola:       'Escola',
+    financeiro:   'Financeiro',
+    academico:    'Acadêmico',
+    secretaria:   'Secretaria',
+    portais:      'Portais',
+    instituicao:  'Instituição',
+    ferramentas:  'Ferramentas',
+    sistema:      'Sistema',
   };
 
   // ── Render ──
@@ -561,7 +567,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden">
               {/* Header */}
-              <div className="grid grid-cols-[1fr_repeat(4,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
+              <div className="grid grid-cols-[1fr_repeat(5,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
                 <span className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">Módulo</span>
                 {ACTIONS.map((a) => (
                   <span key={a} className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 text-center">
@@ -583,7 +589,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
                     return (
                       <div
                         key={mod.key}
-                        className="grid grid-cols-[1fr_repeat(4,80px)] px-5 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
+                        className="grid grid-cols-[1fr_repeat(5,80px)] px-5 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
                       >
                         <div>
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{mod.label}</span>
@@ -666,7 +672,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
             <>
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden">
                 {/* Header */}
-                <div className="grid grid-cols-[1fr_repeat(4,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
+                <div className="grid grid-cols-[1fr_repeat(5,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
                   <span className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">Módulo</span>
                   {ACTIONS.map((a) => (
                     <span key={a} className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 text-center">
@@ -680,7 +686,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
                   return (
                     <div
                       key={mod.key}
-                      className="grid grid-cols-[1fr_repeat(4,80px)] px-5 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
+                      className="grid grid-cols-[1fr_repeat(5,80px)] px-5 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
                     >
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{mod.label}</span>
                       {ACTIONS.map((action) => {
@@ -741,7 +747,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
                   ) : (
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden">
                       {/* Header */}
-                      <div className="grid grid-cols-[1fr_repeat(4,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
+                      <div className="grid grid-cols-[1fr_repeat(5,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
                         <span className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">Módulo</span>
                         {ACTIONS.map((a) => (
                           <span key={a} className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 text-center">
@@ -756,7 +762,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
                         return (
                           <div
                             key={mod.key}
-                            className="grid grid-cols-[1fr_repeat(4,80px)] px-5 py-3 border-b border-gray-50 dark:border-gray-800"
+                            className="grid grid-cols-[1fr_repeat(5,80px)] px-5 py-3 border-b border-gray-50 dark:border-gray-800"
                           >
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{mod.label}</span>
                             {ACTIONS.map((action) => {
