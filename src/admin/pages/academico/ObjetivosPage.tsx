@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Target, Plus, Check, Loader2, Search } from 'lucide-react';
+import { Target, Check, Loader2, Search } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
@@ -314,7 +314,7 @@ export default function ObjetivosPage() {
         title={editObj ? 'Editar Objetivo BNCC' : 'Novo Objetivo BNCC'}
         icon={Target}
         width="w-[520px]"
-        extra={
+        headerExtra={
           <div className="flex items-center gap-3">
             <Toggle
               checked={isActive}

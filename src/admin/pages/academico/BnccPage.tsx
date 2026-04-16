@@ -86,7 +86,7 @@ function BnccDashboard() {
 
       // Agrupa por segmento
       const segMap: Record<string, number> = {};
-      (segRes.data ?? []).forEach((o: { segment: { name: string } | null }) => {
+      (segRes.data as unknown as { segment: { name: string } | null }[] ?? []).forEach((o) => {
         const name = o.segment?.name ?? 'Sem segmento';
         segMap[name] = (segMap[name] ?? 0) + 1;
       });
@@ -96,7 +96,7 @@ function BnccDashboard() {
 
       // Top objetivos
       const countMap: Record<string, { code: string; title: string; count: number }> = {};
-      (topRes.data ?? []).forEach((row: { learning_objective_id: string; objective: { code: string; title: string } | null }) => {
+      (topRes.data as unknown as { learning_objective_id: string; objective: { code: string; title: string } | null }[] ?? []).forEach((row) => {
         const id = row.learning_objective_id;
         if (!countMap[id]) {
           countMap[id] = { code: row.objective?.code ?? id, title: row.objective?.title ?? '—', count: 0 };

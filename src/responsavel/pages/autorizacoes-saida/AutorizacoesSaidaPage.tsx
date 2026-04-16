@@ -64,7 +64,7 @@ export default function AutorizacoesSaidaPage() {
   const [form, setForm]         = useState(EMPTY_FORM);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [_saveState, setSaveState] = useState<SaveState>('idle');
   const [formError, setFormError] = useState('');
 
   // Biometric credential

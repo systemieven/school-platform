@@ -43,7 +43,7 @@ export default function AchadosPerdidosPage() {
 
   // Claim modal state
   const [claimItem, setClaimItem]     = useState<LostFoundItem | null>(null);
-  const [saveState, setSaveState]     = useState<ClaimSaveState>('idle');
+  const [_saveState, setSaveState]    = useState<ClaimSaveState>('idle');
 
   // Biometric credential
   const [credentialId, setCredentialId] = useState<string | null>(null);
