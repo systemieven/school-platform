@@ -2056,6 +2056,53 @@ export const DOCUMENT_REQUEST_STATUS_COLORS: Record<DocumentRequestStatus, strin
 // ── Fichas de Saúde ───────────────────────────────────────────────────────────
 export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 
+// ── Fase 11.C — Ficha de Saúde Expandida ────────────────────────────────────
+
+export interface StudentMedicalCertificate {
+  id: string;
+  student_id: string;
+  issue_date: string;
+  valid_until: string;
+  doctor_name: string;
+  doctor_crm: string;
+  file_path: string | null;
+  file_url: string | null;
+  file_url_expires_at: string | null;
+  observations: string | null;
+  uploaded_by: string | null;
+  uploaded_via: 'admin' | 'guardian_portal';
+  is_active: boolean;
+  superseded_by: string | null;
+  created_at: string;
+  // computed
+  cert_status?: 'valid' | 'expired' | 'expiring_soon';
+}
+
+export type HealthUpdateRequestStatus = 'pending' | 'confirmed' | 'rejected';
+
+export interface HealthRecordUpdateRequest {
+  id: string;
+  student_id: string;
+  guardian_id: string;
+  proposed_data: Record<string, unknown>;
+  current_snapshot: Record<string, unknown>;
+  status: HealthUpdateRequestStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  // joins
+  student?: { id: string; full_name: string } | null;
+  guardian?: { id: string; name: string } | null;
+}
+
+export const HEALTH_UPDATE_STATUS_LABELS: Record<HealthUpdateRequestStatus, string> = {
+  pending:   'Pendente',
+  confirmed: 'Confirmada',
+  rejected:  'Recusada',
+};
+
 export interface MedicationEntry {
   name: string;
   dose: string;
@@ -2069,6 +2116,7 @@ export interface StudentHealthRecord {
   has_allergies: boolean;
   allergies: string[] | null;
   allergy_notes: string | null;
+  allergy_categories: string[] | null;
   uses_medication: boolean;
   medications: MedicationEntry[] | null;
   has_special_needs: boolean;
@@ -2085,6 +2133,10 @@ export interface StudentHealthRecord {
   authorized_first_aid: boolean;
   authorized_evacuation: boolean;
   notes: string | null;
+  // new fields (Fase 11.C)
+  food_restrictions: string | null;
+  can_receive_medication: boolean;
+  medication_guidance: string | null;
   updated_by: string | null;
   created_at: string;
   updated_at: string;

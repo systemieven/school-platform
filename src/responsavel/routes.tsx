@@ -17,6 +17,7 @@ import DeclaracoesPage    from './pages/declaracoes/DeclaracoesPage';
 import RematriculaPage    from './pages/rematricula/RematriculaPage';
 import FaltasPage         from './pages/faltas/FaltasPage';
 import AutorizacoesSaidaPage from './pages/autorizacoes-saida/AutorizacoesSaidaPage';
+import SaudePage from './pages/saude/SaudePage';
 
 export default function ResponsavelRoutes() {
   return (
@@ -40,6 +41,7 @@ export default function ResponsavelRoutes() {
           <Route path="rematricula"         element={<RematriculaPage />} />
           <Route path="faltas"              element={<FaltasPage />} />
           <Route path="autorizacoes-saida"  element={<AutorizacoesSaidaPage />} />
+          <Route path="saude"               element={<SaudePage />} />
           <Route path="*"                   element={<Navigate to="/responsavel" replace />} />
         </Route>
       </Routes>
