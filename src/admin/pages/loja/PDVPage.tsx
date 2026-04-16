@@ -6,54 +6,112 @@ import {
   ArrowLeft, Search, ShoppingCart, Trash2, Plus, Minus,
   Check, Loader2, X, ChevronDown,
   Banknote, QrCode, CreditCard, ArrowLeftRight, Wallet,
-  Percent, DollarSign,
+  Percent, DollarSign, Wifi, WifiOff, Copy, ExternalLink,
+  MessageCircle,
 } from 'lucide-react';
 import type { StoreProduct, StoreProductVariant, PDVCartItem } from '../../types/admin.types';
 
-// ── Formas de pagamento com ícones ────────────────────────────────────────────
-const PAYMENT_METHODS: { key: string; label: string; icon: React.ElementType }[] = [
-  { key: 'Dinheiro',         label: 'Dinheiro',       icon: Banknote       },
-  { key: 'PIX',              label: 'PIX',             icon: QrCode         },
-  { key: 'Cartão Crédito',   label: 'Cartão Crédito', icon: CreditCard     },
-  { key: 'Cartão Débito',    label: 'Cartão Débito',  icon: Wallet         },
-  { key: 'Transferência',    label: 'Transferência',  icon: ArrowLeftRight },
+// ── Formas de pagamento manual com ícones ─────────────────────────────────────
+const MANUAL_METHODS: { key: string; label: string; icon: React.ElementType }[] = [
+  { key: 'Dinheiro',       label: 'Dinheiro',       icon: Banknote       },
+  { key: 'PIX',            label: 'PIX',             icon: QrCode         },
+  { key: 'Cartão Crédito', label: 'Cartão Crédito', icon: CreditCard     },
+  { key: 'Cartão Débito',  label: 'Cartão Débito',  icon: Wallet         },
+  { key: 'Transferência',  label: 'Transferência',  icon: ArrowLeftRight },
 ];
 
-function formatCurrency(v: number) {
+// Métodos online que os gateways suportam
+const ONLINE_METHODS: { key: string; label: string; icon: React.ElementType }[] = [
+  { key: 'PIX',         label: 'PIX',       icon: QrCode     },
+  { key: 'BOLETO',      label: 'Boleto',    icon: Banknote   },
+  { key: 'CREDIT_CARD', label: 'Crédito',   icon: CreditCard },
+];
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function fmt(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 }
 
-interface StudentOption { id: string; full_name: string; }
+// ── Interfaces ─────────────────────────────────────────────────────────────────
+interface StudentOption  { id: string; full_name: string; }
 
+interface ActiveGateway {
+  id: string;
+  provider: string;
+  environment: string;
+  supported_methods: string[];
+}
+
+interface GuardianInfo {
+  id: string;
+  full_name: string;
+  cpf: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+interface ChargeResult {
+  payment_link: string | null;
+  pix_code:     string | null;
+  boleto_url:   string | null;
+  provider_charge_id: string;
+}
+
+// ── Componente ─────────────────────────────────────────────────────────────────
 export default function PDVPage() {
   const { user } = useAdminAuth();
 
-  // Product search
+  // ── Busca de produtos ───────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<StoreProduct[]>([]);
   const [searching, setSearching] = useState(false);
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
 
-  // Cart
+  // ── Carrinho ────────────────────────────────────────────────────────────────
   const [cart, setCart] = useState<PDVCartItem[]>([]);
 
-  // Customer — busca direta por aluno (obrigatório); responsável vinculado automaticamente
+  // ── Aluno ───────────────────────────────────────────────────────────────────
   const [studentSearch, setStudentSearch] = useState('');
   const [studentResults, setStudentResults] = useState<StudentOption[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<StudentOption | null>(null);
   const [linkedGuardianId, setLinkedGuardianId] = useState<string | null>(null);
 
-  // Payment
+  // ── Modo de pagamento ───────────────────────────────────────────────────────
+  const [payMode, setPayMode]       = useState<'manual' | 'online'>('manual');
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [discount, setDiscount] = useState('0');
+  const [discount, setDiscount]     = useState('0');
   const [discountType, setDiscountType] = useState<'value' | 'percent'>('value');
 
-  // Sale
-  const [finalizing, setFinalizing] = useState(false);
-  const [saleDone, setSaleDone] = useState(false);
-  const [lastOrderNumber, setLastOrderNumber] = useState('');
+  // ── Gateway ─────────────────────────────────────────────────────────────────
+  const [activeGateway, setActiveGateway] = useState<ActiveGateway | null>(null);
+  const [gatewayLoading, setGatewayLoading] = useState(false);
 
-  // Variant selection
-  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  // ── Venda ───────────────────────────────────────────────────────────────────
+  const [finalizing, setFinalizing] = useState(false);
+  const [saleDone, setSaleDone]   = useState(false);
+  const [lastOrderNumber, setLastOrderNumber] = useState('');
+  const [chargeResult, setChargeResult] = useState<ChargeResult | null>(null);
+  const [saleError, setSaleError] = useState<string | null>(null);
+
+  // ── Carregar gateway ativo ──────────────────────────────────────────────────
+  useEffect(() => {
+    async function loadGateway() {
+      setGatewayLoading(true);
+      const { data } = await supabase
+        .from('payment_gateways')
+        .select('id, provider, environment, supported_methods')
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setActiveGateway(data as ActiveGateway | null);
+      setGatewayLoading(false);
+    }
+    loadGateway();
+  }, []);
+
+  // Reset método ao trocar modo
+  useEffect(() => { setPaymentMethod(''); setChargeResult(null); setSaleError(null); }, [payMode]);
 
   // ── Busca de produtos ───────────────────────────────────────────────────────
   const searchProducts = useCallback(async (q: string) => {
@@ -117,142 +175,221 @@ export default function PDVPage() {
         );
       }
       return [...prev, {
-        variantId: variant.id,
-        productName: product.name,
-        variantDescription: desc,
-        sku: variant.sku,
-        quantity: 1,
-        unitPrice: effectivePrice,
-        totalPrice: effectivePrice,
+        variantId: variant.id, productName: product.name,
+        variantDescription: desc, sku: variant.sku,
+        quantity: 1, unitPrice: effectivePrice, totalPrice: effectivePrice,
       }];
     });
-    setExpandedProduct(null);
-    setSearchQuery('');
-    setSearchResults([]);
+    setExpandedProduct(null); setSearchQuery(''); setSearchResults([]);
   };
 
-  const updateQty = (variantId: string, delta: number) => {
-    setCart((prev) =>
-      prev.map((i) => i.variantId === variantId
-        ? { ...i, quantity: Math.max(1, i.quantity + delta), totalPrice: Math.max(1, i.quantity + delta) * i.unitPrice }
-        : i
-      )
-    );
-  };
+  const updateQty = (variantId: string, delta: number) =>
+    setCart((prev) => prev.map((i) => i.variantId === variantId
+      ? { ...i, quantity: Math.max(1, i.quantity + delta), totalPrice: Math.max(1, i.quantity + delta) * i.unitPrice }
+      : i
+    ));
 
-  const removeItem = (variantId: string) => {
+  const removeItem = (variantId: string) =>
     setCart((prev) => prev.filter((i) => i.variantId !== variantId));
-  };
 
   // ── Cálculos ────────────────────────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.totalPrice, 0);
   const rawDiscount = parseFloat(discount) || 0;
-  const discountAmount = discountType === 'percent'
-    ? subtotal * (rawDiscount / 100)
-    : rawDiscount;
+  const discountAmount = discountType === 'percent' ? subtotal * (rawDiscount / 100) : rawDiscount;
   const total = Math.max(0, subtotal - discountAmount);
+
+  // ── Helper: chamar gateway proxy ────────────────────────────────────────────
+  async function callProxy(action: string, data: Record<string, unknown>) {
+    const { data: result, error } = await supabase.functions.invoke('payment-gateway-proxy', {
+      body: { action, gateway_id: activeGateway!.id, data },
+    });
+    if (error) throw new Error(error.message || String(error));
+    if (!result?.success) throw new Error(result?.error ?? 'Erro no gateway');
+    return result as Record<string, unknown>;
+  }
+
+  // ── Helper: obter provider_customer_id ─────────────────────────────────────
+  async function getOrCreateGatewayCustomer(guardian: GuardianInfo): Promise<string> {
+    // Verificar cache
+    const { data: cached } = await supabase
+      .from('gateway_customers')
+      .select('provider_customer_id')
+      .eq('gateway_id', activeGateway!.id)
+      .eq('student_id', selectedStudent!.id)
+      .maybeSingle();
+    if (cached?.provider_customer_id) return cached.provider_customer_id as string;
+
+    if (!guardian.cpf) throw new Error(`CPF do responsável "${guardian.full_name}" não cadastrado. Adicione o CPF antes de gerar cobrança online.`);
+
+    const res = await callProxy('createCustomer', {
+      name:       guardian.full_name,
+      cpf_cnpj:   guardian.cpf,
+      email:      guardian.email ?? undefined,
+      phone:      guardian.phone ?? undefined,
+      student_id: selectedStudent!.id,
+    });
+    return res.provider_customer_id as string;
+  }
 
   // ── Finalizar venda ─────────────────────────────────────────────────────────
   const finalizeSale = async () => {
     if (cart.length === 0 || !paymentMethod || !selectedStudent) return;
+    setSaleError(null);
     setFinalizing(true);
     try {
       const year = new Date().getFullYear();
       const { count } = await supabase.from('store_orders').select('*', { count: 'exact', head: true });
       const orderNumber = `PED-${year}-${String((count ?? 0) + 1).padStart(5, '0')}`;
 
+      let chargeData: ChargeResult | null = null;
+      let orderStatus: string = payMode === 'online' ? 'pending_payment' : 'payment_confirmed';
+      let providerChargeId: string | null = null;
+
+      // ── Fluxo Online ────────────────────────────────────────────────────────
+      if (payMode === 'online' && activeGateway) {
+        // Buscar responsável
+        let guardian: GuardianInfo | null = null;
+        if (linkedGuardianId) {
+          const { data: gd } = await supabase
+            .from('guardian_profiles')
+            .select('id, full_name, cpf, phone, email')
+            .eq('id', linkedGuardianId)
+            .single();
+          guardian = gd as GuardianInfo | null;
+        }
+        if (!guardian) throw new Error('Responsável não encontrado. Verifique o cadastro do aluno.');
+
+        const providerCustomerId = await getOrCreateGatewayCustomer(guardian);
+
+        // Gerar cobrança
+        const todayISO = new Date().toISOString().slice(0, 10);
+        const chargeRes = await callProxy('createCharge', {
+          provider_customer_id: providerCustomerId,
+          amount_cents:         Math.round(total * 100),
+          due_date:             todayISO,
+          description:          `Compra PDV ${orderNumber} — ${selectedStudent.full_name}`,
+          billing_type:         paymentMethod as string,
+          external_reference:   orderNumber,
+        });
+
+        chargeData = {
+          provider_charge_id: chargeRes.provider_charge_id as string,
+          payment_link:       chargeRes.payment_link as string | null,
+          pix_code:           chargeRes.pix_code as string | null,
+          boleto_url:         chargeRes.boleto_url as string | null,
+        };
+        providerChargeId = chargeData.provider_charge_id;
+
+        // Enviar WhatsApp ao responsável (best-effort)
+        if (guardian.phone) {
+          const link = chargeData.payment_link || chargeData.boleto_url || '';
+          if (link) {
+            const text = `Olá, ${guardian.full_name.split(' ')[0]}! 👋\n\nFoi gerada uma cobrança de *${fmt(total)}* referente à compra *${orderNumber}* no PDV escolar.\n\nAcesse o link para pagar:\n${link}\n\n_Dúvidas? Entre em contato com a secretaria._`;
+            await supabase.functions.invoke('uazapi-proxy', {
+              body: { action: 'sendText', phone: guardian.phone, text },
+            }).catch(() => { /* notificação não bloqueia a venda */ });
+          }
+        }
+      }
+
+      // ── Criar pedido ────────────────────────────────────────────────────────
       const { data: orderData } = await supabase
         .from('store_orders')
         .insert({
-          order_number: orderNumber,
-          guardian_id: linkedGuardianId,
-          student_id: selectedStudent.id,
-          channel: 'pdv',
-          status: 'payment_confirmed',
+          order_number:      orderNumber,
+          guardian_id:       linkedGuardianId,
+          student_id:        selectedStudent.id,
+          channel:           'pdv',
+          status:            orderStatus,
           subtotal,
-          discount_amount: discountAmount,
-          total_amount: total,
-          payment_method: paymentMethod,
-          installments: 1,
-          created_by: user?.id ?? null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          discount_amount:   discountAmount,
+          total_amount:      total,
+          payment_method:    payMode === 'manual' ? paymentMethod : null,
+          gateway_charge_id: providerChargeId,
+          payment_link:      chargeData?.payment_link ?? null,
+          pix_code:          chargeData?.pix_code ?? null,
+          boleto_url:        chargeData?.boleto_url ?? null,
+          installments:      1,
+          created_by:        user?.id ?? null,
+          created_at:        new Date().toISOString(),
+          updated_at:        new Date().toISOString(),
         })
         .select('id')
         .single();
 
-      if (!orderData?.id) throw new Error('Failed to create order');
+      if (!orderData?.id) throw new Error('Erro ao criar pedido');
       const orderId = orderData.id;
 
+      // ── Itens + estoque ─────────────────────────────────────────────────────
       await Promise.all([
         supabase.from('store_order_items').insert(
           cart.map((item) => ({
-            order_id: orderId,
-            variant_id: item.variantId,
+            order_id: orderId, variant_id: item.variantId,
             product_name: item.productName,
             variant_description: item.variantDescription || null,
-            quantity: item.quantity,
-            unit_price: item.unitPrice,
-            total_price: item.totalPrice,
-            returned_quantity: 0,
+            quantity: item.quantity, unit_price: item.unitPrice,
+            total_price: item.totalPrice, returned_quantity: 0,
             created_at: new Date().toISOString(),
           }))
         ),
         ...cart.map((item) =>
           supabase.from('store_inventory_movements').insert({
-            variant_id: item.variantId,
-            type: 'sale',
-            quantity: -item.quantity,
-            balance_after: 0,
-            reference_type: 'pdv',
-            reference_id: orderId,
+            variant_id: item.variantId, type: 'sale',
+            quantity: -item.quantity, balance_after: 0,
+            reference_type: 'pdv', reference_id: orderId,
             justification: `Venda PDV ${orderNumber}`,
             recorded_by: user?.id ?? null,
             created_at: new Date().toISOString(),
           })
         ),
-        (async () => {
+        // Movimentação de caixa — apenas se pagamento confirmado (modo manual)
+        payMode === 'manual' ? (async () => {
           try {
             await supabase.from('financial_cash_movements').insert({
-              type: 'inflow',
-              sub_type: 'recebimento',
-              amount: total,
-              description: `Venda PDV ${orderNumber}`,
-              payment_method: paymentMethod,
-              reference_type: 'order',
-              reference_id: orderId,
-              created_by: user?.id ?? null,
-              created_at: new Date().toISOString(),
+              type: 'inflow', sub_type: 'recebimento', amount: total,
+              description: `Venda PDV ${orderNumber}`, payment_method: paymentMethod,
+              reference_type: 'order', reference_id: orderId,
+              created_by: user?.id ?? null, created_at: new Date().toISOString(),
             });
           } catch { /* ignore */ }
-        })(),
+        })() : Promise.resolve(),
       ]);
 
       setLastOrderNumber(orderNumber);
+      if (chargeData) setChargeResult(chargeData);
       setSaleDone(true);
       setCart([]);
-      setSelectedStudent(null);
-      setLinkedGuardianId(null);
-      setStudentSearch('');
-      setDiscount('0');
-      setDiscountType('value');
-      setPaymentMethod('');
-      setTimeout(() => setSaleDone(false), 3000);
+      setSelectedStudent(null); setLinkedGuardianId(null); setStudentSearch('');
+      setDiscount('0'); setDiscountType('value');
+      if (payMode === 'manual') {
+        setPaymentMethod('');
+        setTimeout(() => setSaleDone(false), 3000);
+      }
+    } catch (err) {
+      setSaleError(err instanceof Error ? err.message : 'Erro inesperado ao finalizar venda');
     } finally {
       setFinalizing(false);
     }
   };
 
+  // ── Reiniciar após venda online com link ─────────────────────────────────────
+  function resetAfterOnlineSale() {
+    setSaleDone(false); setChargeResult(null); setPaymentMethod('');
+  }
+
+  // ── Métodos online disponíveis (filtrados pelo gateway) ─────────────────────
+  const availableOnlineMethods = activeGateway
+    ? ONLINE_METHODS.filter((m) => activeGateway.supported_methods.includes(m.key))
+    : [];
+
   // ── Render ──────────────────────────────────────────────────────────────────
+  // Layout: -m-6 cancela o p-6 do <main>; calc(100vh - 64px) = viewport - header h-16
   return (
-    <div className="h-screen overflow-hidden bg-gray-100 dark:bg-gray-900 flex flex-col">
+    <div className="-m-6 flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 64px)' }}>
 
       {/* ── Top bar ──────────────────────────────────────────────────────────── */}
       <header className="bg-brand-primary text-white px-6 py-3 flex items-center gap-4 flex-shrink-0">
-        <Link
-          to="/admin/loja"
-          className="flex items-center gap-2 text-white/80 hover:text-white text-sm transition-colors"
-        >
+        <Link to="/admin/loja" className="flex items-center gap-2 text-white/80 hover:text-white text-sm transition-colors">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
         <span className="font-bold text-lg flex-1 text-center">Ponto de Venda — PDV</span>
@@ -264,12 +401,11 @@ export default function PDVPage() {
         )}
       </header>
 
-      {/* ── Dois painéis ocupando toda a altura restante ──────────────────────── */}
+      {/* ── Dois painéis ─────────────────────────────────────────────────────── */}
       <div className="flex flex-1 min-h-0">
 
         {/* ── PAINEL ESQUERDO: busca de produtos ─────────────────────────────── */}
         <div className="w-1/2 flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-0">
-          {/* Search bar — fixo */}
           <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -280,13 +416,9 @@ export default function PDVPage() {
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
                 autoFocus
               />
-              {searching && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
-              )}
+              {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />}
             </div>
           </div>
-
-          {/* Resultados — scroll independente */}
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {searchResults.map((product) => {
               const activeVariants = product.variants?.filter((v) => v.is_active && v.stock_quantity > 0) ?? [];
@@ -298,9 +430,7 @@ export default function PDVPage() {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-gray-800 dark:text-white truncate">{product.name}</p>
-                      <p className="text-xs text-gray-400">
-                        {formatCurrency(product.sale_price)} · {activeVariants.length} variação{activeVariants.length !== 1 ? 'ões' : ''} disponível{activeVariants.length !== 1 ? 'is' : ''}
-                      </p>
+                      <p className="text-xs text-gray-400">{fmt(product.sale_price)} · {activeVariants.length} var. disponível{activeVariants.length !== 1 ? 'is' : ''}</p>
                     </div>
                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedProduct === product.id ? 'rotate-180' : ''}`} />
                   </button>
@@ -309,11 +439,8 @@ export default function PDVPage() {
                       {activeVariants.length === 0
                         ? <p className="text-xs text-gray-400 col-span-2 text-center py-2">Sem estoque disponível</p>
                         : activeVariants.map((v) => (
-                          <button
-                            key={v.id}
-                            onClick={() => addVariantToCart(product, v)}
-                            className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-brand-primary hover:text-white transition-colors text-left group"
-                          >
+                          <button key={v.id} onClick={() => addVariantToCart(product, v)}
+                            className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-brand-primary hover:text-white transition-colors text-left group">
                             <div>
                               <p className="text-xs font-medium group-hover:text-white text-gray-800 dark:text-white">
                                 {[v.color, v.size].filter(Boolean).join(' · ') || v.sku}
@@ -321,7 +448,7 @@ export default function PDVPage() {
                               <p className="text-[10px] text-gray-400 group-hover:text-white/70">{v.stock_quantity} em estoque</p>
                             </div>
                             <span className="text-xs font-bold group-hover:text-white text-brand-primary">
-                              {formatCurrency(v.price_override ?? product.sale_price)}
+                              {fmt(v.price_override ?? product.sale_price)}
                             </span>
                           </button>
                         ))
@@ -337,9 +464,6 @@ export default function PDVPage() {
                 <p className="text-sm">Digite para buscar produtos…</p>
               </div>
             )}
-            {searchQuery && !searching && searchResults.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-12">Nenhum produto encontrado</p>
-            )}
           </div>
         </div>
 
@@ -353,21 +477,15 @@ export default function PDVPage() {
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Carrinho
                 {cart.length > 0 && (
-                  <span className="ml-1.5 bg-brand-primary text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">
-                    {cart.length}
-                  </span>
+                  <span className="ml-1.5 bg-brand-primary text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">{cart.length}</span>
                 )}
               </span>
               {cart.length > 0 && (
-                <button
-                  onClick={() => setCart([])}
-                  className="ml-auto text-xs text-red-400 hover:text-red-600 flex items-center gap-1"
-                >
+                <button onClick={() => setCart([])} className="ml-auto text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
                   <X className="w-3 h-3" /> Limpar
                 </button>
               )}
             </div>
-
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-300 dark:text-gray-600 gap-3 py-16">
                 <ShoppingCart className="w-12 h-12" />
@@ -378,29 +496,19 @@ export default function PDVPage() {
                 <div key={item.variantId} className="bg-white dark:bg-gray-800 rounded-xl p-3 flex items-center gap-3 shadow-sm">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.productName}</p>
-                    {item.variantDescription && (
-                      <p className="text-xs text-gray-400">{item.variantDescription}</p>
-                    )}
+                    {item.variantDescription && <p className="text-xs text-gray-400">{item.variantDescription}</p>}
                     <p className="text-xs font-mono text-gray-400">{item.sku}</p>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => updateQty(item.variantId, -1)}
-                      className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 transition-colors"
-                    >
+                    <button onClick={() => updateQty(item.variantId, -1)} className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 transition-colors">
                       <Minus className="w-3 h-3 text-gray-600 dark:text-gray-300" />
                     </button>
                     <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
-                    <button
-                      onClick={() => updateQty(item.variantId, 1)}
-                      className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 transition-colors"
-                    >
+                    <button onClick={() => updateQty(item.variantId, 1)} className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 transition-colors">
                       <Plus className="w-3 h-3 text-gray-600 dark:text-gray-300" />
                     </button>
                   </div>
-                  <span className="text-sm font-bold text-gray-800 dark:text-white w-20 text-right">
-                    {formatCurrency(item.totalPrice)}
-                  </span>
+                  <span className="text-sm font-bold text-gray-800 dark:text-white w-20 text-right">{fmt(item.totalPrice)}</span>
                   <button onClick={() => removeItem(item.variantId)} className="text-red-400 hover:text-red-600 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -409,10 +517,11 @@ export default function PDVPage() {
             )}
           </div>
 
-          {/* Painel de pagamento — altura fixa, sem scroll */}
-          <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
+          {/* ── FOOTER: travado na parte inferior ──────────────────────────────
+               flex-shrink-0 garante que este painel nunca é espremido pelo carrinho */}
+          <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3 overflow-y-auto max-h-[68vh]">
 
-            {/* Aluno (obrigatório) */}
+            {/* ── Aluno (obrigatório) ─────────────────────────────────────────── */}
             <div className="relative">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                 Aluno <span className="text-red-500">*</span>
@@ -421,29 +530,16 @@ export default function PDVPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                 <input
                   value={studentSearch}
-                  onChange={(e) => {
-                    setStudentSearch(e.target.value);
-                    if (!e.target.value) { setSelectedStudent(null); setLinkedGuardianId(null); }
-                  }}
+                  onChange={(e) => { setStudentSearch(e.target.value); if (!e.target.value) { setSelectedStudent(null); setLinkedGuardianId(null); } }}
                   placeholder="Buscar aluno pelo nome…"
-                  className={`w-full pl-8 pr-8 py-2 rounded-xl border text-sm text-gray-800 dark:text-white bg-white dark:bg-gray-700 transition-colors ${
-                    selectedStudent
-                      ? 'border-emerald-400 dark:border-emerald-600'
-                      : 'border-gray-200 dark:border-gray-600'
-                  }`}
+                  className={`w-full pl-8 pr-8 py-2 rounded-xl border text-sm text-gray-800 dark:text-white bg-white dark:bg-gray-700 transition-colors ${selectedStudent ? 'border-emerald-400 dark:border-emerald-600' : 'border-gray-200 dark:border-gray-600'}`}
                 />
-                {selectedStudent && (
-                  <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-500" />
-                )}
+                {selectedStudent && <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-500" />}
               </div>
               {studentResults.length > 0 && (
                 <div className="absolute left-0 right-0 bottom-full mb-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-10 max-h-44 overflow-y-auto">
                   {studentResults.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => selectStudent(s)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-800 dark:text-white"
-                    >
+                    <button key={s.id} onClick={() => selectStudent(s)} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-800 dark:text-white">
                       {s.full_name}
                     </button>
                   ))}
@@ -451,72 +547,101 @@ export default function PDVPage() {
               )}
               {selectedStudent && (
                 <p className="text-[10px] text-gray-400 mt-0.5">
-                  {linkedGuardianId ? '✓ Responsável vinculado automaticamente' : 'Sem responsável cadastrado'}
+                  {linkedGuardianId ? '✓ Responsável vinculado' : 'Sem responsável cadastrado'}
                 </p>
               )}
             </div>
 
-            {/* Forma de pagamento com ícones */}
+            {/* ── Toggle Manual / Online ──────────────────────────────────────── */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                Forma de Pagamento
-              </label>
-              <div className="grid grid-cols-5 gap-1.5">
-                {PAYMENT_METHODS.map(({ key, label, icon: Icon }) => {
-                  const selected = paymentMethod === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setPaymentMethod(key)}
-                      className={`flex flex-col items-center gap-1 px-1 py-2 rounded-xl border text-[10px] font-medium transition-all ${
-                        selected
-                          ? 'bg-brand-primary border-brand-primary text-white shadow-md scale-[1.03]'
-                          : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-brand-primary hover:text-brand-primary'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 ${selected ? 'text-white/80' : 'text-brand-primary'}`} />
-                      {label}
-                    </button>
-                  );
-                })}
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Pagamento</label>
+              <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600 text-xs font-semibold">
+                <button
+                  onClick={() => setPayMode('manual')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors ${payMode === 'manual' ? 'bg-brand-primary text-white' : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-brand-primary'}`}
+                >
+                  <WifiOff className="w-3.5 h-3.5" /> Manual
+                </button>
+                <button
+                  onClick={() => setPayMode('online')}
+                  disabled={!activeGateway && !gatewayLoading}
+                  title={!activeGateway && !gatewayLoading ? 'Nenhum gateway ativo configurado' : 'Gerar cobrança online com link de pagamento'}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 border-l border-gray-200 dark:border-gray-600 transition-colors ${payMode === 'online' ? 'bg-brand-primary text-white' : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-brand-primary disabled:opacity-40 disabled:cursor-not-allowed'}`}
+                >
+                  {gatewayLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
+                  Online
+                </button>
               </div>
+              {payMode === 'online' && activeGateway && (
+                <p className="text-[10px] text-gray-400 mt-0.5">Gateway: {activeGateway.provider.toUpperCase()} · {activeGateway.environment}</p>
+              )}
             </div>
 
-            {/* Desconto com toggle R$ / % */}
+            {/* ── Métodos de pagamento ────────────────────────────────────────── */}
+            {payMode === 'manual' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Forma de Pagamento</label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {MANUAL_METHODS.map(({ key, label, icon: Icon }) => {
+                    const selected = paymentMethod === key;
+                    return (
+                      <button key={key} onClick={() => setPaymentMethod(key)}
+                        className={`flex flex-col items-center gap-1 px-1 py-2 rounded-xl border text-[10px] font-medium transition-all ${selected ? 'bg-brand-primary border-brand-primary text-white shadow-md scale-[1.03]' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-brand-primary hover:text-brand-primary'}`}>
+                        <Icon className={`w-4 h-4 ${selected ? 'text-white/80' : 'text-brand-primary'}`} />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {payMode === 'online' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Método de Cobrança</label>
+                {availableOnlineMethods.length === 0 ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-3 py-2">
+                    Gateway sem métodos online configurados.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {availableOnlineMethods.map(({ key, label, icon: Icon }) => {
+                      const selected = paymentMethod === key;
+                      return (
+                        <button key={key} onClick={() => setPaymentMethod(key)}
+                          className={`flex flex-col items-center gap-1 px-1 py-2.5 rounded-xl border text-[10px] font-medium transition-all ${selected ? 'bg-brand-primary border-brand-primary text-white shadow-md scale-[1.03]' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-brand-primary hover:text-brand-primary'}`}>
+                          <Icon className={`w-4 h-4 ${selected ? 'text-white/80' : 'text-brand-primary'}`} />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Desconto com toggle R$ / % ──────────────────────────────────── */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Desconto</label>
                 <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 text-[10px] font-semibold">
                   <button
                     onClick={() => setDiscountType('value')}
-                    className={`flex items-center gap-0.5 px-2 py-0.5 transition-colors ${
-                      discountType === 'value'
-                        ? 'bg-brand-primary text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-brand-primary'
-                    }`}
-                  >
+                    className={`flex items-center gap-0.5 px-2 py-0.5 transition-colors ${discountType === 'value' ? 'bg-brand-primary text-white' : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-brand-primary'}`}>
                     <DollarSign className="w-2.5 h-2.5" /> R$
                   </button>
                   <button
                     onClick={() => setDiscountType('percent')}
-                    className={`flex items-center gap-0.5 px-2 py-0.5 transition-colors border-l border-gray-200 dark:border-gray-600 ${
-                      discountType === 'percent'
-                        ? 'bg-brand-primary text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-brand-primary'
-                    }`}
-                  >
+                    className={`flex items-center gap-0.5 px-2 py-0.5 border-l border-gray-200 dark:border-gray-600 transition-colors ${discountType === 'percent' ? 'bg-brand-primary text-white' : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-brand-primary'}`}>
                     <Percent className="w-2.5 h-2.5" /> %
                   </button>
                 </div>
               </div>
               <div className="relative">
                 <input
-                  type="number"
-                  step={discountType === 'percent' ? '0.1' : '0.01'}
-                  min={0}
+                  type="number" step={discountType === 'percent' ? '0.1' : '0.01'} min={0}
                   max={discountType === 'percent' ? 100 : undefined}
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
+                  value={discount} onChange={(e) => setDiscount(e.target.value)}
                   className="w-full px-3 py-2 pr-8 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-400">
@@ -525,61 +650,99 @@ export default function PDVPage() {
               </div>
               {discountAmount > 0 && subtotal > 0 && (
                 <p className="text-[10px] text-gray-400 mt-0.5">
-                  = {formatCurrency(discountAmount)} de desconto
-                  {discountType === 'value' && subtotal > 0 && ` (${((discountAmount / subtotal) * 100).toFixed(1)}%)`}
+                  = {fmt(discountAmount)} de desconto
+                  {discountType === 'value' && ` (${((discountAmount / subtotal) * 100).toFixed(1)}%)`}
                 </p>
               )}
             </div>
 
-            {/* Totais */}
+            {/* ── Totais ──────────────────────────────────────────────────────── */}
             <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-1">
               <div className="flex justify-between text-xs text-gray-400">
-                <span>Subtotal</span>
-                <span>{formatCurrency(subtotal)}</span>
+                <span>Subtotal</span><span>{fmt(subtotal)}</span>
               </div>
               {discountAmount > 0 && (
                 <div className="flex justify-between text-xs text-red-500">
-                  <span>Desconto</span>
-                  <span>−{formatCurrency(discountAmount)}</span>
+                  <span>Desconto</span><span>−{fmt(discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-xl font-bold text-gray-800 dark:text-white pt-1">
                 <span>Total</span>
-                <span className="text-brand-primary">{formatCurrency(total)}</span>
+                <span className="text-brand-primary">{fmt(total)}</span>
               </div>
             </div>
 
-            {/* Aviso aluno obrigatório */}
-            {!selectedStudent && cart.length > 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 text-center bg-amber-50 dark:bg-amber-900/20 rounded-lg py-1.5">
-                Selecione o aluno para continuar
-              </p>
+            {/* ── Resultado de cobrança online ─────────────────────────────────── */}
+            {saleDone && chargeResult && (
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
+                  <Check className="w-4 h-4" /> Cobrança gerada! {lastOrderNumber}
+                </div>
+                {chargeResult.payment_link && (
+                  <div className="flex gap-2">
+                    <a href={chargeResult.payment_link} target="_blank" rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-primary text-white text-xs font-medium hover:bg-brand-primary-dark transition-colors">
+                      <ExternalLink className="w-3.5 h-3.5" /> Abrir link de pagamento
+                    </a>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(chargeResult.payment_link!)}
+                      className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 hover:border-brand-primary transition-colors flex items-center gap-1">
+                      <Copy className="w-3.5 h-3.5" /> Copiar
+                    </button>
+                  </div>
+                )}
+                {chargeResult.pix_code && !chargeResult.payment_link && (
+                  <div className="font-mono text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-lg p-2 break-all select-all border border-gray-200 dark:border-gray-600">
+                    {chargeResult.pix_code}
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                  <MessageCircle className="w-3 h-3" /> WhatsApp enviado ao responsável
+                </p>
+                <button onClick={resetAfterOnlineSale}
+                  className="w-full py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-xs text-gray-500 hover:text-brand-primary transition-colors">
+                  Nova venda
+                </button>
+              </div>
             )}
 
-            {/* Sucesso */}
-            {saleDone && (
+            {/* ── Sucesso manual ───────────────────────────────────────────────── */}
+            {saleDone && !chargeResult && (
               <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl p-3 text-sm text-center font-medium flex items-center justify-center gap-2">
                 <Check className="w-4 h-4" /> Venda concluída! {lastOrderNumber}
               </div>
             )}
 
-            {/* Finalizar */}
-            <button
-              onClick={finalizeSale}
-              disabled={finalizing || cart.length === 0 || !paymentMethod || !selectedStudent}
-              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold transition-all ${
-                saleDone
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-40 disabled:cursor-not-allowed'
-              }`}
-            >
-              {finalizing
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando…</>
-                : saleDone
-                  ? <><Check className="w-4 h-4" /> Venda Registrada!</>
-                  : <><ShoppingCart className="w-4 h-4" /> Finalizar Venda · {formatCurrency(total)}</>
-              }
-            </button>
+            {/* ── Erro ─────────────────────────────────────────────────────────── */}
+            {saleError && (
+              <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-xl p-3 text-xs leading-relaxed">
+                {saleError}
+                <button onClick={() => setSaleError(null)} className="ml-2 underline">Fechar</button>
+              </div>
+            )}
+
+            {/* ── Aviso aluno ──────────────────────────────────────────────────── */}
+            {!selectedStudent && cart.length > 0 && !saleDone && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 text-center bg-amber-50 dark:bg-amber-900/20 rounded-lg py-1.5">
+                Selecione o aluno para continuar
+              </p>
+            )}
+
+            {/* ── Botão Finalizar ──────────────────────────────────────────────── */}
+            {!saleDone && (
+              <button
+                onClick={finalizeSale}
+                disabled={finalizing || cart.length === 0 || !paymentMethod || !selectedStudent}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold transition-all bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {finalizing
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> {payMode === 'online' ? 'Gerando cobrança…' : 'Processando…'}</>
+                  : payMode === 'online'
+                    ? <><Wifi className="w-4 h-4" /> Gerar Cobrança · {fmt(total)}</>
+                    : <><ShoppingCart className="w-4 h-4" /> Finalizar Venda · {fmt(total)}</>
+                }
+              </button>
+            )}
           </div>
         </div>
       </div>
