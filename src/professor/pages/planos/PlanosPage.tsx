@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useProfessor } from '../../contexts/ProfessorAuthContext';
 import { supabase } from '../../../lib/supabase';
 import {
-  FileText, Plus, Check, Loader2, Calendar,
+  FileText, Plus, Check, Loader2, Calendar, Target,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../../admin/components/Drawer';
 import type { LessonPlan, LessonPlanStatus } from '../../../admin/types/admin.types';
@@ -26,6 +26,10 @@ export default function PlanosPage() {
   const [classFilter, setClassFilter] = useState('');
   const [discFilter, setDiscFilter]   = useState('');
   const [statusFilter, setStatusFilter] = useState<LessonPlanStatus | ''>('');
+
+  // BNCC objectives
+  const [objectives, setObjectives]     = useState<{id: string; code: string; title: string}[]>([]);
+  const [selectedObjIds, setSelectedObjIds] = useState<string[]>([]);
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -65,11 +69,23 @@ export default function PlanosPage() {
 
   useEffect(() => { loadPlans(); }, [loadPlans]);
 
+  useEffect(() => {
+    if (!subjectId) { setObjectives([]); return; }
+    supabase
+      .from('learning_objectives')
+      .select('id, code, title')
+      .eq('subject_id', subjectId)
+      .eq('is_active', true)
+      .order('code')
+      .then(({ data }) => setObjectives((data ?? []) as {id: string; code: string; title: string}[]));
+  }, [subjectId]);
+
   function openNew() {
     setEditPlan(null);
     setTitle(''); setClassId(''); setSubjectId(''); setObjective('');
     setContent(''); setMethodology(''); setResources(''); setAssessment('');
     setPlannedDate(''); setStatus('draft'); setNotes('');
+    setSelectedObjIds([]);
     setDrawerOpen(true);
   }
 
@@ -86,6 +102,12 @@ export default function PlanosPage() {
     setPlannedDate(plan.planned_date ?? '');
     setStatus(plan.status);
     setNotes(plan.notes ?? '');
+    // Carregar objetivos associados
+    supabase
+      .from('lesson_plan_objectives')
+      .select('learning_objective_id')
+      .eq('lesson_plan_id', plan.id)
+      .then(({ data }) => setSelectedObjIds((data ?? []).map((r: { learning_objective_id: string }) => r.learning_objective_id)));
     setDrawerOpen(true);
   }
 
@@ -108,10 +130,28 @@ export default function PlanosPage() {
       notes:        notes || null,
     };
 
+    let savedPlanId: string | null = null;
+
     if (editPlan) {
       await supabase.from('lesson_plans').update(payload).eq('id', editPlan.id);
+      savedPlanId = editPlan.id;
     } else {
-      await supabase.from('lesson_plans').insert(payload);
+      const { data: inserted } = await supabase
+        .from('lesson_plans')
+        .insert(payload)
+        .select('id')
+        .single();
+      savedPlanId = inserted?.id ?? null;
+    }
+
+    // Sincronizar objetivos BNCC
+    if (subjectId && savedPlanId) {
+      await supabase.from('lesson_plan_objectives').delete().eq('lesson_plan_id', savedPlanId);
+      if (selectedObjIds.length > 0) {
+        await supabase.from('lesson_plan_objectives').insert(
+          selectedObjIds.map((oid) => ({ lesson_plan_id: savedPlanId, learning_objective_id: oid }))
+        );
+      }
     }
 
     setSaveState('saved');
@@ -344,6 +384,39 @@ export default function PlanosPage() {
             </div>
           </div>
         </DrawerCard>
+
+        {objectives.length > 0 && (
+          <DrawerCard title="Objetivos BNCC" icon={Target}>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Selecione os objetivos de aprendizagem abordados neste plano.
+            </p>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {objectives.map((obj) => {
+                const checked = selectedObjIds.includes(obj.id);
+                return (
+                  <label key={obj.id} className="flex items-start gap-2.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        setSelectedObjIds((prev) =>
+                          checked ? prev.filter((id) => id !== obj.id) : [...prev, obj.id]
+                        )
+                      }
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
+                    />
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-mono bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded mr-1.5">
+                        {obj.code}
+                      </span>
+                      <span className="text-xs text-gray-700 dark:text-gray-300">{obj.title}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </DrawerCard>
+        )}
       </Drawer>
     </div>
   );

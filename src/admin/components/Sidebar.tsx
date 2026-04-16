@@ -37,6 +37,7 @@ import {
   Monitor,
   PackageSearch,
   LayoutGrid,
+  Target,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -69,6 +70,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Monitor,
   PackageSearch,
   LayoutGrid,
+  Target,
 };
 
 interface Props {

@@ -7,6 +7,7 @@ import type {
   Enrollment, EnrollmentStatus, SchoolSegment, SchoolSeries, SchoolClass,
 } from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
+import EnrollmentContractWizard from './EnrollmentContractWizard';
 import CapacityOverrideModal, { parseCapacityError } from '../../components/CapacityOverrideModal';
 import {
   GraduationCap, Search, X, ChevronRight, Loader2, RefreshCw,
@@ -325,6 +326,11 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   const [capacityModal, setCapacityModal] = useState<
     { current: number; max: number; className: string } | null
   >(null);
+  const [contractWizard, setContractWizard] = useState<{
+    studentId: string;
+    studentName: string;
+    enrollmentNumber: string;
+  } | null>(null);
 
   const canOverrideCapacity = hasRole('admin', 'super_admin');
 
@@ -513,6 +519,22 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
         await supabase.from('enrollments').update({ enrollment_number: enrollNum }).eq('id', enr.id);
       }
       onUpdate(enr.id, patch as Partial<Enrollment>);
+
+      // Após confirmar matrícula, abrir wizard de contrato financeiro
+      if (newStatus === 'confirmed') {
+        const { data: newStudent } = await supabase
+          .from('students')
+          .select('id')
+          .eq('enrollment_id', enr.id)
+          .maybeSingle();
+        if (newStudent?.id) {
+          setContractWizard({
+            studentId: newStudent.id as string,
+            studentName: enr.student_name,
+            enrollmentNumber: enrollNum ?? enr.enrollment_number ?? '',
+          });
+        }
+      }
     }
     setSaving(false);
     setNewStatus('');
@@ -1005,6 +1027,15 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
           await runStatusChange(true);
         }}
       />
+
+      {contractWizard && (
+        <EnrollmentContractWizard
+          studentId={contractWizard.studentId}
+          studentName={contractWizard.studentName}
+          enrollmentNumber={contractWizard.enrollmentNumber}
+          onClose={() => setContractWizard(null)}
+        />
+      )}
     </>
   );
 }
