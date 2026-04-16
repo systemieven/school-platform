@@ -14,8 +14,7 @@ function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 }
 
-interface GuardianOption { id: string; full_name: string; }
-interface StudentOption  { id: string; full_name: string; }
+interface StudentOption { id: string; full_name: string; }
 
 export default function PDVPage() {
   const { user } = useAdminAuth();
@@ -28,12 +27,11 @@ export default function PDVPage() {
   // Cart
   const [cart, setCart] = useState<PDVCartItem[]>([]);
 
-  // Customer
-  const [guardianSearch, setGuardianSearch] = useState('');
-  const [guardians, setGuardians] = useState<GuardianOption[]>([]);
-  const [selectedGuardian, setSelectedGuardian] = useState<GuardianOption | null>(null);
+  // Customer — busca direta por aluno (obrigatório); responsável vinculado automaticamente
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentResults, setStudentResults] = useState<StudentOption[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<StudentOption | null>(null);
-  const [students, setStudents] = useState<StudentOption[]>([]);
+  const [linkedGuardianId, setLinkedGuardianId] = useState<string | null>(null);
 
   // Payment
   const [paymentMethod, setPaymentMethod] = useState('');
@@ -65,39 +63,34 @@ export default function PDVPage() {
     return () => clearTimeout(t);
   }, [searchQuery, searchProducts]);
 
-  const searchGuardians = useCallback(async (q: string) => {
-    if (!q.trim()) { setGuardians([]); return; }
+  const searchStudents = useCallback(async (q: string) => {
+    if (!q.trim()) { setStudentResults([]); return; }
     const { data } = await supabase
-      .from('guardian_profiles')
+      .from('students')
       .select('id, full_name')
       .ilike('full_name', `%${q}%`)
-      .limit(10);
-    setGuardians((data ?? []) as GuardianOption[]);
+      .limit(15);
+    setStudentResults((data ?? []) as StudentOption[]);
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => searchGuardians(guardianSearch), 300);
+    const t = setTimeout(() => searchStudents(studentSearch), 300);
     return () => clearTimeout(t);
-  }, [guardianSearch, searchGuardians]);
+  }, [studentSearch, searchStudents]);
 
-  const loadStudents = useCallback(async (guardianId: string) => {
+  const selectStudent = useCallback(async (s: StudentOption) => {
+    setSelectedStudent(s);
+    setStudentSearch(s.full_name);
+    setStudentResults([]);
+    // Vincula o responsável automaticamente a partir do aluno
     const { data } = await supabase
       .from('guardian_students')
-      .select('student:students(id, full_name)')
-      .eq('guardian_id', guardianId);
-    setStudents(
-      ((data ?? []) as unknown as Array<{ student: StudentOption | null }>)
-        .map((row) => row.student)
-        .filter((s): s is StudentOption => s !== null)
-    );
+      .select('guardian_id')
+      .eq('student_id', s.id)
+      .limit(1)
+      .maybeSingle();
+    setLinkedGuardianId((data as { guardian_id: string } | null)?.guardian_id ?? null);
   }, []);
-
-  const selectGuardian = (g: GuardianOption) => {
-    setSelectedGuardian(g);
-    setGuardianSearch(g.full_name);
-    setGuardians([]);
-    loadStudents(g.id);
-  };
 
   const addVariantToCart = (product: StoreProduct, variant: StoreProductVariant) => {
     const effectivePrice = variant.price_override ?? product.sale_price;
@@ -144,7 +137,7 @@ export default function PDVPage() {
   const total = Math.max(0, subtotal - discountAmount);
 
   const finalizeSale = async () => {
-    if (cart.length === 0 || !paymentMethod) return;
+    if (cart.length === 0 || !paymentMethod || !selectedStudent) return;
     setFinalizing(true);
     try {
       // Generate order number
@@ -156,8 +149,8 @@ export default function PDVPage() {
         .from('store_orders')
         .insert({
           order_number: orderNumber,
-          guardian_id: selectedGuardian?.id ?? null,
-          student_id: selectedStudent?.id ?? null,
+          guardian_id: linkedGuardianId,
+          student_id: selectedStudent.id,
           channel: 'pdv',
           status: 'payment_confirmed',
           subtotal,
@@ -224,9 +217,9 @@ export default function PDVPage() {
       setLastOrderNumber(orderNumber);
       setSaleDone(true);
       setCart([]);
-      setSelectedGuardian(null);
       setSelectedStudent(null);
-      setGuardianSearch('');
+      setLinkedGuardianId(null);
+      setStudentSearch('');
       setDiscount('0');
       setPaymentMethod('');
       setTimeout(() => setSaleDone(false), 3000);
@@ -348,36 +341,43 @@ export default function PDVPage() {
 
           {/* Payment panel */}
           <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-3">
-            {/* Customer */}
+            {/* Customer — Aluno obrigatório; responsável vinculado automaticamente */}
             <div className="relative">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Responsável (opcional)</label>
-              <input value={guardianSearch} onChange={(e) => setGuardianSearch(e.target.value)}
-                placeholder="Buscar responsável…"
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white" />
-              {guardians.length > 0 && (
-                <div className="absolute left-0 right-0 bottom-full mb-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-10 max-h-40 overflow-y-auto">
-                  {guardians.map((g) => (
-                    <button key={g.id} onClick={() => selectGuardian(g)}
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                Aluno <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  value={studentSearch}
+                  onChange={(e) => { setStudentSearch(e.target.value); if (!e.target.value) { setSelectedStudent(null); setLinkedGuardianId(null); } }}
+                  placeholder="Buscar aluno pelo nome…"
+                  className={`w-full pl-8 pr-3 py-2 rounded-xl border text-sm text-gray-800 dark:text-white bg-white dark:bg-gray-700 ${
+                    selectedStudent ? 'border-emerald-400 dark:border-emerald-600' : 'border-gray-200 dark:border-gray-600'
+                  }`}
+                />
+                {selectedStudent && linkedGuardianId !== undefined && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500">
+                    <Check className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </div>
+              {studentResults.length > 0 && (
+                <div className="absolute left-0 right-0 bottom-full mb-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-10 max-h-44 overflow-y-auto">
+                  {studentResults.map((s) => (
+                    <button key={s.id} onClick={() => selectStudent(s)}
                       className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-800 dark:text-white">
-                      {g.full_name}
+                      {s.full_name}
                     </button>
                   ))}
                 </div>
               )}
+              {selectedStudent && (
+                <p className="text-[10px] text-gray-400 mt-1">
+                  {linkedGuardianId ? '✓ Responsável vinculado automaticamente' : 'Sem responsável cadastrado'}
+                </p>
+              )}
             </div>
-
-            {students.length > 0 && (
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Aluno</label>
-                <select value={selectedStudent?.id ?? ''} onChange={(e) => {
-                  const s = students.find((st) => st.id === e.target.value);
-                  setSelectedStudent(s ?? null);
-                }} className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white">
-                  <option value="">Nenhum</option>
-                  {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-                </select>
-              </div>
-            )}
 
             {/* Payment method */}
             <div>
@@ -425,9 +425,12 @@ export default function PDVPage() {
             )}
 
             {/* Finalize */}
+            {!selectedStudent && cart.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 text-center">Selecione o aluno para continuar</p>
+            )}
             <button
               onClick={finalizeSale}
-              disabled={finalizing || cart.length === 0 || !paymentMethod}
+              disabled={finalizing || cart.length === 0 || !paymentMethod || !selectedStudent}
               className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
                 saleDone ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'
               }`}>

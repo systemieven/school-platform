@@ -23,6 +23,7 @@ import {
   Mail, Calendar, MapPin, FileText, BookOpen, BarChart2, DollarSign,
   Paperclip, MessageSquare, AlertCircle, CheckCircle, Clock, XCircle, Check,
   HeartPulse, Plus, Pencil, X, ChevronDown, ShieldCheck, Heart, Stethoscope,
+  ShoppingBag, TrendingUp,
 } from 'lucide-react';
 import ImageCropModal from '../../components/ImageCropModal';
 import { Drawer, DrawerCard } from '../../components/Drawer';
@@ -37,6 +38,28 @@ interface FinancialInstallment {
   status: 'pending' | 'paid' | 'overdue' | 'negotiated' | 'cancelled' | 'renegotiated';
   paid_at: string | null;
   payment_method: string | null;
+}
+
+interface StoreOrderSummary {
+  id: string;
+  order_number: string;
+  status: string;
+  total_amount: number;
+  payment_method: string | null;
+  channel: 'store' | 'pdv';
+  created_at: string;
+  items: { product_name: string; variant_description: string | null; quantity: number; unit_price: number }[];
+}
+
+interface FinancialReceivableSummary {
+  id: string;
+  description: string;
+  due_date: string;
+  amount: number;
+  status: string;
+  paid_at: string | null;
+  payment_method: string | null;
+  source_type: string;
 }
 
 interface StudentResult {
@@ -844,6 +867,8 @@ export default function StudentDetailPage() {
   const [segment, setSegment] = useState<SchoolSegment | null>(null);
   const [results, setResults] = useState<StudentResult[]>([]);
   const [installments, setInstallments] = useState<FinancialInstallment[]>([]);
+  const [storeOrders, setStoreOrders] = useState<StoreOrderSummary[]>([]);
+  const [receivables, setReceivables] = useState<FinancialReceivableSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('resumo');
 
@@ -858,7 +883,7 @@ export default function StudentDetailPage() {
   const load = useCallback(async () => {
     if (!studentId) return;
     setLoading(true);
-    const [studentRes, resultsRes, installmentsRes] = await Promise.all([
+    const [studentRes, resultsRes, installmentsRes, ordersRes, receivablesRes] = await Promise.all([
       supabase.from('students').select('*').eq('id', studentId).single(),
       supabase
         .from('student_results')
@@ -870,7 +895,19 @@ export default function StudentDetailPage() {
         .select('id, installment_number, due_date, amount, status, paid_at, payment_method')
         .eq('student_id', studentId)
         .order('due_date', { ascending: false })
-        .limit(12),
+        .limit(24),
+      supabase
+        .from('store_orders')
+        .select('id, order_number, status, total_amount, payment_method, channel, created_at, items:store_order_items(product_name, variant_description, quantity, unit_price)')
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false })
+        .limit(24),
+      supabase
+        .from('financial_receivables')
+        .select('id, description, due_date, amount, status, paid_at, payment_method, source_type')
+        .eq('student_id', studentId)
+        .order('due_date', { ascending: false })
+        .limit(24),
     ]);
 
     const s = studentRes.data as Student | null;
@@ -898,6 +935,8 @@ export default function StudentDetailPage() {
     }
 
     setInstallments((installmentsRes.data ?? []) as FinancialInstallment[]);
+    setStoreOrders((ordersRes.data ?? []) as unknown as StoreOrderSummary[]);
+    setReceivables((receivablesRes.data ?? []) as FinancialReceivableSummary[]);
     setLoading(false);
   }, [studentId]);
 
@@ -1193,36 +1232,109 @@ export default function StudentDetailPage() {
 
         {/* FINANCEIRO */}
         {(activeTab === 'financeiro') && (
-          <SectionCard title="Parcelas (últimas 12)" icon={DollarSign}>
-            {installments.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">Nenhuma parcela encontrada.</p>
-            ) : (
-              <div className="space-y-2">
-                {installments.map((inst) => {
-                  const Icon = INSTALLMENT_ICONS[inst.status] ?? Clock;
-                  return (
-                    <div key={inst.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 dark:border-gray-700/50 last:border-0">
-                      <div className="flex items-center gap-3">
-                        <Icon className={`w-4 h-4 flex-shrink-0 ${INSTALLMENT_COLORS[inst.status]}`} />
-                        <div>
-                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                            Parcela {inst.installment_number} · vence {fmtDate(inst.due_date)}
-                          </p>
-                          {inst.paid_at && (
-                            <p className="text-xs text-gray-400">Pago em {fmtDate(inst.paid_at)}{inst.payment_method ? ` · ${inst.payment_method}` : ''}</p>
-                          )}
+          <div className="space-y-4">
+            {/* Mensalidades */}
+            <SectionCard title="Mensalidades" icon={DollarSign}>
+              {installments.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">Nenhuma parcela encontrada.</p>
+              ) : (
+                <div className="space-y-0">
+                  {installments.map((inst) => {
+                    const Icon = INSTALLMENT_ICONS[inst.status] ?? Clock;
+                    return (
+                      <div key={inst.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <Icon className={`w-4 h-4 flex-shrink-0 ${INSTALLMENT_COLORS[inst.status]}`} />
+                          <div>
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                              Parcela {inst.installment_number} · vence {fmtDate(inst.due_date)}
+                            </p>
+                            {inst.paid_at && (
+                              <p className="text-xs text-gray-400">Pago em {fmtDate(inst.paid_at)}{inst.payment_method ? ` · ${inst.payment_method}` : ''}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-sm font-semibold ${INSTALLMENT_COLORS[inst.status]}`}>{fmtCurrency(inst.amount)}</p>
+                          <p className={`text-[10px] ${INSTALLMENT_COLORS[inst.status]}`}>{INSTALLMENT_LABELS[inst.status]}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className={`text-sm font-semibold ${INSTALLMENT_COLORS[inst.status]}`}>{fmtCurrency(inst.amount)}</p>
-                        <p className={`text-[10px] ${INSTALLMENT_COLORS[inst.status]}`}>{INSTALLMENT_LABELS[inst.status]}</p>
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+
+            {/* Loja / Fardamento / Material */}
+            <SectionCard title="Compras na Loja" icon={ShoppingBag}>
+              {storeOrders.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">Nenhum pedido registrado.</p>
+              ) : (
+                <div className="space-y-0">
+                  {storeOrders.map((order) => {
+                    const isPaid = ['payment_confirmed','picking','ready_for_pickup','picked_up','completed'].includes(order.status);
+                    const isCancelled = order.status === 'cancelled';
+                    const colorClass = isCancelled ? 'text-gray-400' : isPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400';
+                    const Icon = isCancelled ? XCircle : isPaid ? CheckCircle : Clock;
+                    const itemsSummary = (order.items ?? [])
+                      .map((i) => `${i.product_name}${i.variant_description ? ` (${i.variant_description})` : ''} ×${i.quantity}`)
+                      .join(', ');
+                    return (
+                      <div key={order.id} className="flex items-start justify-between py-2.5 border-b border-gray-50 dark:border-gray-700/50 last:border-0 gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${colorClass}`} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                              {order.order_number}
+                              <span className="ml-2 text-xs font-normal text-gray-400">{order.channel === 'pdv' ? '· PDV' : '· Loja'}</span>
+                            </p>
+                            {itemsSummary && <p className="text-xs text-gray-400 truncate max-w-xs">{itemsSummary}</p>}
+                            <p className="text-xs text-gray-400">{fmtDate(order.created_at)}{order.payment_method ? ` · ${order.payment_method}` : ''}</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className={`text-sm font-semibold ${colorClass}`}>{fmtCurrency(order.total_amount)}</p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+
+            {/* Taxas e Recebíveis Avulsos */}
+            {receivables.length > 0 && (
+              <SectionCard title="Taxas e Receitas Avulsas" icon={TrendingUp}>
+                <div className="space-y-0">
+                  {receivables.map((rec) => {
+                    const isPaid = rec.status === 'paid';
+                    const isOverdue = rec.status === 'overdue';
+                    const isCancelled = rec.status === 'cancelled';
+                    const colorClass = isCancelled ? 'text-gray-400' : isPaid ? 'text-emerald-600 dark:text-emerald-400' : isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400';
+                    const Icon = isCancelled ? XCircle : isPaid ? CheckCircle : isOverdue ? AlertCircle : Clock;
+                    return (
+                      <div key={rec.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 dark:border-gray-700/50 last:border-0 gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Icon className={`w-4 h-4 flex-shrink-0 ${colorClass}`} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{rec.description}</p>
+                            <p className="text-xs text-gray-400">
+                              Vence {fmtDate(rec.due_date)}
+                              {rec.paid_at ? ` · Pago em ${fmtDate(rec.paid_at)}` : ''}
+                              {rec.payment_method ? ` · ${rec.payment_method}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className={`text-sm font-semibold ${colorClass}`}>{fmtCurrency(rec.amount)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </SectionCard>
             )}
-          </SectionCard>
+          </div>
         )}
 
         {/* SAÚDE */}
