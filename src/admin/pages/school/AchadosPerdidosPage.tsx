@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   PackageSearch, Loader2, Check, ChevronLeft, ChevronRight,
   Search, MapPin, Calendar, Trash2, User, Clock, X,
-  AlertTriangle,
+  AlertTriangle, Camera,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
@@ -266,7 +266,7 @@ export default function AchadosPerdidosPage() {
 
   async function handleRegister() {
     if (!profile) return;
-    if (!form.type || !form.description || !form.found_location || !form.storage_location) return;
+    if (!form.type || !form.description || !form.found_location || !form.storage_location || !photoFile) return;
     setSaveState('saving');
 
     let photo_url: string | null = null;
@@ -466,7 +466,7 @@ export default function AchadosPerdidosPage() {
   // ── Drawer footer ─────────────────────────────────────────────────────────────
 
   function renderRegisterFooter() {
-    const canSave = form.type && form.description && form.found_location && form.storage_location;
+    const canSave = form.type && form.description && form.found_location && form.storage_location && !!photoFile;
     return (
       <div className="flex gap-3">
         <button
@@ -754,7 +754,7 @@ export default function AchadosPerdidosPage() {
               </div>
             </DrawerCard>
 
-            <DrawerCard title="Foto (Opcional)" icon={Calendar}>
+            <DrawerCard title="Foto *" icon={Camera}>
               <div className="space-y-2">
                 {photoPreview && (
                   <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600">
