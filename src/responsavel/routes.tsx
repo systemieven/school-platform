@@ -20,6 +20,7 @@ import AutorizacoesSaidaPage from './pages/autorizacoes-saida/AutorizacoesSaidaP
 import SaudePage from './pages/saude/SaudePage';
 import PedidosPage from './pages/pedidos/PedidosPage';
 import PedidoDetalhePage from './pages/pedidos/PedidoDetalhePage';
+import AchadosPerdidosPage from './pages/achados-perdidos/AchadosPerdidosPage';
 
 export default function ResponsavelRoutes() {
   return (
@@ -46,6 +47,7 @@ export default function ResponsavelRoutes() {
           <Route path="saude"               element={<SaudePage />} />
           <Route path="pedidos"             element={<PedidosPage />} />
           <Route path="pedidos/:orderNumber" element={<PedidoDetalhePage />} />
+          <Route path="achados-perdidos"    element={<AchadosPerdidosPage />} />
           <Route path="*"                   element={<Navigate to="/responsavel" replace />} />
         </Route>
       </Routes>

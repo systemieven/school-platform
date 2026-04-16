@@ -52,6 +52,9 @@ const FaltasComunicacoesPage   = lazy(() => import('./pages/school/FaltasComunic
 const AutorizacoesSaidaAdminPage = lazy(() => import('./pages/school/AutorizacoesSaidaAdminPage'));
 const PortariaPage             = lazy(() => import('./pages/school/PortariaPage'));
 
+// Fase 15 — Achados e Perdidos Digital
+const AchadosPerdidosPage      = lazy(() => import('./pages/school/AchadosPerdidosPage'));
+
 // Fase 14 — Loja, PDV e Estoque
 const LojaPage       = lazy(() => import('./pages/loja/LojaPage'));
 const PDVPage        = lazy(() => import('./pages/loja/PDVPage'));
@@ -135,6 +138,9 @@ export default function AdminRoutes() {
           <Route path="faltas" element={<ModuleGuard moduleKey="absence-communications"><LazyPage><FaltasComunicacoesPage /></LazyPage></ModuleGuard>} />
           <Route path="autorizacoes-saida" element={<ModuleGuard moduleKey="exit-authorizations"><LazyPage><AutorizacoesSaidaAdminPage /></LazyPage></ModuleGuard>} />
           <Route path="portaria" element={<ModuleGuard moduleKey="portaria"><LazyPage><PortariaPage /></LazyPage></ModuleGuard>} />
+
+          {/* Fase 15 — Achados e Perdidos Digital */}
+          <Route path="achados-perdidos" element={<ModuleGuard moduleKey="lost-found"><LazyPage><AchadosPerdidosPage /></LazyPage></ModuleGuard>} />
 
           {/* Fase 14 — Loja, PDV e Estoque */}
           <Route path="loja"                element={<ModuleGuard moduleKey="store-products"><LazyPage><LojaPage /></LazyPage></ModuleGuard>} />
