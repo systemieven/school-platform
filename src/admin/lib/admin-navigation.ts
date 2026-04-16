@@ -181,6 +181,27 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'Loja',
+    items: [
+      {
+        key: 'loja',
+        label: 'Visão Geral',
+        icon: 'ShoppingBag',
+        path: '/admin/loja',
+        roles: ['super_admin', 'admin', 'coordinator', 'user'],
+        moduleKey: 'store-products',
+      },
+      {
+        key: 'loja-pdv',
+        label: 'PDV',
+        icon: 'Monitor',
+        path: '/admin/loja/pdv',
+        roles: ['super_admin', 'admin', 'coordinator', 'user'],
+        moduleKey: 'store-pdv',
+      },
+    ],
+  },
+  {
     label: 'Sistema',
     items: [
       {

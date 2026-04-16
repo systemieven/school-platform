@@ -25,6 +25,14 @@ import NotFound          from './pages/NotFound';
 const AtendimentoPublico = lazy(() => import('./pages/AtendimentoPublico'));
 const PainelAtendimento  = lazy(() => import('./pages/PainelAtendimento'));
 
+// Fase 14 — Loja pública
+const LojaPublicaPage      = lazy(() => import('./pages/loja/LojaPublicaPage'));
+const CategoriaPage        = lazy(() => import('./pages/loja/CategoriaPage'));
+const ProdutoPage          = lazy(() => import('./pages/loja/ProdutoPage'));
+const CarrinhoPage         = lazy(() => import('./pages/loja/CarrinhoPage'));
+const CheckoutPage         = lazy(() => import('./pages/loja/CheckoutPage'));
+const ConfirmacaoPedidoPage = lazy(() => import('./pages/loja/ConfirmacaoPedidoPage'));
+
 // Admin panel, student portal, guardian portal and teacher portal — lazy: large bundles
 const AdminRoutes      = lazy(() => import('./admin/routes'));
 const PortalRoutes     = lazy(() => import('./portal/routes'));
@@ -59,6 +67,15 @@ export default function App() {
           <Route path="termos-de-uso"        element={<TermosUso />} />
           <Route path="sobre"                element={<Sobre />} />
           <Route path="estrutura"            element={<Estrutura />} />
+
+          {/* Fase 14 — Loja pública */}
+          <Route path="loja"                    element={<Suspense fallback={<FullPageFallback />}><LojaPublicaPage /></Suspense>} />
+          <Route path="loja/categoria/:slug"    element={<Suspense fallback={<FullPageFallback />}><CategoriaPage /></Suspense>} />
+          <Route path="loja/produto/:slug"      element={<Suspense fallback={<FullPageFallback />}><ProdutoPage /></Suspense>} />
+          <Route path="loja/carrinho"           element={<Suspense fallback={<FullPageFallback />}><CarrinhoPage /></Suspense>} />
+          <Route path="loja/checkout"           element={<Suspense fallback={<FullPageFallback />}><CheckoutPage /></Suspense>} />
+          <Route path="loja/pedido/:orderNumber" element={<Suspense fallback={<FullPageFallback />}><ConfirmacaoPedidoPage /></Suspense>} />
+
           <Route path="*"                    element={<NotFound />} />
         </Route>
       )}

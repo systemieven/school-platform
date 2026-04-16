@@ -52,6 +52,11 @@ const FaltasComunicacoesPage   = lazy(() => import('./pages/school/FaltasComunic
 const AutorizacoesSaidaAdminPage = lazy(() => import('./pages/school/AutorizacoesSaidaAdminPage'));
 const PortariaPage             = lazy(() => import('./pages/school/PortariaPage'));
 
+// Fase 14 — Loja, PDV e Estoque
+const LojaPage       = lazy(() => import('./pages/loja/LojaPage'));
+const PDVPage        = lazy(() => import('./pages/loja/PDVPage'));
+const OrderDetailPage = lazy(() => import('./pages/loja/OrderDetailPage'));
+
 function PageFallback() {
   return (
     <div className="flex items-center justify-center py-24">
@@ -130,6 +135,11 @@ export default function AdminRoutes() {
           <Route path="faltas" element={<ModuleGuard moduleKey="absence-communications"><LazyPage><FaltasComunicacoesPage /></LazyPage></ModuleGuard>} />
           <Route path="autorizacoes-saida" element={<ModuleGuard moduleKey="exit-authorizations"><LazyPage><AutorizacoesSaidaAdminPage /></LazyPage></ModuleGuard>} />
           <Route path="portaria" element={<ModuleGuard moduleKey="portaria"><LazyPage><PortariaPage /></LazyPage></ModuleGuard>} />
+
+          {/* Fase 14 — Loja, PDV e Estoque */}
+          <Route path="loja"                element={<ModuleGuard moduleKey="store-products"><LazyPage><LojaPage /></LazyPage></ModuleGuard>} />
+          <Route path="loja/pdv"            element={<ModuleGuard moduleKey="store-pdv"><LazyPage><PDVPage /></LazyPage></ModuleGuard>} />
+          <Route path="loja/pedidos/:orderId" element={<ModuleGuard moduleKey="store-orders"><LazyPage><OrderDetailPage /></LazyPage></ModuleGuard>} />
 
           {/* System */}
           <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />

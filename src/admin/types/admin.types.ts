@@ -2377,3 +2377,179 @@ export const THIRD_PARTY_REL_LABELS: Record<string, string> = {
   conhecido_a: 'Conhecido(a)',
   outro:       'Outro',
 };
+
+// ── Loja / PDV / Estoque ────────────────────────────────────────────────────
+
+export type StoreProductStatus = 'active' | 'inactive' | 'out_of_stock' | 'discontinued';
+export type StoreOrderStatus =
+  | 'pending_payment' | 'payment_confirmed' | 'picking'
+  | 'ready_for_pickup' | 'picked_up' | 'completed' | 'cancelled';
+export type StoreChannel = 'store' | 'pdv';
+export type InventoryMovementType = 'purchase' | 'sale' | 'return' | 'adjustment' | 'reservation_released';
+
+export interface StoreCategory {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  parent_id: string | null;
+  slug: string | null;
+  is_active: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  children?: StoreCategory[];
+}
+
+export interface StoreProductVariant {
+  id: string;
+  product_id: string;
+  sku: string;
+  color: string | null;
+  size: string | null;
+  price_override: number | null;
+  stock_quantity: number;
+  reserved_quantity: number;
+  min_stock: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreProductImage {
+  id: string;
+  product_id: string;
+  variant_id: string | null;
+  url: string;
+  storage_path: string | null;
+  alt_text: string | null;
+  position: number;
+  is_cover: boolean;
+  created_at: string;
+}
+
+export interface StoreProduct {
+  id: string;
+  name: string;
+  short_description: string | null;
+  description: string | null;
+  category_id: string | null;
+  sku_base: string | null;
+  cost_price: number | null;
+  sale_price: number;
+  status: StoreProductStatus;
+  is_featured: boolean;
+  is_digital: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // joins
+  category?: StoreCategory | null;
+  variants?: StoreProductVariant[];
+  images?: StoreProductImage[];
+}
+
+export interface StoreInventoryMovement {
+  id: string;
+  variant_id: string;
+  type: InventoryMovementType;
+  quantity: number;
+  balance_after: number;
+  reference_type: 'order' | 'manual' | 'pdv' | null;
+  reference_id: string | null;
+  justification: string | null;
+  recorded_by: string | null;
+  created_at: string;
+}
+
+export interface StoreOrderItem {
+  id: string;
+  order_id: string;
+  variant_id: string | null;
+  product_name: string;
+  variant_description: string | null;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  returned_quantity: number;
+  created_at: string;
+  // join
+  variant?: StoreProductVariant | null;
+}
+
+export interface StoreOrder {
+  id: string;
+  order_number: string;
+  guardian_id: string | null;
+  student_id: string | null;
+  channel: StoreChannel;
+  status: StoreOrderStatus;
+  subtotal: number;
+  discount_amount: number;
+  total_amount: number;
+  payment_method: string | null;
+  installments: number;
+  gateway_charge_id: string | null;
+  notes: string | null;
+  cancellation_reason: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // joins
+  items?: StoreOrderItem[];
+  guardian?: { id: string; full_name: string } | null;
+  student?: { id: string; full_name: string } | null;
+}
+
+export interface StorePickupProtocol {
+  id: string;
+  order_id: string;
+  signed_by_name: string;
+  signed_by_document: string | null;
+  signed_by_relation: string | null;
+  signed_at: string;
+  confirmed_by: string | null;
+  protocol_url: string | null;
+  protocol_path: string | null;
+  created_at: string;
+}
+
+export const ORDER_STATUS_LABELS: Record<StoreOrderStatus, string> = {
+  pending_payment:   'Aguardando Pagamento',
+  payment_confirmed: 'Pagamento Confirmado',
+  picking:           'Em Separação',
+  ready_for_pickup:  'Pronto para Retirada',
+  picked_up:         'Retirado',
+  completed:         'Concluído',
+  cancelled:         'Cancelado',
+};
+
+export const ORDER_STATUS_COLORS: Record<StoreOrderStatus, string> = {
+  pending_payment:   'amber',
+  payment_confirmed: 'blue',
+  picking:           'purple',
+  ready_for_pickup:  'cyan',
+  picked_up:         'teal',
+  completed:         'green',
+  cancelled:         'red',
+};
+
+export const PRODUCT_STATUS_LABELS: Record<StoreProductStatus, string> = {
+  active:        'Ativo',
+  inactive:      'Inativo',
+  out_of_stock:  'Sem Estoque',
+  discontinued:  'Descontinuado',
+};
+
+// PDV cart item (client-side only, not persisted)
+export interface PDVCartItem {
+  variantId: string;
+  productName: string;
+  variantDescription: string;
+  sku: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}

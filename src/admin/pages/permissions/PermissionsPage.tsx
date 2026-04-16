@@ -466,6 +466,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
     portais:      'Portais',
     instituicao:  'Instituição',
     ferramentas:  'Ferramentas',
+    loja:         'Loja',
     sistema:      'Sistema',
   };
 
