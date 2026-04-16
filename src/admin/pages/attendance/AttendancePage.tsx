@@ -24,6 +24,8 @@ import {
   ArrowRightLeft,
   ChevronDown,
   History,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import AttendanceDetailsDrawer from './AttendanceDetailsDrawer';
@@ -434,7 +436,15 @@ export default function AttendancePage() {
   const [transferCfg, setTransferCfg] = useState<AttendanceTransferConfig>(DEFAULT_TRANSFER_CFG);
   const [allSectors, setAllSectors] = useState<Array<{ key: string; label: string }>>([]);
   const [transferTarget, setTransferTarget] = useState<AttendanceTicket | null>(null);
+  const [opError, setOpError] = useState<string | null>(null);
   const now = useNow(1000);
+
+  useEffect(() => {
+    if (opError) {
+      const t = setTimeout(() => setOpError(null), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [opError]);
 
   // Load priority queue + sector visibility settings
   useEffect(() => {
@@ -556,7 +566,7 @@ export default function AttendancePage() {
     setBusyId(null);
     if (error) {
       console.error('Failed to update ticket', error);
-      alert('Erro ao atualizar a senha: ' + error.message);
+      setOpError('Erro ao atualizar a senha: ' + error.message);
       return false;
     }
     return true;
@@ -573,11 +583,11 @@ export default function AttendancePage() {
     setBusyId(null);
     if (error) {
       console.error('Failed to claim next ticket', error);
-      alert('Erro ao chamar próximo: ' + error.message);
+      setOpError('Erro ao chamar próximo: ' + error.message);
       return;
     }
     if (!data || (Array.isArray(data) && data.length === 0)) {
-      alert('Nenhuma senha disponível na fila.');
+      setOpError('Nenhuma senha disponível na fila.');
     }
   };
 
@@ -590,7 +600,7 @@ export default function AttendancePage() {
     setBusyId(null);
     if (error) {
       console.error('Failed to recall ticket', error);
-      alert('Erro ao rechamar: ' + error.message);
+      setOpError('Erro ao rechamar: ' + error.message);
     }
   };
 
@@ -645,7 +655,7 @@ export default function AttendancePage() {
 
     if (updateErr) {
       console.error('Transfer update failed', updateErr);
-      alert('Erro ao transferir: ' + updateErr.message);
+      setOpError('Erro ao transferir: ' + updateErr.message);
       setBusyId(null);
       return;
     }
@@ -762,6 +772,15 @@ export default function AttendancePage() {
           </select>
         )}
       </div>
+
+      {/* Inline error banner */}
+      {opError && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-800/40 text-sm text-red-700 dark:text-red-400">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-1">{opError}</span>
+          <button onClick={() => setOpError(null)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {/* Board */}
       {effectiveSectors !== null && effectiveSectors.length === 0 ? (

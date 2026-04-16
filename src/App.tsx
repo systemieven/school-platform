@@ -19,7 +19,6 @@ import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
 import TermosUso         from './pages/TermosUso';
 import Sobre             from './pages/Sobre';
 import Estrutura         from './pages/Estrutura';
-import EmConstrucao      from './pages/EmConstrucao';
 import NotFound          from './pages/NotFound';
 
 // These two standalone pages are lazy: large + rarely accessed by site visitors
@@ -60,7 +59,6 @@ export default function App() {
           <Route path="termos-de-uso"        element={<TermosUso />} />
           <Route path="sobre"                element={<Sobre />} />
           <Route path="estrutura"            element={<Estrutura />} />
-          <Route path="area-professor"       element={<EmConstrucao />} />
           <Route path="*"                    element={<NotFound />} />
         </Route>
       )}

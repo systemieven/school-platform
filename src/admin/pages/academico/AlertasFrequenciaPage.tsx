@@ -10,6 +10,7 @@ import {
 interface AttendanceRow {
   student_id: string;
   student_name: string;
+  guardian_phone: string;
   class_id: string;
   class_name: string;
   discipline_id: string;
@@ -67,6 +68,8 @@ export default function AlertasFrequenciaPage() {
   const [loading, setLoading] = useState(true);
   const [filterClass, setFilterClass] = useState('');
   const [filterSegment, setFilterSegment] = useState('');
+  const [sendingAlert, setSendingAlert] = useState<Record<string, boolean>>({});
+  const [alertMsg, setAlertMsg] = useState<{ studentId: string; type: 'success' | 'error'; text: string } | null>(null);
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -104,7 +107,7 @@ export default function AlertasFrequenciaPage() {
         student_id,
         discipline_id,
         status,
-        student:students(id, full_name, class_id),
+        student:students(id, full_name, class_id, guardian_phone),
         discipline:disciplines(id, name)
       `);
 
@@ -115,7 +118,7 @@ export default function AlertasFrequenciaPage() {
     }
 
     // Group by student+discipline
-    const grouped = new Map<string, { studentId: string; studentName: string; classId: string; disciplineId: string; disciplineName: string; total: number; present: number }>();
+    const grouped = new Map<string, { studentId: string; studentName: string; guardianPhone: string; classId: string; disciplineId: string; disciplineName: string; total: number; present: number }>();
 
     for (const rec of attendance ?? []) {
       const student = rec.student as any;
@@ -127,6 +130,7 @@ export default function AlertasFrequenciaPage() {
         grouped.set(key, {
           studentId: student.id,
           studentName: student.full_name ?? '',
+          guardianPhone: student.guardian_phone ?? '',
           classId: student.class_id ?? '',
           disciplineId: discipline.id,
           disciplineName: discipline.name ?? '',
@@ -149,6 +153,7 @@ export default function AlertasFrequenciaPage() {
       builtRows.push({
         student_id: g.studentId,
         student_name: g.studentName,
+        guardian_phone: g.guardianPhone,
         class_id: g.classId,
         class_name: cls?.name ?? '',
         discipline_id: g.disciplineId,
@@ -169,6 +174,50 @@ export default function AlertasFrequenciaPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // ── Send WhatsApp alert ─────────────────────────────────────────────────────
+  const handleSendAlert = async (studentId: string, studentName: string, guardianPhone: string) => {
+    setSendingAlert((prev) => ({ ...prev, [studentId]: true }));
+    setAlertMsg(null);
+
+    // Look up template
+    const { data: templates } = await supabase
+      .from('whatsapp_message_templates')
+      .select('id, name, body, variables_used')
+      .eq('is_active', true)
+      .eq('category', 'academico')
+      .or('name.ilike.%falta%,name.ilike.%frequencia%,name.ilike.%alerta%')
+      .limit(1);
+
+    const template = templates?.[0];
+    if (!template) {
+      setAlertMsg({
+        studentId,
+        type: 'error',
+        text: 'Nenhum template de alerta configurado. Configure em Config > WhatsApp.',
+      });
+      setSendingAlert((prev) => ({ ...prev, [studentId]: false }));
+      setTimeout(() => setAlertMsg(null), 5000);
+      return;
+    }
+
+    const body = (template.body as string)
+      .replace(/\{\{nome_aluno\}\}/g, studentName)
+      .replace(/\{\{instituicao\}\}/g, '');
+
+    const { error } = await supabase.functions.invoke('uazapi-proxy', {
+      body: { action: 'sendText', phone: guardianPhone, message: body },
+    });
+
+    if (error) {
+      setAlertMsg({ studentId, type: 'error', text: 'Erro ao enviar alerta: ' + error.message });
+    } else {
+      setAlertMsg({ studentId, type: 'success', text: 'Alerta enviado com sucesso!' });
+      setTimeout(() => setAlertMsg(null), 2000);
+    }
+
+    setSendingAlert((prev) => ({ ...prev, [studentId]: false }));
+  };
 
   // ── Filtered rows ───────────────────────────────────────────────────────────
   const filtered = rows.filter((r) => {
@@ -313,13 +362,25 @@ export default function AlertasFrequenciaPage() {
                     </td>
                     <td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
                       {r.status !== 'ok' && (
-                        <button
-                          onClick={() => console.log('Alerta WhatsApp enviado')}
-                          className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          Enviar Alerta
-                        </button>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => handleSendAlert(r.student_id, r.student_name, r.guardian_phone)}
+                            disabled={sendingAlert[r.student_id]}
+                            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {sendingAlert[r.student_id] ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            )}
+                            {sendingAlert[r.student_id] ? 'Enviando…' : 'Enviar Alerta'}
+                          </button>
+                          {alertMsg?.studentId === r.student_id && (
+                            <span className={`text-[11px] font-medium ${alertMsg.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {alertMsg.text}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
