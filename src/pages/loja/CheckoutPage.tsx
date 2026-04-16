@@ -3,13 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useCart } from '../../hooks/useCart';
 import { useGuardian } from '../../responsavel/contexts/GuardianAuthContext';
-import { Loader2, ShoppingBag } from 'lucide-react';
-
-const PAYMENT_METHODS = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto'];
+import { Loader2, ShoppingBag, QrCode, Banknote, CreditCard } from 'lucide-react';
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 }
+
+type BillingType = 'PIX' | 'BOLETO' | 'CREDIT_CARD';
+
+const PAYMENT_OPTIONS: { key: BillingType; label: string; icon: React.ElementType; description: string }[] = [
+  { key: 'PIX',         label: 'PIX',              icon: QrCode,      description: 'Aprovação imediata' },
+  { key: 'CREDIT_CARD', label: 'Cartão de Crédito', icon: CreditCard,  description: 'Em até 12×' },
+  { key: 'BOLETO',      label: 'Boleto Bancário',   icon: Banknote,    description: 'Vence hoje' },
+];
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -17,8 +23,7 @@ export default function CheckoutPage() {
   const { items, total, clearCart } = useCart();
 
   const [selectedStudentId, setSelectedStudentId] = useState(currentStudentId ?? '');
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [installments, setInstallments] = useState(1);
+  const [billingType, setBillingType] = useState<BillingType | ''>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,15 +38,16 @@ export default function CheckoutPage() {
   }
 
   const handleConfirm = async () => {
-    if (!paymentMethod) { setError('Selecione a forma de pagamento.'); return; }
+    if (!billingType) { setError('Selecione a forma de pagamento.'); return; }
     setSubmitting(true);
     setError('');
     try {
-      // Generate order number
+      // 1. Generate order number
       const year = new Date().getFullYear();
       const { count } = await supabase.from('store_orders').select('*', { count: 'exact', head: true });
       const orderNumber = `PED-${year}-${String((count ?? 0) + 1).padStart(5, '0')}`;
 
+      // 2. Create order (pending_payment — becomes confirmed after gateway webhook)
       const { data: orderData, error: orderErr } = await supabase
         .from('store_orders')
         .insert({
@@ -53,8 +59,7 @@ export default function CheckoutPage() {
           subtotal: total,
           discount_amount: 0,
           total_amount: total,
-          payment_method: paymentMethod,
-          installments,
+          installments: 1,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -64,7 +69,8 @@ export default function CheckoutPage() {
       if (orderErr || !orderData?.id) throw new Error(orderErr?.message ?? 'Falha ao criar pedido');
       const orderId = orderData.id;
 
-      await supabase.from('store_order_items').insert(
+      // 3. Insert order items
+      const { error: itemsErr } = await supabase.from('store_order_items').insert(
         items.map((item) => ({
           order_id: orderId,
           variant_id: item.variantId,
@@ -77,9 +83,19 @@ export default function CheckoutPage() {
           created_at: new Date().toISOString(),
         }))
       );
+      if (itemsErr) throw new Error(itemsErr.message);
 
+      // 4. Create checkout session via edge function (handles gateway charge + session)
+      const { data: sessionData, error: sessionErr } = await supabase.functions.invoke('checkout-proxy', {
+        body: { action: 'createSession', order_id: orderId, billing_type: billingType },
+      });
+
+      if (sessionErr) throw new Error(sessionErr.message || 'Erro ao criar sessão de pagamento.');
+      if (!sessionData?.token) throw new Error(sessionData?.error ?? 'Erro ao criar sessão de pagamento.');
+
+      // 5. Clear cart and redirect to branded checkout
       clearCart();
-      navigate(`/loja/pedido/${orderNumber}`);
+      navigate(`/pagar/${sessionData.token}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao processar pedido');
     } finally {
@@ -100,7 +116,9 @@ export default function CheckoutPage() {
           <h2 className="text-sm font-semibold text-gray-700">Resumo do Pedido</h2>
           {items.map((item) => (
             <div key={item.variantId} className="flex justify-between text-sm">
-              <span className="text-gray-700">{item.productName} {item.variantDescription ? `(${item.variantDescription})` : ''} × {item.quantity}</span>
+              <span className="text-gray-700">
+                {item.productName}{item.variantDescription ? ` (${item.variantDescription})` : ''} × {item.quantity}
+              </span>
               <span className="font-medium text-gray-800">{formatCurrency(item.unitPrice * item.quantity)}</span>
             </div>
           ))}
@@ -114,8 +132,11 @@ export default function CheckoutPage() {
         {students.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Aluno</label>
-            <select value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800">
+            <select
+              value={selectedStudentId}
+              onChange={(e) => setSelectedStudentId(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800"
+            >
               <option value="">Nenhum</option>
               {students.map((s) => (
                 <option key={s.student_id} value={s.student_id}>
@@ -128,39 +149,51 @@ export default function CheckoutPage() {
 
         {/* Payment method */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-gray-700">Pagamento</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {PAYMENT_METHODS.map((m) => (
-              <button key={m} onClick={() => setPaymentMethod(m)}
-                className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  paymentMethod === m
-                    ? 'bg-brand-primary text-white border-brand-primary'
-                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-brand-primary'
-                }`}>
-                {m}
-              </button>
-            ))}
+          <h2 className="text-sm font-semibold text-gray-700">Forma de Pagamento</h2>
+          <div className="space-y-2">
+            {PAYMENT_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
+              const selected = billingType === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => setBillingType(opt.key)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors ${
+                    selected
+                      ? 'bg-brand-primary border-brand-primary text-white'
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-brand-primary'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 flex-shrink-0 ${selected ? 'text-white' : 'text-brand-primary'}`} />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium">{opt.label}</span>
+                    <span className={`ml-2 text-xs ${selected ? 'text-white/75' : 'text-gray-400'}`}>
+                      {opt.description}
+                    </span>
+                  </div>
+                  {selected && (
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  )}
+                </button>
+              );
+            })}
           </div>
-          {paymentMethod === 'Cartão de Crédito' && (
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Parcelas</label>
-              <select value={installments} onChange={(e) => setInstallments(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800">
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>{n}× de {formatCurrency(total / n)}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
 
         {error && <p className="text-sm text-red-500 text-center">{error}</p>}
 
-        <button onClick={handleConfirm} disabled={submitting || !paymentMethod}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-2xl font-medium transition-colors disabled:opacity-50">
+        <button
+          onClick={handleConfirm}
+          disabled={submitting || !billingType}
+          className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-2xl font-medium transition-colors disabled:opacity-50"
+        >
           {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-          {submitting ? 'Processando…' : 'Confirmar Pedido'}
+          {submitting ? 'Gerando link de pagamento…' : `Ir para Pagamento →`}
         </button>
+
+        <p className="text-xs text-gray-400 text-center">
+          🔒 Pagamento processado com segurança via gateway certificado
+        </p>
       </div>
     </div>
   );

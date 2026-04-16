@@ -25,8 +25,9 @@ import NotFound          from './pages/NotFound';
 const AtendimentoPublico = lazy(() => import('./pages/AtendimentoPublico'));
 const PainelAtendimento  = lazy(() => import('./pages/PainelAtendimento'));
 
-// Fase 14 — Loja pública
+// Fase 14 — Loja pública + Checkout próprio
 const LojaPublicaPage      = lazy(() => import('./pages/loja/LojaPublicaPage'));
+const PagarPage            = lazy(() => import('./pages/checkout/PagarPage'));
 const CategoriaPage        = lazy(() => import('./pages/loja/CategoriaPage'));
 const ProdutoPage          = lazy(() => import('./pages/loja/ProdutoPage'));
 const CarrinhoPage         = lazy(() => import('./pages/loja/CarrinhoPage'));
@@ -84,6 +85,9 @@ export default function App() {
       {maintenanceMode && (
         <Route path="*" element={<MaintenancePage />} />
       )}
+
+      {/* ── Checkout próprio — sem nav, público, /pagar/:token ── */}
+      <Route path="pagar/:token" element={<Suspense fallback={<FullPageFallback />}><PagarPage /></Suspense>} />
 
       {/* ── Public attendance (QR code, no site chrome) ── */}
       <Route path="atendimento" element={<Suspense fallback={<FullPageFallback />}><AtendimentoPublico /></Suspense>} />
