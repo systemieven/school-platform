@@ -12,10 +12,8 @@ import ForcePasswordChange from './pages/auth/ForcePasswordChange';
 
 // Lazy: all admin pages
 const DashboardPage        = lazy(() => import('./pages/dashboard/DashboardPage'));
+const GestaoPage           = lazy(() => import('./pages/gestao/GestaoPage'));
 const SettingsPage         = lazy(() => import('./pages/settings/SettingsPage'));
-const AppointmentsPage     = lazy(() => import('./pages/appointments/AppointmentsPage'));
-const EnrollmentsPage      = lazy(() => import('./pages/enrollments/EnrollmentsPage'));
-const ContactsPage         = lazy(() => import('./pages/contacts/ContactsPage'));
 const KanbanPage           = lazy(() => import('./pages/leads/KanbanPage'));
 const ReportsPage          = lazy(() => import('./pages/reports/ReportsPage'));
 const StudentsPage         = lazy(() => import('./pages/school/StudentsPage'));
@@ -25,8 +23,6 @@ const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'
 const LibraryPage          = lazy(() => import('./pages/library/LibraryPage'));
 const AnnouncementsPage    = lazy(() => import('./pages/announcements/AnnouncementsPage'));
 const EventsPage           = lazy(() => import('./pages/events/EventsPage'));
-const AttendancePage       = lazy(() => import('./pages/attendance/AttendancePage'));
-const AttendanceHistoryPage = lazy(() => import('./pages/attendance/AttendanceHistoryPage'));
 const TestimonialsPage     = lazy(() => import('./pages/testimonials/TestimonialsPage'));
 
 // Financial (single page with internal tabs)
@@ -96,11 +92,14 @@ export default function AdminRoutes() {
         >
           <Route index element={<ModuleGuard moduleKey="dashboard"><LazyPage><DashboardPage /></LazyPage></ModuleGuard>} />
 
-          <Route path="agendamentos" element={<ModuleGuard moduleKey="appointments"><LazyPage><AppointmentsPage /></LazyPage></ModuleGuard>} />
-          <Route path="matriculas"   element={<ModuleGuard moduleKey="enrollments"><LazyPage><EnrollmentsPage /></LazyPage></ModuleGuard>} />
-          <Route path="contatos"     element={<ModuleGuard moduleKey="contacts"><LazyPage><ContactsPage /></LazyPage></ModuleGuard>} />
-          <Route path="atendimentos" element={<ModuleGuard moduleKey="attendance"><LazyPage><AttendancePage /></LazyPage></ModuleGuard>} />
-          <Route path="historico-atendimentos" element={<ModuleGuard moduleKey="attendance"><LazyPage><AttendanceHistoryPage /></LazyPage></ModuleGuard>} />
+          {/* Gestão (tab rail: Agendamentos, Atendimentos, Contatos, Matrícula) */}
+          <Route path="gestao" element={<ModuleGuard moduleKey="appointments"><LazyPage><GestaoPage /></LazyPage></ModuleGuard>} />
+          {/* Redirects de rotas legadas → /admin/gestao */}
+          <Route path="agendamentos"           element={<Navigate to="/admin/gestao" replace />} />
+          <Route path="matriculas"             element={<Navigate to="/admin/gestao?tab=matriculas" replace />} />
+          <Route path="contatos"               element={<Navigate to="/admin/gestao?tab=contatos" replace />} />
+          <Route path="atendimentos"           element={<Navigate to="/admin/gestao?tab=atendimentos" replace />} />
+          <Route path="historico-atendimentos" element={<Navigate to="/admin/gestao?tab=atendimentos" replace />} />
 
           <Route path="leads/kanban" element={<ModuleGuard moduleKey="kanban"><LazyPage><KanbanPage /></LazyPage></ModuleGuard>} />
           <Route path="relatorios"   element={<ModuleGuard moduleKey="reports"><LazyPage><ReportsPage /></LazyPage></ModuleGuard>} />
