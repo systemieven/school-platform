@@ -18,6 +18,15 @@ const STATUS_COLORS: Record<string, string> = {
   discontinued: 'bg-red-100 text-red-600',
 };
 
+function getFiscalStatus(p: StoreProduct & { fiscal?: { ncm?: string; cfop_saida?: string; cst_icms?: string; csosn?: string; cst_pis?: string; cst_cofins?: string } | null }): 'complete' | 'incomplete' | 'none' {
+  const f = p.fiscal as { ncm?: string; cfop_saida?: string; cst_icms?: string; csosn?: string; cst_pis?: string; cst_cofins?: string } | null;
+  if (!f) return 'none';
+  const hasCst = !!(f.cst_icms || f.csosn);
+  if (f.ncm && f.cfop_saida && hasCst && f.cst_pis && f.cst_cofins) return 'complete';
+  if (f.ncm || f.cfop_saida || hasCst || f.cst_pis || f.cst_cofins) return 'incomplete';
+  return 'none';
+}
+
 export default function ProdutosTab() {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [categories, setCategories] = useState<StoreCategory[]>([]);
@@ -33,7 +42,7 @@ export default function ProdutosTab() {
   const load = useCallback(async () => {
     setLoading(true);
     const [prodRes, catRes] = await Promise.all([
-      supabase.from('store_products').select('*, category:store_categories(id,name), variants:store_product_variants(*), images:store_product_images(*)').order('created_at', { ascending: false }),
+      supabase.from('store_products').select('*, category:store_categories(id,name), variants:store_product_variants(*), images:store_product_images(*), fiscal:product_fiscal_data(ncm,cfop_saida,cst_icms,csosn,cst_pis,cst_cofins,gera_nfe)').order('created_at', { ascending: false }),
       supabase.from('store_categories').select('*').order('position'),
     ]);
     setProducts((prodRes.data ?? []) as unknown as StoreProduct[]);
@@ -87,11 +96,12 @@ export default function ProdutosTab() {
                 <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Preço</th>
                 <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Estoque</th>
                 <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
+                <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Fiscal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="py-12 text-center text-sm text-gray-400">Nenhum produto encontrado</td></tr>
+                <tr><td colSpan={7} className="py-12 text-center text-sm text-gray-400">Nenhum produto encontrado</td></tr>
               )}
               {filtered.map((p) => {
                 const coverImage = p.images?.find((img) => img.is_cover) ?? p.images?.[0];
@@ -132,6 +142,14 @@ export default function ProdutosTab() {
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] ?? 'bg-gray-100 text-gray-600'}`}>
                         {PRODUCT_STATUS_LABELS[p.status]}
                       </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      {(() => {
+                        const fs = getFiscalStatus(p as StoreProduct & { fiscal?: { ncm?: string; cfop_saida?: string; cst_icms?: string; csosn?: string; cst_pis?: string; cst_cofins?: string } | null });
+                        if (fs === 'complete') return <span title="Dados fiscais completos" className="text-emerald-500 text-base">✅</span>;
+                        if (fs === 'incomplete') return <span title="Dados fiscais incompletos" className="text-amber-400 text-base">⚠️</span>;
+                        return <span title="Sem dados fiscais" className="text-gray-300 text-xs">—</span>;
+                      })()}
                     </td>
                   </tr>
                 );
