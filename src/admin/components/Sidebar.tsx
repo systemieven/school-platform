@@ -32,8 +32,7 @@ import {
   DollarSign,
   Archive,
   ScanFace,
-  BellRing,
-  FileCheck2,
+  DoorOpen,
   ShoppingBag,
   Monitor,
 } from 'lucide-react';
@@ -63,8 +62,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   DollarSign,
   Archive,
   ScanFace,
-  BellRing,
-  FileCheck2,
+  DoorOpen,
   ShoppingBag,
   Monitor,
 };

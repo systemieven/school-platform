@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  MessageSquareDot, Loader2, Check, X, Search,
+  MessageSquare, Loader2, Check, X, Search,
   ChevronLeft, ChevronRight, CalendarDays, User,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
@@ -215,17 +215,6 @@ export default function FaltasComunicacoesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-          <MessageSquareDot className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Comunicação de Faltas</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Análise e vínculo das comunicações enviadas pelos responsáveis</p>
-        </div>
-      </div>
-
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 space-y-3">
         {/* Status tabs */}
@@ -281,7 +270,7 @@ export default function FaltasComunicacoesPage() {
         </div>
       ) : rows.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-12 text-center">
-          <MessageSquareDot className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <MessageSquare className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
           <p className="text-gray-500 dark:text-gray-400 text-sm">
             {filterStatus ? `Nenhuma comunicação ${ABSENCE_COMM_STATUS_LABELS[filterStatus as AbsenceCommunicationStatus]?.toLowerCase() ?? ''}` : 'Nenhuma comunicação encontrada'}
           </p>

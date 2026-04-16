@@ -150,17 +150,6 @@ export default function AutorizacoesSaidaAdminPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-          <DoorOpen className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Autorizações de Saída</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Análise das autorizações excepcionais de retirada</p>
-        </div>
-      </div>
-
       {/* Status tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
         <div className="flex flex-wrap gap-2">

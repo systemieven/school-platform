@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   GraduationCap, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
   CalendarRange, PanelLeftClose, PanelLeftOpen, LayoutDashboard, UserCheck,
-  BellRing, FileCheck2,
+  MessageSquare, DoorOpen,
 } from 'lucide-react';
 import AcademicoDashboardPage from './AcademicoDashboardPage';
 import StudentsPage from '../school/StudentsPage';
@@ -108,14 +108,14 @@ const TABS: TabDef[] = [
     key: 'faltas',
     label: 'Comunicação de Faltas',
     shortLabel: 'Faltas',
-    icon: BellRing,
+    icon: MessageSquare,
     description: 'Notifique responsáveis sobre faltas e ausências dos alunos',
   },
   {
     key: 'autorizacoes-saida',
     label: 'Autorizações de Saída',
     shortLabel: 'Autorizações',
-    icon: FileCheck2,
+    icon: DoorOpen,
     description: 'Gerencie autorizações de saída antecipada dos alunos',
   },
 ];
