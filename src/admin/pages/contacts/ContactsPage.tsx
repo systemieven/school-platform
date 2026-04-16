@@ -544,15 +544,8 @@ export default function ContactsPage() {
 
   return (
     <div>
-      {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
-            <MessageSquare className="w-8 h-8" />
-            Contatos
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie as solicitações de contato.</p>
-        </div>
+      {/* Actions */}
+      <div className="flex justify-end mb-6">
         <button onClick={fetchData}
           className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-brand-primary dark:hover:text-white border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
           <RefreshCw className="w-4 h-4" />
