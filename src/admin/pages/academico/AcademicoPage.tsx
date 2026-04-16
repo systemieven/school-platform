@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   GraduationCap, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
-  CalendarRange, PanelLeftClose, PanelLeftOpen, LayoutDashboard,
+  CalendarRange, PanelLeftClose, PanelLeftOpen, LayoutDashboard, UserCheck,
 } from 'lucide-react';
 import AcademicoDashboardPage from './AcademicoDashboardPage';
+import StudentsPage from '../school/StudentsPage';
 import SegmentsPage from '../school/SegmentsPage';
 import DisciplinasPage from './DisciplinasPage';
 import GradeHorariaPage from './GradeHorariaPage';
@@ -29,6 +30,13 @@ const TABS: TabDef[] = [
     shortLabel: 'Dashboard',
     icon: LayoutDashboard,
     description: 'KPIs, eventos da semana e gráficos personalizáveis',
+  },
+  {
+    key: 'alunos',
+    label: 'Alunos',
+    shortLabel: 'Alunos',
+    icon: UserCheck,
+    description: 'Cadastro, busca e gestão de alunos',
   },
   {
     key: 'segmentos',
@@ -195,8 +203,9 @@ export default function AcademicoPage() {
 
             {/* Panel content */}
             <div className="p-6">
-              {activeTab === 'dashboard'   && <AcademicoDashboardPage />}
-              {activeTab === 'segmentos' && <SegmentsPage />}
+              {activeTab === 'dashboard'    && <AcademicoDashboardPage />}
+              {activeTab === 'alunos'       && <StudentsPage />}
+              {activeTab === 'segmentos'    && <SegmentsPage />}
               {activeTab === 'disciplinas' && <DisciplinasPage />}
               {activeTab === 'grade-horaria' && <GradeHorariaPage />}
               {activeTab === 'calendario' && <CalendarioPage />}
