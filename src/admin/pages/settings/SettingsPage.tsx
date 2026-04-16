@@ -161,14 +161,14 @@ const TABS: TabDef[] = [
 ];
 
 // ── Field metadata ───────────────────────────────────────────────────────────
-const KEY_META: Record<string, { label: string; placeholder?: string; secret?: boolean; multiline?: boolean; type?: 'text' | 'boolean' | 'number' | 'time' | 'color' }> = {
+const KEY_META: Record<string, { label: string; placeholder?: string; secret?: boolean; multiline?: boolean; type?: 'text' | 'boolean' | 'number' | 'time' | 'color' | 'phone' }> = {
   // general
   school_name:    { label: 'Nome da Instituição', placeholder: 'Ex: Minha Escola' },
   cnpj:           { label: 'CNPJ', placeholder: '00.000.000/0000-00' },
   // address is rendered by AddressField — kept here as fallback only
   address:        { label: 'Endereço', placeholder: 'Rua, número, bairro, cidade/UF' },
-  phone:          { label: 'Telefone', placeholder: '(00) 0000-0000' },
-  whatsapp:       { label: 'WhatsApp', placeholder: '(00) 00000-0000' },
+  phone:          { label: 'Telefone', placeholder: '(00) 0000-0000', type: 'phone' },
+  whatsapp:       { label: 'WhatsApp', placeholder: '(00) 00000-0000', type: 'phone' },
   email:          { label: 'E-mail', placeholder: 'contato@escola.com.br' },
   logo_url:       { label: 'URL do Logo', placeholder: 'https://...' },
   // whatsapp — rendered exclusively by WhatsAppConnectionPanel, but kept for fallback
@@ -1643,13 +1643,12 @@ const INST_GROUPS: {
   {
     title: 'Localização',
     icon: MapPin,
-    keys: ['address', 'whatsapp', 'geolocation'],
+    keys: ['address', 'geolocation'],
   },
   {
     title: 'Contato',
     icon: Phone,
-    keys: ['phone', 'email'],
-    inlineKeys: ['phone', 'email'],
+    keys: ['phone', 'whatsapp', 'email'],
   },
   {
     title: 'Redes Sociais',
@@ -2051,6 +2050,14 @@ interface SettingFieldProps {
   hideDescription?: boolean;
 }
 
+function applyPhoneMask(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2)  return d.replace(/^(\d{1,2})/, '($1');
+  if (d.length <= 6)  return d.replace(/^(\d{2})(\d+)/, '($1) $2');
+  if (d.length <= 10) return d.replace(/^(\d{2})(\d{4})(\d+)/, '($1) $2-$3');
+  return                      d.replace(/^(\d{2})(\d{5})(\d+)/, '($1) $2-$3');
+}
+
 function SettingField({ item, meta, value, isChanged, onChange, hideDescription }: SettingFieldProps) {
   const [showSecret, setShowSecret] = useState(false);
 
@@ -2187,6 +2194,14 @@ function SettingField({ item, meta, value, isChanged, onChange, hideDescription 
             {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
+      ) : meta.type === 'phone' ? (
+        <input
+          type="tel"
+          value={value}
+          onChange={(e) => onChange(applyPhoneMask(e.target.value))}
+          placeholder={meta.placeholder}
+          className={inputBase}
+        />
       ) : (
         <input
           type={meta.type === 'number' ? 'number' : meta.type === 'time' ? 'time' : 'text'}
