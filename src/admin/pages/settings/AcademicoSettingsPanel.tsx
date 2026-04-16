@@ -17,7 +17,20 @@ import {
   CalendarDays, Calendar, CalendarRange,
   Calculator, Bell, Loader2, Save, Check,
   Plus, Trash2, ChevronUp, Pencil, HeartPulse,
+  GraduationCap, BookOpen, BookOpenCheck, Baby,
 } from 'lucide-react';
+
+// ── Segment icon map ─────────────────────────────────────────────────────────
+
+function getSegmentIcon(name: string): React.ComponentType<{ className?: string }> {
+  const n = name.toLowerCase();
+  if (n.includes('infantil'))                                return Baby;
+  if ((n.includes('fundamental') && n.includes(' i') && !n.includes('ii')) ||
+      n.includes('fundamental 1'))                          return BookOpen;
+  if (n.includes('fundamental ii') || n.includes('fundamental 2')) return BookOpenCheck;
+  if (n.includes('médio') || n.includes('medio'))           return GraduationCap;
+  return GraduationCap;
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -101,10 +114,7 @@ export default function AcademicoSettingsPanel() {
   const [initialHealthAlertDays, setInitialHealthAlertDays]       = useState(30);
   const [initialHealthAllowGuardian, setInitialHealthAllowGuardian] = useState(true);
   const [initialHealthRequiredFields, setInitialHealthRequiredFields] = useState('["blood_type"]');
-  const [healthSaving, setHealthSaving] = useState(false);
-  const [healthSaved, setHealthSaved]   = useState(false);
-
-  // ── Global save state (periods + alerts only)
+  // ── Global save state
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
 
@@ -113,7 +123,11 @@ export default function AcademicoSettingsPanel() {
     JSON.stringify(periodDates) !== initialPeriodDates ||
     warningThreshold !== initialWarning ||
     criticalThreshold !== initialCritical ||
-    autoWhatsApp !== initialAutoWa;
+    autoWhatsApp !== initialAutoWa ||
+    JSON.stringify(healthCertSegments) !== initialHealthCertSegments ||
+    healthAlertDays !== initialHealthAlertDays ||
+    healthAllowGuardianUpdates !== initialHealthAllowGuardian ||
+    JSON.stringify(healthRequiredFields) !== initialHealthRequiredFields;
 
   // ── Load ─────────────────────────────────────────────────────────────────
 
@@ -303,45 +317,7 @@ export default function AcademicoSettingsPanel() {
     );
   }
 
-  async function handleHealthSave() {
-    setHealthSaving(true);
-    try {
-      await Promise.all([
-        supabase.from('system_settings').upsert(
-          { category: 'academico', key: 'health.require_certificate_segments', value: JSON.stringify(healthCertSegments) },
-          { onConflict: 'category,key' },
-        ),
-        supabase.from('system_settings').upsert(
-          { category: 'academico', key: 'health.certificate_alert_days', value: String(healthAlertDays) },
-          { onConflict: 'category,key' },
-        ),
-        supabase.from('system_settings').upsert(
-          { category: 'academico', key: 'health.allow_guardian_updates', value: String(healthAllowGuardianUpdates) },
-          { onConflict: 'category,key' },
-        ),
-        supabase.from('system_settings').upsert(
-          { category: 'academico', key: 'health.required_fields', value: JSON.stringify(healthRequiredFields) },
-          { onConflict: 'category,key' },
-        ),
-      ]);
-      setInitialHealthCertSegments(JSON.stringify(healthCertSegments));
-      setInitialHealthAlertDays(healthAlertDays);
-      setInitialHealthAllowGuardian(healthAllowGuardianUpdates);
-      setInitialHealthRequiredFields(JSON.stringify(healthRequiredFields));
-      setHealthSaved(true);
-      setTimeout(() => setHealthSaved(false), 900);
-    } finally {
-      setHealthSaving(false);
-    }
-  }
-
-  const healthHasChanges =
-    JSON.stringify(healthCertSegments) !== initialHealthCertSegments ||
-    healthAlertDays !== initialHealthAlertDays ||
-    healthAllowGuardianUpdates !== initialHealthAllowGuardian ||
-    JSON.stringify(healthRequiredFields) !== initialHealthRequiredFields;
-
-  // ── Global save (periods + alerts) ────────────────────────────────────────
+  // ── Global save (periods + alerts + health) ─────────────────────────────────
 
   async function handleSave() {
     setSaving(true);
@@ -379,6 +355,34 @@ export default function AcademicoSettingsPanel() {
       logAudit({ action: 'update', module: 'settings', description: 'Alertas de frequência atualizados' });
     }
 
+    const healthChanged =
+      JSON.stringify(healthCertSegments) !== initialHealthCertSegments ||
+      healthAlertDays !== initialHealthAlertDays ||
+      healthAllowGuardianUpdates !== initialHealthAllowGuardian ||
+      JSON.stringify(healthRequiredFields) !== initialHealthRequiredFields;
+
+    if (healthChanged) {
+      promises.push(
+        supabase.from('system_settings').upsert(
+          { category: 'academico', key: 'health.require_certificate_segments', value: JSON.stringify(healthCertSegments) },
+          { onConflict: 'category,key' },
+        ).then(),
+        supabase.from('system_settings').upsert(
+          { category: 'academico', key: 'health.certificate_alert_days', value: String(healthAlertDays) },
+          { onConflict: 'category,key' },
+        ).then(),
+        supabase.from('system_settings').upsert(
+          { category: 'academico', key: 'health.allow_guardian_updates', value: String(healthAllowGuardianUpdates) },
+          { onConflict: 'category,key' },
+        ).then(),
+        supabase.from('system_settings').upsert(
+          { category: 'academico', key: 'health.required_fields', value: JSON.stringify(healthRequiredFields) },
+          { onConflict: 'category,key' },
+        ).then(),
+      );
+      logAudit({ action: 'update', module: 'settings', description: 'Ficha de saúde atualizada' });
+    }
+
     await Promise.all(promises);
 
     setInitialPeriodType(periodType);
@@ -386,6 +390,12 @@ export default function AcademicoSettingsPanel() {
     setInitialWarning(warningThreshold);
     setInitialCritical(criticalThreshold);
     setInitialAutoWa(autoWhatsApp);
+    if (healthChanged) {
+      setInitialHealthCertSegments(JSON.stringify(healthCertSegments));
+      setInitialHealthAlertDays(healthAlertDays);
+      setInitialHealthAllowGuardian(healthAllowGuardianUpdates);
+      setInitialHealthRequiredFields(JSON.stringify(healthRequiredFields));
+    }
 
     setSaving(false);
     setSaved(true);
@@ -446,6 +456,41 @@ export default function AcademicoSettingsPanel() {
           <span>0%</span>
           <span>50%</span>
           <span>100%</span>
+        </div>
+      </div>
+    );
+  }
+
+  function DaysSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+    const MIN = 1, MAX = 90;
+    const pct = ((Math.max(MIN, Math.min(MAX, value)) - MIN) / (MAX - MIN)) * 100;
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            Antecedência para Alerta de Vencimento
+          </span>
+          <span className="font-display text-xl font-bold tabular-nums text-brand-primary dark:text-brand-secondary">
+            {value}<span className="text-xs font-normal text-gray-400 ml-0.5">dias</span>
+          </span>
+        </div>
+        <div className="relative h-6 flex items-center">
+          <div className="absolute inset-x-0 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
+          <div
+            className="absolute h-2 rounded-full bg-gradient-to-r from-brand-primary to-blue-500 pointer-events-none"
+            style={{ width: `${pct}%` }}
+          />
+          <input
+            type="range" min={MIN} max={MAX} step={1}
+            value={value}
+            onChange={(e) => onChange(parseInt(e.target.value))}
+            className={THUMB_CLS}
+          />
+        </div>
+        <div className="flex justify-between text-[10px] text-gray-400 mt-1.5 px-0.5">
+          <span>1 dia</span>
+          <span>45 dias</span>
+          <span>90 dias</span>
         </div>
       </div>
     );
@@ -826,35 +871,31 @@ export default function AcademicoSettingsPanel() {
               <p className="text-sm text-gray-400">Nenhum segmento cadastrado.</p>
             ) : (
               <div className="flex flex-wrap gap-2 mt-1">
-                {segments.map((seg) => (
-                  <button key={seg.id} type="button" onClick={() => toggleHealthCertSegment(seg.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
-                      healthCertSegments.includes(seg.id)
-                        ? 'bg-brand-primary text-white border-brand-primary'
-                        : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-brand-primary'
-                    }`}>
-                    {seg.name}
-                  </button>
-                ))}
+                {segments.map((seg) => {
+                  const active = healthCertSegments.includes(seg.id);
+                  const SegIcon = getSegmentIcon(seg.name);
+                  return (
+                    <button
+                      key={seg.id}
+                      type="button"
+                      onClick={() => toggleHealthCertSegment(seg.id)}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                        active
+                          ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
+                          : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-brand-primary hover:text-brand-primary'
+                      }`}
+                    >
+                      <SegIcon className={`w-4 h-4 ${active ? 'text-brand-secondary' : 'text-brand-secondary opacity-70'}`} />
+                      {seg.name}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Alert days */}
-          <div>
-            <label className={labelCls}>Dias de Antecedência para Alerta de Vencimento</label>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                min={1}
-                max={90}
-                value={healthAlertDays}
-                onChange={(e) => setHealthAlertDays(Math.max(1, Math.min(90, Number(e.target.value))))}
-                className={`${inputCls} w-28`}
-              />
-              <span className="text-sm text-gray-500 dark:text-gray-400">dias antes do vencimento</span>
-            </div>
-          </div>
+          {/* Alert days — slider */}
+          <DaysSlider value={healthAlertDays} onChange={setHealthAlertDays} />
 
           {/* Required fields */}
           <div>
@@ -889,22 +930,6 @@ export default function AcademicoSettingsPanel() {
             <span className="text-sm text-gray-600 dark:text-gray-400">
               Permitir atualizações pelo portal do responsável
             </span>
-          </div>
-
-          {/* Save button */}
-          <div className="flex justify-end">
-            <button
-              onClick={handleHealthSave}
-              disabled={!healthHasChanges || healthSaving}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all ${
-                healthSaved
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-40'
-              }`}
-            >
-              {healthSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : healthSaved ? <Check className="w-4 h-4" /> : <HeartPulse className="w-4 h-4" />}
-              {healthSaving ? 'Salvando…' : healthSaved ? 'Salvo!' : 'Salvar Configurações de Saúde'}
-            </button>
           </div>
         </div>
       </SettingsCard>
