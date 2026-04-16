@@ -35,6 +35,7 @@
     - 10.9 Fase 14 — Loja, PDV e Estoque ✅
     - 10.9B Fase 14.F — Estrutura Fiscal de Produtos (NF-e Prep) ✅
     - 10.9C Fase 14.S — Emissao Automatica de NFS-e
+    - 10.9D Fase 14.E — Modulo de Fornecedores
     - 10.10 Melhorias Transversais
     - 10.11 F6.4 Documentacao Tecnica (ultima etapa da v1)
     - 10.12 Fase 15 — Achados e Perdidos Digital ✅
@@ -1448,6 +1449,10 @@ Configuravel na aba Aparencia > Home:
 | 118 | `nfse_emission_log` | — | Fase 14.S — Log imutavel de tentativas de emissao: nfse_id FK nullable, tentativa INT, iniciado_por UUID, iniciado_por_tipo (user/system), dados_enviados JSONB, resposta JSONB, codigo_retorno TEXT, status (success/error/pending), created_at |
 | 119 | `nfse_permissions` | — | Fase 14.S — Modulos nfse-emitidas, nfse-config, nfse-apuracao + role_permissions |
 | 120 | `nfse_whatsapp_templates` | — | Fase 14.S — Categoria WhatsApp 'fiscal' (cor verde-escuro) + templates nfse_autorizada e nfse_cancelada com variaveis link_nfse e numero_nfse |
+| 121 | `fornecedores` | — | Fase 14.E — Tabela principal de fornecedores: tipo_pessoa, cnpj_cpf, razao_social, nome_fantasia, ie, im, suframa, optante_simples, contatos, endereco completo, dados_fiscais, condicoes_comerciais, categoria, tags, status |
+| 122 | `fornecedor_contas_bancarias` | — | Fase 14.E — Contas bancarias por fornecedor: banco, agencia, conta, tipo_conta, tipo_chave_pix, chave_pix, favorecido, is_default |
+| 123 | `fornecedores_fk_updates` | — | Fase 14.E — ADD COLUMN fornecedor_id em financial_payables e nfe_entries; atualiza RPC generate_payable_installments para propagar fornecedor_id; indices de busca por cnpj_cpf |
+| 124 | `fornecedores_permissions` | — | Fase 14.E — Modulo fornecedores no grupo financeiro + role_permissions |
 
 ### 7.4 RLS Policies
 
@@ -1754,6 +1759,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
 | 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ✅ Concluido (migrations 109–113, Sprint 7, 2026-04-16) | Media | 14 |
 | 14.S | Emissao Automatica de NFS-e (Notas Fiscais de Servicos) | ⏳ Planejado | Media-Alta | 14.F + 8.5 + 10 |
+| 14.E | Modulo de Fornecedores | ⏳ Planejado | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
@@ -3878,6 +3884,325 @@ nfse_emission_log                   (migration 118 — imutavel: sem UPDATE, sem
 | `MessageOrchestrator` (Sprint 8) | Envio de NFS-e ao responsavel via WhatsApp roteado pelo orquestrador; categoria `fiscal`, prioridade 1 (financeiro) |
 | `company_fiscal_config` | Dados do emitente lidos como sugestao inicial ao preencher `company_nfse_config`; sem FK — gestao independente |
 | Portal do Responsavel (`/responsavel/financeiro`) | Secao "Notas Fiscais" com download do PDF das NFS-e autorizadas vinculadas aos lancamentos do responsavel |
+
+---
+
+### 10.9D Fase 14.E — Modulo de Fornecedores
+
+**Status**: ⏳ Planejado
+**Dependencias**:
+- Fase 14.F concluida (`nfe_entries` + `nfe_entry_items` — XML de NF-e de entrada ja importado; emitente armazenado como TEXT)
+- Fase 8.5 concluida (`financial_payables` — A/P criado com `creditor_name` TEXT, sem FK a fornecedor)
+**Prioridade**: Media
+
+> Modulo dedicado ao cadastro e gestao de fornecedores, integrado ao fluxo de importacao de NF-e de entrada e ao modulo financeiro de contas a pagar. O cadastro pode ser feito manualmente ou criado automaticamente a partir dos dados do emitente extraidos do XML da NF-e, com verificacao de duplicidade em ambos os casos.
+
+---
+
+#### 14.E.1 Analise de Gaps nas Tabelas Existentes
+
+| Gap | Tabela afetada | Resolucao na Fase 14.E |
+|-----|---------------|------------------------|
+| `nfe_entries.emitente_cnpj` + `emitente_nome` sao TEXT puro — sem vinculo estrutural com cadastro | migration 112 (Fase 14.F) | Migration 123: ADD COLUMN `fornecedor_id UUID REFERENCES fornecedores(id) ON DELETE SET NULL`; existentes ficam com NULL ate vinculacao retroativa |
+| `financial_payables.creditor_name` e TEXT — sem FK a fornecedor | migration 70 (Fase 8.5) | Migration 123: ADD COLUMN `fornecedor_id UUID REFERENCES fornecedores(id) ON DELETE SET NULL`; coexiste com `creditor_name` (mantido para casos sem fornecedor cadastrado) |
+| RPC `generate_payable_installments` nao propaga `fornecedor_id` | migration 70 (Fase 8.5) | Migration 123: reescreve a RPC para incluir `fornecedor_id` no INSERT das parcelas filhas |
+| Nenhuma infraestrutura de contas bancarias de contrapartes | — | Migration 122: nova tabela `fornecedor_contas_bancarias` |
+| Sem lookup de CEP automatico nos formularios admin | Concern transversal | Edge Function `cep-lookup` (ViaCEP — sem chave de API) ou hook React `useCepLookup` que chama `viacep.com.br` diretamente; reutilizavel em outros cadastros futuros |
+
+---
+
+#### 14.E.2 Cadastro de Fornecedores
+
+Formulario organizado em sections/DrawerCards, analoga ao padrao do sistema:
+
+**Identificacao**
+
+| Campo | Descricao |
+|-------|-----------|
+| `tipo_pessoa` | `fisica` ou `juridica` — determina campos exibidos |
+| `cnpj_cpf` | CNPJ (14 dig) ou CPF (11 dig); validacao de digito verificador; formatacao automatica; verificacao de duplicidade em tempo real |
+| `razao_social` | Nome oficial para documentos fiscais |
+| `nome_fantasia` | Nome comercial para exibicao interna |
+| `ie` | Inscricao estadual (condicional para PJ) |
+| `im` | Inscricao municipal (condicional) |
+| `suframa` | Inscricao SUFRAMA para fornecedores da Zona Franca de Manaus |
+| `optante_simples` | Toggle |
+
+**Contato**
+
+| Campo | Descricao |
+|-------|-----------|
+| `email` | E-mail principal |
+| `email_financeiro` | E-mail para boletos e cobrancas (separado do principal) |
+| `telefone` | Telefone principal |
+| `telefone_secundario` | Telefone secundario |
+| `contato_nome` | Nome da pessoa de referencia no fornecedor |
+| `contato_telefone` | Telefone direto do contato |
+| `site` | URL do site |
+
+**Endereco**
+
+| Campo | Descricao |
+|-------|-----------|
+| `cep` | Busca automatica via ViaCEP — preenche logradouro, bairro, municipio, uf |
+| `logradouro` | |
+| `numero` | |
+| `complemento` | |
+| `bairro` | |
+| `municipio` | |
+| `uf` | |
+| `pais` | Default: Brasil; editavel para fornecedores internacionais |
+| `codigo_municipio_ibge` | Preenchido automaticamente pelo CEP via ViaCEP |
+
+**Dados Fiscais** *(utilizados em NF-e de devolucao e relatorios fiscais)*
+
+| Campo | Descricao |
+|-------|-----------|
+| `regime_tributario` | `simples_nacional` · `lucro_presumido` · `lucro_real` · `mei` |
+| `cnae_principal` | Codigo CNAE da atividade principal |
+| `contribuinte_icms` | `contribuinte` · `nao_contribuinte` · `isento` |
+
+**Condicoes Comerciais**
+
+| Campo | Descricao |
+|-------|-----------|
+| `prazo_pagamento_dias` | Prazo padrao em dias (ex: 30, 45, 60) — pre-preenche vencimento em A/P |
+| `forma_pagamento_preferencial` | `pix` · `boleto` · `transferencia` · `cartao` · `outro` |
+| `limite_credito` | Valor maximo de compras em aberto simultaneas |
+| `observacoes` | Notas internas sobre o fornecedor |
+
+**Classificacao**
+
+| Campo | Descricao |
+|-------|-----------|
+| `categoria` | Seletor configuravel: material_escolar · fardamento · alimentacao · servicos · tecnologia · manutencao · outro |
+| `tags` | Array TEXT livre para agrupamento e busca |
+| `status` | `ativo` · `inativo` · `bloqueado` |
+
+**Contas Bancarias** (sub-secao com lista + add/remove inline)
+
+| Campo | Descricao |
+|-------|-----------|
+| `banco` | Codigo e nome do banco (lista dos principais bancos brasileiros) |
+| `agencia` | |
+| `conta` | Com digito verificador |
+| `tipo_conta` | `corrente` · `poupanca` · `pagamento` |
+| `tipo_chave_pix` | `cpf_cnpj` · `email` · `telefone` · `aleatoria` |
+| `chave_pix` | |
+| `favorecido` | Nome do titular quando diferente do fornecedor |
+| `is_default` | Toggle "conta padrao para pagamentos" — apenas uma por fornecedor |
+
+---
+
+#### 14.E.3 Integracao com Importacao de NF-e
+
+O fluxo de importacao de XML (ja estruturado em `nfe_entries` com `emitente_cnpj` e `emitente_nome`) ganha a etapa de vinculacao ao cadastro de fornecedores:
+
+```
+XML lido → dados do emitente extraidos
+         → busca por cnpj_cpf em fornecedores
+         → encontrado
+             → vincular nfe_entries.fornecedor_id
+             → exibir badge "Fornecedor: {razao_social}" na tela de importacao
+         → nao encontrado
+             → exibir painel inline "Novo fornecedor"
+             → dados pre-preenchidos: razao_social, cnpj, ie, endereco, regime_tributario
+             → usuario complementa (contato, condicoes, conta bancaria — opcionais)
+             → usuario confirma → fornecedor criado → nfe_entries.fornecedor_id vinculado
+             → usuario ignora → nota importada com fornecedor_id = NULL
+```
+
+**Verificacao de duplicidade:**
+
+- **Durante importacao XML**: busca por CNPJ exato antes de sugerir criacao
+- **Cadastro manual**: ao digitar CNPJ/CPF, verificacao em tempo real (debounce 500ms); se encontrado, exibe card com dados do fornecedor existente e opcoes:
+  - "Abrir fornecedor existente" → redireciona para edicao
+  - "Continuar assim mesmo" → para filiais com CNPJ raiz igual (sistema identifica diferenca nos 4 digitos do estabelecimento e exibe aviso contextual)
+  - "Cancelar"
+
+---
+
+#### 14.E.4 Integracao com Contas a Pagar
+
+Ao criar ou editar uma conta a pagar, o campo `creditor_name` TEXT e complementado por um seletor de fornecedor com busca:
+
+- Busca por razao social, nome fantasia ou CNPJ
+- Ao vincular: dados bancarios cadastrados sao sugeridos automaticamente para o campo de forma de pagamento; prazo padrao do fornecedor pre-preenche o vencimento; forma de pagamento preferencial e aplicada
+- `creditor_name` permanece editavel como fallback quando `fornecedor_id` e NULL (compatibilidade com lancamentos anteriores)
+- CNPJ do fornecedor e incluido no lançamento para relatorios e apuracao fiscal
+
+---
+
+#### 14.E.5 Listagem e Detalhe do Fornecedor
+
+**Listagem** (`/admin/fornecedores` ou aba em FinancialPage):
+
+Tabela com colunas: Razao social / Nome fantasia · CNPJ/CPF · Categoria · Contato principal · Status · Contas a pagar em aberto (badge numerado)
+
+Filtros: status · categoria · regime tributario · UF · periodo de cadastro · busca livre (razao social, fantasia, CNPJ, CPF)
+
+**Detalhe** (drawer com abas internas — padrao do sistema):
+
+| Aba | Conteudo |
+|-----|----------|
+| Dados | Todas as informacoes do cadastro com edicao inline |
+| NF-e | Todas as `nfe_entries` vinculadas: numero (chave_acesso truncada), data_emissao, valor_total, status |
+| Contas a Pagar | `financial_payables` vinculados: descricao, valor, vencimento, status |
+| Financeiro | Total comprado por periodo (seletores: 30d/90d/12m/todo), ticket medio, data do ultimo lancamento |
+
+---
+
+#### 14.E.6 Relatorios
+
+Nova sub-tab **"Fornecedores"** em `/admin/financeiro` (aba Relatorios):
+
+| Relatorio | Descricao |
+|-----------|-----------|
+| Compras por fornecedor | Total de A/P por fornecedor no periodo; exportavel CSV/Excel |
+| A/P por fornecedor | Em aberto, pagas e vencidas por fornecedor |
+| Fornecedores sem movimentacao | Listagem de fornecedores sem A/P nem NF-e vinculadas nos ultimos X dias (configuravel) |
+| Ranking por volume | Top fornecedores por valor total de compras |
+| Extrato de NF-e por fornecedor | Todas as notas de entrada vinculadas, com valor e status |
+
+---
+
+#### 14.E.7 Schema do Banco de Dados
+
+```
+fornecedores                        (migration 121)
+└── id UUID PK
+    tipo_pessoa TEXT CHECK IN ('fisica','juridica')
+    cnpj_cpf TEXT NOT NULL UNIQUE  -- 11 ou 14 digitos; indice btree para busca rapida
+    razao_social TEXT NOT NULL
+    nome_fantasia TEXT
+    ie TEXT
+    im TEXT
+    suframa TEXT
+    optante_simples BOOLEAN NOT NULL DEFAULT false
+    email TEXT
+    email_financeiro TEXT
+    telefone TEXT
+    telefone_secundario TEXT
+    contato_nome TEXT
+    contato_telefone TEXT
+    site TEXT
+    cep TEXT
+    logradouro TEXT
+    numero TEXT
+    complemento TEXT
+    bairro TEXT
+    municipio TEXT
+    uf TEXT
+    pais TEXT NOT NULL DEFAULT 'Brasil'
+    codigo_municipio_ibge TEXT
+    regime_tributario TEXT CHECK IN ('simples_nacional','lucro_presumido','lucro_real','mei','nao_contribuinte','')
+    cnae_principal TEXT
+    contribuinte_icms TEXT CHECK IN ('contribuinte','nao_contribuinte','isento')
+    prazo_pagamento_dias INT DEFAULT 30
+    forma_pagamento_preferencial TEXT CHECK IN ('pix','boleto','transferencia','cartao','outro','')
+    limite_credito NUMERIC(12,2)
+    observacoes TEXT
+    categoria TEXT  -- material_escolar | fardamento | alimentacao | servicos | tecnologia | manutencao | outro
+    tags TEXT[]
+    status TEXT NOT NULL DEFAULT 'ativo' CHECK IN ('ativo','inativo','bloqueado')
+    created_by UUID REFERENCES profiles(id) ON DELETE SET NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+
+fornecedor_contas_bancarias         (migration 122)
+└── id UUID PK
+    fornecedor_id UUID NOT NULL REFERENCES fornecedores(id) ON DELETE CASCADE
+    banco_codigo TEXT
+    banco_nome TEXT
+    agencia TEXT
+    conta TEXT
+    tipo_conta TEXT CHECK IN ('corrente','poupanca','pagamento')
+    tipo_chave_pix TEXT CHECK IN ('cpf_cnpj','email','telefone','aleatoria','')
+    chave_pix TEXT
+    favorecido TEXT
+    is_default BOOLEAN NOT NULL DEFAULT false
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+
+-- Alteracoes em tabelas existentes (migration 123):
+financial_payables                  ADD COLUMN fornecedor_id UUID REFERENCES fornecedores(id) ON DELETE SET NULL
+nfe_entries                         ADD COLUMN fornecedor_id UUID REFERENCES fornecedores(id) ON DELETE SET NULL
+-- Indices adicionados:
+CREATE INDEX idx_fornecedores_cnpj_cpf   ON fornecedores(cnpj_cpf);
+CREATE INDEX idx_payables_fornecedor     ON financial_payables(fornecedor_id) WHERE fornecedor_id IS NOT NULL;
+CREATE INDEX idx_nfe_entries_fornecedor  ON nfe_entries(fornecedor_id) WHERE fornecedor_id IS NOT NULL;
+-- RPC generate_payable_installments reescrita para propagar fornecedor_id nas parcelas filhas
+```
+
+**Migrations planejadas:**
+
+| # | Nome | Descricao |
+|---|------|-----------|
+| 121 | `fornecedores` | Tabela principal + indices + RLS + trigger updated_at |
+| 122 | `fornecedor_contas_bancarias` | Contas bancarias + indice + RLS; trigger garante no maximo uma `is_default = true` por fornecedor |
+| 123 | `fornecedores_fk_updates` | ADD COLUMN fornecedor_id em financial_payables e nfe_entries; indices; reescrita da RPC generate_payable_installments |
+| 124 | `fornecedores_permissions` | Modulo `fornecedores` no grupo `financeiro` + role_permissions |
+
+---
+
+#### 14.E.8 Permissoes
+
+| Modulo (`key`) | `super_admin`/`admin` | `coordinator` | `user` |
+|---|---|---|---|
+| `fornecedores` | CRUD | view | — |
+
+Exclusao bloqueada se fornecedor tiver `financial_payables` ou `nfe_entries` vinculadas (validacao no frontend + constraint via RLS policy / check no backend antes do DELETE).
+
+---
+
+#### 14.E.9 Arquivos a Criar / Modificar
+
+**Novos:**
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/admin/pages/financeiro/FornecedoresPage.tsx` | Listagem com filtros, busca, status e badge de A/P em aberto |
+| `src/admin/pages/financeiro/drawers/FornecedorDrawer.tsx` | Formulario completo com DrawerCards por secao + aba de contas bancarias |
+| `src/admin/hooks/useCepLookup.ts` | Hook React que chama `viacep.com.br/ws/{cep}/json/` e mapeia campos; reutilizavel em qualquer formulario de endereco |
+| `supabase/migrations/00000000000121_fornecedores.sql` | — |
+| `supabase/migrations/00000000000122_fornecedor_contas_bancarias.sql` | — |
+| `supabase/migrations/00000000000123_fornecedores_fk_updates.sql` | — |
+| `supabase/migrations/00000000000124_fornecedores_permissions.sql` | — |
+
+**Modificados:**
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/admin/pages/financeiro/FinancialPage.tsx` | Nova aba "Fornecedores" (icone `Building2`) na tab rail |
+| `src/admin/pages/financeiro/FinancialPayablesPage.tsx` | Seletor de fornecedor com busca; preenchimento automatico de conta bancaria e prazo ao vincular; badge do fornecedor nos lancamentos vinculados |
+| `src/admin/pages/financeiro/FinancialReportsPage.tsx` | Nova sub-tab "Fornecedores" com os 5 relatorios descritos |
+| `NfeEntradasPage` (a ser criada na Fase 14.F frontend) | Painel inline de vinculacao/criacao de fornecedor durante importacao do XML |
+
+---
+
+#### 14.E.10 Analise de Oportunidades
+
+| Oportunidade | Valor | Complexidade |
+|--------------|-------|-------------|
+| `useCepLookup` reutilizavel em `company_fiscal_config`, `company_nfse_config` e `guardian_profiles` | Elimina digitacao manual de endereco em 4+ formularios | Baixa |
+| Vinculacao retroativa de fornecedores em `nfe_entries` existentes via job de reconciliacao | Fornecedores criados na Fase 14.E sao automaticamente vinculados a notas antigas pelo CNPJ | Baixa — SQL UPDATE one-shot |
+| Sugestao de fornecedor ao criar A/P — baseada nas ultimas compras da mesma categoria | Agiliza lancamento de despesas recorrentes | Media |
+| Alerta de vencimento de A/P por fornecedor no Dashboard Financeiro | Visibilidade de pagamentos pendentes por relacionamento | Baixa |
+| Exportacao de cadastro de fornecedores em formato SPED (bloco 0 do SPED Fiscal) | Reaproveitamento do cadastro para obrigacoes acessorias | Alta |
+| Integracao com NFS-e: ao cancelar uma NFS-e, verificar se o prestador ja esta cadastrado como fornecedor | Ciclo contabil mais completo (escola como tomadora de NFS-e de seus fornecedores de servico) | Media |
+
+---
+
+#### 14.E.11 Integracao com Modulos Existentes
+
+| Modulo | Integracao |
+|--------|-----------|
+| `nfe_entries` / importacao XML | Vinculacao automatica ou manual de fornecedor via CNPJ durante importacao; `fornecedor_id` adicionado (migration 123) |
+| `financial_payables` | `fornecedor_id` adicionado; seletor de fornecedor no drawer de A/P; preenchimento automatico de dados bancarios, prazo e forma de pagamento |
+| `financial_payables` RPC | `generate_payable_installments` atualizada para propagar `fornecedor_id` nas parcelas filhas |
+| `financial_reports` (FinancialReportsPage) | Nova sub-tab "Fornecedores" com 5 relatorios |
+| `FinancialPage` | Nova aba "Fornecedores" na tab rail |
+| Fase 14.S (NFS-e) | Cadastro de fornecedores complementa o ecossistema fiscal: escola como tomadora de servicos (NFS-e recebida) pode ser registrada como contraparte; nao e dependencia tecnica, mas e complementar conceitualmente |
+| `company_fiscal_config` / `company_nfse_config` | Hook `useCepLookup` reutilizado no preenchimento de endereco dos paineis de config fiscal |
 
 ---
 
