@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import type { SchoolClass, ClassSchedule, Discipline, ClassDiscipline } from '../../types/admin.types';
 import { DAY_OF_WEEK_SHORT } from '../../types/admin.types';
 import {
-  CalendarClock, Check, Clock, FileDown, AlertTriangle, Loader2, Save, Trash2,
+  CalendarClock, Check, Clock, AlertTriangle, Loader2, Save, Trash2,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 
@@ -274,13 +274,6 @@ export default function GradeHorariaPage() {
           </select>
         </div>
 
-        <button
-          onClick={() => console.log('Em breve')}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          <FileDown className="w-4 h-4" />
-          Exportar PDF
-        </button>
       </div>
 
       {/* Empty state */}

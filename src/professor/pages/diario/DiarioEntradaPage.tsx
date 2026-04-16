@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useProfessor } from '../../contexts/ProfessorAuthContext';
 import { supabase } from '../../../lib/supabase';
 import {
-  ChevronLeft, ClipboardList, Check, Loader2, Lock, Users, BookOpen, FileText,
+  ChevronLeft, ClipboardList, Check, Loader2, Lock, Users, BookOpen, FileText, MessageCircle,
 } from 'lucide-react';
 import type {
   DiaryEntryType,
@@ -32,6 +32,7 @@ interface StudentAttendance {
   status: AttendanceStatus;
   justification: string;
   attendance_id?: string;
+  absence_communication_id?: string | null;
 }
 
 export default function DiarioEntradaPage() {
@@ -84,7 +85,7 @@ export default function DiarioEntradaPage() {
     setLoadingEntry(true);
     const { data: entry } = await supabase
       .from('class_diary_entries')
-      .select('*, diary_attendance(id, student_id, status, justification)')
+      .select('*, diary_attendance(id, student_id, status, justification, absence_communication_id)')
       .eq('id', entryId)
       .single();
 
@@ -111,12 +112,13 @@ export default function DiarioEntradaPage() {
         setAttendance(students.map((s) => {
           const att = existingAtt.find((a) => a.student_id === s.id);
           return {
-            student_id:    s.id,
-            full_name:     s.full_name,
-            photo_url:     s.photo_url,
-            status:        (att?.status as AttendanceStatus) ?? 'present',
-            justification: att?.justification ?? '',
-            attendance_id: att?.id,
+            student_id:              s.id,
+            full_name:               s.full_name,
+            photo_url:               s.photo_url,
+            status:                  (att?.status as AttendanceStatus) ?? 'present',
+            justification:           att?.justification ?? '',
+            attendance_id:           att?.id,
+            absence_communication_id: att?.absence_communication_id ?? null,
           };
         }));
       }
@@ -366,8 +368,13 @@ export default function DiarioEntradaPage() {
                   )}
 
                   {/* Name */}
-                  <span className="flex-1 text-sm text-gray-800 dark:text-gray-200 truncate">
+                  <span className="flex-1 flex items-center gap-1.5 text-sm text-gray-800 dark:text-gray-200 truncate">
                     {student.full_name}
+                    {student.absence_communication_id && (
+                      <span title="Falta comunicada pelo responsável" className="flex-shrink-0">
+                        <MessageCircle className="w-3 h-3 text-emerald-500" />
+                      </span>
+                    )}
                   </span>
 
                   {/* Status buttons */}
@@ -475,4 +482,5 @@ interface DiaryAttendanceRow {
   student_id: string;
   status: string;
   justification: string | null;
+  absence_communication_id?: string | null;
 }

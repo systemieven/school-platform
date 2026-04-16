@@ -2147,7 +2147,7 @@ Reutiliza categoria `academico` existente (cor: `#065f46`).
 |--------|-----------|-----------|
 | `document_templates` | 82 | Templates de declaracao com HTML + variaveis |
 | `document_requests` | 82 | Solicitacoes e status (pending → approved → generated → delivered) |
-| `student_health_records` | 83 | Ficha de saude por aluno (base); expandida em Fase 11.C (migration 90) |
+| `student_health_records` | 83 | Ficha de saude por aluno (base); expandida em Fase 11.C (migration 91) |
 | `reenrollment_campaigns` | 84 | Campanhas de rematricula |
 | `reenrollment_applications` | 84 | Processos individuais de rematricula |
 
@@ -2220,16 +2220,18 @@ Reutiliza categoria `academico` existente (cor: `#065f46`).
 
 #### 11.B.3 Tabelas
 
+> **Nota de numeracao**: migration 87 foi usada em 2026-04-15 para `fix_module_gaps` (correcao de lacunas no cadastro de modulos). As migrations desta fase iniciam em 88.
+
 | Tabela | Migration | Descricao |
 |--------|-----------|-----------|
-| `absence_communications` | 87 | Comunicacoes de falta do responsavel (falta programada + justificativa); status: sent → analyzing → accepted/rejected |
-| `absence_reason_options` | 87 | Opcoes configuráveis de motivo de ausencia; CRUD pelo admin em Config > Academico |
-| `authorized_persons` | 88 | Pessoas fixas autorizadas a retirar aluno — vinculadas ao cadastro permanente |
-| `exit_authorizations` | 88 | Autorizacoes excepcionais de saida; dados do terceiro; confirmacao senha; log imutavel JSONB; efetivacao na portaria |
-| ALTER `diary_attendance` | 87 | ADD COLUMN `absence_communication_id UUID REFERENCES absence_communications` |
-| Novo role `portaria` | 89 | ALTER profiles role CHECK; modulos portaria/absence-communications/exit-authorizations; permissoes por perfil |
+| `absence_communications` | 88 | Comunicacoes de falta do responsavel (falta programada + justificativa); status: sent → analyzing → accepted/rejected |
+| `absence_reason_options` | 88 | Opcoes configuráveis de motivo de ausencia; CRUD pelo admin em Config > Academico |
+| `authorized_persons` | 89 | Pessoas fixas autorizadas a retirar aluno — vinculadas ao cadastro permanente |
+| `exit_authorizations` | 89 | Autorizacoes excepcionais de saida; dados do terceiro; confirmacao senha; log imutavel JSONB; efetivacao na portaria |
+| ALTER `diary_attendance` | 88 | ADD COLUMN `absence_communication_id UUID REFERENCES absence_communications` |
+| Modulos + permissoes portaria | 90 | INSERT INTO modules e role_permissions para portaria, absence-communications, exit-authorizations |
 
-**Schema `absence_communications` (migration 87):**
+**Schema `absence_communications` (migration 88):**
 ```sql
 CREATE TABLE absence_communications (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2256,7 +2258,7 @@ ALTER TABLE diary_attendance
     REFERENCES absence_communications(id) ON DELETE SET NULL;
 ```
 
-**Schema `absence_reason_options` (migration 87):**
+**Schema `absence_reason_options` (migration 88):**
 ```sql
 CREATE TABLE absence_reason_options (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2282,7 +2284,7 @@ INSERT INTO absence_reason_options (key, label, position) VALUES
 
 > CRUD inline em *Config > Academico* — card "Motivos de Ausencia". Segue padrao `SettingsCard` existente. Admin pode adicionar, reordenar e desativar opcoes sem migration.
 
-**Schema `authorized_persons` (migration 88):**
+**Schema `authorized_persons` (migration 89):**
 ```sql
 CREATE TABLE authorized_persons (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2299,7 +2301,7 @@ CREATE TABLE authorized_persons (
 );
 ```
 
-**Schema `exit_authorizations` (migration 88):**
+**Schema `exit_authorizations` (migration 89):**
 ```sql
 CREATE TABLE exit_authorizations (
   id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2364,7 +2366,7 @@ CREATE POLICY "portaria view exit_authorizations"
 
 Este padrao e consistente com o `ModuleGuard` do frontend — ambos consultam `role_permissions` como fonte de verdade, sem duplicar logica de autorização em campos de role.
 
-**Migration 89** nao inclui mais `ALTER TABLE profiles` — apenas os `INSERT INTO modules` e `INSERT INTO role_permissions` para os tres novos modulos.
+**Migration 90** nao inclui mais `ALTER TABLE profiles` — apenas os `INSERT INTO modules` e `INSERT INTO role_permissions` para os tres novos modulos.
 
 #### 11.B.5 Edge Functions
 
@@ -2475,7 +2477,7 @@ O registro de credencial WebAuthn e gerenciado em `/responsavel/perfil` como opt
 | `student_health_records_teacher_view` | 90 | VIEW RLS para professores com apenas campos nao-sensiveis |
 | system_settings keys + modulo config | 91 | Chaves de configuracao + ajuste de permissoes |
 
-**Schema `student_medical_certificates` (migration 90):**
+**Schema `student_medical_certificates` (migration 91):**
 ```sql
 CREATE TABLE student_medical_certificates (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2505,7 +2507,7 @@ CREATE INDEX idx_certificates_valid_until ON student_medical_certificates(valid_
 
 > **Status calculado**: `CASE WHEN valid_until >= CURRENT_DATE THEN 'valid' WHEN valid_until < CURRENT_DATE THEN 'expired' ELSE 'pending' END`. Nao armazenado — evita inconsistencias. O pg_cron gera alertas, nao muda o status.
 
-**Schema `health_record_update_requests` (migration 90):**
+**Schema `health_record_update_requests` (migration 91):**
 ```sql
 CREATE TABLE health_record_update_requests (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2523,7 +2525,7 @@ CREATE TABLE health_record_update_requests (
 );
 ```
 
-**VIEW `student_health_records_teacher_view` (migration 90):**
+**VIEW `student_health_records_teacher_view` (migration 91):**
 ```sql
 CREATE VIEW student_health_records_teacher_view AS
 SELECT
@@ -2736,7 +2738,7 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 
 #### 14.2 Tabelas do Banco de Dados
 
-**Migration 90 — `store_categories`**
+**Migration 91 — `store_categories`**
 
 ```sql
 create table store_categories (
@@ -2754,7 +2756,7 @@ create table store_categories (
 );
 ```
 
-**Migration 91 — `store_products`, `store_product_variants`, `store_product_images`**
+**Migration 92 — `store_products`, `store_product_variants`, `store_product_images`**
 
 ```sql
 create table store_products (
@@ -2804,7 +2806,7 @@ create table store_product_images (
 );
 ```
 
-**Migration 92 — `store_inventory_movements`**
+**Migration 93 — `store_inventory_movements`**
 
 ```sql
 create table store_inventory_movements (
@@ -2822,7 +2824,7 @@ create table store_inventory_movements (
 );
 ```
 
-**Migration 93 — `store_orders`, `store_order_items`**
+**Migration 94 — `store_orders`, `store_order_items`**
 
 ```sql
 create table store_orders (
@@ -2866,7 +2868,7 @@ create table store_order_items (
 );
 ```
 
-**Migration 94 — `store_pickup_protocols`**
+**Migration 95 — `store_pickup_protocols`**
 
 ```sql
 create table store_pickup_protocols (
@@ -2883,7 +2885,7 @@ create table store_pickup_protocols (
 );
 ```
 
-**Migration 95 — Permissoes**
+**Migration 96 — Permissoes**
 
 ```sql
 -- Modulos do grupo 'loja'
@@ -2925,7 +2927,7 @@ values
   ('user',        'store-orders',      true, false,false,false);
 ```
 
-**Migration 96 — WhatsApp categoria `pedidos` + bucket `product-images`**
+**Migration 97 — WhatsApp categoria `pedidos` + bucket `product-images`**
 
 ```sql
 insert into whatsapp_categories (key, label, color) values

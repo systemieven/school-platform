@@ -234,8 +234,9 @@ export default function HistoricoEscolarPage() {
               Gerar Histórico
             </button>
             <button
-              onClick={() => console.log('Em breve')}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              disabled
+              title="Em desenvolvimento — a geração de PDF do histórico escolar ainda não está disponível"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 opacity-50 cursor-not-allowed"
             >
               <FileDown className="w-4 h-4" />
               Exportar PDF

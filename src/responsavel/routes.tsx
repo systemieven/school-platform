@@ -15,6 +15,8 @@ import BibliotecaPage     from './pages/biblioteca/BibliotecaPage';
 import PerfilPage         from './pages/perfil/PerfilPage';
 import DeclaracoesPage    from './pages/declaracoes/DeclaracoesPage';
 import RematriculaPage    from './pages/rematricula/RematriculaPage';
+import FaltasPage         from './pages/faltas/FaltasPage';
+import AutorizacoesSaidaPage from './pages/autorizacoes-saida/AutorizacoesSaidaPage';
 
 export default function ResponsavelRoutes() {
   return (
@@ -35,8 +37,10 @@ export default function ResponsavelRoutes() {
           <Route path="biblioteca"   element={<BibliotecaPage />} />
           <Route path="perfil"       element={<PerfilPage />} />
           <Route path="declaracoes"  element={<DeclaracoesPage />} />
-          <Route path="rematricula"  element={<RematriculaPage />} />
-          <Route path="*"            element={<Navigate to="/responsavel" replace />} />
+          <Route path="rematricula"         element={<RematriculaPage />} />
+          <Route path="faltas"              element={<FaltasPage />} />
+          <Route path="autorizacoes-saida"  element={<AutorizacoesSaidaPage />} />
+          <Route path="*"                   element={<Navigate to="/responsavel" replace />} />
         </Route>
       </Routes>
     </GuardianAuthProvider>
