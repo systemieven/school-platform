@@ -68,6 +68,14 @@ export const ADMIN_NAV: NavGroup[] = [
     label: 'Acadêmico',
     items: [
       {
+        key: 'students',
+        label: 'Alunos',
+        icon: 'UserCheck',
+        path: '/admin/alunos',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'students',
+      },
+      {
         key: 'academico',
         label: 'Acadêmico',
         icon: 'BookOpenCheck',
@@ -114,14 +122,6 @@ export const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Instituição',
     items: [
-      {
-        key: 'students',
-        label: 'Alunos',
-        icon: 'UserCheck',
-        path: '/admin/alunos',
-        roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'students',
-      },
       {
         key: 'announcements',
         label: 'Comunicados',
