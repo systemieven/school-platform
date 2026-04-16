@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Check, ShieldAlert } from 'lucide-react';
+import { Loader2, Check, ShieldAlert, Save } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
@@ -130,25 +130,23 @@ export default function MaintenanceSettingsPanel() {
         </p>
       </SettingsCard>
 
-      {/* Save */}
-      <div className="flex justify-end">
+      {/* Floating save — same pattern as all other settings panels */}
+      <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
+        isDirty || saving || saved
+          ? 'opacity-100 translate-y-0'
+          : 'opacity-0 translate-y-3 pointer-events-none'
+      }`}>
         <button
           onClick={handleSave}
-          disabled={saving || saved || !isDirty}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+          disabled={!isDirty || saving}
+          className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
-              ? 'bg-emerald-500 text-white'
-              : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'
+              ? 'bg-emerald-500 text-white shadow-emerald-500/25'
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
           }`}
         >
-          {saving ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : saved ? (
-            <Check className="w-4 h-4" />
-          ) : (
-            <ShieldAlert className="w-4 h-4" />
-          )}
-          {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar Configurações'}
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
         </button>
       </div>
     </div>
