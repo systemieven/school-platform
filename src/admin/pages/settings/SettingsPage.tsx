@@ -431,7 +431,7 @@ export default function SettingsPage() {
   }
 
   // Tabs with their own custom panel never depend on the generic settings array
-  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial', 'academico'];
+  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial', 'academico', 'ferramentas'];
 
   // Tabs that have settings in the DB OR have a custom panel
   const availableTabs = TABS.filter(
