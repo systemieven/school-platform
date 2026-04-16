@@ -1452,8 +1452,9 @@ Configuravel na aba Aparencia > Home:
 | 11.C | Ficha de Saude Expandida (atestado fisico, atualizacoes pelo responsavel, visao restrita professor, alertas de vencimento) | ⏳ Pendente | Alta | 11 + 10 |
 | 12 | Modulo Pedagogico Avancado (BNCC + Relatorios) | ⏳ Pendente | Media | 9 + 10.P |
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
+| 14 | Loja, PDV e Estoque | ⏳ Pendente | Alta | 8.5 + 10 |
 
-**Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights).
+**Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
 
 **Fase 11.B** pode ser desenvolvida em paralelo com Fase 12 — compartilha dependencias com 10 e 10.P mas nao com BNCC/pedagogico. A feature de indicador no diario (DiarioEntradaPage) requer coordenacao com a equipe que mantiver Fase 10.P.
 
@@ -2710,6 +2711,389 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 
 ---
 
+### 10.9 Fase 14 — Loja, PDV e Estoque
+
+**Objetivo**: Criar um modulo completo de comercio escolar integrado — loja virtual publica com checkout por responsavel, PDV interno para vendas em balcao, controle de estoque por SKU (grade cor x tamanho), gestao de pedidos com pipeline de status e protocolo de retirada presencial. Integrado ao modulo financeiro (caixas, contas a receber) e ao portal do responsavel.
+
+**Dependencias**: Fases 8.5 (caixas, financeiro ERP) e 10 (portal do responsavel) concluidas
+
+#### 14.1 Sub-modulos
+
+| Feature | Descricao | Prioridade |
+|---------|-----------|------------|
+| Gestao de Categorias e Produtos | CRUD de categorias hierarquicas; cadastro de produtos com descricao, preco, imagens e status; destaque na loja | Alta |
+| Grade de Variacoes / SKUs | Matriz cor x tamanho; SKU individual por celula; preco_override por variacao; imagem por variacao | Alta |
+| Controle de Estoque | Estoque por SKU (stock_quantity, reserved_quantity, min_stock); movimentacoes com historico completo; alerta de estoque minimo | Alta |
+| Loja Virtual Publica | Paginas publicas: home com destaques + categorias, pagina de categoria, pagina de produto com galeria e seletor de grade | Alta |
+| Carrinho e Checkout | Carrinho persistente por responsavel; checkout autenticado exige login de responsavel; seletor de aluno no checkout | Alta |
+| Protocolo de Retirada | Documento PDF gerado no momento da entrega; assinatura do retirador capturada; arquivado no historico do pedido | Alta |
+| PDV Interno | Tela de balcao; busca de produto/SKU; carrinho PDV; formas de pagamento (dinheiro/cartao/PIX/boleto); modo de troca; integrado ao modulo de caixas | Alta |
+| Gestao de Pedidos | Pipeline: aguardando pagamento → pagamento confirmado → em separacao → pronto para retirada → retirado → concluido / cancelado; acoes manuais e disparo automatico de WhatsApp por transicao | Alta |
+| Templates WhatsApp — categoria pedidos | 9 templates automaticos nas transicoes de status do pedido; categoria `pedidos` no gerenciador de templates | Media |
+| Integracao Financeira | PDV registra movimentos em financial_cash_movements; pedidos parcelados geram financial_receivables; compras aparecem no historico financeiro do aluno | Alta |
+| Relatorios de Loja | Vendas por periodo, ranking de produtos, giro de estoque, devolucoes, desempenho por forma de pagamento; exportacao CSV/Excel | Media |
+| Config > Loja | Gateway, formas de pagamento, parcelamento, prazo de separacao, lembrete de retirada, protocolo, produtos em falta, notificacoes WhatsApp | Media |
+
+#### 14.2 Tabelas do Banco de Dados
+
+**Migration 90 — `store_categories`**
+
+```sql
+create table store_categories (
+  id          uuid primary key default gen_random_uuid(),
+  school_id   uuid not null references schools(id) on delete cascade,
+  name        text not null,
+  description text,
+  image_url   text,
+  image_path  text,
+  parent_id   uuid references store_categories(id) on delete set null,
+  is_active   boolean not null default true,
+  position    integer not null default 0,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+```
+
+**Migration 91 — `store_products`, `store_product_variants`, `store_product_images`**
+
+```sql
+create table store_products (
+  id                uuid primary key default gen_random_uuid(),
+  school_id         uuid not null references schools(id) on delete cascade,
+  name              text not null,
+  short_description text,
+  description       text,
+  category_id       uuid references store_categories(id) on delete set null,
+  sku_base          text,
+  cost_price        numeric(10,2),
+  sale_price        numeric(10,2) not null,
+  status            text not null default 'active'
+                      check (status in ('active','inactive','out_of_stock','discontinued')),
+  is_featured       boolean not null default false,
+  is_digital        boolean not null default false,
+  created_by        uuid references auth.users(id),
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+create table store_product_variants (
+  id                uuid primary key default gen_random_uuid(),
+  product_id        uuid not null references store_products(id) on delete cascade,
+  sku               text not null unique,
+  color             text,
+  size              text,
+  price_override    numeric(10,2),
+  stock_quantity    integer not null default 0,
+  reserved_quantity integer not null default 0,
+  min_stock         integer not null default 0,
+  is_active         boolean not null default true,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+create table store_product_images (
+  id           uuid primary key default gen_random_uuid(),
+  product_id   uuid not null references store_products(id) on delete cascade,
+  variant_id   uuid references store_product_variants(id) on delete set null,
+  url          text not null,
+  storage_path text,
+  alt_text     text,
+  position     integer not null default 0,
+  is_cover     boolean not null default false,
+  created_at   timestamptz not null default now()
+);
+```
+
+**Migration 92 — `store_inventory_movements`**
+
+```sql
+create table store_inventory_movements (
+  id             uuid primary key default gen_random_uuid(),
+  variant_id     uuid not null references store_product_variants(id) on delete cascade,
+  type           text not null
+                   check (type in ('purchase','sale','return','adjustment','reservation_released')),
+  quantity       integer not null,  -- positivo = entrada, negativo = saida
+  balance_after  integer not null,
+  reference_type text check (reference_type in ('order','manual','pdv')),
+  reference_id   uuid,
+  justification  text,              -- obrigatorio para type='adjustment'
+  recorded_by    uuid references auth.users(id),
+  created_at     timestamptz not null default now()
+);
+```
+
+**Migration 93 — `store_orders`, `store_order_items`**
+
+```sql
+create table store_orders (
+  id                  uuid primary key default gen_random_uuid(),
+  school_id           uuid not null references schools(id) on delete cascade,
+  order_number        text not null unique,  -- ex: PED-2026-00001
+  guardian_id         uuid references guardian_profiles(id),
+  student_id          uuid references students(id),
+  channel             text not null default 'store' check (channel in ('store','pdv')),
+  status              text not null default 'pending_payment'
+                        check (status in (
+                          'pending_payment','payment_confirmed','picking',
+                          'ready_for_pickup','picked_up','completed','cancelled'
+                        )),
+  subtotal            numeric(10,2) not null,
+  discount_amount     numeric(10,2) not null default 0,
+  total_amount        numeric(10,2) not null,
+  payment_method      text,
+  installments        integer not null default 1,
+  gateway_charge_id   text,
+  notes               text,
+  cancellation_reason text,
+  cancelled_by        uuid references auth.users(id),
+  cancelled_at        timestamptz,
+  created_by          uuid references auth.users(id),
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
+);
+
+create table store_order_items (
+  id                  uuid primary key default gen_random_uuid(),
+  order_id            uuid not null references store_orders(id) on delete cascade,
+  variant_id          uuid references store_product_variants(id) on delete set null,
+  product_name        text not null,        -- snapshot no momento da compra
+  variant_description text,                 -- snapshot ex: "Azul / P"
+  quantity            integer not null,
+  unit_price          numeric(10,2) not null,
+  total_price         numeric(10,2) not null,
+  returned_quantity   integer not null default 0,
+  created_at          timestamptz not null default now()
+);
+```
+
+**Migration 94 — `store_pickup_protocols`**
+
+```sql
+create table store_pickup_protocols (
+  id                   uuid primary key default gen_random_uuid(),
+  order_id             uuid not null references store_orders(id) on delete cascade,
+  signed_by_name       text not null,
+  signed_by_document   text,
+  signed_by_relation   text,
+  signed_at            timestamptz not null,
+  confirmed_by         uuid references auth.users(id),
+  protocol_url         text,   -- PDF signed URL
+  protocol_path        text,   -- Storage path
+  created_at           timestamptz not null default now()
+);
+```
+
+**Migration 95 — Permissoes**
+
+```sql
+-- Modulos do grupo 'loja'
+insert into modules (key, label, group, position) values
+  ('store-products',    'Produtos',          'loja', 70),
+  ('store-inventory',   'Estoque',           'loja', 71),
+  ('store-orders',      'Pedidos',           'loja', 72),
+  ('store-pdv',         'PDV',               'loja', 73),
+  ('store-reports',     'Relatorios de Loja','loja', 74),
+  ('store-settings',    'Config Loja',       'loja', 75),
+  ('store-pdv-discount','Desconto no PDV',   'loja', 76);
+
+-- Permissoes por role (exemplos representativos)
+-- super_admin e admin: acesso total
+-- coordinator: products, inventory, orders, reports
+-- teacher: sem acesso
+-- user (atendente/caixa): store-pdv, store-orders (leitura)
+insert into role_permissions (role, module_key, can_view, can_create, can_edit, can_delete)
+values
+  ('super_admin', 'store-products',    true, true, true, true),
+  ('super_admin', 'store-inventory',   true, true, true, true),
+  ('super_admin', 'store-orders',      true, true, true, true),
+  ('super_admin', 'store-pdv',         true, true, true, true),
+  ('super_admin', 'store-reports',     true, true, true, true),
+  ('super_admin', 'store-settings',    true, true, true, true),
+  ('super_admin', 'store-pdv-discount',true, true, true, true),
+  ('admin',       'store-products',    true, true, true, true),
+  ('admin',       'store-inventory',   true, true, true, true),
+  ('admin',       'store-orders',      true, true, true, true),
+  ('admin',       'store-pdv',         true, true, true, true),
+  ('admin',       'store-reports',     true, true, true, true),
+  ('admin',       'store-settings',    true, true, true, true),
+  ('admin',       'store-pdv-discount',true, true, true, true),
+  ('coordinator', 'store-products',    true, true, true, false),
+  ('coordinator', 'store-inventory',   true, true, true, false),
+  ('coordinator', 'store-orders',      true, true, true, false),
+  ('coordinator', 'store-reports',     true, false,false,false),
+  ('user',        'store-pdv',         true, true, true, false),
+  ('user',        'store-orders',      true, false,false,false);
+```
+
+**Migration 96 — WhatsApp categoria `pedidos` + bucket `product-images`**
+
+```sql
+insert into whatsapp_categories (key, label, color) values
+  ('pedidos', 'Pedidos da Loja', '#166534');
+
+insert into storage.buckets (id, name, public) values
+  ('product-images', 'product-images', true);
+```
+
+#### 14.3 Rotas Admin
+
+| Rota | Componente | Roles | Fase |
+|------|-----------|-------|------|
+| `/admin/loja` | `LojaPage` — tabs: Dashboard, Produtos, Pedidos, PDV, Relatorios | admin, coordinator, user (PDV) | 14 |
+| `/admin/loja/pdv` | `PDVPage` — tela full-screen dedicada ao balcao | store-pdv | 14 |
+| `/admin/loja/pedidos/:orderId` | `OrderDetailPage` — detalhe com timeline de status, itens, protocolo | store-orders | 14 |
+
+#### 14.4 Rotas Loja Publica
+
+| Rota | Pagina | Descricao |
+|------|--------|-----------|
+| `/loja` | `LojaPublicaPage` | Home da loja: produtos em destaque, categorias, barra de busca |
+| `/loja/categoria/:slug` | `CategoriaPage` | Listagem de produtos da categoria com filtros |
+| `/loja/produto/:slug` | `ProdutoPage` | Galeria de imagens, seletor de grade (cor x tamanho), botao adicionar ao carrinho |
+| `/loja/carrinho` | `CarrinhoPage` | Resumo do carrinho; requer login para prosseguir |
+| `/loja/checkout` | `CheckoutPage` | Seletor de aluno, forma de pagamento, parcelamento; requer auth de responsavel |
+| `/loja/pedido/:orderNumber` | `ConfirmacaoPedidoPage` | Confirmacao de pedido realizado; resumo e proximo passo |
+
+#### 14.5 Rotas Portal do Responsavel (adicao Fase 14)
+
+| Rota | Pagina | Descricao |
+|------|--------|-----------|
+| `/responsavel/pedidos` | `PedidosPage` | Historico de todos os pedidos do responsavel com status atual |
+| `/responsavel/pedidos/:orderNumber` | `PedidoDetalhePage` | Status detalhado, timeline de transicoes, itens, link para protocolo de retirada quando disponivel |
+
+#### 14.6 Novos Arquivos Frontend
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/admin/pages/loja/LojaPage.tsx` | Container com tab rail: Dashboard / Produtos / Pedidos / PDV / Relatorios |
+| `src/admin/pages/loja/tabs/LojaDashboardTab.tsx` | KPIs: faturamento, pedidos por status, estoque critico, top produtos |
+| `src/admin/pages/loja/tabs/ProdutosTab.tsx` | Tabela de produtos com filtros; abre drawer de cadastro/edicao |
+| `src/admin/pages/loja/tabs/PedidosTab.tsx` | Pipeline kanban ou tabela com filtro por status; abre OrderDetailPage |
+| `src/admin/pages/loja/tabs/RelatoriosLojaTab.tsx` | Seletores de periodo + tipo; graficos Recharts; exportacao CSV/Excel |
+| `src/admin/pages/loja/OrderDetailPage.tsx` | Timeline de status, itens, acoes (confirmar pagamento, iniciar separacao, etc.), protocolo |
+| `src/admin/pages/loja/PDVPage.tsx` | Tela full-screen: busca de produto, carrinho PDV, formas de pagamento, modo de troca |
+| `src/admin/pages/loja/drawers/ProdutoDrawer.tsx` | Formulario de produto: dados basicos, grade de variacoes, imagens, estoque por SKU |
+| `src/admin/pages/loja/drawers/CategoriaDrawer.tsx` | Formulario de categoria com seletor de categoria pai |
+| `src/admin/pages/loja/drawers/AjusteEstoqueDrawer.tsx` | Ajuste manual de estoque com justificativa obrigatoria |
+| `src/pages/loja/LojaPublicaPage.tsx` | Home publica da loja |
+| `src/pages/loja/CategoriaPage.tsx` | Listagem de produtos por categoria |
+| `src/pages/loja/ProdutoPage.tsx` | Detalhe do produto com seletor de grade e carrinho |
+| `src/pages/loja/CarrinhoPage.tsx` | Carrinho persistente |
+| `src/pages/loja/CheckoutPage.tsx` | Checkout com seletor de aluno e pagamento |
+| `src/pages/loja/ConfirmacaoPedidoPage.tsx` | Tela pos-pedido |
+| `src/pages/responsavel/PedidosPage.tsx` | Historico de pedidos no portal do responsavel |
+| `src/pages/responsavel/PedidoDetalhePage.tsx` | Detalhe e timeline do pedido |
+| `src/hooks/useCart.ts` | Hook de carrinho persistente (localStorage + Supabase para responsaveis logados) |
+| `src/hooks/useStoreProducts.ts` | Busca de produtos/SKUs para loja publica e PDV |
+| `src/hooks/usePDV.ts` | Estado do carrinho PDV, formas de pagamento, integracao com caixas |
+| `src/components/loja/ProductCard.tsx` | Card de produto para loja publica |
+| `src/components/loja/GradeSelector.tsx` | Seletor visual de cor x tamanho com disponibilidade por SKU |
+| `src/components/loja/OrderStatusBadge.tsx` | Badge colorido por status do pedido |
+| `src/components/loja/OrderTimeline.tsx` | Timeline de transicoes de status com timestamps |
+
+#### 14.7 Integracoes com Modulos Existentes
+
+| Modulo | Integracao |
+|--------|-----------|
+| Financeiro (Caixas) | PDV usa `financial_cash_registers`; cada venda registra `financial_cash_movements` com tipo `sale` |
+| Financeiro (Contas a Receber) | Pedidos parcelados geram `financial_receivables` com `source_type='order'` e `source_id=order_id` |
+| Financeiro (Historico do Aluno) | Compras na loja e no PDV aparecem no historico financeiro do aluno vinculado ao pedido |
+| Portal do Responsavel | `/responsavel/pedidos` exibe historico completo com status em tempo real e link para protocolo |
+| Modulo de Eventos | Pedidos de evento (camiseta, kit) podem ser vinculados via `source_type='event'` em `financial_receivables` |
+| Modulo de Rematricula | Kit escolar pode ser sugerido no fluxo de rematricula com itens pre-adicionados ao carrinho (Fase 14.B futura) |
+| Gateway de Pagamentos | Checkout usa o mesmo `GatewayAdapter` da Fase 8; PDV usa PIX/boleto via gateway quando aplicavel |
+| `generate-document` (Edge Function) | Protocolo de retirada gerado como PDF no mesmo padrao de declaracoes da Fase 11 |
+| WhatsApp | Categoria `pedidos` com 9 templates disparados automaticamente nas transicoes de status do pedido |
+
+#### 14.8 Gaps Identificados
+
+1. **NF-e / NFC-e (Cupom Fiscal Eletronico)** — A spec nao preve emissao fiscal. Vendas de produtos fisicos em PDV podem exigir NFC-e no Brasil. **Mitigacao**: integrar provider fiscal (ex.: Focus NF-e, WebmaniaBR) em Fase 14.B. Por ora, o PDV emite apenas comprovante interno.
+
+2. **Reserva de Estoque (Race Condition)** — Dois responsaveis podem adicionar o mesmo ultimo item ao carrinho simultaneamente. A spec menciona "reserva no momento do pedido" mas nao detalha o mecanismo. **Mitigacao**: campo `reserved_quantity` em `store_product_variants`; RPC `reserve_stock(variant_id, qty, order_id)` que incrementa `reserved_quantity` ao criar o pedido e so decrementa `stock_quantity` na confirmacao de pagamento; job pg_cron libera reservas de pedidos `pending_payment` com mais de 24 h sem confirmacao.
+
+3. **Credito de Loja (Store Credit)** — O modo de troca do PDV menciona "geracao de credito" mas nao ha tabela `store_credits`. Necessario para devolucao sem reembolso imediato. **Mitigacao**: criar tabela `store_credits(id, guardian_id, amount, reason, expires_at, used_at, order_id)` em Fase 14.B; durante Fase 14 o modo de troca apenas gera um novo pedido PDV.
+
+4. **Loja para Visitantes Externos** — O checkout exige responsavel cadastrado. Familias de alunos novos (antes de ter conta) nao conseguem comprar antecipadamente (ex.: uniforme pre-matricula). **Mitigacao**: adicionar fluxo de "compra como visitante" com CPF + nome, sem vinculacao de aluno obrigatoria.
+
+5. **Produto Digital — Entrega** — A spec tem toggle `is_digital` mas nao detalha o fluxo de entrega (link de download, expiracao, controle de acessos). **Mitigacao**: em Fase 14 produtos digitais marcam o pedido como `completed` automaticamente apos confirmacao de pagamento; download via Storage signed URL com TTL configuravel em Fase 14.B.
+
+6. **Integracao com Agenda de Separacao** — Nao ha SLA ou fila de separacao para o time interno. Pedidos em separacao nao tem prioridade, prazo ou responsavel atribuido. **Mitigacao**: campo `picker_id (FK auth.users)` e `picking_started_at` em `store_orders`; Config > Loja configura prazo em horas; alerta de atraso via `alert_notifications`.
+
+7. **Multiplos Alunos no Mesmo Pedido** — O checkout atual vincula o pedido a um unico aluno (`student_id`). Um responsavel com 2 filhos precisaria de 2 pedidos para comprar uniformes de tamanhos diferentes. **Mitigacao**: modelo N:N `store_order_students` para Fase 14.B; em Fase 14, um pedido por filho.
+
+8. **Retentativa de Pagamento** — Pedidos com status `pending_payment` nao tem UI para nova tentativa de pagamento sem cancelar e recriar o pedido. **Mitigacao**: action "Tentar Novamente" no detalhe do pedido no Portal do Responsavel, que reutiliza o mesmo `order_id` com novo `gateway_charge_id`.
+
+#### 14.9 Oportunidades de Melhoria
+
+| Oportunidade | Descricao | Prioridade |
+|---|---|---|
+| **Kit Escolar por Serie** | Ao matricular/rematricular, sugerir kit de uniforme padrao da serie; itens pre-adicionados ao carrinho com tamanho a confirmar | Media |
+| **Sugestao de Tamanho por Idade** | Cruzar data de nascimento do aluno com tabela de tamanhos sugeridos por faixa etaria | Baixa |
+| **Compra em Grupo / Turma** | Coordenador cria pedido coletivo para uma turma (ex.: camiseta de formatura) com lista de alunos e tamanhos; processamento via PDV | Media |
+| **PDV Offline-First** | Cache local dos produtos e estoque; fila de sincronizacao ao reconectar; critico para escolas com internet instavel | Alta |
+| **Relatorio de Previsao de Demanda** | Cruzar historico de vendas + numero de alunos por serie/turma para sugerir quantidade a repor antes do inicio do ano letivo | Media |
+| **Loja no Portal do Aluno** | Versao somente-leitura (catalogo) no Portal do Aluno para que o proprio aluno veja o que esta disponivel e compartilhe com o responsavel | Baixa |
+| **Webhook de Estoque Minimo** | Notificacao interna (alert_notifications) e/ou WhatsApp para o admin quando SKU atingir estoque minimo | Alta |
+| **Programa de Fidelidade** | Pontos por compra resgatados como desconto; tabela `store_loyalty_points`; viavel apos consolidacao da base de dados de pedidos | Baixa |
+| **Modo Quiosque para PDV** | Tela touch-friendly para autoatendimento em eventos escolares; responsavel escaneia QR Code do aluno e finaliza a compra | Baixa |
+| **Integracao com Modulo de Eventos** | Ao criar evento com item vendavel (camiseta, kit), gerar automaticamente um produto na loja com estoque vinculado ao numero de inscritos | Media |
+
+#### 14.10 Configuracoes — Config > Loja
+
+As configuracoes da loja sao armazenadas em `system_settings` com `category='store'`:
+
+| Chave | Tipo | Descricao |
+|-------|------|-----------|
+| `gateway_id` | text | ID do gateway de pagamento ativo para a loja (mesmo GatewayAdapter da Fase 8) |
+| `payment_methods_enabled` | text[] | Formas de pagamento habilitadas: `['credit_card','debit_card','pix','boleto','cash']` |
+| `max_installments` | integer | Numero maximo de parcelas no checkout (padrao: 12) |
+| `min_installment_value` | numeric | Valor minimo por parcela em reais (padrao: 10.00) |
+| `installment_interest_pct` | numeric | Percentual de juros por parcela (0 = sem juros) |
+| `separation_days` | integer | Prazo em dias uteis para separacao do pedido apos confirmacao de pagamento |
+| `pickup_reminder_days` | integer | Dias antes do prazo de retirada para enviar lembrete por WhatsApp |
+| `require_pickup_signature` | boolean | Exige assinatura no protocolo de retirada (padrao: true) |
+| `pickup_protocol_template` | text | Template de texto do protocolo de retirada (suporta variaveis) |
+| `hide_out_of_stock` | boolean | Ocultar produtos sem estoque na loja publica (padrao: false — exibe como indisponivel) |
+| `whatsapp_notifications` | JSONB | Objeto com chave por evento de pedido; valor: `{enabled: bool, template_id: uuid}` |
+
+#### 14.11 WhatsApp — Categoria Pedidos
+
+**Variaveis de template disponiveis:**
+
+`{{numero_pedido}}`, `{{nome_responsavel}}`, `{{nome_aluno}}`, `{{itens_resumo}}`, `{{valor_total}}`, `{{forma_pagamento}}`, `{{parcelas}}`, `{{data_pedido}}`, `{{previsao_retirada}}`, `{{link_pedido}}`, `{{instituicao}}`
+
+| Evento | Destinatario | Template | Gatilho (transicao de status) |
+|--------|-------------|---------|-------------------------------|
+| Pedido recebido aguardando pagamento | Responsavel | `pedido-recebido` | criacao do pedido (status `pending_payment`) |
+| Pagamento confirmado | Responsavel | `pagamento-confirmado` | `pending_payment` → `payment_confirmed` |
+| Pedido em separacao | Responsavel | `em-separacao` | `payment_confirmed` → `picking` |
+| Pedido pronto para retirada | Responsavel | `pronto-retirada` | `picking` → `ready_for_pickup` |
+| Lembrete de retirada pendente | Responsavel | `lembrete-retirada` | agendado via pg_cron conforme `pickup_reminder_days` |
+| Pedido retirado | Responsavel | `pedido-retirado` | `ready_for_pickup` → `picked_up` |
+| Pedido concluido | Responsavel | `pedido-concluido` | `picked_up` → `completed` |
+| Pedido cancelado | Responsavel | `pedido-cancelado` | qualquer status → `cancelled` |
+| Pagamento rejeitado / link expirado | Responsavel | `pagamento-falhou` | evento de webhook do gateway (charge failed/expired) |
+
+#### 14.12 Verificacao
+
+1. Criar categoria raiz e subcategoria; verificar hierarquia exibida corretamente na loja publica
+2. Cadastrar produto com grade 3 cores x 4 tamanhos = 12 SKUs gerados automaticamente; verificar SKUs unicos
+3. Adicionar estoque a um SKU; movimentacao registrada em `store_inventory_movements` com `balance_after` correto
+4. Responsavel adiciona produto ao carrinho → carrinho persiste apos reload da pagina
+5. Checkout: selecionar aluno, forma de pagamento PIX → pedido criado com status `pending_payment`; WhatsApp `pedido-recebido` disparado
+6. Simular confirmacao de pagamento via webhook → status muda para `payment_confirmed`; `stock_quantity` decrementado; `reserved_quantity` liberado; WhatsApp `pagamento-confirmado` disparado
+7. Operador avanca para `picking` → `ready_for_pickup`; WhatsApp correto disparado em cada transicao
+8. Gerar protocolo de retirada: PDF gerado no bucket correto, URL salva em `store_pickup_protocols`; status avanca para `picked_up`
+9. PDV: operador abre caixa → busca produto por nome/SKU → adiciona ao carrinho PDV → finaliza com pagamento em dinheiro → `financial_cash_movements` registrado; estoque decrementado
+10. PDV: modo de troca — produto devolvido → novo pedido gerado; `store_inventory_movements` com tipo `return` registrado
+11. Tentar adicionar ao carrinho SKU com estoque zero → bloqueado; SKU com `reserved_quantity` igual a `stock_quantity` tambem bloqueado
+12. Dois usuarios simultaneos tentam reservar o ultimo item → RPC `reserve_stock` garante que apenas um seja bem-sucedido (sem overselling)
+13. Relatorio de vendas por periodo: dados corretos; exportacao CSV gerada com todos os campos esperados
+14. Config > Loja: alterar `max_installments` para 6 → checkout nao exibe mais que 6 parcelas
+15. WhatsApp lembrete de retirada: pg_cron dispara template `lembrete-retirada` conforme `pickup_reminder_days` configurado
+
+---
+
 ### 10.10 Melhorias Transversais
 
 | Item | Descricao | Prioridade | Status |
@@ -2826,6 +3210,13 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 | Periodo letivo | Divisao do ano escolar (bimestre, trimestre, semestre) |
 | Resultado final | Status do aluno ao final do ano: aprovado, recuperacao, reprovado |
 | Historico escolar | Registro cumulativo de desempenho do aluno por ano letivo |
+| SKU | Codigo unico de produto por variacao (cor + tamanho); unidade minima de controle de estoque |
+| PDV | Ponto de Venda; interface de atendimento presencial para vendas em balcao |
+| Grade | Matriz de variacoes de produto (ex.: cor x tamanho); cada celula da matriz e um SKU |
+| Protocolo de retirada | Documento gerado no momento da entrega, assinado pelo retirador; arquivado no historico do pedido |
+| Sangria | Retirada de dinheiro do caixa durante o turno (reduz saldo; nao e venda) |
+| Suprimento | Adicao de dinheiro ao caixa durante o turno (aumenta saldo; nao e receita) |
+| Kit escolar | Conjunto de produtos (uniforme, material) sugerido por serie/segmento |
 
 ### B. Integracao UazAPI
 
@@ -2889,3 +3280,4 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 | `ocorrencia` | `#7c2d12` (vermelho escuro) | Bilhetes/ocorrencias escolares | ⏳ Fase 10 |
 | `responsavel` | `#4c1d95` (roxo escuro) | Portal do responsavel, senha temporaria | ⏳ Fase 10 |
 | `secretaria` | `#374151` (cinza) | Declaracoes, rematricula | ⏳ Fase 11 |
+| `pedidos` | `#166534` (verde escuro) | Loja e PDV | ⏳ Fase 14 |
