@@ -42,19 +42,9 @@ interface ActiveGateway {
   supported_methods: string[];
 }
 
-interface GuardianInfo {
-  id: string;
-  full_name: string;
-  cpf: string | null;
-  phone: string | null;
-  email: string | null;
-}
-
 interface ChargeResult {
-  payment_link: string | null;
-  pix_code:     string | null;
-  boleto_url:   string | null;
-  provider_charge_id: string;
+  checkoutToken: string;
+  checkoutUrl: string;
 }
 
 // ── Componente ─────────────────────────────────────────────────────────────────
@@ -198,39 +188,6 @@ export default function PDVPage() {
   const discountAmount = discountType === 'percent' ? subtotal * (rawDiscount / 100) : rawDiscount;
   const total = Math.max(0, subtotal - discountAmount);
 
-  // ── Helper: chamar gateway proxy ────────────────────────────────────────────
-  async function callProxy(action: string, data: Record<string, unknown>) {
-    const { data: result, error } = await supabase.functions.invoke('payment-gateway-proxy', {
-      body: { action, gateway_id: activeGateway!.id, data },
-    });
-    if (error) throw new Error(error.message || String(error));
-    if (!result?.success) throw new Error(result?.error ?? 'Erro no gateway');
-    return result as Record<string, unknown>;
-  }
-
-  // ── Helper: obter provider_customer_id ─────────────────────────────────────
-  async function getOrCreateGatewayCustomer(guardian: GuardianInfo): Promise<string> {
-    // Verificar cache
-    const { data: cached } = await supabase
-      .from('gateway_customers')
-      .select('provider_customer_id')
-      .eq('gateway_id', activeGateway!.id)
-      .eq('student_id', selectedStudent!.id)
-      .maybeSingle();
-    if (cached?.provider_customer_id) return cached.provider_customer_id as string;
-
-    if (!guardian.cpf) throw new Error(`CPF do responsável "${guardian.full_name}" não cadastrado. Adicione o CPF antes de gerar cobrança online.`);
-
-    const res = await callProxy('createCustomer', {
-      name:       guardian.full_name,
-      cpf_cnpj:   guardian.cpf,
-      email:      guardian.email ?? undefined,
-      phone:      guardian.phone ?? undefined,
-      student_id: selectedStudent!.id,
-    });
-    return res.provider_customer_id as string;
-  }
-
   // ── Finalizar venda ─────────────────────────────────────────────────────────
   const finalizeSale = async () => {
     if (cart.length === 0 || !paymentMethod || !selectedStudent) return;
@@ -241,78 +198,25 @@ export default function PDVPage() {
       const { count } = await supabase.from('store_orders').select('*', { count: 'exact', head: true });
       const orderNumber = `PED-${year}-${String((count ?? 0) + 1).padStart(5, '0')}`;
 
-      let chargeData: ChargeResult | null = null;
-      let orderStatus: string = payMode === 'online' ? 'pending_payment' : 'payment_confirmed';
-      let providerChargeId: string | null = null;
-
-      // ── Fluxo Online ────────────────────────────────────────────────────────
-      if (payMode === 'online' && activeGateway) {
-        // Buscar responsável
-        let guardian: GuardianInfo | null = null;
-        if (linkedGuardianId) {
-          const { data: gd } = await supabase
-            .from('guardian_profiles')
-            .select('id, full_name, cpf, phone, email')
-            .eq('id', linkedGuardianId)
-            .single();
-          guardian = gd as GuardianInfo | null;
-        }
-        if (!guardian) throw new Error('Responsável não encontrado. Verifique o cadastro do aluno.');
-
-        const providerCustomerId = await getOrCreateGatewayCustomer(guardian);
-
-        // Gerar cobrança
-        const todayISO = new Date().toISOString().slice(0, 10);
-        const chargeRes = await callProxy('createCharge', {
-          provider_customer_id: providerCustomerId,
-          amount_cents:         Math.round(total * 100),
-          due_date:             todayISO,
-          description:          `Compra PDV ${orderNumber} — ${selectedStudent.full_name}`,
-          billing_type:         paymentMethod as string,
-          external_reference:   orderNumber,
-        });
-
-        chargeData = {
-          provider_charge_id: chargeRes.provider_charge_id as string,
-          payment_link:       chargeRes.payment_link as string | null,
-          pix_code:           chargeRes.pix_code as string | null,
-          boleto_url:         chargeRes.boleto_url as string | null,
-        };
-        providerChargeId = chargeData.provider_charge_id;
-
-        // Enviar WhatsApp ao responsável (best-effort)
-        if (guardian.phone) {
-          const link = chargeData.payment_link || chargeData.boleto_url || '';
-          if (link) {
-            const text = `Olá, ${guardian.full_name.split(' ')[0]}! 👋\n\nFoi gerada uma cobrança de *${fmt(total)}* referente à compra *${orderNumber}* no PDV escolar.\n\nAcesse o link para pagar:\n${link}\n\n_Dúvidas? Entre em contato com a secretaria._`;
-            await supabase.functions.invoke('uazapi-proxy', {
-              body: { action: 'sendText', phone: guardian.phone, text },
-            }).catch(() => { /* notificação não bloqueia a venda */ });
-          }
-        }
-      }
+      const orderStatus = payMode === 'online' ? 'pending_payment' : 'payment_confirmed';
 
       // ── Criar pedido ────────────────────────────────────────────────────────
       const { data: orderData } = await supabase
         .from('store_orders')
         .insert({
-          order_number:      orderNumber,
-          guardian_id:       linkedGuardianId,
-          student_id:        selectedStudent.id,
-          channel:           'pdv',
-          status:            orderStatus,
+          order_number:    orderNumber,
+          guardian_id:     linkedGuardianId,
+          student_id:      selectedStudent.id,
+          channel:         'pdv',
+          status:          orderStatus,
           subtotal,
-          discount_amount:   discountAmount,
-          total_amount:      total,
-          payment_method:    payMode === 'manual' ? paymentMethod : null,
-          gateway_charge_id: providerChargeId,
-          payment_link:      chargeData?.payment_link ?? null,
-          pix_code:          chargeData?.pix_code ?? null,
-          boleto_url:        chargeData?.boleto_url ?? null,
-          installments:      1,
-          created_by:        user?.id ?? null,
-          created_at:        new Date().toISOString(),
-          updated_at:        new Date().toISOString(),
+          discount_amount: discountAmount,
+          total_amount:    total,
+          payment_method:  payMode === 'manual' ? paymentMethod : null,
+          installments:    1,
+          created_by:      user?.id ?? null,
+          created_at:      new Date().toISOString(),
+          updated_at:      new Date().toISOString(),
         })
         .select('id')
         .single();
@@ -342,7 +246,7 @@ export default function PDVPage() {
             created_at: new Date().toISOString(),
           })
         ),
-        // Movimentação de caixa — apenas se pagamento confirmado (modo manual)
+        // Caixa: somente modo manual (pagamento confirmado imediatamente)
         payMode === 'manual' ? (async () => {
           try {
             await supabase.from('financial_cash_movements').insert({
@@ -355,8 +259,36 @@ export default function PDVPage() {
         })() : Promise.resolve(),
       ]);
 
+      // ── Fluxo Online: criar sessão de checkout + enviar WhatsApp ───────────
+      if (payMode === 'online') {
+        const { data: sessionData, error: sessionErr } = await supabase.functions.invoke('checkout-proxy', {
+          body: { action: 'createSession', order_id: orderId, billing_type: paymentMethod },
+        });
+        if (sessionErr || !sessionData?.token) {
+          throw new Error(sessionData?.error ?? sessionErr?.message ?? 'Erro ao criar sessão de pagamento.');
+        }
+
+        const checkoutUrl = `${window.location.origin}/pagar/${sessionData.token}`;
+
+        // Enviar WhatsApp (best-effort)
+        if (linkedGuardianId) {
+          const { data: gp } = await supabase
+            .from('guardian_profiles')
+            .select('full_name, phone')
+            .eq('id', linkedGuardianId)
+            .maybeSingle();
+          if (gp?.phone) {
+            const text = `Olá, ${(gp.full_name as string).split(' ')[0]}! 👋\n\nAcesse o link abaixo para pagar *${orderNumber}* (${fmt(total)}):\n\n${checkoutUrl}\n\n_Dúvidas? Entre em contato com a secretaria._`;
+            await supabase.functions.invoke('uazapi-proxy', {
+              body: { action: 'sendText', phone: gp.phone, text },
+            }).catch(() => {});
+          }
+        }
+
+        setChargeResult({ checkoutToken: sessionData.token as string, checkoutUrl });
+      }
+
       setLastOrderNumber(orderNumber);
-      if (chargeData) setChargeResult(chargeData);
       setSaleDone(true);
       setCart([]);
       setSelectedStudent(null); setLinkedGuardianId(null); setStudentSearch('');
@@ -678,24 +610,18 @@ export default function PDVPage() {
                 <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
                   <Check className="w-4 h-4" /> Cobrança gerada! {lastOrderNumber}
                 </div>
-                {chargeResult.payment_link && (
-                  <div className="flex gap-2">
-                    <a href={chargeResult.payment_link} target="_blank" rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-primary text-white text-xs font-medium hover:bg-brand-primary-dark transition-colors">
-                      <ExternalLink className="w-3.5 h-3.5" /> Abrir link de pagamento
-                    </a>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(chargeResult.payment_link!)}
-                      className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 hover:border-brand-primary transition-colors flex items-center gap-1">
-                      <Copy className="w-3.5 h-3.5" /> Copiar
-                    </button>
-                  </div>
-                )}
-                {chargeResult.pix_code && !chargeResult.payment_link && (
-                  <div className="font-mono text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 rounded-lg p-2 break-all select-all border border-gray-200 dark:border-gray-600">
-                    {chargeResult.pix_code}
-                  </div>
-                )}
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Link de pagamento personalizado:</p>
+                <div className="flex gap-2">
+                  <a href={chargeResult.checkoutUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-primary text-white text-xs font-medium hover:bg-brand-primary-dark transition-colors">
+                    <ExternalLink className="w-3.5 h-3.5" /> Abrir checkout
+                  </a>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(chargeResult!.checkoutUrl)}
+                    className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 hover:border-brand-primary transition-colors flex items-center gap-1">
+                    <Copy className="w-3.5 h-3.5" /> Copiar
+                  </button>
+                </div>
                 <p className="text-[10px] text-gray-400 flex items-center gap-1">
                   <MessageCircle className="w-3 h-3" /> WhatsApp enviado ao responsável
                 </p>

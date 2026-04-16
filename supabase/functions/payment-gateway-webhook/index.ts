@@ -300,6 +300,13 @@ Deno.serve(async (req: Request) => {
           .update({ status: "payment_confirmed", updated_at: new Date().toISOString() })
           .eq("id", order.id);
 
+        // Mark checkout_session as paid so the /pagar/:token page auto-advances
+        await service
+          .from("checkout_sessions")
+          .update({ status: "paid" })
+          .eq("store_order_id", order.id)
+          .eq("status", "pending");
+
         console.log(`[webhook] Store order ${order.order_number} marked as payment_confirmed`);
       } else if (event.status === "overdue") {
         // Don't auto-cancel — the order stays pending_payment, school decides
