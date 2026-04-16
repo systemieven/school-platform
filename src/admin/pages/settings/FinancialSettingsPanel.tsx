@@ -1513,112 +1513,111 @@ export default function FinancialSettingsPanel() {
         open={editingCat !== null}
         onClose={() => setEditingCat(null)}
         title={isNewCat ? 'Nova Categoria' : 'Editar Categoria'}
+        icon={Tag}
+        footer={
+          <div className="flex gap-3">
+            <button
+              onClick={() => setEditingCat(null)}
+              disabled={catSaving}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700
+                         text-sm text-gray-600 dark:text-gray-300
+                         hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={saveCat}
+              disabled={catSaving || !editingCat?.name?.trim() || !editingCat?.type}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl
+                          text-sm font-medium transition-all
+                          ${catSaved
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}
+            >
+              {catSaving ? <Loader2 className="w-4 h-4 animate-spin" />
+               : catSaved  ? <Check className="w-4 h-4" />
+                           : <BookOpen className="w-4 h-4" />}
+              {catSaving ? 'Salvando…' : catSaved ? 'Salvo!' : isNewCat ? 'Criar categoria' : 'Salvar'}
+            </button>
+          </div>
+        }
       >
         {editingCat && (
-          <>
-            <DrawerCard title="Dados da Categoria" icon={BookOpen}>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                    Nome *
-                  </label>
-                  <input
-                    type="text"
-                    value={editingCat.name ?? ''}
-                    onChange={(e) => setEditingCat({ ...editingCat, name: e.target.value })}
-                    placeholder="Ex: Aluguel, Mensalidades..."
-                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                               placeholder:text-gray-400 focus:border-brand-primary outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                    Tipo *
-                  </label>
-                  <div className="flex gap-2">
-                    {(['receita', 'despesa'] as AccountCategoryType[]).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setEditingCat({ ...editingCat, type: t })}
-                        className={`flex-1 py-2.5 text-sm rounded-xl border font-medium capitalize transition-colors ${
-                          editingCat.type === t
-                            ? t === 'receita'
-                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                              : 'border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                            : 'border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'
-                        }`}
-                      >
-                        {t === 'receita' ? 'Receita' : 'Despesa'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                    Categoria Pai (opcional)
-                  </label>
-                  <select
-                    value={editingCat.parent_id ?? ''}
-                    onChange={(e) => setEditingCat({ ...editingCat, parent_id: e.target.value || null })}
-                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                               focus:border-brand-primary outline-none"
-                  >
-                    <option value="">— Nenhuma (categoria raiz) —</option>
-                    {categories
-                      .filter((c) => !c.parent_id && c.id !== editingCat.id)
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
-                      ))
-                    }
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                    Código Contábil (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={editingCat.code ?? ''}
-                    onChange={(e) => setEditingCat({ ...editingCat, code: e.target.value || null })}
-                    placeholder="Ex: 1.1.1, 4.2..."
-                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                               placeholder:text-gray-400 focus:border-brand-primary outline-none"
-                  />
+          <DrawerCard title="Dados da Categoria" icon={BookOpen}>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                  Nome *
+                </label>
+                <input
+                  type="text"
+                  value={editingCat.name ?? ''}
+                  onChange={(e) => setEditingCat({ ...editingCat, name: e.target.value })}
+                  placeholder="Ex: Aluguel, Mensalidades..."
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600
+                             bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                             placeholder:text-gray-400 focus:border-brand-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                  Tipo *
+                </label>
+                <div className="flex gap-2">
+                  {(['receita', 'despesa'] as AccountCategoryType[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setEditingCat({ ...editingCat, type: t })}
+                      className={`flex-1 py-2.5 text-sm rounded-xl border font-medium capitalize transition-colors ${
+                        editingCat.type === t
+                          ? t === 'receita'
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                            : 'border-red-500 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      {t === 'receita' ? 'Receita' : 'Despesa'}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </DrawerCard>
-
-            {/* Footer */}
-            <div className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700">
-              <button
-                onClick={() => setEditingCat(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={saveCat}
-                disabled={catSaving || !editingCat.name?.trim() || !editingCat.type}
-                className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
-                  catSaved
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
-                }`}
-              >
-                {catSaving ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
-                ) : catSaved ? (
-                  <><Check className="w-4 h-4" /> Salvo!</>
-                ) : (
-                  <><BookOpen className="w-4 h-4" /> {isNewCat ? 'Criar categoria' : 'Salvar'}</>
-                )}
-              </button>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                  Categoria Pai (opcional)
+                </label>
+                <select
+                  value={editingCat.parent_id ?? ''}
+                  onChange={(e) => setEditingCat({ ...editingCat, parent_id: e.target.value || null })}
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600
+                             bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                             focus:border-brand-primary outline-none"
+                >
+                  <option value="">— Nenhuma (categoria raiz) —</option>
+                  {categories
+                    .filter((c) => !c.parent_id && c.id !== editingCat.id)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
+                    ))
+                  }
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                  Código Contábil (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={editingCat.code ?? ''}
+                  onChange={(e) => setEditingCat({ ...editingCat, code: e.target.value || null })}
+                  placeholder="Ex: 1.1.1, 4.2..."
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600
+                             bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                             placeholder:text-gray-400 focus:border-brand-primary outline-none"
+                />
+              </div>
             </div>
-          </>
+          </DrawerCard>
         )}
       </Drawer>
     </div>
