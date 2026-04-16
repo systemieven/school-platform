@@ -33,7 +33,8 @@
     - 10.7 Fase 12 — Modulo Pedagogico Avancado (BNCC) ✅
     - 10.8 Fase 13 — IA e Analytics
     - 10.9 Fase 14 — Loja, PDV e Estoque ✅
-    - 10.9B Fase 14.F — Estrutura Fiscal de Produtos (NF-e Prep)
+    - 10.9B Fase 14.F — Estrutura Fiscal de Produtos (NF-e Prep) ✅
+    - 10.9C Fase 14.S — Emissao Automatica de NFS-e
     - 10.10 Melhorias Transversais
     - 10.11 F6.4 Documentacao Tecnica (ultima etapa da v1)
     - 10.12 Fase 15 — Achados e Perdidos Digital ✅
@@ -1435,6 +1436,18 @@ Configuravel na aba Aparencia > Home:
 | 106 | `whatsapp_send_log` | 16/04 | Sprint 3 prep — Tabela whatsapp_send_log para deduplicacao cross-modulo de envios WhatsApp |
 | 107 | `learning_objectives` | 16/04 | Fase 12 (Sprint 5) — learning_objectives (BNCC) + lesson_plan_objectives N:N; permissao objetivos-bncc |
 | 108 | `webauthn` | 16/04 | Sprint 6 — webauthn_credentials + webauthn_challenges (TTL 5min) para biometria no Portal do Responsavel |
+| 109 | `fiscal_profiles` | 16/04 | Fase 14.F (Sprint 7) — Perfis fiscais reutilizaveis (templates de configuracao tributaria); mesmos campos que product_fiscal_data exceto store_product_id |
+| 110 | `product_fiscal_data` | 16/04 | Fase 14.F (Sprint 7) — Dados fiscais 1:1 com store_products (NCM, CST, aliquotas, gera_nfe, obs_fiscal, fiscal_profile_id FK nullable) |
+| 111 | `company_fiscal_config` | 16/04 | Fase 14.F (Sprint 7) — Config singleton do emitente NF-e (dados do emitente, regime tributario, serie, numeracao, CFOPs padrao, integracao com provider) |
+| 112 | `nfe_entry_items` | 16/04 | Fase 14.F (Sprint 7) — nfe_entries (cabecalho de importacao XML) + nfe_entry_items (itens com campos fiscais extraidos) |
+| 113 | `fiscal_permissions` | 16/04 | Fase 14.F (Sprint 7) — Modulos store-fiscal e store-fiscal-config + role_permissions |
+| 114 | `company_nfse_config` | — | Fase 14.S — Config singleton do emitente NFS-e: inscricao municipal, municipio de prestacao, ambiente, serie, proximo numero, aliq_iss_padrao, retencoes federais padrao, optante_simples, provider, token_api (criptografado), webhook_url, certificado_pfx (criptografado), senha_pfx (criptografada), status_integracao |
+| 115 | `nfse_category_config` | — | Fase 14.S — Colunas de config NFS-e em financial_account_categories: gera_nfse BOOL, codigo_servico, cnae, item_lista_lc116, descricao_servico_template, aliq_iss, tem_retencao, aliq_pis_ret, aliq_cofins_ret, aliq_csll_ret, aliq_ir_ret, aliq_iss_ret |
+| 116 | `guardian_fiscal_fields` | — | Fase 14.S — Campos fiscais em guardian_profiles: cpf_cnpj, tipo_pessoa (fisica/juridica), logradouro_fiscal, numero_fiscal, complemento_fiscal, bairro_fiscal, cep_fiscal, municipio_fiscal, uf_fiscal, email_fiscal; flag fiscal_data_complete gerada por trigger |
+| 117 | `nfse_emitidas` | — | Fase 14.S — Tabela principal de NFS-e emitidas: numero, serie, data_emissao, competencia, tomador JSONB snapshot, descricao_servico, valor_servico, deducoes, valor_liquido, aliq_iss, iss_retido, iss_a_recolher, retencoes_federais JSONB, provider_nfse_id, link_pdf, xml_retorno TEXT, status (autorizada/cancelada/substituida/rejeitada/pendente), installment_id FK nullable, receivable_id FK nullable, categoria_id FK, substituida_por UUID FK nullable, emitida_por UUID FK, created_at |
+| 118 | `nfse_emission_log` | — | Fase 14.S — Log imutavel de tentativas de emissao: nfse_id FK nullable, tentativa INT, iniciado_por UUID, iniciado_por_tipo (user/system), dados_enviados JSONB, resposta JSONB, codigo_retorno TEXT, status (success/error/pending), created_at |
+| 119 | `nfse_permissions` | — | Fase 14.S — Modulos nfse-emitidas, nfse-config, nfse-apuracao + role_permissions |
+| 120 | `nfse_whatsapp_templates` | — | Fase 14.S — Categoria WhatsApp 'fiscal' (cor verde-escuro) + templates nfse_autorizada e nfse_cancelada com variaveis link_nfse e numero_nfse |
 
 ### 7.4 RLS Policies
 
@@ -1550,6 +1563,9 @@ Configuravel na aba Aparencia > Home:
 |--------|------|------------|------|-----------|
 | `create-guardian-user` | JWT (super_admin) | — | 10 | Cria usuario Supabase Auth para responsavel + `guardian_profiles`; gera senha temporaria |
 | `occurrence-notify` | Trigger secret | — | 10 | Disparado ao inserir em `student_occurrences`; envia WhatsApp ao responsavel do aluno |
+| `nfse-emitter` | JWT (admin+) / Trigger secret | — | 14.S | Engine de emissao NFS-e: monta payload, valida tomador, chama API do provider, registra em `nfse_emitidas`; suporta emissao automatica (trigger) e manual (admin) |
+| `nfse-webhook` | Secret URL param | — | 14.S | Recebe callbacks do provider (autorizacao, rejeicao, cancelamento, substituicao); atualiza `nfse_emitidas.status`; idempotente via `nfse_emission_log` |
+| `nfse-retry-job` | pg_cron | — | 14.S | Job agendado que reprocessa emissoes com status `pendente` ou `rejeitada` dentro do limite de tentativas configuravel |
 
 ---
 
@@ -1736,7 +1752,8 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
 | 14 | Loja, PDV e Estoque | ✅ Concluido (migrations 92–102, 2026-04-16) | Alta | 8.5 + 10 |
 | 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
-| 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ⏳ Planejado | Media | 14 |
+| 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ✅ Concluido (migrations 109–113, Sprint 7, 2026-04-16) | Media | 14 |
+| 14.S | Emissao Automatica de NFS-e (Notas Fiscais de Servicos) | ⏳ Planejado | Media-Alta | 14.F + 8.5 + 10 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
@@ -3208,7 +3225,7 @@ Variáveis disponíveis: `numero_pedido`, `nome_responsavel`, `nome_aluno`, `ite
 
 ### 10.9B Fase 14.F — Estrutura Fiscal de Produtos (NF-e Prep)
 
-**Status**: ⏳ Planejado
+**Status**: ✅ Concluido — Sprint 7, 2026-04-16 (migrations 109–113)
 **Dependencias**: Fase 14 concluida (store_products, store_inventory, store_orders)
 **Prioridade**: Media
 
@@ -3424,6 +3441,443 @@ nfe_entry_items                  → itens de NF-e de entrada (ja descrito na sp
 | `Config > Fiscal` | Dados do emitente + campos de integracao com emissor externo (estruturais) |
 | `store-reports` | Relatorio de conformidade fiscal com filtros e exportacao CSV |
 | `store_orders` / PDV | Em fase futura: consulta dados fiscais do produto para emissao automatica de NF-e na saida |
+
+---
+
+### 10.9C Fase 14.S — Emissao Automatica de NFS-e
+
+**Status**: ⏳ Planejado
+**Dependencias**:
+- Fase 14.F concluida (`company_fiscal_config` — dados do emitente e padrao de config fiscal estabelecidos)
+- Fase 8.5 concluida (`financial_account_categories`, `financial_receivables`, `financial_installments` — fontes dos pagamentos tributaveis)
+- Fase 10 concluida (`guardian_profiles` — tomador da NFS-e)
+- Sprint 8 — MessageOrchestrator (recomendado para notificacoes WhatsApp automaticas; integravel posteriormente sem bloquear esta fase)
+**Prioridade**: Media-Alta
+
+> O sistema passa a suportar emissao automatica de Nota Fiscal de Servicos Eletronica (NFS-e) ao detectar o pagamento de lancamentos financeiros configurados como tributaveis. A estrutura e analogica a Fase 14.F (NF-e de produtos), mas voltada exclusivamente a servicos educacionais — mensalidades, taxas de matricula, eventos e outros servicos cobrados pela instituicao.
+>
+> As tabelas de NF-e (produtos) e NFS-e (servicos) sao **completamente separadas**: providers, numeracao, ambientes e fluxos de emissao podem diferir. O emitente (CNPJ, razao social, endereco, regime tributario) e o mesmo e pode ser reaproveitado da `company_fiscal_config` via leitura no backend — sem FK, pois os dados sao snapshotados no momento da emissao.
+>
+> ⚠️ **Integracao com o municipio**: cada prefeitura tem um sistema propio (ABRASF, NFS-e nacional, sistemas municipais exclusivos). O provider selecionado em `company_nfse_config` e responsavel por abstrair essas diferencas. O sistema de plataforma apenas monta o payload canonico e delega a emissao.
+
+---
+
+#### 14.S.1 Trigger de Emissao
+
+**Eventos que disparam a emissao automatica:**
+
+| Evento | Origem |
+|--------|--------|
+| Pagamento de mensalidade | Baixa em `financial_installments` com categoria `gera_nfse = true` |
+| Pagamento de taxa de matricula | Baixa em `financial_receivables` com categoria `gera_nfse = true` |
+| Pagamento de taxa avulsa | Baixa em `financial_receivables` com categoria `gera_nfse = true` |
+| Pagamento de evento ou passeio | Baixa em `financial_receivables` vinculada a evento tributavel |
+| Pagamento manual no caixa | Lancamento de recebimento em `financial_cash_movements` com referencia a receivable tributavel |
+
+A tributabilidade e definida por **categoria financeira** (`financial_account_categories.gera_nfse = true`), com configuracao completa do servico por categoria. Isso permite controle granular: mensalidades geram NFS-e, taxas de atraso nao geram, por exemplo.
+
+**Fluxo completo apos deteccao:**
+
+```
+pagamento confirmado
+→ categoria do lancamento tem gera_nfse = true?
+   → nao → nenhuma acao
+   → sim → buscar dados do tomador (guardian_profiles do responsavel financeiro do aluno)
+         → todos os campos fiscais do tomador presentes?
+            → nao → registrar pendencia + alertar admin → aguardar correcao cadastral
+            → sim → montar payload NFS-e (dados do prestador + tomador + servico)
+                  → chamar Edge Function nfse-emitter
+                  → provider retorna status imediato ou aguarda webhook
+                  → autorizada → atualizar nfse_emitidas.status = 'autorizada'
+                              → vincular ao pagamento de origem
+                              → [se configurado] enviar PDF ao responsavel via WhatsApp/e-mail
+                  → rejeitada → registrar codigo de erro + mensagem
+                              → alertar admin
+                              → [se configurado] agendar reenvio automatico
+```
+
+**Emissao manual (reemissao ou emissao sob demanda):**
+- Botao **"Emitir NFS-e"** disponivel no detalhe de qualquer lancamento tributavel ainda sem nota vinculada
+- Disponivel tambem para pagamentos com nota rejeitada (permite reemissao com dados corrigidos)
+- Roles autorizadas: `super_admin`, `admin`, `coordinator` com permissao `nfse-emitidas > can_create`
+
+---
+
+#### 14.S.2 Dados do Tomador
+
+O tomador da NFS-e e o **responsavel financeiro** vinculado ao aluno (`student_guardians.is_financial_guardian = true`). O sistema usa `guardian_profiles` como fonte de verdade.
+
+**Campos fiscais necessarios no `guardian_profiles` (migration 116):**
+
+| Campo | Descricao |
+|-------|-----------|
+| `cpf_cnpj` | CPF (pessoa fisica) ou CNPJ (pessoa juridica) — 11 ou 14 digitos |
+| `tipo_pessoa` | `fisica` ou `juridica` |
+| `logradouro_fiscal` | Endereco fiscal (pode diferir do endereco de contato) |
+| `numero_fiscal` | |
+| `complemento_fiscal` | |
+| `bairro_fiscal` | |
+| `cep_fiscal` | |
+| `municipio_fiscal` | |
+| `uf_fiscal` | |
+| `email_fiscal` | E-mail para envio da nota (pode diferir do e-mail de contato) |
+
+**Flag `fiscal_data_complete`** (gerada por trigger): `TRUE` quando todos os campos acima obrigatorios estao preenchidos. Usada para bloquear emissao automatica e para listagem de pendencias cadastrais.
+
+**Listagem de pendencias:** nova sub-aba **"Pendencias Cadastrais"** em *Config > Fiscal > Servicos*, listando responsaveis financeiros com `fiscal_data_complete = false`, com link direto para editar o cadastro.
+
+---
+
+#### 14.S.3 Dados do Servico por Categoria
+
+Cada categoria financeira com `gera_nfse = true` possui configuracao propria do servico (migration 115):
+
+| Campo | Descricao |
+|-------|-----------|
+| `codigo_servico` | Codigo LC 116 ou codigo especifico do municipio |
+| `item_lista_lc116` | Item do Anexo da Lei Complementar 116/2003 |
+| `cnae` | Codigo CNAE da atividade economica |
+| `descricao_servico_template` | Texto padrao da descricao do servico; suporta variaveis contextuais |
+| `aliq_iss` | Aliquota ISS especifica desta categoria (sobrescreve a aliquota padrao global) |
+| `tem_retencao` | Toggle — indica se ha retencao na fonte |
+| `aliq_pis_ret` | Aliquota de PIS retido (quando `tem_retencao = true`) |
+| `aliq_cofins_ret` | Aliquota de COFINS retido |
+| `aliq_csll_ret` | Aliquota de CSLL retido |
+| `aliq_ir_ret` | Aliquota de IR retido |
+| `aliq_iss_ret` | Aliquota de ISS retido na fonte (tomador retencao) |
+
+**Variaveis contextuais na descricao do servico:**
+
+| Variavel | Substituicao |
+|----------|-------------|
+| `{{mes_referencia}}` | Mes e ano de competencia do pagamento (ex: "Abril/2026") |
+| `{{nome_aluno}}` | Nome do aluno vinculado ao contrato/lancamento |
+| `{{turma}}` | Serie + turma do aluno (ex: "1º Ano A") |
+| `{{numero_contrato}}` | Numero do contrato financeiro de origem |
+
+---
+
+#### 14.S.4 Config > Fiscal > Servicos
+
+Extensao da aba **Fiscal** em `/admin/configuracoes`, com novo sub-grupo **"Servicos (NFS-e)"** organizado em SettingsCards:
+
+**Card 1 — Dados do Prestador de Servicos**
+- Razao social e nome fantasia (leitura de `company_fiscal_config` como sugestao; editavel aqui de forma independente)
+- CNPJ (validado — 14 digitos)
+- Inscricao municipal (obrigatoria para emissao)
+- Inscricao estadual (quando aplicavel)
+- Regime tributario: Simples Nacional · Lucro Presumido · Lucro Real · MEI
+- Endereco completo do estabelecimento prestador
+- Optante pelo Simples Nacional: toggle que ajusta automaticamente os campos de retencao federais conforme a legislacao (optantes do Simples nao sofrem retencao de PIS/COFINS/CSLL/IR)
+
+**Card 2 — Configuracoes de Emissao**
+
+| Campo | Descricao |
+|-------|-----------|
+| Municipio de prestacao | Seletor com busca; determina o sistema de emissao a usar |
+| Ambiente | Producao / Homologacao |
+| Serie padrao | Numero (default: 1) |
+| Proximo numero NFS-e | Controlado pelo sistema; incrementado a cada emissao autorizada |
+| Emissao automatica | Toggle global: habilita/desabilita disparo automatico no pagamento |
+| Comportamento em falha | `retry` (retenta apos X minutos) ou `alert_only` (apenas alerta o admin) |
+| Intervalo de reenvio | Minutos entre tentativas automaticas (visivel quando `retry` ativo) |
+| Limite de tentativas | Numero maximo de tentativas antes de marcar como falha definitiva |
+
+**Card 3 — Integracao com API de Emissao**
+
+| Campo | Descricao |
+|-------|-----------|
+| Provider | Focus NF-e · eNotas · Nuvem Fiscal · Prefeitura direta · Outro |
+| Token / Chave de API | Armazenado com criptografia; nunca exibido apos cadastro (input type password sem retorno) |
+| URL do webhook de retorno | Para receber autorizacao, rejeicao, cancelamento e substituicao |
+| Certificado digital (.pfx) | Upload do arquivo; armazenado com criptografia; nome do arquivo exibido apos upload |
+| Senha do certificado | Armazenada com criptografia; nunca exibida apos cadastro |
+| Status da integracao | Nao configurada · Em homologacao · Ativa — badge colorido |
+
+Botao **"Testar conexao"**: realiza chamada de validacao ao provider selecionado e exibe resultado em modal (sucesso ou mensagem de erro detalhada com codigo de retorno).
+
+**Card 4 — ISS e Retencoes Globais (Fallback)**
+
+| Campo | Descricao |
+|-------|-----------|
+| Aliquota ISS padrao do municipio | Percentual aplicado quando a categoria nao tem aliquota especifica |
+| Retencao padrao de tributos federais | Toggles e percentuais para PIS, COFINS, CSLL e IR — somente quando a categoria nao tem configuracao propria |
+
+**Card 5 — Envio ao Tomador**
+
+| Campo | Descricao |
+|-------|-----------|
+| Enviar PDF por e-mail apos autorizacao | Toggle; usa `email_fiscal` do `guardian_profiles` |
+| Enviar via WhatsApp | Toggle; usa template da categoria `fiscal` |
+| Template WhatsApp | Seletor dos templates da categoria `fiscal` com preview |
+
+---
+
+#### 14.S.5 Gestao de NFS-e Emitidas
+
+Nova aba **"NFS-e"** em `/admin/financeiro`, com sub-tabs:
+
+**Sub-tab: Notas Emitidas**
+
+Listagem de todas as notas com:
+
+| Coluna | Descricao |
+|--------|-----------|
+| Numero / Serie | Numero da nota e serie |
+| Data de emissao | Com hora |
+| Tomador | Nome + CPF/CNPJ |
+| Descricao | Descricao do servico (truncada) |
+| Valor liquido | Valor apos deducoes |
+| ISS | Retido ou a recolher (badge diferenciado) |
+| Status | `autorizada` · `cancelada` · `substituida` · `rejeitada` · `pendente` — badge colorido |
+| Origem | Link para o pagamento de origem (parcela ou receivable) |
+
+**Acoes por nota:**
+
+| Acao | Descricao |
+|------|-----------|
+| Visualizar PDF | Abre PDF da nota em nova aba |
+| Enviar por e-mail | Reenvio ao tomador |
+| Enviar por WhatsApp | Reenvio com template da categoria `fiscal` |
+| Cancelar | Abre modal com campo de motivo obrigatorio; respeita prazo do municipio |
+| Substituir | Emite nota substituta e vincula a cancelada via `substituida_por` |
+
+**Filtros:** periodo de emissao · competencia · tomador · status · categoria financeira de origem
+
+Exportacao CSV e Excel para apuracao fiscal mensal.
+
+**Sub-tab: Apuracao ISS**
+
+Relatorio mensal consolidando:
+
+| Campo | Descricao |
+|-------|-----------|
+| Total de servicos prestados | Soma de `valor_servico` das notas autorizadas no periodo |
+| Total de ISS devido | Soma de `aliq_iss * valor_servico` |
+| ISS retido na fonte | Soma de `iss_retido` por tomador |
+| ISS a recolher | `iss_devido - iss_retido` |
+| Detalhamento | Por nota e por tomador |
+
+Exportavel em formato adequado para PGDAS-D (Simples Nacional) ou DES municipal conforme regime configurado.
+
+**Sub-tab: Log de Emissoes**
+
+Acesso ao `nfse_emission_log` com filtros por periodo, status e NFS-e. Log imutavel — somente leitura.
+
+---
+
+#### 14.S.6 Alertas e Pendencias
+
+| Alerta | Condicao | Canal |
+|--------|----------|-------|
+| Emissao rejeitada | `nfse_emitidas.status = 'rejeitada'` | Notificacao interna + badge no menu |
+| Cadastro fiscal incompleto | `guardian_profiles.fiscal_data_complete = false` com lancamentos tributaveis pendentes | Listagem em Config > Fiscal > Servicos > Pendencias |
+| Integracao inativa | `company_nfse_config.status_integracao != 'ativa'` com emissao automatica habilitada | Banner amarelo no topo do card de integracao |
+| Certificado proximo do vencimento | Data de vencimento do .pfx dentro de N dias (configuravel, default 30) | Notificacao interna |
+| Ambiente incorreto | `ambiente = 'homologacao'` com `status_integracao = 'ativa'` | Banner de aviso em destaque no card de emissao |
+
+---
+
+#### 14.S.7 Schema do Banco de Dados
+
+```
+financial_account_categories        (migration 67 — modificada pela 115)
+└── gera_nfse BOOLEAN
+    codigo_servico TEXT
+    item_lista_lc116 TEXT
+    cnae TEXT
+    descricao_servico_template TEXT
+    aliq_iss NUMERIC(5,2)
+    tem_retencao BOOLEAN
+    aliq_pis_ret, aliq_cofins_ret, aliq_csll_ret, aliq_ir_ret, aliq_iss_ret NUMERIC(5,4)
+
+guardian_profiles                   (migration 75 — modificada pela 116)
+└── cpf_cnpj TEXT
+    tipo_pessoa TEXT CHECK IN ('fisica','juridica')
+    logradouro_fiscal, numero_fiscal, complemento_fiscal, bairro_fiscal TEXT
+    cep_fiscal, municipio_fiscal, uf_fiscal TEXT
+    email_fiscal TEXT
+    fiscal_data_complete BOOLEAN (gerado por trigger)
+
+company_nfse_config                 (migration 114 — singleton via partial unique index)
+└── razao_social, nome_fantasia, cnpj, ie, im TEXT
+    inscricao_municipal TEXT NOT NULL
+    logradouro, numero, complemento, bairro, cep, municipio, uf TEXT
+    regime_tributario TEXT CHECK IN ('simples_nacional','lucro_presumido','lucro_real','mei')
+    optante_simples BOOLEAN
+    municipio_prestacao TEXT
+    ambiente TEXT CHECK IN ('producao','homologacao')
+    serie_nfse INT
+    proximo_numero_nfse BIGINT
+    emissao_automatica BOOLEAN
+    comportamento_falha TEXT CHECK IN ('retry','alert_only')
+    retry_interval_minutes INT
+    retry_max_attempts INT
+    aliq_iss_padrao NUMERIC(5,2)
+    retencoes_padrao JSONB (pis/cofins/csll/ir toggles e percentuais)
+    nfse_provider TEXT CHECK IN ('focus','enotas','nuvem_fiscal','prefeitura_direta','outro','')
+    nfse_api_token TEXT (criptografado)
+    nfse_webhook_url TEXT
+    nfse_certificado_pfx TEXT (criptografado, armazenado em base64)
+    nfse_certificado_senha TEXT (criptografada)
+    nfse_certificado_validade DATE
+    nfse_integration_status TEXT CHECK IN ('none','homologacao','ativa')
+    enviar_email_tomador BOOLEAN
+    enviar_whatsapp_tomador BOOLEAN
+    whatsapp_template_id UUID FK (nullable)
+
+nfse_emitidas                       (migration 117)
+└── id UUID PK
+    numero BIGINT NOT NULL
+    serie INT NOT NULL DEFAULT 1
+    data_emissao TIMESTAMPTZ
+    competencia_mes INT, competencia_ano INT
+    tomador JSONB NOT NULL (snapshot no momento da emissao)
+    prestador JSONB NOT NULL (snapshot no momento da emissao)
+    descricao_servico TEXT NOT NULL
+    codigo_servico TEXT
+    cnae TEXT
+    item_lista_lc116 TEXT
+    valor_servico NUMERIC(12,2)
+    deducoes NUMERIC(12,2) DEFAULT 0
+    valor_liquido NUMERIC(12,2)
+    aliq_iss NUMERIC(5,2)
+    iss_devido NUMERIC(12,2)
+    iss_retido NUMERIC(12,2) DEFAULT 0
+    iss_a_recolher NUMERIC(12,2)
+    retencoes_federais JSONB (pis/cofins/csll/ir valores retidos)
+    provider_nfse_id TEXT (ID retornado pelo provider)
+    link_pdf TEXT
+    xml_retorno TEXT
+    status TEXT NOT NULL DEFAULT 'pendente'
+        CHECK IN ('pendente','autorizada','cancelada','substituida','rejeitada')
+    motivo_cancelamento TEXT
+    substituida_por UUID REFERENCES nfse_emitidas(id)
+    installment_id UUID REFERENCES financial_installments(id) ON DELETE SET NULL
+    receivable_id UUID REFERENCES financial_receivables(id) ON DELETE SET NULL
+    categoria_id UUID REFERENCES financial_account_categories(id) ON DELETE SET NULL
+    emitida_por UUID REFERENCES auth.users(id) ON DELETE SET NULL
+    created_at, updated_at TIMESTAMPTZ
+
+nfse_emission_log                   (migration 118 — imutavel: sem UPDATE, sem DELETE)
+└── id UUID PK
+    nfse_id UUID REFERENCES nfse_emitidas(id) ON DELETE SET NULL
+    tentativa INT NOT NULL DEFAULT 1
+    iniciado_por UUID REFERENCES auth.users(id) ON DELETE SET NULL
+    iniciado_por_tipo TEXT NOT NULL CHECK IN ('user','system')
+    dados_enviados JSONB
+    resposta JSONB
+    codigo_retorno TEXT
+    mensagem_retorno TEXT
+    status TEXT NOT NULL CHECK IN ('success','error','pending')
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+```
+
+**Migrations planejadas:**
+
+| # | Nome | Descricao |
+|---|------|-----------|
+| 114 | `company_nfse_config` | Tabela singleton de configuracao do emitente NFS-e + RLS |
+| 115 | `nfse_category_config` | Colunas de config NFS-e em `financial_account_categories` |
+| 116 | `guardian_fiscal_fields` | Campos fiscais em `guardian_profiles` + trigger `fiscal_data_complete` |
+| 117 | `nfse_emitidas` | Tabela principal de NFS-e emitidas + indices + RLS |
+| 118 | `nfse_emission_log` | Tabela de log imutavel de tentativas de emissao + RLS |
+| 119 | `nfse_permissions` | Modulos `nfse-emitidas`, `nfse-config`, `nfse-apuracao` + role_permissions |
+| 120 | `nfse_whatsapp_templates` | Categoria WhatsApp `fiscal` + templates `nfse_autorizada`, `nfse_cancelada` |
+
+---
+
+#### 14.S.8 Edge Functions
+
+| Funcao | Auth | Descricao |
+|--------|------|-----------|
+| `nfse-emitter` | JWT (admin+) / Trigger secret | Recebe `{ payment_type, payment_id, force_manual? }`; valida tomador; monta payload canonico; chama API do provider; registra em `nfse_emitidas` e `nfse_emission_log`; dispara notificacao se autorizada |
+| `nfse-webhook` | Secret URL param | Recebe callbacks do provider; normaliza resposta; atualiza `nfse_emitidas.status`; registra em `nfse_emission_log`; idempotente via `provider_nfse_id` |
+| `nfse-retry-job` | pg_cron | Agendado a cada N minutos (configuravel); busca `nfse_emitidas` com `status = 'pendente'` ou `status = 'rejeitada'` dentro do limite de tentativas; reprocessa via `nfse-emitter` |
+
+---
+
+#### 14.S.9 Permissoes
+
+| Modulo (`key`) | `super_admin`/`admin` | `coordinator` | `user` |
+|---|---|---|---|
+| `nfse-emitidas` | CRUD (listar, emitir, cancelar, substituir, enviar) | view/create | — |
+| `nfse-config` | CRUD (Config > Fiscal > Servicos) | — | — |
+| `nfse-apuracao` | view/export (Relatorio ISS) | view | — |
+
+---
+
+#### 14.S.10 Arquivos a Criar / Modificar
+
+**Novos:**
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/admin/pages/financeiro/NfseEmitidas.tsx` | Aba NFS-e em FinancialPage: listagem com filtros, acoes (cancelar, substituir, enviar), exportacao |
+| `src/admin/pages/financeiro/NfseApuracaoPage.tsx` | Sub-tab de apuracao de ISS mensal com exportacao |
+| `src/admin/pages/settings/NfseSettingsPanel.tsx` | 5 SettingsCards do painel Config > Fiscal > Servicos |
+| `supabase/migrations/00000000000114_company_nfse_config.sql` | — |
+| `supabase/migrations/00000000000115_nfse_category_config.sql` | — |
+| `supabase/migrations/00000000000116_guardian_fiscal_fields.sql` | — |
+| `supabase/migrations/00000000000117_nfse_emitidas.sql` | — |
+| `supabase/migrations/00000000000118_nfse_emission_log.sql` | — |
+| `supabase/migrations/00000000000119_nfse_permissions.sql` | — |
+| `supabase/migrations/00000000000120_nfse_whatsapp_templates.sql` | — |
+| `supabase/functions/nfse-emitter/index.ts` | Edge Function de emissao |
+| `supabase/functions/nfse-webhook/index.ts` | Edge Function de webhook |
+| `supabase/functions/nfse-retry-job/index.ts` | Edge Function de reprocessamento |
+
+**Modificados:**
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/admin/pages/financeiro/FinancialPage.tsx` | Nova aba "NFS-e" (icone `FileCheck`) entre Relatorios e final do rail |
+| `src/admin/pages/settings/FiscalSettingsPanel.tsx` | Nova secao "Servicos (NFS-e)" com link/render de `NfseSettingsPanel` ou sub-tabs dentro do painel |
+| `src/admin/pages/settings/SettingsPage.tsx` | Sem mudanca de estrutura — `fiscal` ja e custom panel; apenas `FiscalSettingsPanel` e expandido |
+| `FinancialCategoryDrawer` (ou `FinancialSettingsPanel.tsx`) | Campos de config NFS-e por categoria (toggle `gera_nfse` + campos de servico — exibidos quando toggle ativo) |
+| `GuardianProfilePage` / drawer de edicao de responsavel | Secao "Dados Fiscais" com os campos de `guardian_fiscal_fields`; indicador de completude para emissao NFS-e |
+| `FinancialInstallmentsPage` + `FinancialReceivablesPage` | Botao "Emitir NFS-e" no detalhe do lancamento tributavel sem nota vinculada; badge de status da nota nos lancamentos com nota |
+
+---
+
+#### 14.S.11 Analise de Gaps e Oportunidades
+
+**Gaps identificados nos modulos existentes:**
+
+| Gap | Modulo Afetado | Resolucao na Fase 14.S |
+|-----|---------------|------------------------|
+| `guardian_profiles` nao tem CPF/CNPJ nem endereco fiscal | Fase 10 | Migration 116: adiciona campos fiscais + trigger `fiscal_data_complete` |
+| `financial_account_categories` nao tem dados de servico | Fase 8.5 | Migration 115: adiciona `gera_nfse` + configuracao de servico por categoria |
+| Config Fiscal existente (`company_fiscal_config`) e para NF-e de produtos | Fase 14.F | Migration 114: tabela separada `company_nfse_config` — providers, ambientes e series podem diferir |
+| Nao ha categoria WhatsApp para comunicacoes fiscais | Fases 8/9 | Migration 120: categoria `fiscal` com templates NFS-e |
+| Certificado digital (.pfx) nao tem infraestrutura de upload/armazenamento seguro | — | `company_nfse_config.nfse_certificado_pfx` armazenado criptografado; upload via Edge Function |
+
+**Oportunidades de integracao com modulos existentes:**
+
+| Oportunidade | Valor | Complexidade |
+|--------------|-------|-------------|
+| Usar MessageOrchestrator (Sprint 8) para envio da NFS-e ao tomador | Evita duplicacao de mensagens; prioriza comunicacoes fiscais sobre comerciais | Baixa — plugin no orchestrator |
+| Exibir NFS-e no Portal do Responsavel (`/responsavel/financeiro`) | Responsavel visualiza e baixa suas proprias notas | Media — nova secao no portal |
+| Vincular NFS-e ao contrato financeiro (`financial_contracts`) | Gestao fiscal consolidada por contrato do aluno | Baixa — FK adicional em `nfse_emitidas` |
+| Integrar ISS retido ao DRE (`financial_dre_view`) | ISS retido como deducao no resultado financeiro | Media — nova linha na view SQL |
+| Alerta de vencimento do certificado no Dashboard admin | Previne interrupcao de emissao por certificado expirado | Baixa — usar sistema de alertas existente |
+
+---
+
+#### 14.S.12 Integracao com Modulos Existentes
+
+| Modulo | Integracao |
+|--------|-----------|
+| `financial_installments` | Emissao automatica ao registrar baixa em parcela com categoria `gera_nfse = true`; badge de status NFS-e na listagem de cobrancas |
+| `financial_receivables` | Idem para lancamentos de A/R |
+| `financial_cash_movements` | Idem para recebimentos manuais no caixa |
+| `financial_account_categories` | Config de servico por categoria (migration 115); campos exibidos no drawer de edicao de categoria |
+| `guardian_profiles` | Campos fiscais adicionados (migration 116); indicador de completude; listagem de pendencias em Config > Fiscal > Servicos |
+| `Config > Fiscal` | Nova secao "Servicos (NFS-e)" no `FiscalSettingsPanel` existente |
+| `FinancialPage` | Nova aba "NFS-e" com sub-tabs Notas Emitidas, Apuracao ISS, Log |
+| `MessageOrchestrator` (Sprint 8) | Envio de NFS-e ao responsavel via WhatsApp roteado pelo orquestrador; categoria `fiscal`, prioridade 1 (financeiro) |
+| `company_fiscal_config` | Dados do emitente lidos como sugestao inicial ao preencher `company_nfse_config`; sem FK — gestao independente |
+| Portal do Responsavel (`/responsavel/financeiro`) | Secao "Notas Fiscais" com download do PDF das NFS-e autorizadas vinculadas aos lancamentos do responsavel |
 
 ---
 
