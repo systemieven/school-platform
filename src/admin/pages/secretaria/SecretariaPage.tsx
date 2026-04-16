@@ -3,7 +3,7 @@ import {
   FileText, Heart, RefreshCw, ArrowRightLeft,
   PanelLeftClose, PanelLeftOpen,
   Check, Loader2, Trash2, Plus, X, Search, ChevronDown,
-  ShieldCheck,
+  ShieldCheck, HeartPulse, Stethoscope, AlertTriangle, Bell,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
@@ -13,6 +13,9 @@ import type {
   DocumentRequestStatus,
   DocumentType,
   StudentHealthRecord,
+  StudentMedicalCertificate,
+  HealthRecordUpdateRequest,
+  HealthUpdateRequestStatus,
   MedicationEntry,
   BloodType,
   ReenrollmentCampaign,
@@ -26,6 +29,7 @@ import {
   DOCUMENT_REQUEST_STATUS_LABELS,
   DOCUMENT_REQUEST_STATUS_COLORS,
   DOCUMENT_TYPE_LABELS,
+  HEALTH_UPDATE_STATUS_LABELS,
   REENROLLMENT_CAMPAIGN_STATUS_LABELS,
   REENROLLMENT_CAMPAIGN_STATUS_COLORS,
   REENROLLMENT_APPLICATION_STATUS_LABELS,
@@ -876,6 +880,59 @@ function HealthDrawer({
   );
 }
 
+// ── Reject Health Request Modal ───────────────────────────────────────────────
+
+function RejectHealthRequestModal({
+  open,
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  open: boolean;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const [reason, setReason] = useState('');
+  useEffect(() => { if (open) setReason(''); }, [open]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onCancel} />
+      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-6 z-10">
+        <h3 className="text-base font-semibold text-gray-800 dark:text-white mb-3">Recusar solicitação de atualização</h3>
+        <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
+          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 resize-none"
+          placeholder="Motivo da recusa (obrigatório)" />
+        <div className="flex gap-3 mt-4">
+          <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            Cancelar
+          </button>
+          <button onClick={() => onConfirm(reason)} disabled={!reason.trim() || loading}
+            className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Recusar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function certStatus(validUntil: string): 'valid' | 'expiring_soon' | 'expired' {
+  const today = new Date();
+  const exp = new Date(validUntil);
+  if (exp < today) return 'expired';
+  const diff = (exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+  if (diff <= 30) return 'expiring_soon';
+  return 'valid';
+}
+
+const HEALTH_UPDATE_STATUS_COLORS: Record<HealthUpdateRequestStatus, string> = {
+  pending:   'yellow',
+  confirmed: 'green',
+  rejected:  'red',
+};
+
 function SecretariaFichasSaudeTab() {
   const [records, setRecords] = useState<HealthRecordWithStudent[]>([]);
   const [studentOptions, setStudentOptions] = useState<StudentOption[]>([]);
@@ -884,16 +941,47 @@ function SecretariaFichasSaudeTab() {
   const [selectedRecord, setSelectedRecord] = useState<HealthRecordWithStudent | null>(null);
   const [fetchError, setFetchError] = useState('');
 
+  // New state for expanded sections
+  const [activeSubTab, setActiveSubTab] = useState<'fichas' | 'atestados' | 'pendentes'>('fichas');
+  const [certs, setCerts] = useState<StudentMedicalCertificate[]>([]);
+  const [updateRequests, setUpdateRequests] = useState<HealthRecordUpdateRequest[]>([]);
+  const [alertCerts, setAlertCerts] = useState<StudentMedicalCertificate[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [rejectModal, setRejectModal] = useState<{ open: boolean; requestId: string | null }>({ open: false, requestId: null });
+  const [rejectLoading, setRejectLoading] = useState(false);
+
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     setFetchError('');
     try {
-      const { data, error } = await supabase
-        .from('student_health_records')
-        .select('*, student:students(id, full_name, class_id, school_classes(name))')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setRecords((data ?? []) as unknown as HealthRecordWithStudent[]);
+      const [healthRes, certsRes, reqRes] = await Promise.all([
+        supabase
+          .from('student_health_records')
+          .select('*, student:students(id, full_name, class_id, school_classes(name))')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('student_medical_certificates')
+          .select('*, student:students(id, full_name)')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('health_record_update_requests')
+          .select('*, student:students(id, full_name), guardian:guardian_profiles(id, name)')
+          .order('created_at', { ascending: false }),
+      ]);
+      if (healthRes.error) throw healthRes.error;
+      setRecords((healthRes.data ?? []) as unknown as HealthRecordWithStudent[]);
+
+      const allCerts = (certsRes.data ?? []) as unknown as StudentMedicalCertificate[];
+      setCerts(allCerts);
+
+      // Compute alert certs: active certs expiring within 30 days or already expired
+      const today = new Date();
+      const alertDay = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+      setAlertCerts(allCerts.filter((c) => c.is_active && new Date(c.valid_until) <= alertDay));
+
+      const reqs = (reqRes.data ?? []) as unknown as HealthRecordUpdateRequest[];
+      setUpdateRequests(reqs);
+      setPendingCount(reqs.filter((r) => r.status === 'pending').length);
     } catch (e: unknown) {
       setFetchError((e as Error).message ?? 'Erro ao carregar fichas');
     } finally {
@@ -908,6 +996,32 @@ function SecretariaFichasSaudeTab() {
 
   useEffect(() => { fetchRecords(); fetchStudentOptions(); }, [fetchRecords, fetchStudentOptions]);
 
+  async function confirmRequest(id: string) {
+    const { error } = await supabase
+      .from('health_record_update_requests')
+      .update({ status: 'confirmed', reviewed_by: (await supabase.auth.getUser()).data.user?.id ?? null })
+      .eq('id', id);
+    if (!error) fetchRecords();
+  }
+
+  async function rejectRequest(reason: string) {
+    if (!rejectModal.requestId) return;
+    setRejectLoading(true);
+    const { error } = await supabase
+      .from('health_record_update_requests')
+      .update({
+        status: 'rejected',
+        rejection_reason: reason,
+        reviewed_by: (await supabase.auth.getUser()).data.user?.id ?? null,
+      })
+      .eq('id', rejectModal.requestId);
+    setRejectLoading(false);
+    if (!error) {
+      setRejectModal({ open: false, requestId: null });
+      fetchRecords();
+    }
+  }
+
   const kpi = {
     total: records.length,
     allergies: records.filter((r) => r.has_allergies).length,
@@ -921,60 +1035,204 @@ function SecretariaFichasSaudeTab() {
           {fetchError}
         </p>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard label="Total de Fichas" value={kpi.total} />
         <KpiCard label="Com Alergias" value={kpi.allergies} />
         <KpiCard label="Necessidades Especiais" value={kpi.specialNeeds} />
+        <KpiCard label="Atualizações Pendentes" value={pendingCount} />
       </div>
 
-      <div className="flex justify-end">
-        <button onClick={() => { setSelectedRecord(null); setDrawerOpen(true); }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors">
-          <Heart className="w-4 h-4" /> + Nova Ficha
-        </button>
+      {/* Alert panel */}
+      {alertCerts.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold text-sm">
+            <Bell className="w-4 h-4" />
+            {alertCerts.filter((c) => certStatus(c.valid_until) === 'expired').length > 0 && (
+              <span>{alertCerts.filter((c) => certStatus(c.valid_until) === 'expired').length} atestado(s) vencido(s)</span>
+            )}
+            {alertCerts.filter((c) => certStatus(c.valid_until) !== 'expired').length > 0 && (
+              <span>{alertCerts.filter((c) => certStatus(c.valid_until) !== 'expired').length} vencendo em até 30 dias</span>
+            )}
+          </div>
+          <div className="space-y-1">
+            {alertCerts.slice(0, 5).map((cert) => {
+              const status = certStatus(cert.valid_until);
+              return (
+                <div key={cert.id} className="flex items-center justify-between text-xs">
+                  <span className="text-amber-800 dark:text-amber-300">
+                    {(cert as unknown as { student?: { full_name?: string } }).student?.full_name ?? cert.student_id} — {cert.doctor_name}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${status === 'expired' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {status === 'expired' ? 'Vencido' : `Vence ${fmtDate(cert.valid_until)}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Sub-tabs */}
+      <div className="flex gap-1 bg-gray-50 dark:bg-gray-900 rounded-xl p-1">
+        {([
+          ['fichas', 'Fichas', HeartPulse],
+          ['atestados', 'Atestados', Stethoscope],
+          ['pendentes', `Atualizações${pendingCount > 0 ? ` (${pendingCount})` : ''}`, AlertTriangle],
+        ] as const).map(([key, label, Icon]) => (
+          <button key={key} onClick={() => setActiveSubTab(key as 'fichas' | 'atestados' | 'pendentes')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all ${activeSubTab === key ? 'bg-white dark:bg-gray-800 shadow text-brand-primary' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+            <Icon className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">{label}</span>
+          </button>
+        ))}
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-gray-100 dark:border-gray-700">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-            <tr>
-              {['Aluno', 'Turma', 'Tipo Sanguíneo', 'Alergias', 'Medicamentos', 'NE', 'Ações'].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50 dark:divide-gray-800 bg-white dark:bg-gray-900">
-            {loading ? (
-              <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">Carregando…</td></tr>
-            ) : records.length === 0 ? (
-              <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">Nenhuma ficha cadastrada</td></tr>
-            ) : records.map((r) => (
-              <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
-                <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{r.student?.full_name ?? '—'}</td>
-                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                  {r.student?.school_classes?.name ?? '—'}
-                </td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.blood_type ?? '—'}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge label={r.has_allergies ? 'Sim' : 'Não'} color={r.has_allergies ? 'red' : 'gray'} />
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge label={r.uses_medication ? 'Sim' : 'Não'} color={r.uses_medication ? 'yellow' : 'gray'} />
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge label={r.has_special_needs ? 'Sim' : 'Não'} color={r.has_special_needs ? 'blue' : 'gray'} />
-                </td>
-                <td className="px-4 py-3">
-                  <button onClick={() => { setSelectedRecord(r); setDrawerOpen(true); }}
-                    className="px-3 py-1 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-xs font-medium transition-colors">
-                    Editar
+      {/* Sub-tab: Fichas */}
+      {activeSubTab === 'fichas' && (
+        <>
+          <div className="flex justify-end">
+            <button onClick={() => { setSelectedRecord(null); setDrawerOpen(true); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors">
+              <Heart className="w-4 h-4" /> + Nova Ficha
+            </button>
+          </div>
+          <div className="overflow-x-auto rounded-2xl border border-gray-100 dark:border-gray-700">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+                <tr>
+                  {['Aluno', 'Turma', 'Tipo Sanguíneo', 'Alergias', 'Medicamentos', 'NE', 'Ações'].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                {loading ? (
+                  <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">Carregando…</td></tr>
+                ) : records.length === 0 ? (
+                  <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">Nenhuma ficha cadastrada</td></tr>
+                ) : records.map((r) => (
+                  <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{r.student?.full_name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{r.student?.school_classes?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.blood_type ?? '—'}</td>
+                    <td className="px-4 py-3"><StatusBadge label={r.has_allergies ? 'Sim' : 'Não'} color={r.has_allergies ? 'red' : 'gray'} /></td>
+                    <td className="px-4 py-3"><StatusBadge label={r.uses_medication ? 'Sim' : 'Não'} color={r.uses_medication ? 'yellow' : 'gray'} /></td>
+                    <td className="px-4 py-3"><StatusBadge label={r.has_special_needs ? 'Sim' : 'Não'} color={r.has_special_needs ? 'blue' : 'gray'} /></td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => { setSelectedRecord(r); setDrawerOpen(true); }}
+                        className="px-3 py-1 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-xs font-medium transition-colors">
+                        Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* Sub-tab: Atestados */}
+      {activeSubTab === 'atestados' && (
+        <div className="space-y-2">
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-8">Carregando…</p>
+          ) : certs.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">Nenhum atestado registrado.</p>
+          ) : certs.map((cert) => {
+            const status = certStatus(cert.valid_until);
+            const statusColors: Record<string, string> = {
+              valid: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+              expiring_soon: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+              expired: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+            };
+            const statusLabels: Record<string, string> = { valid: 'Válido', expiring_soon: 'Vence em breve', expired: 'Vencido' };
+            return (
+              <div key={cert.id} className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[status]}`}>{statusLabels[status]}</span>
+                    {!cert.is_active && <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">Substituído</span>}
+                    <span className="text-xs text-gray-400 capitalize">{cert.uploaded_via === 'guardian_portal' ? 'Responsável' : 'Admin'}</span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                    {(cert as unknown as { student?: { full_name?: string } }).student?.full_name ?? cert.student_id}
+                  </p>
+                  <p className="text-xs text-gray-500">Dr. {cert.doctor_name} · CRM {cert.doctor_crm} · Válido até {fmtDate(cert.valid_until)}</p>
+                </div>
+                {cert.file_url && (
+                  <a href={cert.file_url} target="_blank" rel="noopener noreferrer"
+                    className="ml-3 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-600 dark:text-gray-300 hover:border-brand-primary/30 hover:bg-brand-primary/5 transition-all">
+                    Ver arquivo
+                  </a>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Sub-tab: Atualizações Pendentes */}
+      {activeSubTab === 'pendentes' && (
+        <div className="space-y-3">
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-8">Carregando…</p>
+          ) : updateRequests.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">Nenhuma solicitação de atualização.</p>
+          ) : updateRequests.map((req) => (
+            <div key={req.id} className="p-4 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800 dark:text-white">{req.student?.full_name ?? '—'}</p>
+                  <p className="text-xs text-gray-500">Por: {req.guardian?.name ?? '—'} · {fmtDate(req.created_at)}</p>
+                </div>
+                <StatusBadge
+                  label={HEALTH_UPDATE_STATUS_LABELS[req.status]}
+                  color={HEALTH_UPDATE_STATUS_COLORS[req.status]}
+                />
+              </div>
+
+              {/* Diff: show changed fields */}
+              <div className="space-y-1.5">
+                {Object.entries(req.proposed_data).map(([field, newVal]) => {
+                  const oldVal = req.current_snapshot[field];
+                  const changed = JSON.stringify(oldVal) !== JSON.stringify(newVal);
+                  if (!changed) return null;
+                  return (
+                    <div key={field} className="flex items-start gap-2 text-xs rounded-lg bg-gray-50 dark:bg-gray-900 px-3 py-2">
+                      <span className="font-medium text-gray-600 dark:text-gray-400 w-36 flex-shrink-0">{field}</span>
+                      <span className="text-red-500 line-through truncate max-w-[120px]">{String(oldVal ?? '—')}</span>
+                      <span className="text-gray-400 mx-1">→</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 truncate max-w-[120px]">{String(newVal)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {req.rejection_reason && (
+                <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+                  Motivo da recusa: {req.rejection_reason}
+                </p>
+              )}
+
+              {req.status === 'pending' && (
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setRejectModal({ open: true, requestId: req.id })}
+                    className="px-3 py-1.5 text-xs font-medium rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors">
+                    Recusar
                   </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <button onClick={() => confirmRequest(req.id)}
+                    className="px-3 py-1.5 text-xs font-medium rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" /> Confirmar
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <HealthDrawer
         record={selectedRecord}
@@ -982,6 +1240,13 @@ function SecretariaFichasSaudeTab() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onSaved={fetchRecords}
+      />
+
+      <RejectHealthRequestModal
+        open={rejectModal.open}
+        onConfirm={rejectRequest}
+        onCancel={() => setRejectModal({ open: false, requestId: null })}
+        loading={rejectLoading}
       />
     </div>
   );

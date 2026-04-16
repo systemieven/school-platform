@@ -16,7 +16,7 @@ import { SettingsCard } from '../../components/SettingsCard';
 import {
   CalendarDays, Calendar, CalendarRange,
   Calculator, Bell, Loader2, Save, Check,
-  Plus, Trash2, ChevronUp, Pencil,
+  Plus, Trash2, ChevronUp, Pencil, HeartPulse,
 } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -92,6 +92,18 @@ export default function AcademicoSettingsPanel() {
   const [initialCritical, setInitialCritical] = useState('75');
   const [initialAutoWa, setInitialAutoWa]     = useState(false);
 
+  // ── D. Ficha de Saúde
+  const [healthCertSegments, setHealthCertSegments]   = useState<string[]>([]);
+  const [healthAlertDays, setHealthAlertDays]         = useState(30);
+  const [healthAllowGuardianUpdates, setHealthAllowGuardianUpdates] = useState(true);
+  const [healthRequiredFields, setHealthRequiredFields] = useState<string[]>(['blood_type']);
+  const [initialHealthCertSegments, setInitialHealthCertSegments] = useState('[]');
+  const [initialHealthAlertDays, setInitialHealthAlertDays]       = useState(30);
+  const [initialHealthAllowGuardian, setInitialHealthAllowGuardian] = useState(true);
+  const [initialHealthRequiredFields, setInitialHealthRequiredFields] = useState('["blood_type"]');
+  const [healthSaving, setHealthSaving] = useState(false);
+  const [healthSaved, setHealthSaved]   = useState(false);
+
   // ── Global save state (periods + alerts only)
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
@@ -141,6 +153,24 @@ export default function AcademicoSettingsPanel() {
     setInitialWarning(warn);
     setInitialCritical(crit);
     setInitialAutoWa(autoWa);
+
+    // Health settings
+    const hCertSegsRaw = ss.find((s) => s.key === 'health.require_certificate_segments')?.value ?? '[]';
+    const hAlertDays   = Number(ss.find((s) => s.key === 'health.certificate_alert_days')?.value ?? '30');
+    const hAllowGuard  = ss.find((s) => s.key === 'health.allow_guardian_updates')?.value !== 'false';
+    const hReqFields   = ss.find((s) => s.key === 'health.required_fields')?.value ?? '["blood_type"]';
+    let parsedCertSegs: string[] = [];
+    let parsedReqFields: string[] = ['blood_type'];
+    try { parsedCertSegs  = JSON.parse(hCertSegsRaw) as string[]; } catch { /* keep empty */ }
+    try { parsedReqFields = JSON.parse(hReqFields) as string[]; }   catch { /* keep default */ }
+    setHealthCertSegments(parsedCertSegs);
+    setHealthAlertDays(hAlertDays);
+    setHealthAllowGuardianUpdates(hAllowGuard);
+    setHealthRequiredFields(parsedReqFields);
+    setInitialHealthCertSegments(JSON.stringify(parsedCertSegs));
+    setInitialHealthAlertDays(hAlertDays);
+    setInitialHealthAllowGuardian(hAllowGuard);
+    setInitialHealthRequiredFields(JSON.stringify(parsedReqFields));
 
     // Formulas — load all for current year
     if (segs.length) {
@@ -258,6 +288,58 @@ export default function AcademicoSettingsPanel() {
       setFormulaDraft(null);
     }
   }
+
+  // ── Health settings helpers ───────────────────────────────────────────────
+
+  function toggleHealthCertSegment(id: string) {
+    setHealthCertSegments((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
+  }
+
+  function toggleHealthRequiredField(f: string) {
+    setHealthRequiredFields((prev) =>
+      prev.includes(f) ? prev.filter((s) => s !== f) : [...prev, f],
+    );
+  }
+
+  async function handleHealthSave() {
+    setHealthSaving(true);
+    try {
+      await Promise.all([
+        supabase.from('system_settings').upsert(
+          { category: 'academico', key: 'health.require_certificate_segments', value: JSON.stringify(healthCertSegments) },
+          { onConflict: 'category,key' },
+        ),
+        supabase.from('system_settings').upsert(
+          { category: 'academico', key: 'health.certificate_alert_days', value: String(healthAlertDays) },
+          { onConflict: 'category,key' },
+        ),
+        supabase.from('system_settings').upsert(
+          { category: 'academico', key: 'health.allow_guardian_updates', value: String(healthAllowGuardianUpdates) },
+          { onConflict: 'category,key' },
+        ),
+        supabase.from('system_settings').upsert(
+          { category: 'academico', key: 'health.required_fields', value: JSON.stringify(healthRequiredFields) },
+          { onConflict: 'category,key' },
+        ),
+      ]);
+      setInitialHealthCertSegments(JSON.stringify(healthCertSegments));
+      setInitialHealthAlertDays(healthAlertDays);
+      setInitialHealthAllowGuardian(healthAllowGuardianUpdates);
+      setInitialHealthRequiredFields(JSON.stringify(healthRequiredFields));
+      setHealthSaved(true);
+      setTimeout(() => setHealthSaved(false), 900);
+    } finally {
+      setHealthSaving(false);
+    }
+  }
+
+  const healthHasChanges =
+    JSON.stringify(healthCertSegments) !== initialHealthCertSegments ||
+    healthAlertDays !== initialHealthAlertDays ||
+    healthAllowGuardianUpdates !== initialHealthAllowGuardian ||
+    JSON.stringify(healthRequiredFields) !== initialHealthRequiredFields;
 
   // ── Global save (periods + alerts) ────────────────────────────────────────
 
@@ -724,6 +806,105 @@ export default function AcademicoSettingsPanel() {
             <span className="text-sm text-gray-600 dark:text-gray-400">
               Enviar alertas automáticos via WhatsApp
             </span>
+          </div>
+        </div>
+      </SettingsCard>
+
+      {/* ── D. Ficha de Saúde ── */}
+      <SettingsCard
+        title="Ficha de Saúde"
+        description="Configure requisitos de atestado e permissões do portal do responsável"
+        icon={HeartPulse}
+        collapseId="academic-health"
+      >
+        <div className="space-y-5">
+
+          {/* Require cert per segment */}
+          <div>
+            <label className={labelCls}>Exigir Atestado de Aptidão por Segmento</label>
+            {segments.length === 0 ? (
+              <p className="text-sm text-gray-400">Nenhum segmento cadastrado.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2 mt-1">
+                {segments.map((seg) => (
+                  <button key={seg.id} type="button" onClick={() => toggleHealthCertSegment(seg.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                      healthCertSegments.includes(seg.id)
+                        ? 'bg-brand-primary text-white border-brand-primary'
+                        : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-brand-primary'
+                    }`}>
+                    {seg.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Alert days */}
+          <div>
+            <label className={labelCls}>Dias de Antecedência para Alerta de Vencimento</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min={1}
+                max={90}
+                value={healthAlertDays}
+                onChange={(e) => setHealthAlertDays(Math.max(1, Math.min(90, Number(e.target.value))))}
+                className={`${inputCls} w-28`}
+              />
+              <span className="text-sm text-gray-500 dark:text-gray-400">dias antes do vencimento</span>
+            </div>
+          </div>
+
+          {/* Required fields */}
+          <div>
+            <label className={labelCls}>Campos Obrigatórios na Ficha</label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {[
+                { key: 'blood_type', label: 'Tipo Sanguíneo' },
+                { key: 'emergency_contact', label: 'Contato de Emergência' },
+                { key: 'health_plan', label: 'Plano de Saúde' },
+              ].map(({ key, label }) => (
+                <button key={key} type="button" onClick={() => toggleHealthRequiredField(key)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                    healthRequiredFields.includes(key)
+                      ? 'bg-brand-primary text-white border-brand-primary'
+                      : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-brand-primary'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Allow guardian updates */}
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => setHealthAllowGuardianUpdates((v) => !v)}
+              className={`relative w-10 h-5 rounded-full transition-colors ${healthAllowGuardianUpdates ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-700'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${healthAllowGuardianUpdates ? 'translate-x-5' : ''}`} />
+            </button>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Permitir atualizações pelo portal do responsável
+            </span>
+          </div>
+
+          {/* Save button */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleHealthSave}
+              disabled={!healthHasChanges || healthSaving}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                healthSaved
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-40'
+              }`}
+            >
+              {healthSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : healthSaved ? <Check className="w-4 h-4" /> : <HeartPulse className="w-4 h-4" />}
+              {healthSaving ? 'Salvando…' : healthSaved ? 'Salvo!' : 'Salvar Configurações de Saúde'}
+            </button>
           </div>
         </div>
       </SettingsCard>

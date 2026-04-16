@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Star, CalendarClock, Wallet, Megaphone,
   CalendarDays, BookOpen, AlertCircle, CheckSquare, User,
   LogOut, Menu, X, ChevronDown, Users, FileText, RefreshCw,
-  MessageSquareDot, DoorOpen,
+  MessageSquareDot, DoorOpen, HeartPulse,
 } from 'lucide-react';
 import { useBranding } from '../contexts/BrandingContext';
 
@@ -17,6 +17,7 @@ const NAV = [
   { path: '/responsavel/financeiro',   label: 'Financeiro',     icon: Wallet },
   { path: '/responsavel/declaracoes',  label: 'Declarações',    icon: FileText },
   { path: '/responsavel/rematricula',  label: 'Rematrícula',    icon: RefreshCw },
+  { path: '/responsavel/saude',        label: 'Saúde',          icon: HeartPulse },
   { path: '/responsavel/comunicados',  label: 'Comunicados',    icon: Megaphone },
   { path: '/responsavel/eventos',      label: 'Eventos',        icon: CalendarDays },
   { path: '/responsavel/grade',        label: 'Grade Horária',  icon: CalendarClock },
