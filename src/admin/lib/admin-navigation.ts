@@ -128,7 +128,7 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'Qualificação',
+    label: 'Ferramentas',
     items: [
       {
         key: 'kanban',
@@ -146,11 +146,6 @@ export const ADMIN_NAV: NavGroup[] = [
         roles: ['super_admin', 'admin', 'coordinator'],
         moduleKey: 'reports',
       },
-    ],
-  },
-  {
-    label: 'Ferramentas',
-    items: [
       {
         key: 'testimonials',
         label: 'Depoimentos do Site',
