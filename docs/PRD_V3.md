@@ -1,8 +1,8 @@
 # PRD v3 — Plataforma Escolar (school-platform)
 
-> **Versao**: 3.3
-> **Data**: 15 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-11 concluidas) + Fases 11.B e 11.C especificadas (pendentes) + roadmap ate v1
+> **Versao**: 3.4
+> **Data**: 16 de abril de 2026
+> **Status**: Documento unificado — estado atual (Fases 1-14 concluidas) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -24,7 +24,7 @@
     - 10.3 Fase 8 — Modulo Financeiro (CONCLUIDA)
     - 10.4 Fase 9 — Academico Completo
     - 10.4B Fase 9.5 — Dashboards Analiticos (✅ concluido)
-    - 10.4C Fase 8.5 — ERP Financeiro Completo (CONCLUIDA)
+    - 10.4D Fase 8.5 — ERP Financeiro Completo (CONCLUIDA)
     - 10.5 Fase 10 — Portal do Responsavel
     - 10.5B Fase 10.P — Portal do Professor / Diario de Classe (paralelo a Fase 10)
     - 10.6 Fase 11 — Secretaria Digital
@@ -804,6 +804,82 @@ Gerencia mensalidades, cobrancas, descontos, bolsas, templates de contrato, inad
 - **Webhook**: `payment-gateway-webhook` (publico, idempotente via `gateway_webhook_log`) atualiza `financial_installments` automaticamente
 - **Multi-gateway**: cada escola pode ter mais de um gateway ativo
 
+#### 4.17.11 Plano de Contas
+
+**Tabela**: `financial_account_categories`
+
+Hierarquia pai/filho via `parent_id` (ate 2 niveis), tipos `receita` e `despesa`, codigo contabil opcional. Campo `is_system` protege registros padrao contra exclusao.
+
+| Campo | Tipo | Descricao |
+|---|---|---|
+| name | TEXT NOT NULL | Nome da categoria |
+| type | TEXT | `'receita'` ou `'despesa'` |
+| parent_id | UUID self-ref | Categoria pai |
+| code | TEXT | Codigo contabil opcional (ex.: `1.1.1`) |
+| is_system | BOOLEAN | Defaults protegidos — nao excluiveis |
+| is_active | BOOLEAN | Toggle ativo/inativo |
+| position | INT | Ordem de exibicao |
+
+Defaults pre-inseridos (`is_system=true`): **Receitas** → Mensalidades, Taxas e Eventos, Matriculas, Outras Receitas; **Despesas Fixas** → Aluguel, Folha de Pagamento, Contratos de Servico; **Despesas Variaveis** → Material de Consumo, Eventos e Passeios, Manutencao.
+
+Gerenciado em **Configuracoes → Financeiro → Plano de Contas** com arvore hierarquica inline.
+
+#### 4.17.12 Controle de Caixas
+
+**Tabelas**: `financial_cash_registers` e `financial_cash_movements`
+
+Multiplos caixas por escola. Ciclo de vida: abertura → sangria/suprimento → movimentacoes → fechamento.
+
+- **Tipos de movimentacao**: `opening`, `closing`, `sangria`, `suprimento`, `inflow`, `outflow`
+- **Sub-tipos**: `recebimento`, `devolucao`, `taxa_evento`, `taxa_passeio`, `taxa_diversa`, `despesa_operacional`
+- **Rastreabilidade**: cada movimentacao salva `balance_after` (snapshot do saldo no momento)
+- **Integracao opcional**: `reference_id` + `reference_type` vincula o movimento a um receivable ou payable
+- **RLS**: acesso restrito a admin/super_admin (coordinators sem acesso — operacao sensivel)
+
+#### 4.17.13 Contas a Receber
+
+**Tabela**: `financial_receivables` — ortogonal a `financial_installments` (mensalidades permanecem intactas). Cobre qualquer recebivel nao-contratual: taxas, eventos, manual, etc.
+
+- **Parcelamento automatico**: `total_installments > 1` → RPC `generate_receivable_installments` cria registros filhos com `parent_id`
+- **Recorrencia**: `is_recurring` + `recurrence_interval` (`monthly`/`quarterly`/`yearly`) + `recurrence_end_date`
+- **Status**: `pending` → `paid`/`partial`/`overdue`/`cancelled`; calculo de juros (`interest_rate_pct` ao dia) e multa (`late_fee_pct`)
+- **Rastreamento de origem**: `source_type` (`manual`/`event`/`enrollment`/`cash_movement`) + `source_id`
+- **Payer types**: `student`, `responsible`, `external`
+
+#### 4.17.14 Contas a Pagar
+
+**Tabela**: `financial_payables` — despesas da escola com credores externos ou funcionarios.
+
+- **Categorizacao**: `category_type` (`fixed`/`variable`) para classificacao no DRE
+- **Alertas**: `alert_days_before` (padrao 3 dias) — banner de alerta na tela de A/P
+- **Parcelamento e recorrencia**: mesmo modelo de A/R (`generate_payable_installments`)
+- **Baixa com comprovante**: `receipt_url` + `receipt_path`
+- **Creditor types**: `supplier`, `employee`, `other`
+- **Status**: `pending` → `paid`/`overdue`/`cancelled`
+
+#### 4.17.15 Integracoes Automaticas
+
+RPCs que geram receivables automaticamente a partir de eventos do sistema:
+
+| RPC | Trigger | Resultado |
+|---|---|---|
+| `create_enrollment_receivable` | Confirmar pre-matricula | 1 receivable com `source_type='enrollment'`; taxa lida de `system_settings` (category=`financial`, key=`enrollment_fee`); idempotente |
+| `create_event_receivables` | Publicar evento com taxa | 1 receivable por participante confirmado com `source_type='event'`; idempotente por `(source_id, student_id)` |
+
+#### 4.17.16 Relatorios Gerenciais
+
+Views SQL + sub-tabs em `FinancialReportsPage`:
+
+| Sub-tab | View/Fonte | Descricao |
+|---|---|---|
+| Fluxo de Caixa | `financial_cash_flow_view` | Entradas e saidas consolidadas de receivables, installments, payables e movimentacoes de caixa |
+| DRE Simplificado | `financial_dre_view` | Receitas vs Despesas agrupadas por categoria do plano de contas |
+| Inadimplencia | `financial_delinquency_view` | Receivables + installments vencidos em aberto, ordenados por dias em atraso |
+| Previsao Financeira | Calculada client-side | Projecao de recebimentos e pagamentos futuros com base em `pending` do periodo |
+| Extrato por Categoria | Query direta | Movimentacoes filtradas e agrupadas por categoria do plano de contas |
+
+Exportacao CSV disponivel em todas as sub-tabs. Filtros: periodo, categoria, responsavel, forma de pagamento.
+
 ---
 
 ## 5. Painel de Configuracoes
@@ -1109,7 +1185,7 @@ Configuravel na aba Aparencia > Home:
 | `avatars` | Publico | Fotos de perfil dos usuarios |
 | `student-photos` | Publico | Fotos 3x4 dos alunos (migration 66, max 5 MB) |
 
-### 7.3 Migrations Aplicadas (66)
+### 7.3 Migrations Aplicadas (102)
 
 | # | Nome | Data | Descricao |
 |---|------|------|-----------|
@@ -1178,6 +1254,42 @@ Configuravel na aba Aparencia > Home:
 | 64 | `fix_whatsapp_category_variables` | 15/04 | Corrige arrays `variables` nas categorias `academico` e `financeiro` do `whatsapp_template_categories`; as variaveis corretas agora correspondem ao `MODULE_VARIABLES` do frontend |
 | 65 | `attendance_no_show_auto` | 15/04 | Funcao `mark_appointment_no_shows()` SECURITY DEFINER: lê `no_show_config` de `system_settings`, marca `no_show` agendamentos passados conforme timeout configuravel; pg_cron job `no-show-checker` a cada 15 min (manual no Supabase SQL) |
 | 66 | `student_photo` | 15/04 | ADD COLUMN `photo_url TEXT` em `students`; bucket `student-photos` (publico, 5 MB, image/*) com 4 policies RLS (anon read, auth insert/update/delete) |
+| 67 | `financial_account_categories` | 14/04 | Plano de contas hierarquico (financial_account_categories) |
+| 68 | `financial_cash` | 14/04 | Caixas e movimentacoes de caixa (financial_cash_registers, financial_cash_movements) |
+| 69 | `financial_receivables` | 14/04 | Contas a receber geral (financial_receivables) |
+| 70 | `financial_payables` | 14/04 | Contas a pagar (financial_payables) |
+| 71 | `financial_erp_permissions` | 14/04 | 5 novos modulos ERP financeiro inseridos em modules + role_permissions |
+| 72 | `financial_integration_rpcs` | 14/04 | RPCs de integracao financeira (close_cash_register, link_installment_to_receivable) |
+| 73 | `financial_report_views` | 14/04 | Views SQL de relatorios financeiros (dre, fluxo de caixa, inadimplencia) |
+| 74 | `dashboard_widgets` | 15/04 | Graficos personalizaveis por modulo (financeiro / academico) — RLS via profiles.role |
+| 75 | `guardian_portal` | 15/04 | Portal do Responsavel: guardian_profiles, student_occurrences, activity_authorizations, authorization_responses; adiciona role 'responsavel' |
+| 76 | `guardian_permissions` | 15/04 | Modulos e role_permissions para Portal do Responsavel (Fase 10) |
+| 77 | `class_diary` | 15/04 | Diario de Classe (Fase 10.P): class_diary_entries, diary_attendance |
+| 78 | `class_activities` | 15/04 | Atividades e Notas (Fase 10.P): class_activities, activity_scores |
+| 79 | `lesson_plans` | 15/04 | Planos de Aula (Fase 10.P): lesson_plans com vinculo a turma, disciplina e professor |
+| 80 | `class_exams` | 15/04 | Elaboracao de Provas (Fase 10.P): class_exams, exam_questions |
+| 81 | `teacher_portal_permissions` | 15/04 | Modulos e role_permissions para Portal do Professor (Fase 10.P) |
+| 82 | `document_templates` | 15/04 | Declaracoes e Solicitacoes (Fase 11): document_templates (HTML + variaveis) e document_requests |
+| 83 | `student_health` | 15/04 | Ficha de Saude do Aluno (Fase 11): student_health_records |
+| 84 | `reenrollment` | 15/04 | Rematricula Online (Fase 11): reenrollment_campaigns, reenrollment_applications |
+| 85 | `student_transfers` | 15/04 | Transferencias e Movimentacoes de Alunos (Fase 11): student_transfers |
+| 86 | `secretaria_permissions` | 15/04 | Modulos e role_permissions para Secretaria Digital (Fase 11) |
+| 87 | `fix_module_gaps` | 15/04 | Reinsere modulos das migrations 76, 81 e 86 que usaram coluna errada; adiciona absence_reason_options e authorized_persons |
+| 88 | `absence_communications` | 15/04 | Comunicacoes de falta (Fase 11.B): modulo absence-communications |
+| 89 | `exit_authorizations` | 15/04 | Autorizacoes de saida excepcional (Fase 11.B): authorized_persons, exit_authorization_requests |
+| 90 | `portaria_permissions` | 15/04 | Modulos portaria e exit-authorizations (Fase 11.B) |
+| 91 | `health_expanded` | 15/04 | Ficha de Saude Expandida (Fase 11.C): novos campos em student_health_records + student_medical_certificates + health_record_update_requests |
+| 92 | `store_categories` | 16/04 | Fase 14 — Categorias da loja (store_categories) |
+| 93 | `store_products` | 16/04 | Fase 14 — Produtos, variantes e imagens (store_products, store_product_variants, store_product_images) |
+| 94 | `store_inventory` | 16/04 | Fase 14 — Movimentacoes de estoque (store_inventory_movements) |
+| 95 | `store_orders` | 16/04 | Fase 14 — Pedidos e itens (store_orders, store_order_items) |
+| 96 | `store_pickup_protocols` | 16/04 | Fase 14 — Protocolos de retirada (store_pickup_protocols) |
+| 97 | `store_permissions` | 16/04 | Fase 14 — Modulos e role_permissions da loja (store-products, store-orders, store-pdv, store-inventory, store-reports) |
+| 98 | `store_whatsapp_bucket` | 16/04 | Fase 14 — Categoria WhatsApp 'pedidos' + bucket product-images |
+| 99 | `store_orders_payment_link` | 16/04 | Colunas payment_link, pix_code, boleto_url em store_orders |
+| 100 | `store_order_whatsapp_templates` | 16/04 | 9 templates WhatsApp para pipeline de pedidos da loja |
+| 101 | `webhook_store_order_support` | 16/04 | Coluna store_order_id em gateway_webhook_log para suporte a pagamentos de pedidos |
+| 102 | `checkout_sessions` | 16/04 | Tabela checkout_sessions para checkout proprio /pagar/:token |
 
 ### 7.4 RLS Policies
 
@@ -1261,7 +1373,7 @@ Configuravel na aba Aparencia > Home:
 
 ## 8. Edge Functions
 
-### 8.1 Edge Functions Implementadas (16)
+### 8.1 Edge Functions Implementadas (19)
 
 | Funcao | Auth | Rate Limit | Descricao |
 |--------|------|------------|-----------|
@@ -1280,17 +1392,18 @@ Configuravel na aba Aparencia > Home:
 | `google-static-map` | JWT (admin+) | — | Proxy Google Static Maps API; retorna PNG com marcador + circulo |
 | `financial-notify` | Trigger secret (pg_cron) | — | Regua de cobranca automatica diaria (08:00 BRT); le billing_stages configuravel; agrupa por etapa em campanha via UazAPI `/sender/advanced`; dedup via `financial_notification_log` |
 | `payment-gateway-proxy` | JWT (admin+) | — | Proxy multi-gateway com Adapter Pattern; acoes: createCustomer, createCharge, getCharge, cancelCharge; adapters: Asaas (V1) |
-| `payment-gateway-webhook` | Secret URL param | — | Recebe webhooks de gateways; normaliza via adapter; atualiza installments; idempotente via `gateway_webhook_log`; verify_jwt=false |
+| `payment-gateway-webhook` | Secret URL param | — | Recebe webhooks de gateways; normaliza via adapter; atualiza installments e store_orders; idempotente via `gateway_webhook_log`; verify_jwt=false |
+| `generate-document` | JWT (admin+) | — | Renderiza template HTML com variaveis → gera PDF; salva em Storage; retorna signed URL (Fase 11) |
+| `calculate-grades` | JWT (admin+) | — | Calcula medias e resultado final por turma/periodo usando a grade_formula do segmento (Fase 9) |
+| `checkout-proxy` | Token publico (session = auth) | — | Backend do checkout proprio /pagar/:token; acoes: createSession, getSession, pollStatus, payWithCard; PIX / Cartao / Boleto (Fase 14) |
 
 **Rate Limiting**: Endpoints publicos usam rate limiter in-memory com sliding window por IP (`_shared/rate-limit.ts`). Resposta 429 inclui headers `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`. Endpoints protegidos por JWT nao precisam de rate limiting adicional.
 
-### 8.2 Edge Functions Planejadas (Fases 9-12)
+### 8.2 Edge Functions Planejadas
 
 | Funcao | Auth | Rate Limit | Fase | Descricao |
 |--------|------|------------|------|-----------|
-| `generate-document` | JWT (admin+) | — | 11 | Renderiza template HTML com variaveis → gera PDF; salva em Storage; retorna signed URL |
 | `create-guardian-user` | JWT (super_admin) | — | 10 | Cria usuario Supabase Auth para responsavel + `guardian_profiles`; gera senha temporaria |
-| `calculate-grades` | JWT (admin+) | — | 9 | Calcula medias e resultado final por turma/periodo usando a `grade_formula` do segmento |
 | `occurrence-notify` | Trigger secret | — | 10 | Disparado ao inserir em `student_occurrences`; envia WhatsApp ao responsavel do aluno |
 
 ---
@@ -1316,6 +1429,27 @@ Configuravel na aba Aparencia > Home:
 | `/area-professor` | EmConstrucao | Placeholder |
 | `/*` | NotFound | 404 |
 
+### 9.1B Loja Publica (6 rotas — Fase 14)
+
+Rotas publicas com o Layout do site (Navbar + Footer). Nenhuma requer autenticacao.
+
+| Rota | Componente | Descricao |
+|------|-----------|-----------|
+| `/loja` | LojaPublicaPage | Catalogo publico de produtos |
+| `/loja/categoria/:slug` | CategoriaPage | Produtos filtrados por categoria |
+| `/loja/produto/:slug` | ProdutoPage | Detalhe do produto com variantes |
+| `/loja/carrinho` | CarrinhoPage | Carrinho de compras |
+| `/loja/checkout` | CheckoutPage | Selecao de metodo de pagamento → redireciona para /pagar/:token |
+| `/loja/pedido/:orderNumber` | ConfirmacaoPedidoPage | Acompanhamento do pedido apos confirmacao |
+
+### 9.1C Checkout Proprio (1 rota — Fase 14)
+
+Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona como autenticacao.
+
+| Rota | Componente | Descricao |
+|------|-----------|-----------|
+| `/pagar/:token` | PagarPage | Checkout branded: PIX / Cartao / Boleto — backend via Edge Function checkout-proxy |
+
 ### 9.2 Atendimento Publico (2 rotas)
 
 | Rota | Componente | Descricao |
@@ -1323,7 +1457,7 @@ Configuravel na aba Aparencia > Home:
 | `/atendimento` | AtendimentoPublico | Check-in por QR Code |
 | `/painel-atendimento` | PainelAtendimento | Display TV/monitor |
 
-### 9.3 Admin — Rotas Implementadas (18 rotas)
+### 9.3 Admin — Rotas Implementadas (21 rotas)
 
 | Rota | Componente | Roles |
 |------|-----------|-------|
@@ -1345,6 +1479,9 @@ Configuravel na aba Aparencia > Home:
 | `/admin/eventos` | EventsPage | admin+, teacher |
 | `/admin/usuarios` | UsersPage | super_admin, admin |
 | `/admin/configuracoes` | SettingsPage | super_admin, admin |
+| `/admin/loja` | LojaPage (tab rail: Dashboard, Produtos, Pedidos, PDV, Relatorios) | admin+ |
+| `/admin/loja/pdv` | PDVPage | admin+ |
+| `/admin/loja/pedidos/:orderId` | OrderDetailPage | admin+ |
 
 *admin+ = super_admin, admin, coordinator*
 
@@ -1441,18 +1578,19 @@ Configuravel na aba Aparencia > Home:
 | 6 | Governanca e Escala (permissoes, modulos, audit) | ✅ Concluido | — | 1-5 |
 | 7 | Whitelabel (personalizacao total, multi-tenant) | ✅ Concluido | — | 6 |
 | 8 | Modulo Financeiro | ✅ Concluido | Critica | 7 |
-| 8.5 | ERP Financeiro Completo (Caixas, A/R, A/P, Relatorios) | ✅ Concluido (migrations 67-73, 2026-04-15) | Alta | 8 |
+| 8.5 | ERP Financeiro Completo (Caixas, A/R, A/P, Relatorios) | ✅ Concluido (migrations 67–73, 2026-04-14) | Alta | 8 |
 | 9 | Academico Completo | ✅ Concluido (UI + backend + WhatsApp) | Critica | 7 |
 | 9.M | Migracao Arquitetural: Seguimento→Serie→Turma | ✅ Concluido (migrations 61-63, 2026-04-15) | Critica | 1-5 (gap) |
 | 9.5 | Dashboards Analiticos (Financeiro + Academico) | ✅ Concluido (migration 74, Recharts, 2026-04-15) | Alta | 8 + 9 |
 | 10 | Portal do Responsavel | ✅ Concluido (migrations 75-76, 2026-04-15) | Critica | 8 + 9 + 9.M |
 | 10.P | Portal do Professor / Diario de Classe | ✅ Concluido (migrations 77-81, 2026-04-15) | Alta | 9 + 9.M *(paralelo a Fase 10)* |
 | 11 | Secretaria Digital | ✅ Concluido (migrations 82-86, Edge Function generate-document, 2026-04-15) | Alta | 10 |
-| 11.B | Portal do Responsavel + Modulo de Portaria (Comunicacao de Faltas, Autorizacoes de Saida, Portaria) | ⏳ Pendente | Alta | 10 + 10.P + 11 |
-| 11.C | Ficha de Saude Expandida (atestado fisico, atualizacoes pelo responsavel, visao restrita professor, alertas de vencimento) | ⏳ Pendente | Alta | 11 + 10 |
+| 11.B | Portal do Responsavel + Modulo de Portaria (Comunicacao de Faltas, Autorizacoes de Saida, Portaria) | ✅ Concluido (migrations 87–90, 2026-04-16) | Alta | 10 + 10.P + 11 |
+| 11.C | Ficha de Saude Expandida (atestado fisico, atualizacoes pelo responsavel, visao restrita professor, alertas de vencimento) | ✅ Concluido (commit c08d37d, 2026-04-16) | Alta | 11 + 10 |
 | 12 | Modulo Pedagogico Avancado (BNCC + Relatorios) | ⏳ Pendente | Media | 9 + 10.P |
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
-| 14 | Loja, PDV e Estoque | ⏳ Pendente | Alta | 8.5 + 10 |
+| 14 | Loja, PDV e Estoque | ✅ Concluido (migrations 92–102, 2026-04-16) | Alta | 8.5 + 10 |
+| 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
 
@@ -1940,9 +2078,34 @@ Migration 63 e aditiva — colunas com default vazio/null. Planos e descontos ex
 
 ---
 
-### 10.4C Fase 8.5 — ERP Financeiro Completo ✅ Concluido (2026-04-15)
+### 10.4D Fase 8.5 — ERP Financeiro Completo ✅ Concluido (2026-04-15)
+
+> ✅ **CONCLUÍDA** — Migrations 67–73 aplicadas, todos os componentes UI implementados (2026-04-14).
 
 **Objetivo**: Expandir o Modulo Financeiro (Fase 8) para cobrir o ciclo financeiro completo da instituicao — controle de caixas, movimentacoes avulsas, contas a receber geral (nao apenas mensalidades), contas a pagar, plano de contas hierarquico e relatorios gerenciais.
+
+#### Implementação
+
+**Migrations aplicadas:**
+| # | Arquivo | Descrição |
+|---|---|---|
+| 67 | `financial_account_categories` | Plano de contas hierárquico |
+| 68 | `financial_cash` | Caixas e movimentações |
+| 69 | `financial_receivables` | Contas a receber |
+| 70 | `financial_payables` | Contas a pagar |
+| 71 | `financial_erp_permissions` | Módulos e permissões (5 novos módulos) |
+| 72 | `financial_integration_rpcs` | RPCs: create_enrollment_receivable, create_event_receivables |
+| 73 | `financial_report_views` | Views: cash_flow_view, dre_view, delinquency_view |
+
+**Componentes criados:**
+- `FinancialCashPage.tsx` — Caixas com ciclo abertura/fechamento
+- `FinancialReceivablesPage.tsx` — A/R geral com parcelamento e recorrência
+- `FinancialPayablesPage.tsx` — A/P com alertas de vencimento
+- `FinancialReportsPage.tsx` — 5 sub-tabs (Fluxo de Caixa, DRE, Inadimplência, Previsão, Extrato)
+- `FinancialSettingsPanel.tsx` — 2 novos cards: Plano de Contas e Formas de Pagamento
+
+**Tipos TypeScript** adicionados em `src/admin/types/admin.types.ts`:
+`FinancialAccountCategory`, `FinancialCashRegister`, `FinancialCashMovement`, `FinancialReceivable`, `FinancialPayable` + todos os status/label/color maps.
 
 **Dependencias**: Fase 8 concluida | **Status**: ✅ Concluido — migrations 67-73 aplicadas em 2026-04-15
 
@@ -2187,6 +2350,31 @@ Reutiliza categoria `academico` existente (cor: `#065f46`).
 ---
 
 ### 10.6B Fase 11.B — Portal do Responsavel + Modulo de Portaria
+
+> ✅ **CONCLUÍDA** — Migrations 88–90 aplicadas (2026-04-16).
+
+#### O que foi construído
+
+**Migrations:**
+- `00000000000088_absence_communications.sql` — tabelas `absence_reason_options` e `absence_communications`; ALTER TABLE `diary_attendance` adiciona FK `absence_communication_id`; RLS completo
+- `00000000000089_exit_authorizations.sql` — tabelas `authorized_persons` e `exit_authorizations`; trigger append-only no `audit_log`; RLS com JOIN em `role_permissions`
+- `00000000000090_portaria_permissions.sql` — inserção dos módulos `absence-communications`, `exit-authorizations` e `portaria` na tabela `modules`; permissões por role; categoria WhatsApp `portaria`
+
+**Componentes UI criados (admin):**
+- `src/admin/pages/school/FaltasComunicacoesPage.tsx` — fila de comunicações de falta com análise e vínculo ao diário
+- `src/admin/pages/school/AutorizacoesSaidaAdminPage.tsx` — fila de autorizações excepcionais de saída com confirmação de senha
+- `src/admin/pages/school/PortariaPage.tsx` — módulo de portaria: frequência do dia e confirmação de retiradas autorizadas
+
+**Funcionalidades entregues:**
+- Responsável comunica falta programada ou justificativa pelo portal (`/responsavel/faltas`)
+- Coordenador/admin analisa e vincula comunicação ao registro de `diary_attendance`
+- Responsável solicita autorização de saída excepcional com confirmação por senha e log de auditoria imutável (`/responsavel/autorizacoes-saida`)
+- Portaria consulta frequência do dia e confirma saída autorizada com timestamp e usuário
+- Permissão granular via `role_permissions` (módulo `portaria`) — sem novo role no schema
+
+**Nota:** Tier 1 de biometria (WebAuthn) ficou pendente para sprint pós-11.B; único nível entregue foi Tier 2 (senha via `validate-guardian-password`).
+
+---
 
 **Objetivo**: Conectar o portal do responsavel ao modulo academico e ao novo modulo de portaria, cobrindo comunicacao de faltas (programadas e justificativas), autorizacoes de saida excepcional com confirmacao por senha e log de auditoria imutavel, pessoas autorizadas fixas no cadastro do aluno e controle operacional de entrada/saida na portaria.
 
@@ -2434,6 +2622,29 @@ O registro de credencial WebAuthn e gerenciado em `/responsavel/perfil` como opt
 ---
 
 ### 10.6C Fase 11.C — Ficha de Saude Expandida
+
+> ✅ **CONCLUÍDA** — Commit c08d37d, 2026-04-16.
+
+#### O que foi construído
+
+**Migration:**
+- `00000000000091_health_expanded.sql` — ALTER TABLE `student_health_records` adiciona `food_restrictions`, `allergy_categories JSONB`, `can_receive_medication BOOLEAN`, `medication_guidance`; tabelas `student_medical_certificates` (com trigger de superseding) e `health_record_update_requests` (com trigger de aplicação automática ao confirmar); VIEW `student_health_records_teacher_view` com campos não-sensíveis; bucket Storage `atestados` (privado, 10 MB); módulo `health-records-management`; keys de `system_settings` para configuração de alertas e campos obrigatórios
+
+**Componentes UI:**
+- `src/admin/pages/school/StudentDetailPage.tsx` — nova aba `StudentHealthTab` com sub-tabs "Ficha de Saúde" e "Atestados"; drawer de adição de atestado médico com upload para bucket `atestados`
+- `src/admin/pages/secretaria/SecretariaPage.tsx` — aba Fichas de Saúde expandida com novos campos e fila de atualizações pendentes do responsável
+- `src/admin/pages/settings/AcademicoSettingsPanel.tsx` — card de configuração de saúde (campos obrigatórios, dias de alerta, permitir atualização pelo responsável)
+
+**Portal do Responsável:**
+- `src/responsavel/pages/saude/SaudePage.tsx` — visualização completa da ficha; formulário de atualização com diff antes/depois; upload de atestado; acompanhamento de status das solicitações em tempo real (`/responsavel/saude`)
+
+**Campos e tabelas de saúde entregues:**
+- Campos novos em `student_health_records`: restrições alimentares, categorias de alergia, autorização de medicamento em horário escolar, orientação de administração
+- `student_medical_certificates`: histórico de atestados com médico + CRM; trigger automático de superseding; status calculado (válido/vencido)
+- `health_record_update_requests`: fluxo de proposta → revisão → aplicação automática via trigger ao confirmar; snapshot para diff
+- VIEW `student_health_records_teacher_view`: professores veem apenas alergias, condições, medicamentos e restrições alimentares — sem dados de emergência ou plano de saúde
+
+---
 
 **Objetivo**: Expandir a ficha de saude do aluno (base criada em Fase 11/migration 83) com categorizacao de alergias, restricoes alimentares, orientacoes de medicamentos, controle de atestado medico para atividades fisicas com historico de versoes e status calculado, fila de atualizacoes do responsavel com revisao obrigatoria pela secretaria, visao restrita para professores e painel de alertas de vencimento.
 
@@ -2715,48 +2926,132 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 
 ### 10.9 Fase 14 — Loja, PDV e Estoque
 
-**Objetivo**: Criar um modulo completo de comercio escolar integrado — loja virtual publica com checkout por responsavel, PDV interno para vendas em balcao, controle de estoque por SKU (grade cor x tamanho), gestao de pedidos com pipeline de status e protocolo de retirada presencial. Integrado ao modulo financeiro (caixas, contas a receber) e ao portal do responsavel.
+> ✅ **CONCLUÍDA** — Migrations 92–102, 2026-04-15/16.
 
-**Dependencias**: Fases 8.5 (caixas, financeiro ERP) e 10 (portal do responsavel) concluidas
+#### Migrations Aplicadas
 
-#### 14.1 Sub-modulos
+| # | Arquivo | Descrição |
+|---|---|---|
+| 92 | `store_categories` | Tabela de categorias hierárquicas com slug, imagem e ordenação |
+| 93 | `store_products` | Produtos, variantes (cor/tamanho/SKU) e imagens; RLS público (active/out_of_stock) |
+| 94 | `store_inventory` | Movimentações de estoque com snapshot `balance_after` e referência por tipo |
+| 95 | `store_orders` | Pedidos (`store` e `pdv`) + itens com snapshot de nome/variante |
+| 96 | `store_pickup_protocols` | Protocolo de retirada presencial com assinatura e PDF |
+| 97 | `store_permissions` | 7 módulos do grupo `loja` com permissões por role |
+| 98 | `store_whatsapp_bucket` | Categoria WhatsApp `pedidos` + bucket `product-images` (público, 10 MB, JPEG/PNG/WebP) |
+| 99 | `store_orders_payment_link` | Colunas `payment_link`, `pix_code`, `boleto_url` em `store_orders` |
+| 100 | `store_order_whatsapp_templates` | 9 templates para o pipeline de pedidos; extensão do constraint `trigger_event` |
+| 101 | `webhook_store_order_support` | Coluna `store_order_id` em `gateway_webhook_log` para vincular webhook a pedido de loja |
+| 102 | `checkout_sessions` | Tabela `checkout_sessions` para checkout próprio em `/pagar/:token` (24 h, RLS público por token) |
 
-| Feature | Descricao | Prioridade |
-|---------|-----------|------------|
-| Gestao de Categorias e Produtos | CRUD de categorias hierarquicas; cadastro de produtos com descricao, preco, imagens e status; destaque na loja | Alta |
-| Grade de Variacoes / SKUs | Matriz cor x tamanho; SKU individual por celula; preco_override por variacao; imagem por variacao | Alta |
-| Controle de Estoque | Estoque por SKU (stock_quantity, reserved_quantity, min_stock); movimentacoes com historico completo; alerta de estoque minimo | Alta |
-| Loja Virtual Publica | Paginas publicas: home com destaques + categorias, pagina de categoria, pagina de produto com galeria e seletor de grade | Alta |
-| Carrinho e Checkout | Carrinho persistente por responsavel; checkout autenticado exige login de responsavel; seletor de aluno no checkout | Alta |
-| Protocolo de Retirada | Documento PDF gerado no momento da entrega; assinatura do retirador capturada; arquivado no historico do pedido | Alta |
-| PDV Interno | Tela de balcao; busca de produto/SKU; carrinho PDV; formas de pagamento (dinheiro/cartao/PIX/boleto); modo de troca; integrado ao modulo de caixas | Alta |
-| Gestao de Pedidos | Pipeline: aguardando pagamento → pagamento confirmado → em separacao → pronto para retirada → retirado → concluido / cancelado; acoes manuais e disparo automatico de WhatsApp por transicao | Alta |
-| Templates WhatsApp — categoria pedidos | 9 templates automaticos nas transicoes de status do pedido; categoria `pedidos` no gerenciador de templates | Media |
-| Integracao Financeira | PDV registra movimentos em financial_cash_movements; pedidos parcelados geram financial_receivables; compras aparecem no historico financeiro do aluno | Alta |
-| Relatorios de Loja | Vendas por periodo, ranking de produtos, giro de estoque, devolucoes, desempenho por forma de pagamento; exportacao CSV/Excel | Media |
-| Config > Loja | Gateway, formas de pagamento, parcelamento, prazo de separacao, lembrete de retirada, protocolo, produtos em falta, notificacoes WhatsApp | Media |
+#### Tabelas Principais
 
-#### 14.2 Tabelas do Banco de Dados
+| Tabela | Descrição |
+|--------|-----------|
+| `store_categories` | Categorias hierárquicas (`parent_id` auto-ref), slug único, ordenação por `position` |
+| `store_products` | Catálogo com preço base, custo, status (`active`/`inactive`/`out_of_stock`/`discontinued`), flag `is_featured`/`is_digital` |
+| `store_product_variants` | SKU único por combinação cor × tamanho; `stock_quantity`, `reserved_quantity`, `min_stock`, `price_override` |
+| `store_product_images` | Imagens por produto/variante com flag `is_cover` e `position`; bucket `product-images` |
+| `store_inventory_movements` | Histórico de movimentos com tipo (`purchase`, `sale`, `return`, `adjustment`, `reservation_released`), `balance_after` e `justification` |
+| `store_orders` | Pedido com canal (`store`/`pdv`), status, totais, parcelamento, `gateway_charge_id`, `payment_link`/`pix_code`/`boleto_url` |
+| `store_order_items` | Itens com snapshot de nome e descrição de variante no momento da compra |
+| `store_pickup_protocols` | Protocolo de retirada: nome/documento/relação do retirador, URL do PDF gerado |
+| `checkout_sessions` | Sessão de checkout com token opaco (48 hex chars), `billing_type`, `status`, `expires_at` (24 h); associa `store_order_id` ou `installment_id` |
 
-**Migration 91 — `store_categories`**
+#### Módulos do Admin
 
-```sql
-create table store_categories (
-  id          uuid primary key default gen_random_uuid(),
-  school_id   uuid not null references schools(id) on delete cascade,
-  name        text not null,
-  description text,
-  image_url   text,
-  image_path  text,
-  parent_id   uuid references store_categories(id) on delete set null,
-  is_active   boolean not null default true,
-  position    integer not null default 0,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
-);
+| Módulo | Rota | Descrição |
+|--------|------|-----------|
+| Loja | `/admin/loja` | Container com tab rail — Dashboard, Produtos, Pedidos, PDV, Relatórios |
+| Dashboard | `/admin/loja` (tab padrão) | KPIs: faturamento, pedidos por status, estoque crítico, top produtos |
+| Produtos | `/admin/loja` (tab Produtos) | Catálogo com CRUD de produtos, variantes (cor/tamanho), imagens e estoque por SKU |
+| Categorias | Drawer em Produtos | CRUD de categorias com seletor de categoria pai |
+| Pedidos | `/admin/loja` (tab Pedidos) | Pipeline de pedidos com filtro por status e transições manuais |
+| PDV | `/admin/loja/pdv` | Ponto de venda full-screen com busca de produto, seleção de aluno, modos de pagamento |
+| Detalhe do Pedido | `/admin/loja/pedidos/:orderId` | Timeline de status, itens, ações (confirmar pagamento, separar, pronto, retirado), protocolo |
+| Estoque | Drawer em Produtos | Ajuste manual de estoque com justificativa obrigatória |
+| Relatórios | `/admin/loja` (tab Relatórios) | Vendas por período, ranking de produtos, desempenho por forma de pagamento |
+
+#### Pipeline de Pedidos
+
+```
+pending_payment → payment_confirmed → picking → ready_for_pickup → picked_up → completed
+                                                                              ↘ cancelled (de qualquer status)
 ```
 
-**Migration 92 — `store_products`, `store_product_variants`, `store_product_images`**
+| Status | Descrição |
+|--------|-----------|
+| `pending_payment` | Pedido criado, aguardando confirmação de pagamento |
+| `payment_confirmed` | Pagamento confirmado via webhook; estoque decrementado |
+| `picking` | Equipe da loja separando os itens |
+| `ready_for_pickup` | Pedido pronto; responsável notificado |
+| `picked_up` | Retirado; protocolo de retirada gerado |
+| `completed` | Concluído após conferência final |
+| `cancelled` | Cancelado com motivo registrado |
+
+#### Loja Pública (Portal do Responsável)
+
+| Rota | Componente | Descrição |
+|------|-----------|-----------|
+| `/loja` | `LojaPublicaPage` | Catálogo público com produtos em destaque e categorias |
+| `/loja/categoria/:slug` | `CategoriaPage` | Produtos filtrados por categoria |
+| `/loja/produto/:slug` | `ProdutoPage` | Detalhe do produto com galeria e seletor de grade (cor × tamanho) |
+| `/loja/carrinho` | `CarrinhoPage` | Carrinho de compras; exige login para prosseguir |
+| `/loja/checkout` | `CheckoutPage` | Seleção de aluno e método de pagamento; redireciona para `/pagar/:token` |
+| `/loja/pedido/:orderNumber` | `ConfirmacaoPedidoPage` | Acompanhamento e timeline do pedido |
+
+#### Checkout Próprio — `/pagar/:token`
+
+Substitui o checkout hospedado pelo gateway por uma página branded da escola. Token opaco de 48 hex chars (24 h) — não requer autenticação.
+
+| Método | Interface | Comportamento |
+|--------|-----------|--------------|
+| PIX | QR code + copia-e-cola | Countdown + auto-poll a cada 5 s até confirmação |
+| Boleto | Linha digitável + link de download | Auto-poll a cada 30 s |
+| Cartão de Crédito | Formulário completo com parcelamento | Processado server-side via Asaas API; suporte a parcelamento configurável |
+
+Edge function `checkout-proxy` (pública, token como auth):
+
+| Ação | Descrição |
+|------|-----------|
+| `createSession` | Cria cobrança no gateway + sessão em `checkout_sessions` |
+| `getSession` | Retorna dados do pedido, QR code ou linha de boleto |
+| `pollStatus` | Verifica confirmação de pagamento junto ao gateway |
+| `payWithCard` | Processa cartão de crédito via Asaas e registra resultado |
+
+#### WhatsApp Templates
+
+9 templates automáticos na categoria `pedidos` disparados nas transições de status:
+
+| Evento (`trigger_event`) | Gatilho |
+|---|---|
+| `order_pending_payment` | Criação do pedido |
+| `order_payment_confirmed` | `pending_payment` → `payment_confirmed` |
+| `order_picking` | `payment_confirmed` → `picking` |
+| `order_ready_for_pickup` | `picking` → `ready_for_pickup` |
+| `order_pickup_reminder` | Agendado (lembrete de retirada pendente) |
+| `order_picked_up` | `ready_for_pickup` → `picked_up` |
+| `order_completed` | `picked_up` → `completed` |
+| `order_cancelled` | Qualquer status → `cancelled` |
+| `order_payment_failed` | Webhook de gateway (charge failed/expired) |
+
+Variáveis disponíveis: `numero_pedido`, `nome_responsavel`, `nome_aluno`, `itens_resumo`, `valor_total`, `forma_pagamento`, `data_pedido`, `previsao_retirada`, `link_pedido`, `instituicao`
+
+#### Permissões
+
+7 módulos no grupo `loja`:
+
+| Módulo (`key`) | `super_admin`/`admin` | `coordinator` | `user` (caixa) |
+|---|---|---|---|
+| `store-products` | CRUD | view/create/edit | — |
+| `store-inventory` | CRUD | view/create/edit | — |
+| `store-orders` | CRUD | view/create/edit | view |
+| `store-pdv` | CRUD | — | view/create/edit |
+| `store-reports` | CRUD | view | — |
+| `store-settings` | CRUD | — | — |
+| `store-pdv-discount` | CRUD | — | — |
+
+<!-- old spec content removed — implementation documented above -->
 
 ```sql
 create table store_products (
