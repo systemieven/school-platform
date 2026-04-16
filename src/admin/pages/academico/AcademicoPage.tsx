@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import {
   GraduationCap, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
   CalendarRange, PanelLeftClose, PanelLeftOpen, LayoutDashboard, UserCheck,
+  BellRing, FileCheck2,
 } from 'lucide-react';
 import AcademicoDashboardPage from './AcademicoDashboardPage';
 import StudentsPage from '../school/StudentsPage';
 import SegmentsPage from '../school/SegmentsPage';
 import DisciplinasPage from './DisciplinasPage';
+import FaltasComunicacoesPage from '../school/FaltasComunicacoesPage';
+import AutorizacoesSaidaAdminPage from '../school/AutorizacoesSaidaAdminPage';
 import GradeHorariaPage from './GradeHorariaPage';
 import CalendarioPage from './CalendarioPage';
 import BoletimPage from './BoletimPage';
@@ -100,6 +103,20 @@ const TABS: TabDef[] = [
     shortLabel: 'Ano Letivo',
     icon: CalendarRange,
     description: 'Sugestões de progressão de série para o próximo ano letivo',
+  },
+  {
+    key: 'faltas',
+    label: 'Comunicação de Faltas',
+    shortLabel: 'Faltas',
+    icon: BellRing,
+    description: 'Notifique responsáveis sobre faltas e ausências dos alunos',
+  },
+  {
+    key: 'autorizacoes-saida',
+    label: 'Autorizações de Saída',
+    shortLabel: 'Autorizações',
+    icon: FileCheck2,
+    description: 'Gerencie autorizações de saída antecipada dos alunos',
   },
 ];
 
@@ -214,6 +231,8 @@ export default function AcademicoPage() {
               {activeTab === 'alertas' && <AlertasFrequenciaPage />}
               {activeTab === 'historico' && <HistoricoEscolarPage />}
               {activeTab === 'ano-letivo' && <AnoLetivoPage />}
+              {activeTab === 'faltas' && <FaltasComunicacoesPage />}
+              {activeTab === 'autorizacoes-saida' && <AutorizacoesSaidaAdminPage />}
             </div>
           </div>
         </div>
