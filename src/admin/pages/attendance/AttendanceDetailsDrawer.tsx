@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import AttendanceQuickActions from './AttendanceQuickActions';
 import type {
   AttendanceTicket,
   AttendanceTicketStatus,
@@ -306,6 +307,9 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
           </div>
         </div>
       </DrawerCard>
+
+      {/* Quick actions hub */}
+      <AttendanceQuickActions ticket={ticket} />
 
       {/* Timings */}
       <DrawerCard title="Tempos" icon={Clock}>

@@ -2,7 +2,8 @@
  * auto-notify
  *
  * Called by DB triggers (pg_net) and pg_cron when events occur.
- * Finds matching WhatsApp templates, renders variables, and sends messages.
+ * Finds matching WhatsApp templates, renders variables, and sends messages
+ * via message-orchestrator (handles cross-module dedup + UazAPI dispatch).
  *
  * No JWT — called from DB triggers via pg_net.
  * Auth via X-Trigger-Secret header matching system_settings.internal.trigger_secret.
@@ -26,7 +27,7 @@ function render(body: string, vars: Record<string, string>): string {
   return body.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
 }
 
-// ── Button/List choice builders (mirrors whatsapp-api.ts logic) ──────────────
+// ── Button/List choice builders ───────────────────────────────────────────────
 
 interface TemplateButton {
   id: string;
@@ -79,8 +80,6 @@ function listSectionsToChoices(
 
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
-  // Accept as-is only if already carries DDI 55 with valid length
-  // (12 = fixed line: 55 + DDD2 + 8 digits; 13 = mobile: 55 + DDD2 + 9 digits)
   if (digits.startsWith("55") && digits.length >= 12 && digits.length <= 13) return digits;
   return `55${digits}`;
 }
@@ -96,6 +95,42 @@ function fmtTime(t: string): string {
   return t.substring(0, 5);
 }
 
+// ── Orchestrator helper ───────────────────────────────────────────────────────
+
+interface OrchestratorResult {
+  sent?: boolean;
+  skipped?: boolean;
+  reason?: string;
+  wa_message_id?: string;
+  error?: string;
+}
+
+async function sendViaOrchestrator(params: {
+  module: string;
+  template: string;
+  priority: 1 | 2 | 3;
+  phone: string;
+  endpoint: string;
+  payload: Record<string, unknown>;
+}): Promise<OrchestratorResult> {
+  try {
+    const orchUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/message-orchestrator`;
+    const res = await fetch(orchUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({ mode: "send", ...params }),
+    });
+    return (await res.json().catch(() => ({ error: "parse_error" }))) as OrchestratorResult;
+  } catch (e) {
+    return { error: String(e) };
+  }
+}
+
+// ── Trigger payload ───────────────────────────────────────────────────────────
+
 interface TriggerPayload {
   event: "on_create" | "on_status_change" | "on_reminder";
   module: "agendamento" | "matricula" | "contato";
@@ -103,6 +138,8 @@ interface TriggerPayload {
   old_status?: string;
   new_status?: string;
 }
+
+// ── Main handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -113,7 +150,7 @@ Deno.serve(async (req: Request) => {
   );
 
   try {
-    // Auth: verify trigger secret from DB
+    // ── Auth ──────────────────────────────────────────────────────────────────
     const incomingSecret = req.headers.get("x-trigger-secret") || "";
 
     const { data: secretRow } = await service
@@ -123,16 +160,17 @@ Deno.serve(async (req: Request) => {
       .eq("key", "trigger_secret")
       .single();
 
-    const storedSecret = typeof secretRow?.value === "string"
-      ? secretRow.value
-      : (secretRow?.value as string) || "";
+    const storedSecret =
+      typeof secretRow?.value === "string"
+        ? secretRow.value
+        : (secretRow?.value as string) || "";
 
     if (!storedSecret || incomingSecret !== storedSecret) {
       console.warn("[auto-notify] Invalid or missing trigger secret");
       return json({ error: "Unauthorized" }, 401);
     }
 
-    // Parse payload
+    // ── Parse payload ─────────────────────────────────────────────────────────
     const payload: TriggerPayload = await req.json();
     const { event, module: mod, record_id, old_status, new_status } = payload;
 
@@ -140,9 +178,11 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Missing required fields: event, module, record_id" }, 400);
     }
 
-    console.log(`[auto-notify] event=${event} module=${mod} record=${record_id} status=${old_status}→${new_status}`);
+    console.log(
+      `[auto-notify] event=${event} module=${mod} record=${record_id} status=${old_status}→${new_status}`,
+    );
 
-    // Check if auto-notify is enabled
+    // ── Check module-level on/off toggle ──────────────────────────────────────
     const moduleNotifKey: Record<string, string> = {
       agendamento: "auto_notify_on_visit",
       matricula: "auto_notify_on_enrollment",
@@ -163,24 +203,20 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Check if WhatsApp is configured
-    const { data: waSettings } = await service
+    // ── Quick check: WhatsApp configured? (guard before loading record) ───────
+    const { data: waCheck } = await service
       .from("system_settings")
-      .select("key, value")
+      .select("value")
       .eq("category", "whatsapp")
-      .in("key", ["instance_url", "api_token"]);
+      .eq("key", "instance_url")
+      .maybeSingle();
 
-    const waMap: Record<string, string> = {};
-    (waSettings || []).forEach((s: { key: string; value: unknown }) => {
-      waMap[s.key] = typeof s.value === "string" ? s.value : String(s.value);
-    });
-
-    if (!waMap.instance_url?.trim() || !waMap.api_token?.trim()) {
+    if (!waCheck?.value || !String(waCheck.value).trim()) {
       console.log("[auto-notify] WhatsApp not configured, skipping");
       return json({ skipped: true, reason: "whatsapp_not_configured" });
     }
 
-    // Load general settings for template variables
+    // ── Load general settings for template variables ───────────────────────────
     const { data: generalSettings } = await service
       .from("system_settings")
       .select("key, value")
@@ -191,12 +227,12 @@ Deno.serve(async (req: Request) => {
       general[s.key] = typeof s.value === "string" ? s.value : String(s.value);
     });
 
-    // Load record data and build variables
+    // ── Load record + build vars ───────────────────────────────────────────────
     let recipientPhone = "";
     let recipientName = "";
     let recordVisitReason = "";
     const vars: Record<string, string> = {
-      school_name: general.school_name || "Colégio Batista em Caruaru",
+      school_name: general.school_name || "Colégio",
       school_phone: general.phone || "",
       school_address: general.address || "",
       current_date: new Date().toLocaleDateString("pt-BR"),
@@ -215,10 +251,6 @@ Deno.serve(async (req: Request) => {
       recordVisitReason = rec.visit_reason || "";
       const companions = Array.isArray(rec.companions) ? rec.companions : [];
 
-      // Resolve visit_reason slug → friendly label via system_settings.visit.reasons
-      // Fallback amigável: se a key for órfã (não existe mais em system_settings)
-      // ou se o slug parecer técnico (snake_case), renderiza "sua visita" em vez
-      // de vazar o slug cru no texto enviado ao contato.
       let visitReasonLabel = "sua visita";
       if (rec.visit_reason) {
         const { data: reasonsRow } = await service
@@ -230,22 +262,18 @@ Deno.serve(async (req: Request) => {
         const rawReasons = reasonsRow?.value;
         const reasonsList = Array.isArray(rawReasons)
           ? rawReasons
-          : (typeof rawReasons === "string"
-              ? (() => { try { return JSON.parse(rawReasons); } catch { return []; } })()
-              : []);
-        const match = (reasonsList as Array<Record<string, unknown>>)
-          .find((r) => r && r.key === rec.visit_reason);
+          : typeof rawReasons === "string"
+            ? (() => { try { return JSON.parse(rawReasons); } catch { return []; } })()
+            : [];
+        const match = (reasonsList as Array<Record<string, unknown>>).find(
+          (r) => r && r.key === rec.visit_reason,
+        );
         if (match?.label) {
           visitReasonLabel = String(match.label);
         } else {
-          // Key órfã: não encontrada em system_settings.visit.reasons.
-          // Se o valor não parecer um slug técnico (sem underscores, começa maiúscula),
-          // usamos como label direto; caso contrário, mantém o fallback "sua visita".
           const raw = String(rec.visit_reason).trim();
-          const looksLikeSlug = /[_\-]/.test(raw) || raw === raw.toLowerCase();
-          if (raw && !looksLikeSlug) {
-            visitReasonLabel = raw;
-          }
+          const looksLikeSlug = /[_-]/.test(raw) || raw === raw.toLowerCase();
+          if (raw && !looksLikeSlug) visitReasonLabel = raw;
         }
       }
 
@@ -255,7 +283,6 @@ Deno.serve(async (req: Request) => {
       vars.appointment_time = fmtTime(rec.appointment_time) || "a confirmar";
       vars.visit_reason = visitReasonLabel;
       vars.companions_count = String(companions.length);
-
     } else if (mod === "matricula") {
       const { data: rec } = await service
         .from("enrollments")
@@ -271,7 +298,6 @@ Deno.serve(async (req: Request) => {
       vars.enrollment_status = rec.status || "";
       vars.enrollment_number = rec.enrollment_number || "";
       vars.pending_docs = "";
-
     } else if (mod === "contato") {
       const { data: rec } = await service
         .from("contact_requests")
@@ -295,7 +321,7 @@ Deno.serve(async (req: Request) => {
       return json({ skipped: true, reason: "no_phone" });
     }
 
-    // Find matching templates
+    // ── Find matching templates ────────────────────────────────────────────────
     const categoryMap: Record<string, string[]> = {
       agendamento: ["agendamento"],
       matricula: ["matricula"],
@@ -314,8 +340,7 @@ Deno.serve(async (req: Request) => {
       return json({ skipped: true, reason: "no_matching_templates" });
     }
 
-    // Filter by trigger_conditions
-    // Module mapping: UI uses English names, trigger uses Portuguese
+    // ── Filter by trigger_conditions ──────────────────────────────────────────
     const moduleAliases: Record<string, string[]> = {
       agendamento: ["agendamento", "appointment"],
       matricula: ["matricula", "enrollment"],
@@ -329,7 +354,12 @@ Deno.serve(async (req: Request) => {
       if (cond.module && !validModuleNames.includes(cond.module as string)) return false;
       if (cond.status && cond.status !== new_status) return false;
       if (cond.old_status && cond.old_status !== old_status) return false;
-      if (cond.visit_reason && mod === "agendamento" && cond.visit_reason !== recordVisitReason) return false;
+      if (
+        cond.visit_reason &&
+        mod === "agendamento" &&
+        cond.visit_reason !== recordVisitReason
+      )
+        return false;
       return true;
     });
 
@@ -338,9 +368,7 @@ Deno.serve(async (req: Request) => {
       return json({ skipped: true, reason: "conditions_not_met" });
     }
 
-    // Precedence: if any template matches the record's visit_reason specifically,
-    // drop generic templates (without visit_reason) from this batch.
-    // This avoids sending both a specific and a generic message for the same event.
+    // Prefer specific visit_reason templates over generic ones
     if (mod === "agendamento" && recordVisitReason) {
       const hasSpecific = matchingTemplates.some((t: Record<string, unknown>) => {
         const cond = t.trigger_conditions as Record<string, unknown> | null;
@@ -353,14 +381,22 @@ Deno.serve(async (req: Request) => {
         });
         matchingTemplates.length = 0;
         matchingTemplates.push(...filtered);
-        console.log(`[auto-notify] Using ${matchingTemplates.length} visit_reason-specific template(s), generics skipped`);
+        console.log(
+          `[auto-notify] Using ${matchingTemplates.length} visit_reason-specific template(s), generics skipped`,
+        );
       }
     }
 
-    // Send messages
+    // ── Priority by module ────────────────────────────────────────────────────
+    const modulePriority: Record<string, 1 | 2 | 3> = {
+      agendamento: 2,
+      matricula: 2,
+      contato: 3,
+    };
+    const msgPriority: 1 | 2 | 3 = modulePriority[mod] ?? 3;
+
+    // ── Send each matching template via orchestrator ───────────────────────────
     const results = [];
-    const instanceUrl = waMap.instance_url.replace(/\/$/, "");
-    const apiToken = waMap.api_token;
     const phone = normalizePhone(recipientPhone);
 
     for (const tmpl of matchingTemplates) {
@@ -372,7 +408,7 @@ Deno.serve(async (req: Request) => {
       const rendered = render(body, vars);
       const delayMs = (tmpl.trigger_delay_minutes || 0) * 60 * 1000;
 
-      // Create log entry
+      // Create message log entry (for admin UI tracking)
       const { data: log } = await service
         .from("whatsapp_message_log")
         .insert({
@@ -390,171 +426,198 @@ Deno.serve(async (req: Request) => {
 
       const logId = log?.id || "";
 
-      try {
-        // Build payload based on message_type
-        let endpoint = "/send/text";
-        let sendPayload: Record<string, unknown> = {
-          number: phone,
-          text: rendered,
-          track_id: logId,
-          track_source: "colegio-batista",
+      // Build UazAPI payload
+      let endpoint = "/send/text";
+      let sendPayload: Record<string, unknown> = {
+        number: phone,
+        text: rendered,
+        track_id: logId,
+        track_source: "school-platform",
+      };
+      if (delayMs > 0) sendPayload.delay = delayMs;
+
+      if (msgType === "media" && content.media_url) {
+        endpoint = "/send/media";
+        sendPayload = {
+          ...sendPayload,
+          type: (content.media_type as string) || "image",
+          file: content.media_url as string,
+          ...(content.doc_name ? { docName: content.doc_name } : {}),
         };
-        if (delayMs > 0) sendPayload.delay = delayMs;
+      } else if (
+        msgType === "buttons" &&
+        Array.isArray(content.buttons) &&
+        content.buttons.length > 0
+      ) {
+        endpoint = "/send/menu";
+        sendPayload = {
+          ...sendPayload,
+          type: "button",
+          choices: buttonsToChoices(content.buttons as TemplateButton[], vars),
+          ...(content.footer_text ? { footerText: content.footer_text } : {}),
+          ...(content.image_url ? { imageButton: content.image_url } : {}),
+        };
+      } else if (
+        msgType === "list" &&
+        Array.isArray(content.list_sections) &&
+        content.list_sections.length > 0
+      ) {
+        endpoint = "/send/menu";
+        sendPayload = {
+          ...sendPayload,
+          type: "list",
+          choices: listSectionsToChoices(content.list_sections as ListSection[], vars),
+          listButton: (content.list_button_text as string) || "Ver opções",
+          ...(content.footer_text ? { footerText: content.footer_text } : {}),
+          ...(content.image_url ? { imageButton: content.image_url } : {}),
+        };
+      }
 
-        if (msgType === "media" && content.media_url) {
-          endpoint = "/send/media";
-          sendPayload = {
-            ...sendPayload,
-            type: (content.media_type as string) || "image",
-            file: content.media_url as string,
-            ...(content.doc_name ? { docName: content.doc_name } : {}),
-          };
-        } else if (msgType === "buttons" && Array.isArray(content.buttons) && content.buttons.length > 0) {
-          endpoint = "/send/menu";
-          sendPayload = {
-            ...sendPayload,
-            type: "button",
-            choices: buttonsToChoices(content.buttons as TemplateButton[], vars),
-            ...(content.footer_text ? { footerText: content.footer_text } : {}),
-            ...(content.image_url ? { imageButton: content.image_url } : {}),
-          };
-        } else if (msgType === "list" && Array.isArray(content.list_sections) && content.list_sections.length > 0) {
-          endpoint = "/send/menu";
-          sendPayload = {
-            ...sendPayload,
-            type: "list",
-            choices: listSectionsToChoices(content.list_sections as ListSection[], vars),
-            listButton: (content.list_button_text as string) || "Ver opções",
-            ...(content.footer_text ? { footerText: content.footer_text } : {}),
-            ...(content.image_url ? { imageButton: content.image_url } : {}),
-          };
-        }
-        // else: default text payload already set
+      // ── Dispatch via MessageOrchestrator ──────────────────────────────────
+      const orchResult = await sendViaOrchestrator({
+        module: `auto-notify/${mod}`,
+        template: tmpl.name as string,
+        priority: msgPriority,
+        phone,
+        endpoint,
+        payload: sendPayload,
+      });
 
-        const apiRes = await fetch(`${instanceUrl}${endpoint}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", token: apiToken },
-          body: JSON.stringify(sendPayload),
-        });
-
-        if (apiRes.ok) {
-          const apiData = await apiRes.json().catch(() => ({}));
-          const waKeyId = apiData?.messageid ||
-            (typeof apiData?.id === "string" ? apiData.id.split(":").pop() : undefined);
-
-          await service
-            .from("whatsapp_message_log")
-            .update({
-              status: "sent",
-              sent_at: new Date().toISOString(),
-              ...(waKeyId ? { wa_message_id: waKeyId } : {}),
-            })
-            .eq("id", logId);
-          results.push({ template: tmpl.name, type: msgType, status: "sent", logId });
-          console.log(`[auto-notify] Sent "${tmpl.name}" (${msgType}) to ${phone} via ${endpoint}`);
-
-          // ── Confirmation tracking: register only if this template has at
-          //    least one reply button whose value matches a positive/negative
-          //    confirm ID. Templates with only url/copy/call buttons can't
-          //    produce a response event, and templates with action buttons
-          //    ("Reagendar", "Ver mais") shouldn't count as pending confirmation.
-          if (mod === "agendamento" && msgType === "buttons" && waKeyId) {
-            try {
-              // Load auto_confirm settings (enabled + id lists)
-              const { data: autoConfirmRows } = await service
-                .from("system_settings")
-                .select("key, value")
-                .eq("category", "visit")
-                .in("key", [
-                  "auto_confirm_enabled",
-                  "auto_confirm_positive_ids",
-                  "auto_confirm_negative_ids",
-                ]);
-
-              const acMap: Record<string, unknown> = {};
-              (autoConfirmRows || []).forEach((r: { key: string; value: unknown }) => {
-                acMap[r.key] = r.value;
-              });
-
-              const autoConfirmEnabled =
-                acMap.auto_confirm_enabled === true ||
-                acMap.auto_confirm_enabled === "true";
-
-              // Accept both native jsonb arrays and legacy JSON strings
-              const parseIdList = (raw: unknown, fallback: string[]): string[] => {
-                if (Array.isArray(raw)) return raw.map((x) => String(x));
-                if (typeof raw === "string") {
-                  try {
-                    const parsed = JSON.parse(raw);
-                    return Array.isArray(parsed) ? parsed.map((x) => String(x)) : fallback;
-                  } catch {
-                    return fallback;
-                  }
-                }
-                return fallback;
-              };
-              const positiveIds = parseIdList(acMap.auto_confirm_positive_ids, ["sim", "confirmar", "yes"])
-                .map((s) => s.toLowerCase().trim());
-              const negativeIds = parseIdList(acMap.auto_confirm_negative_ids, ["nao", "cancelar", "no"])
-                .map((s) => s.toLowerCase().trim());
-
-              const tmplButtons = Array.isArray(content.buttons)
-                ? (content.buttons as TemplateButton[])
-                : [];
-              const hasConfirmationButton = tmplButtons.some((b) => {
-                if (!b || b.type !== "reply") return false;
-                const v = String(b.value || b.id || "").toLowerCase().trim();
-                return v !== "" && (positiveIds.includes(v) || negativeIds.includes(v));
-              });
-
-              if (autoConfirmEnabled && hasConfirmationButton) {
-                await service.from("confirmation_tracking").insert({
-                  wa_message_id:  waKeyId,
-                  appointment_id: record_id,
-                  template_id:    tmpl.id,
-                  phone:          recipientPhone,
-                  delay_minutes:  tmpl.trigger_delay_minutes || 0,
-                });
-                await service.from("visit_appointments")
-                  .update({ confirmation_status: "awaiting" })
-                  .eq("id", record_id);
-                console.log(`[auto-notify] Created confirmation tracking for appointment=${record_id} wa_msg=${waKeyId} template=${tmpl.name}`);
-              } else if (autoConfirmEnabled) {
-                console.log(`[auto-notify] Skip tracking for template=${tmpl.name}: no reply button matches confirm IDs`);
-              }
-            } catch (ctErr) {
-              console.error("[auto-notify] Failed to create confirmation tracking:", ctErr);
-            }
-          }
-        } else {
-          const errBody = await apiRes.text().catch(() => "Unknown error");
-          await service
-            .from("whatsapp_message_log")
-            .update({ status: "failed", error_message: errBody })
-            .eq("id", logId);
-          results.push({ template: tmpl.name, type: msgType, status: "failed", error: errBody });
-          console.error(`[auto-notify] Failed "${tmpl.name}" (${msgType}): ${errBody}`);
-        }
-      } catch (sendErr) {
+      if (orchResult.sent) {
+        const waKeyId = orchResult.wa_message_id;
         await service
           .from("whatsapp_message_log")
-          .update({ status: "failed", error_message: String(sendErr) })
+          .update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            ...(waKeyId ? { wa_message_id: waKeyId } : {}),
+          })
           .eq("id", logId);
-        results.push({ template: tmpl.name, type: msgType, status: "failed", error: String(sendErr) });
-        console.error(`[auto-notify] Error "${tmpl.name}":`, sendErr);
+        results.push({ template: tmpl.name, type: msgType, status: "sent", logId });
+        console.log(
+          `[auto-notify] Sent "${tmpl.name}" (${msgType}) to ${phone} via orchestrator`,
+        );
+
+        // ── Confirmation tracking for agendamento buttons ──────────────────
+        if (mod === "agendamento" && msgType === "buttons" && waKeyId) {
+          try {
+            const { data: autoConfirmRows } = await service
+              .from("system_settings")
+              .select("key, value")
+              .eq("category", "visit")
+              .in("key", [
+                "auto_confirm_enabled",
+                "auto_confirm_positive_ids",
+                "auto_confirm_negative_ids",
+              ]);
+
+            const acMap: Record<string, unknown> = {};
+            (autoConfirmRows || []).forEach((r: { key: string; value: unknown }) => {
+              acMap[r.key] = r.value;
+            });
+
+            const autoConfirmEnabled =
+              acMap.auto_confirm_enabled === true ||
+              acMap.auto_confirm_enabled === "true";
+
+            const parseIdList = (raw: unknown, fallback: string[]): string[] => {
+              if (Array.isArray(raw)) return raw.map((x) => String(x));
+              if (typeof raw === "string") {
+                try {
+                  const parsed = JSON.parse(raw);
+                  return Array.isArray(parsed) ? parsed.map((x) => String(x)) : fallback;
+                } catch {
+                  return fallback;
+                }
+              }
+              return fallback;
+            };
+            const positiveIds = parseIdList(
+              acMap.auto_confirm_positive_ids,
+              ["sim", "confirmar", "yes"],
+            ).map((s) => s.toLowerCase().trim());
+            const negativeIds = parseIdList(
+              acMap.auto_confirm_negative_ids,
+              ["nao", "cancelar", "no"],
+            ).map((s) => s.toLowerCase().trim());
+
+            const tmplButtons = Array.isArray(content.buttons)
+              ? (content.buttons as TemplateButton[])
+              : [];
+            const hasConfirmationButton = tmplButtons.some((b) => {
+              if (!b || b.type !== "reply") return false;
+              const v = String(b.value || b.id || "").toLowerCase().trim();
+              return v !== "" && (positiveIds.includes(v) || negativeIds.includes(v));
+            });
+
+            if (autoConfirmEnabled && hasConfirmationButton) {
+              await service.from("confirmation_tracking").insert({
+                wa_message_id: waKeyId,
+                appointment_id: record_id,
+                template_id: tmpl.id,
+                phone: recipientPhone,
+                delay_minutes: tmpl.trigger_delay_minutes || 0,
+              });
+              await service
+                .from("visit_appointments")
+                .update({ confirmation_status: "awaiting" })
+                .eq("id", record_id);
+              console.log(
+                `[auto-notify] Created confirmation tracking appointment=${record_id} wa_msg=${waKeyId}`,
+              );
+            } else if (autoConfirmEnabled) {
+              console.log(
+                `[auto-notify] Skip tracking for "${tmpl.name}": no reply button matches confirm IDs`,
+              );
+            }
+          } catch (ctErr) {
+            console.error("[auto-notify] Failed to create confirmation tracking:", ctErr);
+          }
+        }
+      } else if (orchResult.skipped) {
+        await service
+          .from("whatsapp_message_log")
+          .update({ status: "skipped", error_message: `dedup: ${orchResult.reason}` })
+          .eq("id", logId);
+        results.push({
+          template: tmpl.name,
+          type: msgType,
+          status: "skipped",
+          reason: orchResult.reason,
+        });
+        console.log(`[auto-notify] Skipped "${tmpl.name}" (dedup: ${orchResult.reason})`);
+      } else {
+        const errMsg = orchResult.error || "unknown_error";
+        await service
+          .from("whatsapp_message_log")
+          .update({ status: "failed", error_message: errMsg })
+          .eq("id", logId);
+        results.push({ template: tmpl.name, type: msgType, status: "failed", error: errMsg });
+        console.error(`[auto-notify] Failed "${tmpl.name}" (${msgType}): ${errMsg}`);
       }
     }
 
-    // Update flags on source record
-    if (mod === "agendamento" && results.some((r) => r.status === "sent")) {
+    // ── Post-send flags ────────────────────────────────────────────────────────
+    const anySent = results.some((r) => r.status === "sent");
+
+    if (mod === "agendamento" && anySent) {
       if (event === "on_reminder") {
-        await service.from("visit_appointments").update({ reminder_sent: true }).eq("id", record_id);
-      } else if (event === "on_create" || (event === "on_status_change" && new_status === "confirmed")) {
-        await service.from("visit_appointments").update({ confirmation_sent: true }).eq("id", record_id);
+        await service
+          .from("visit_appointments")
+          .update({ reminder_sent: true })
+          .eq("id", record_id);
+      } else if (
+        event === "on_create" ||
+        (event === "on_status_change" && new_status === "confirmed")
+      ) {
+        await service
+          .from("visit_appointments")
+          .update({ confirmation_sent: true })
+          .eq("id", record_id);
       }
     }
 
-    // Create internal notification for admins on new records
+    // ── Internal admin notifications on new records ───────────────────────────
     if (event === "on_create") {
       const typeMap: Record<string, string> = {
         agendamento: "new_appointment",
@@ -567,9 +630,9 @@ Deno.serve(async (req: Request) => {
         contato: `Novo contato: ${recipientName}`,
       };
       const linkMap: Record<string, string> = {
-        agendamento: "/admin/agendamentos",
-        matricula: "/admin/matriculas",
-        contato: "/admin/contatos",
+        agendamento: "/admin/gestao",
+        matricula: "/admin/gestao?tab=matriculas",
+        contato: "/admin/gestao?tab=contatos",
       };
 
       const { data: admins } = await service
@@ -592,7 +655,13 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return json({ success: true, sent: results.length, results });
+    return json({
+      success: true,
+      sent: results.filter((r) => r.status === "sent").length,
+      skipped: results.filter((r) => r.status === "skipped").length,
+      failed: results.filter((r) => r.status === "failed").length,
+      results,
+    });
   } catch (err) {
     console.error("[auto-notify] error:", err);
     return json({ error: "Internal server error", detail: String(err) }, 500);

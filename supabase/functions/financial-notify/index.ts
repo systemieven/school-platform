@@ -3,7 +3,12 @@
  *
  * Called daily by pg_cron (08:00 BRT).
  * Reads billing_stages config, finds matching installments for each stage,
- * renders WhatsApp templates, and sends notifications.
+ * renders WhatsApp templates, and sends notifications via UazAPI.
+ *
+ * Cross-module dedup: before building each campaign, phones that received
+ * ANY WhatsApp message in the last 30 min are filtered out via
+ * message-orchestrator (mode='check'). After a campaign succeeds, all sent
+ * phones are logged to whatsapp_send_log so other modules respect the window.
  *
  * Auth: X-Trigger-Secret header (same as auto-notify).
  */
@@ -30,6 +35,63 @@ function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("55") && digits.length >= 12 && digits.length <= 13) return digits;
   return `55${digits}`;
+}
+
+// ── Orchestrator dedup helpers ────────────────────────────────────────────────
+
+/**
+ * Returns the subset of phones that are NOT in the dedup window.
+ * Calls message-orchestrator mode='check'.
+ */
+async function filterDedupPhones(phones: string[]): Promise<Set<string>> {
+  if (phones.length === 0) return new Set(phones);
+  try {
+    const orchUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/message-orchestrator`;
+    const res = await fetch(orchUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({
+        mode: "check",
+        module: "financial",
+        priority: 1,
+        phones,
+      }),
+    });
+    const data = (await res.json().catch(() => ({ allowed: phones, blocked: [] }))) as {
+      allowed?: string[];
+      blocked?: string[];
+    };
+    return new Set(data.allowed ?? phones);
+  } catch (e) {
+    // On orchestrator failure, allow all (don't block financial notifications)
+    console.warn("[financial-notify] Dedup check failed, allowing all phones:", e);
+    return new Set(phones);
+  }
+}
+
+/**
+ * Bulk-logs successfully sent phones to whatsapp_send_log so other
+ * modules respect the dedup window.
+ */
+async function logSentPhones(
+  // deno-lint-ignore no-explicit-any
+  service: any,
+  phones: string[],
+  stage: string,
+): Promise<void> {
+  if (phones.length === 0) return;
+  const rows = phones.map((phone) => ({
+    phone,
+    module: "financial",
+    template: stage,
+    priority: 1,
+    status: "sent",
+    sent_at: new Date().toISOString(),
+  }));
+  await service.from("whatsapp_send_log").insert(rows);
 }
 
 function fmtDate(d: string): string {
@@ -280,6 +342,40 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
+      // ── Cross-module dedup: filter phones seen in last 30 min ─────────────
+      const allPhones = campaignMessages.map((m) => m.number);
+      const allowedPhones = await filterDedupPhones(allPhones);
+      const beforeDedup = campaignMessages.length;
+      const dedupFiltered = campaignMessages.filter((m) => allowedPhones.has(m.number));
+      const dedupSkipped = beforeDedup - dedupFiltered.length;
+      if (dedupSkipped > 0) {
+        console.log(
+          `[financial-notify] Dedup blocked ${dedupSkipped} phone(s) for stage ${stage.stage}`,
+        );
+        stageSkipped += dedupSkipped;
+        // Also remove corresponding loggedInstallments entries
+        const allowedIndexes = new Set(
+          campaignMessages
+            .map((m, i) => (allowedPhones.has(m.number) ? i : -1))
+            .filter((i) => i !== -1),
+        );
+        loggedInstallments.splice(
+          0,
+          loggedInstallments.length,
+          ...loggedInstallments.filter((_, i) => allowedIndexes.has(i)),
+        );
+        campaignMessages.splice(
+          0,
+          campaignMessages.length,
+          ...dedupFiltered,
+        );
+      }
+
+      if (campaignMessages.length === 0) {
+        results.push({ stage: stage.stage, recipients: 0, skipped: stageSkipped });
+        continue;
+      }
+
       // ── Pre-log to whatsapp_message_log ──────────────────────────────────
       const folderName = `Cobrança ${stage.stage} — ${todayStr}`;
       const logRows = campaignMessages.map((m, i) => ({
@@ -321,6 +417,13 @@ Deno.serve(async (req: Request) => {
             trigger_type: stage.stage,
           }));
           await service.from("financial_notification_log").insert(notifRows);
+
+          // Cross-module dedup log: mark these phones as recently messaged
+          await logSentPhones(
+            service,
+            campaignMessages.map((m) => m.number),
+            stage.stage,
+          );
 
           results.push({ stage: stage.stage, recipients: campaignMessages.length, skipped: stageSkipped, folder_id });
           console.log(`[financial-notify] Campaign created: ${folderName} (${campaignMessages.length} msgs, folder_id=${folder_id})`);

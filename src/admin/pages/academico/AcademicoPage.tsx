@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import {
   GraduationCap, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
   CalendarRange, PanelLeftClose, PanelLeftOpen, LayoutDashboard, UserCheck,
-  MessageSquare, DoorOpen,
+  MessageSquare, DoorOpen, Target,
 } from 'lucide-react';
+import BnccPage from './BnccPage';
 import AcademicoDashboardPage from './AcademicoDashboardPage';
 import StudentsPage from '../school/StudentsPage';
 import SegmentsPage from '../school/SegmentsPage';
@@ -117,6 +118,13 @@ const TABS: TabDef[] = [
     shortLabel: 'Autorizações',
     icon: DoorOpen,
     description: 'Gerencie autorizações de saída antecipada dos alunos',
+  },
+  {
+    key: 'bncc',
+    label: 'BNCC',
+    shortLabel: 'BNCC',
+    icon: Target,
+    description: 'Objetivos de aprendizagem, cobertura curricular e relatórios pedagógicos',
   },
 ];
 
@@ -233,6 +241,7 @@ export default function AcademicoPage() {
               {activeTab === 'ano-letivo' && <AnoLetivoPage />}
               {activeTab === 'faltas' && <FaltasComunicacoesPage />}
               {activeTab === 'autorizacoes-saida' && <AutorizacoesSaidaAdminPage />}
+              {activeTab === 'bncc'               && <BnccPage />}
             </div>
           </div>
         </div>
