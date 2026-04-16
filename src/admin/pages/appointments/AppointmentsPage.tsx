@@ -833,7 +833,7 @@ export default function AppointmentsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchSaving, setBatchSaving] = useState(false);
   const [REASON_LABELS, setReasonLabels] = useState<Record<string, string>>(DEFAULT_REASON_LABELS);
-  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('calendar');
 
   // Load visit reasons from DB
   useEffect(() => {
