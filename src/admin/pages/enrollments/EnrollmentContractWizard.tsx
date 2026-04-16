@@ -17,7 +17,6 @@ import {
   CreditCard,
   CheckCircle2,
   Loader2,
-  Check,
   X,
   ChevronDown,
   Zap,

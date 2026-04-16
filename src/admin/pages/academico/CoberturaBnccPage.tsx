@@ -36,7 +36,7 @@ export default function CoberturaBnccPage() {
       .select('id, name, segment_id, segment:school_segments(id, name)')
       .eq('is_active', true)
       .order('name')
-      .then(({ data }) => setClasses((data as SchoolClass[]) ?? []));
+      .then(({ data }) => setClasses((data as unknown as SchoolClass[]) ?? []));
 
     supabase
       .from('school_subjects')
