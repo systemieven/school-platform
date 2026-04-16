@@ -78,27 +78,6 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'Qualificação',
-    items: [
-      {
-        key: 'kanban',
-        label: 'Kanban de Leads',
-        icon: 'Kanban',
-        path: '/admin/leads/kanban',
-        roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'kanban',
-      },
-      {
-        key: 'reports',
-        label: 'Relatórios',
-        icon: 'BarChart2',
-        path: '/admin/relatorios',
-        roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'reports',
-      },
-    ],
-  },
-  {
     label: 'Secretaria',
     items: [
       {
@@ -130,11 +109,6 @@ export const ADMIN_NAV: NavGroup[] = [
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
         moduleKey: 'events',
       },
-    ],
-  },
-  {
-    label: 'Ferramentas',
-    items: [
       {
         key: 'teacher-area',
         label: 'Área do Professor',
@@ -151,6 +125,32 @@ export const ADMIN_NAV: NavGroup[] = [
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
         moduleKey: 'library',
       },
+    ],
+  },
+  {
+    label: 'Qualificação',
+    items: [
+      {
+        key: 'kanban',
+        label: 'Kanban de Leads',
+        icon: 'Kanban',
+        path: '/admin/leads/kanban',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'kanban',
+      },
+      {
+        key: 'reports',
+        label: 'Relatórios',
+        icon: 'BarChart2',
+        path: '/admin/relatorios',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'reports',
+      },
+    ],
+  },
+  {
+    label: 'Ferramentas',
+    items: [
       {
         key: 'testimonials',
         label: 'Depoimentos do Site',
