@@ -157,7 +157,9 @@ export default function ProdutosTab() {
         </button>
         {showCategories && (
           <div className="p-4 space-y-2">
-            {categories.length === 0
+            {loading ? (
+              <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gray-300" /></div>
+            ) : categories.length === 0
               ? <p className="text-sm text-gray-400 text-center py-4">Nenhuma categoria cadastrada</p>
               : categories.map((cat) => (
                 <div key={cat.id}
