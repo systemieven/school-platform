@@ -11,8 +11,20 @@ import {
 } from 'lucide-react';
 import type { StoreProduct, StoreProductVariant, PDVCartItem } from '../../types/admin.types';
 
-// ── Formas de pagamento manual com ícones ─────────────────────────────────────
-const MANUAL_METHODS: { key: string; label: string; icon: React.ElementType }[] = [
+// ── Mapa value→ícone para formas de pagamento manuais ────────────────────────
+const PM_ICON_MAP: Record<string, React.ElementType> = {
+  cash:        Banknote,
+  pix:         QrCode,
+  credit_card: CreditCard,
+  debit_card:  Wallet,
+  transfer:    ArrowLeftRight,
+  boleto:      Banknote,
+  check:       DollarSign,
+  other:       DollarSign,
+};
+
+// Fallback usado quando system_settings ainda não foi configurado
+const DEFAULT_MANUAL_METHODS: { key: string; label: string; icon: React.ElementType }[] = [
   { key: 'Dinheiro',       label: 'Dinheiro',       icon: Banknote       },
   { key: 'PIX',            label: 'PIX',             icon: QrCode         },
   { key: 'Cartão Crédito', label: 'Cartão Crédito', icon: CreditCard     },
@@ -75,6 +87,7 @@ export default function PDVPage() {
   // ── Gateway ─────────────────────────────────────────────────────────────────
   const [activeGateway, setActiveGateway] = useState<ActiveGateway | null>(null);
   const [gatewayLoading, setGatewayLoading] = useState(false);
+  const [manualMethods, setManualMethods] = useState(DEFAULT_MANUAL_METHODS);
 
   // ── Venda ───────────────────────────────────────────────────────────────────
   const [finalizing, setFinalizing] = useState(false);
@@ -83,21 +96,40 @@ export default function PDVPage() {
   const [chargeResult, setChargeResult] = useState<ChargeResult | null>(null);
   const [saleError, setSaleError] = useState<string | null>(null);
 
-  // ── Carregar gateway ativo ──────────────────────────────────────────────────
+  // ── Carregar gateway ativo + formas de pagamento manuais ───────────────────
   useEffect(() => {
-    async function loadGateway() {
+    async function loadGatewayAndMethods() {
       setGatewayLoading(true);
-      const { data } = await supabase
-        .from('payment_gateways')
-        .select('id, provider, environment, supported_methods')
-        .eq('is_active', true)
-        .order('is_default', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      setActiveGateway(data as ActiveGateway | null);
+      const [{ data: gw }, { data: pmRow }] = await Promise.all([
+        supabase
+          .from('payment_gateways')
+          .select('id, provider, environment, supported_methods')
+          .eq('is_active', true)
+          .order('is_default', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('system_settings')
+          .select('value')
+          .eq('category', 'financial')
+          .eq('key', 'payment_methods')
+          .maybeSingle(),
+      ]);
+      setActiveGateway(gw as ActiveGateway | null);
+
+      // Mapear formas de pagamento ativas do setting para o formato do PDV
+      if (pmRow?.value) {
+        try {
+          const items = JSON.parse(pmRow.value as string) as { value: string; label: string; is_active: boolean }[];
+          const mapped = items
+            .filter((m) => m.is_active)
+            .map((m) => ({ key: m.label, label: m.label, icon: PM_ICON_MAP[m.value] ?? DollarSign }));
+          if (mapped.length) setManualMethods(mapped);
+        } catch { /* fallback mantido */ }
+      }
       setGatewayLoading(false);
     }
-    loadGateway();
+    loadGatewayAndMethods();
   }, []);
 
   // Reset método ao trocar modo
@@ -514,7 +546,7 @@ export default function PDVPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Forma de Pagamento</label>
                 <div className="grid grid-cols-5 gap-1.5">
-                  {MANUAL_METHODS.map(({ key, label, icon: Icon }) => {
+                  {manualMethods.map(({ key, label, icon: Icon }) => {
                     const selected = paymentMethod === key;
                     return (
                       <button key={key} onClick={() => setPaymentMethod(key)}
