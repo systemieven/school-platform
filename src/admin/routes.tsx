@@ -47,6 +47,11 @@ const ProvasAdminPage          = lazy(() => import('./pages/academico/ProvasAdmi
 // Fase 11 — Secretaria Digital
 const SecretariaPage           = lazy(() => import('./pages/secretaria/SecretariaPage'));
 
+// Fase 11.B — Portaria, Comunicação de Faltas e Autorizações de Saída
+const FaltasComunicacoesPage   = lazy(() => import('./pages/school/FaltasComunicacoesPage'));
+const AutorizacoesSaidaAdminPage = lazy(() => import('./pages/school/AutorizacoesSaidaAdminPage'));
+const PortariaPage             = lazy(() => import('./pages/school/PortariaPage'));
+
 function PageFallback() {
   return (
     <div className="flex items-center justify-center py-24">
@@ -120,6 +125,11 @@ export default function AdminRoutes() {
 
           {/* Fase 11 — Secretaria Digital */}
           <Route path="secretaria" element={<ModuleGuard moduleKey="secretaria-declaracoes"><LazyPage><SecretariaPage /></LazyPage></ModuleGuard>} />
+
+          {/* Fase 11.B — Portaria, Comunicação de Faltas e Autorizações de Saída */}
+          <Route path="faltas" element={<ModuleGuard moduleKey="absence-communications"><LazyPage><FaltasComunicacoesPage /></LazyPage></ModuleGuard>} />
+          <Route path="autorizacoes-saida" element={<ModuleGuard moduleKey="exit-authorizations"><LazyPage><AutorizacoesSaidaAdminPage /></LazyPage></ModuleGuard>} />
+          <Route path="portaria" element={<ModuleGuard moduleKey="portaria"><LazyPage><PortariaPage /></LazyPage></ModuleGuard>} />
 
           {/* System */}
           <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />

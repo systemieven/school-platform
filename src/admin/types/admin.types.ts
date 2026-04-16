@@ -2214,3 +2214,114 @@ export interface StudentTransfer {
   from_class?: { id: string; name: string } | null;
   to_class?: { id: string; name: string } | null;
 }
+
+// ── Fase 11.B — Ausências e Portaria ────────────────────────────────────────
+
+export type AbsenceCommunicationStatus = 'sent' | 'analyzing' | 'accepted' | 'rejected';
+export type AbsenceCommunicationType   = 'planned' | 'justification';
+
+export interface AbsenceReasonOption {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  is_active: boolean;
+  position: number;
+}
+
+export interface AbsenceCommunication {
+  id: string;
+  student_id: string;
+  guardian_id: string;
+  type: AbsenceCommunicationType;
+  absence_date: string;
+  reason_key: string | null;
+  notes: string | null;
+  attachment_url: string | null;
+  status: AbsenceCommunicationStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  diary_attendance_id: string | null;
+  created_at: string;
+  updated_at: string;
+  // joins
+  student?: { id: string; full_name: string } | null;
+  guardian?: { id: string; name: string } | null;
+  reason?: AbsenceReasonOption | null;
+}
+
+export type ExitAuthorizationStatus = 'requested' | 'analyzing' | 'authorized' | 'rejected' | 'completed' | 'expired';
+
+export interface AuthorizedPerson {
+  id: string;
+  student_id: string;
+  full_name: string;
+  cpf: string;
+  phone: string;
+  photo_url: string | null;
+  relationship: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExitAuthorization {
+  id: string;
+  student_id: string;
+  guardian_id: string;
+  third_party_name: string;
+  third_party_cpf: string;
+  third_party_phone: string;
+  third_party_rel: string;
+  third_party_photo_url: string | null;
+  valid_from: string;
+  valid_until: string;
+  period: 'morning' | 'afternoon' | 'full_day' | null;
+  status: ExitAuthorizationStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  exited_at: string | null;
+  exit_confirmed_by: string | null;
+  audit_log: Record<string, unknown>[];
+  created_at: string;
+  updated_at: string;
+  // joins
+  student?: { id: string; full_name: string } | null;
+  guardian?: { id: string; name: string; phone: string } | null;
+}
+
+export const ABSENCE_COMM_STATUS_LABELS: Record<AbsenceCommunicationStatus, string> = {
+  sent:      'Enviada',
+  analyzing: 'Em análise',
+  accepted:  'Aceita',
+  rejected:  'Recusada',
+};
+
+export const ABSENCE_COMM_STATUS_COLORS: Record<AbsenceCommunicationStatus, string> = {
+  sent:      'blue',
+  analyzing: 'amber',
+  accepted:  'green',
+  rejected:  'red',
+};
+
+export const EXIT_AUTH_STATUS_LABELS: Record<ExitAuthorizationStatus, string> = {
+  requested:  'Solicitada',
+  analyzing:  'Em análise',
+  authorized: 'Autorizada',
+  rejected:   'Recusada',
+  completed:  'Concluída',
+  expired:    'Expirada',
+};
+
+export const THIRD_PARTY_REL_LABELS: Record<string, string> = {
+  tio_a:       'Tio(a)',
+  primo_a:     'Primo(a)',
+  vizinho_a:   'Vizinho(a)',
+  amigo_a:     'Amigo(a)',
+  conhecido_a: 'Conhecido(a)',
+  outro:       'Outro',
+};

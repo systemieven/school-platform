@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Star, CalendarClock, Wallet, Megaphone,
   CalendarDays, BookOpen, AlertCircle, CheckSquare, User,
   LogOut, Menu, X, ChevronDown, Users, FileText, RefreshCw,
+  MessageSquareDot, DoorOpen,
 } from 'lucide-react';
 import { useBranding } from '../contexts/BrandingContext';
 
@@ -19,10 +20,12 @@ const NAV = [
   { path: '/responsavel/comunicados',  label: 'Comunicados',    icon: Megaphone },
   { path: '/responsavel/eventos',      label: 'Eventos',        icon: CalendarDays },
   { path: '/responsavel/grade',        label: 'Grade Horária',  icon: CalendarClock },
-  { path: '/responsavel/ocorrencias',  label: 'Ocorrências',    icon: AlertCircle },
-  { path: '/responsavel/autorizacoes', label: 'Autorizações',   icon: CheckSquare },
-  { path: '/responsavel/biblioteca',   label: 'Biblioteca',     icon: BookOpen },
-  { path: '/responsavel/perfil',       label: 'Perfil',         icon: User },
+  { path: '/responsavel/ocorrencias',        label: 'Ocorrências',     icon: AlertCircle },
+  { path: '/responsavel/autorizacoes',       label: 'Autorizações',    icon: CheckSquare },
+  { path: '/responsavel/faltas',             label: 'Comunicar Falta', icon: MessageSquareDot },
+  { path: '/responsavel/autorizacoes-saida', label: 'Saída Autorizada', icon: DoorOpen },
+  { path: '/responsavel/biblioteca',         label: 'Biblioteca',      icon: BookOpen },
+  { path: '/responsavel/perfil',             label: 'Perfil',          icon: User },
 ];
 
 function StudentSelector() {
