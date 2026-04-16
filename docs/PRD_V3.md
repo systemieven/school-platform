@@ -1,8 +1,8 @@
 # PRD v3 — Plataforma Escolar (school-platform)
 
-> **Versao**: 3.4
+> **Versao**: 3.5
 > **Data**: 16 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-14 concluidas) + roadmap ate v1
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprint 6 WebAuthn) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -30,11 +30,13 @@
     - 10.6 Fase 11 — Secretaria Digital
     - 10.6B Fase 11.B — Portal do Responsavel + Modulo de Portaria
     - 10.6C Fase 11.C — Ficha de Saude Expandida
-    - 10.7 Fase 12 — Modulo Pedagogico Avancado (BNCC)
+    - 10.7 Fase 12 — Modulo Pedagogico Avancado (BNCC) ✅
     - 10.8 Fase 13 — IA e Analytics
+    - 10.9 Fase 14 — Loja, PDV e Estoque ✅
+    - 10.9B Fase 14.F — Estrutura Fiscal de Produtos (NF-e Prep)
     - 10.10 Melhorias Transversais
     - 10.11 F6.4 Documentacao Tecnica (ultima etapa da v1)
-    - 10.12 Fase 15 — Achados e Perdidos Digital
+    - 10.12 Fase 15 — Achados e Perdidos Digital ✅
 11. [Requisitos Nao Funcionais](#11-requisitos-nao-funcionais)
 12. [Apendices](#apendices)
 
@@ -1427,6 +1429,12 @@ Configuravel na aba Aparencia > Home:
 | 100 | `store_order_whatsapp_templates` | 16/04 | 9 templates WhatsApp para pipeline de pedidos da loja |
 | 101 | `webhook_store_order_support` | 16/04 | Coluna store_order_id em gateway_webhook_log para suporte a pagamentos de pedidos |
 | 102 | `checkout_sessions` | 16/04 | Tabela checkout_sessions para checkout proprio /pagar/:token |
+| 103 | `lost_found_tables` | 16/04 | Fase 15 — Tabelas lost_found_items e lost_found_events com RLS e trigger updated_at |
+| 104 | `lost_found_permissions` | 16/04 | Fase 15 — Modulo lost-found no sistema de permissoes (super_admin/admin full, coordinator criar+editar, user criar+ver) |
+| 105 | `lost_found_settings` | 16/04 | Fase 15 — Defaults em system_settings (tipos, locais, discard_days=30, show_photo=true) |
+| 106 | `whatsapp_send_log` | 16/04 | Sprint 3 prep — Tabela whatsapp_send_log para deduplicacao cross-modulo de envios WhatsApp |
+| 107 | `learning_objectives` | 16/04 | Fase 12 (Sprint 5) — learning_objectives (BNCC) + lesson_plan_objectives N:N; permissao objetivos-bncc |
+| 108 | `webauthn` | 16/04 | Sprint 6 — webauthn_credentials + webauthn_challenges (TTL 5min) para biometria no Portal do Responsavel |
 
 ### 7.4 RLS Policies
 
@@ -1724,11 +1732,12 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 11 | Secretaria Digital | ✅ Concluido (migrations 82-86, Edge Function generate-document, 2026-04-15) | Alta | 10 |
 | 11.B | Portal do Responsavel + Modulo de Portaria (Comunicacao de Faltas, Autorizacoes de Saida, Portaria) | ✅ Concluido (migrations 87–90, 2026-04-16) | Alta | 10 + 10.P + 11 |
 | 11.C | Ficha de Saude Expandida (atestado fisico, atualizacoes pelo responsavel, visao restrita professor, alertas de vencimento) | ✅ Concluido (commit c08d37d, 2026-04-16) | Alta | 11 + 10 |
-| 12 | Modulo Pedagogico Avancado (BNCC + Relatorios) | ⏳ Pendente | Media | 9 + 10.P |
+| 12 | Modulo Pedagogico Avancado (BNCC + Relatorios) | ✅ Concluido (migration 107, Sprint 5, 2026-04-16) | Media | 9 + 10.P |
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
 | 14 | Loja, PDV e Estoque | ✅ Concluido (migrations 92–102, 2026-04-16) | Alta | 8.5 + 10 |
 | 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
-| 15 | Achados e Perdidos Digital | ⏳ Pendente | Media | 6 + 9 + 10 |
+| 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ⏳ Planejado | Media | 14 |
+| 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
 
@@ -2975,41 +2984,47 @@ Config card em *Config > Academico* — segue padrao `SettingsCard`. Campos:
 
 ### 10.7 Fase 12 — Modulo Pedagogico Avancado
 
+> ✅ **CONCLUÍDA** — Migration 107, Sprint 5, 2026-04-16.
+
 **Objetivo**: Complementar o Diario de Classe (Fase 10.P) com objetivos de aprendizagem referenciados na BNCC, associacao plano-objetivo e relatorios pedagogicos avancados para coordenadores.
 
 **Dependencias**: Fases 9 e 10.P concluidas (requer dados do diario para calcular cobertura curriculo)
 
 > **Nota**: O Diario de Classe, Planos de Aula e Elaboracao de Provas foram extraidos para a **Fase 10.P** (executada em paralelo com a Fase 10). A migration 34 originalmente planejada para esta fase foi absorvida pela migration 76 da Fase 10.P. Esta fase foca exclusivamente em BNCC e analytics pedagogico avancado.
 
-#### 12.1 Sub-modulos
+#### 12.1 Sub-modulos Entregues
 
-| Feature | Descricao | Prioridade |
-|---------|-----------|------------|
-| Objetivos de Aprendizagem (BNCC) | CRUD por disciplina + segmento; referencia BNCC (codigo, habilidade, competencia); associacao ao plano de aula (N:N via lesson_plan_objectives); ativo/inativo | Media |
-| Relatorio de Cobertura Curricular | Por turma/segmento: % objetivos trabalhados no periodo vs. total; quais objetivos nunca foram associados a um plano executado | Media |
-| Relatorios Pedagogicos Avancados | Desempenho por turma (media diario vs. media notas), alunos em risco (frequencia + nota), evolucao individual, analise comparativa entre turmas do mesmo segmento, aulas registradas vs. previstas | Media |
+| Feature | Descricao | Status |
+|---------|-----------|--------|
+| Objetivos de Aprendizagem (BNCC) | CRUD por disciplina + segmento; codigo BNCC, competencia, ativo/inativo; aba Fiscal no drawer com toggle no header | ✅ |
+| Associacao Plano-Objetivo | N:N lesson_plans x learning_objectives; checkboxes no drawer do plano de aula (Portal do Professor) | ✅ |
+| Cobertura Curricular | Por turma/disciplina: % objetivos cobertos em planos executados; progress bars por objetivo | ✅ |
+| Relatorios Pedagogicos Avancados | Por turma: frequencia media, nota media por disciplina, alunos em risco (freq < 75% ou media < 5.0) | ✅ |
+| Dashboard BNCC | KPIs (objetivos ativos, associacoes, planos com objetivos, cobertura %); grafico por segmento; top-5 objetivos mais usados | ✅ |
 
 #### 12.2 Tabelas
 
 | Tabela | Migration | Descricao |
 |--------|-----------|-----------|
-| `learning_objectives` | 79 | Objetivos de aprendizagem com BNCC: subject_id, segment_id, code, description, competency, is_active |
-| `lesson_plan_objectives` | 79 | N:N lesson_plans x learning_objectives |
+| `learning_objectives` | 107 | Objetivos de aprendizagem: subject_id, segment_id, school_year INT, code TEXT, title, description, competency, is_active |
+| `lesson_plan_objectives` | 107 | N:N lesson_plans x learning_objectives |
 
-#### 12.3 Rotas Admin
+#### 12.3 Acesso Admin
 
-| Rota | Descricao |
-|------|-----------|
-| `/admin/objetivos` | Objetivos de aprendizagem / BNCC (coordinator, admin+) |
+O modulo BNCC esta integrado como aba dentro de `/admin/academico` (tab rail lateral). A rota standalone `/admin/objetivos` foi removida.
+
+| Localizacao | Descricao |
+|-------------|-----------|
+| `/admin/academico` → aba BNCC | Container com sub-abas horizontais: Dashboard · Objetivos · Cobertura BNCC · Relatorios Pedagogicos |
 
 #### 12.4 Integracao com Modulos Existentes
 
 | Modulo | Integracao |
 |--------|-----------|
-| `lesson_plans` (Fase 10.P) | Objetivos associados ao plano de aula |
-| `class_diary_entries` (Fase 10.P) | Dados de frequencia e conteudo para relatorios |
-| `activity_scores` (Fase 10.P) | Dados de notas para relatorios avancados |
-| `grades` | Metricas pedagogicas nos relatorios |
+| `lesson_plans` (Fase 10.P) | Drawer de plano de aula exibe checkboxes de objetivos BNCC filtrados por disciplina/segmento; salva em lesson_plan_objectives |
+| `class_diary_entries` (Fase 10.P) | Dados de frequencia usados nos relatorios pedagogicos (freq media por aluno/turma) |
+| `activity_scores` (Fase 10.P) | Notas usadas no calculo de media e identificacao de alunos em risco |
+| `school_segments` / `school_series` | Filtros de segmento e ano/serie no cadastro de objetivos; selector de serie carregado dinamicamente pelo segment_id |
 
 ---
 
@@ -3191,6 +3206,227 @@ Variáveis disponíveis: `numero_pedido`, `nome_responsavel`, `nome_aluno`, `ite
 
 ---
 
+### 10.9B Fase 14.F — Estrutura Fiscal de Produtos (NF-e Prep)
+
+**Status**: ⏳ Planejado
+**Dependencias**: Fase 14 concluida (store_products, store_inventory, store_orders)
+**Prioridade**: Media
+
+> Todo produto cadastrado na loja passa a conter sua situacao fiscal completa, espelhando os dados exigidos em uma nota fiscal de saida. A estrutura e preparada para integracao futura com APIs de emissao de NF-e (Focus NF-e, eNotas, Nuvem Fiscal ou similar) **sem necessidade de refatoracao do modelo de dados** quando a integracao for ativada.
+>
+> ⚠️ Nenhuma emissao real ocorre nesta fase. A integracao com o emissor sera ativada em fase posterior quando o provider for contratado.
+
+---
+
+#### 14.F.1 Dados Fiscais no Cadastro de Produtos
+
+Nova aba/secao **Fiscal** no drawer de cada produto, com campos organizados por tributo:
+
+**Classificacao Fiscal**
+
+| Campo | Descricao |
+|-------|-----------|
+| `ncm` | Nomenclatura Comum do Mercosul — 8 digitos; busca por codigo ou descricao |
+| `cest` | Codigo Especificador da Substituicao Tributaria — quando aplicavel |
+| `cfop_saida` | CFOP padrao para saidas — ex: 5102 (venda interna), 6102 (venda interestadual) |
+| `origem` | Origem da mercadoria: 0-8 conforme tabela ICMS (nacional, importado, etc.) |
+| `unidade_trib` | Unidade tributavel: UN, KG, CX, PC, etc. |
+| `ean` | GTIN / codigo de barras do produto, quando disponivel |
+
+**ICMS**
+
+| Campo | Descricao |
+|-------|-----------|
+| `cst_icms` / `csosn` | CST para regime normal ou CSOSN para Simples Nacional — mutuamente exclusivos conforme regime configurado |
+| `mod_bc_icms` | Modalidade de base de calculo: valor da operacao, pauta, preco tabelado, MVA |
+| `aliq_icms` | Aliquota percentual padrao de saida |
+| `red_bc_icms` | Percentual de reducao de base de calculo, quando aplicavel |
+| `mva` | Percentual MVA para calculo de ICMS-ST, quando aplicavel |
+
+**PIS / COFINS**
+
+| Campo | Descricao |
+|-------|-----------|
+| `cst_pis` | Codigo de Situacao Tributaria do PIS |
+| `cst_cofins` | Codigo de Situacao Tributaria do COFINS |
+| `aliq_pis` | Aliquota percentual (ou valor por unidade) |
+| `aliq_cofins` | Aliquota percentual (ou valor por unidade) |
+
+**IPI** *(quando aplicavel)*
+
+| Campo | Descricao |
+|-------|-----------|
+| `cst_ipi` | Codigo de Situacao Tributaria do IPI |
+| `ex_tipi` | Codigo EX TIPI, quando aplicavel |
+| `aliq_ipi` | Aliquota percentual |
+
+**Configuracoes de Emissao**
+
+| Campo | Descricao |
+|-------|-----------|
+| `gera_nfe` | Toggle — define se o produto participa do fluxo de emissao fiscal automatica futura |
+| `obs_fiscal` | Observacoes complementares que devem constar na nota |
+| `fiscal_profile_id` | FK para `fiscal_profiles` (nullable) — aplica perfil fiscal reutilizavel |
+
+---
+
+#### 14.F.2 Preenchimento a partir de XML de NF-e de Entrada
+
+No fluxo de importacao de XML de NF-e de entrada, ao cruzar um item da nota com um produto cadastrado, o sistema oferece a opcao de **importar os dados fiscais do item para o produto**, pre-preenchendo os campos da aba Fiscal.
+
+Fluxo:
+1. XML importado → itens extraidos com campos fiscais completos
+2. Cruzamento por EAN ou SKU com `store_products`
+3. Modal de sugestao: dados atuais vs. dados do XML lado a lado
+4. Usuario aceita (total ou parcial), ajusta ou ignora por campo
+5. Confirmacao salva em `product_fiscal_data`
+
+---
+
+#### 14.F.3 Perfis Fiscais Reutilizaveis
+
+Para agilizar o cadastro de multiplos produtos com a mesma situacao tributaria (ex: toda uma categoria de uniformes), o sistema permite criar **perfis fiscais** contendo o conjunto completo de campos tributarios pre-configurados.
+
+- Gerenciamento em **Config > Fiscal > Perfis Fiscais**
+- Ao selecionar um perfil no drawer do produto, todos os campos fiscais sao preenchidos automaticamente
+- O usuario pode sobrescrever campos individuais apos a aplicacao do perfil
+- Produto com perfil aplicado exibe badge do nome do perfil na listagem
+
+---
+
+#### 14.F.4 Config > Fiscal — Configuracoes da Empresa Emitente
+
+Nova aba em `/admin/configuracoes` → **Fiscal**, com tres secoes:
+
+**Dados do Emitente**
+
+| Campo | Descricao |
+|-------|-----------|
+| Razao social e nome fantasia | |
+| CNPJ | Validado (14 digitos, algoritmo oficial) |
+| Inscricao estadual e municipal | |
+| Endereco completo | Logradouro, numero, complemento, bairro, CEP, municipio, UF |
+| Regime tributario | Simples Nacional · Lucro Presumido · Lucro Real |
+
+**Configuracoes de Emissao**
+
+| Campo | Descricao |
+|-------|-----------|
+| Ambiente padrao | Producao / Homologacao |
+| Serie padrao de NF-e | Numero (default: 1) |
+| Proximo numero de NF-e | Controlado pelo proprio sistema, incrementado a cada emissao |
+| CFOP padrao por tipo de operacao | Venda interna · Venda interestadual · Devolucao |
+| Aliquotas padrao por regime | Fallback quando o produto nao possui aliquota especifica configurada |
+
+**Integracao com Emissor Externo** *(campos estruturais — sem funcionalidade ativa nesta fase)*
+
+| Campo | Descricao |
+|-------|-----------|
+| Provider | Focus NF-e · eNotas · Nuvem Fiscal · Outro |
+| Token / Chave de API | Armazenada com criptografia em repouso; nunca exposta em respostas de API |
+| URL do webhook de retorno | Para receber status de autorizacao e rejeicao da SEFAZ |
+| Status da integracao | Nao configurada · Em homologacao · Ativa |
+
+---
+
+#### 14.F.5 Validacoes Fiscais
+
+| Validacao | Comportamento |
+|-----------|---------------|
+| NCM com 8 digitos validos | Verificado contra tabela NCM vigente |
+| CST compativel com regime tributario | CSOSN exclusivo para Simples Nacional; CST normal para outros regimes |
+| CFOP coerente com tipo de operacao | Saida interna (5xxx) vs. interestadual (6xxx) |
+| Aliquotas dentro de faixas validas | Por tributo |
+
+Produtos com dados fiscais incompletos ou invalidos recebem indicador visual na listagem, **sem bloquear o uso na loja ou no PDV** nesta fase.
+
+---
+
+#### 14.F.6 Relatorio de Conformidade Fiscal
+
+Listagem de todos os produtos com indicador de completude:
+
+| Status | Criterio |
+|--------|---------|
+| ✅ Completo | Todos os campos obrigatorios preenchidos e validos |
+| ⚠️ Incompleto | Campos obrigatorios faltando |
+| ❌ Invalido | Dados preenchidos com inconsistencias detectadas |
+
+Filtros: por status fiscal, por categoria, por segmento (quando aplicavel).
+Exportavel em CSV para auditoria e preenchimento em lote externo.
+
+---
+
+#### 14.F.7 Schema do Banco de Dados
+
+```
+store_products
+└── product_fiscal_data          → dados fiscais por produto (1:1, FK store_product_id)
+    ├── ncm, cest, cfop_saida
+    ├── origem, unidade_trib, ean
+    ├── cst_icms, csosn, mod_bc_icms, aliq_icms, red_bc_icms, mva
+    ├── cst_pis, aliq_pis
+    ├── cst_cofins, aliq_cofins
+    ├── cst_ipi, ex_tipi, aliq_ipi
+    ├── gera_nfe BOOLEAN
+    ├── obs_fiscal TEXT
+    └── fiscal_profile_id UUID FK (nullable)
+
+fiscal_profiles                  → perfis reutilizaveis
+    ├── id, name, description
+    └── [mesmos campos tributarios de product_fiscal_data, exceto store_product_id e fiscal_profile_id]
+
+company_fiscal_config            → configuracoes do emitente (1 registro por escola via school_id)
+    ├── razao_social, nome_fantasia, cnpj, ie, im
+    ├── endereco completo (logradouro, numero, complemento, bairro, cep, municipio, uf)
+    ├── regime_tributario TEXT CHECK IN ('simples_nacional','lucro_presumido','lucro_real')
+    ├── ambiente TEXT CHECK IN ('producao','homologacao')
+    ├── serie_nfe INT, proximo_numero_nfe BIGINT
+    ├── cfop_venda_interna, cfop_venda_interestadual, cfop_devolucao
+    ├── aliq_pis_padrao, aliq_cofins_padrao (fallback)
+    ├── nfe_provider TEXT CHECK IN ('focus','enotas','nuvem_fiscal','outro','')
+    ├── nfe_api_token TEXT (criptografado em repouso — nunca retornado via API)
+    ├── nfe_webhook_url TEXT
+    └── nfe_integration_status TEXT CHECK IN ('none','homologacao','ativa')
+
+nfe_entry_items                  → itens de NF-e de entrada (ja descrito na spec de Estoque)
+    └── campos fiscais extraidos do XML: ncm, cfop, cst_icms, aliq_icms, cst_pis, aliq_pis,
+        cst_cofins, aliq_cofins, cst_ipi, aliq_ipi, ean, unidade_trib, origem
+```
+
+**Migrations planejadas:**
+
+| # | Nome | Descricao |
+|---|------|-----------|
+| 109 | `product_fiscal_data` | Tabela product_fiscal_data (1:1 com store_products) + RLS |
+| 110 | `fiscal_profiles` | Tabela fiscal_profiles + RLS + CRUD |
+| 111 | `company_fiscal_config` | Tabela company_fiscal_config + RLS + campos de integracao |
+| 112 | `nfe_entry_items_fiscal` | Colunas fiscais em nfe_entry_items (se tabela ja existir) ou tabela completa |
+| 113 | `fiscal_permissions` | Modulos store-fiscal e store-fiscal-config no sistema de permissoes |
+
+---
+
+#### 14.F.8 Permissoes
+
+| Modulo (`key`) | `super_admin`/`admin` | `coordinator` | `user` (caixa) |
+|---|---|---|---|
+| `store-fiscal` | CRUD (dados fiscais por produto) | view/edit | — |
+| `store-fiscal-config` | CRUD (Config > Fiscal) | — | — |
+
+---
+
+#### 14.F.9 Integracao com Modulos Existentes
+
+| Modulo | Integracao |
+|--------|-----------|
+| `store_products` / `LojaPage` | Aba Fiscal no drawer de produto; seletor de perfil fiscal; badge de status fiscal na listagem |
+| `nfe_entries` / importacao de XML | Sugestao de dados fiscais ao cruzar item da nota com produto cadastrado |
+| `Config > Fiscal` | Dados do emitente + campos de integracao com emissor externo (estruturais) |
+| `store-reports` | Relatorio de conformidade fiscal com filtros e exportacao CSV |
+| `store_orders` / PDV | Em fase futura: consulta dados fiscais do produto para emissao automatica de NF-e na saida |
+
+---
+
 ### 10.10 Melhorias Transversais
 
 | Item | Descricao | Prioridade | Status |
@@ -3205,13 +3441,15 @@ Variáveis disponíveis: `numero_pedido`, `nome_responsavel`, `nome_aluno`, `ite
 | **Mascaramento de dados** | CPF e telefone parcial para roles restritas | Baixa | ⏳ Pendente |
 | **Biblioteca Virtual publica** | Rota `/biblioteca-virtual` no site — decidir se migra para /portal/biblioteca | Baixa | ⏳ Pendente |
 | **PWA / Mobile-First** | Layout responsivo mobile-first, manifest, service worker, push notifications. Concern transversal — ver `docs/PRD_PWA_MOBILE_FIRST.md` para detalhamento completo. Nao e uma fase isolada; cada fase deve entregar componentes mobile-ready | Media | ⏳ Pendente |
-| **WebAuthn / Biometria no Portal do Responsavel** | Registro e uso de credencial de plataforma (`TouchID`, `FaceID`, `Windows Hello`) para re-autenticacao no fluxo de autorizacao de saida excepcional; fallback para senha ja entregue em Fase 11.B | Alta | ⏳ Pendente (pos-11.B) |
+| **WebAuthn / Biometria no Portal do Responsavel** | Registro e uso de credencial de plataforma (`TouchID`, `FaceID`, `Windows Hello`) para re-autenticacao no fluxo de autorizacao de saida excepcional; fallback para senha ja entregue em Fase 11.B. Migration 108 + Edge Function `webauthn` + hook `useWebAuthn` + componente `BiometricAuth` reutilizavel. | Alta | ✅ Concluido (Sprint 6, 2026-04-16) |
+| **MessageOrchestrator — tabela base** | `whatsapp_send_log` criada (migration 106) para deduplicacao cross-modulo; Edge Function message-orchestrator e integracao nos modulos pendentes | Alta | 🔄 Parcial (tabela criada, function pendente) |
 
 ---
 
 ### 10.12 Fase 15 — Achados e Perdidos Digital
 
-**Status**: ⏳ Pendente
+> ✅ **CONCLUÍDA** — Migrations 103–105, 2026-04-16.
+
 **Dependencias**: Fase 6 (permissoes granulares) + Fase 9 (Portal do Aluno) + Fase 10 (Portal do Responsavel)
 **Prioridade**: Media
 
