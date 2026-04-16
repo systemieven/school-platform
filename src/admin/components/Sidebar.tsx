@@ -123,7 +123,7 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-3">
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
         {ADMIN_NAV.map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (!profile) return false;
@@ -136,7 +136,7 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
           return (
             <div key={group.label}>
               {!collapsed && (
-                <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-white/40 mb-1 px-2">
+                <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-white/40 mb-2 px-2">
                   {group.label}
                 </p>
               )}
@@ -149,7 +149,7 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
                       to={item.path}
                       end={item.path === '/admin'}
                       className={({ isActive }) =>
-                        `flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
+                        `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                           isActive
                             ? 'bg-brand-secondary text-brand-primary shadow-lg shadow-brand-secondary/20'
                             : 'text-white/70 hover:text-white hover:bg-white/10'
@@ -157,7 +157,7 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
                       }
                       title={collapsed ? item.label : undefined}
                     >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <Icon className="w-5 h-5 flex-shrink-0" />
                       {!collapsed && <span className="truncate">{item.label}</span>}
                       {!collapsed && item.badge !== undefined && item.badge > 0 && (
                         <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
@@ -193,15 +193,15 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
         {/* Dark mode toggle */}
         <button
           onClick={toggleTheme}
-          className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-[13px] text-white/60 hover:text-white hover:bg-white/10 transition-all ${
+          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all ${
             collapsed ? 'justify-center' : ''
           }`}
           title={isDark ? 'Modo Claro' : 'Modo Escuro'}
         >
           {isDark ? (
-            <Sun className="w-4 h-4 flex-shrink-0" />
+            <Sun className="w-5 h-5 flex-shrink-0" />
           ) : (
-            <Moon className="w-4 h-4 flex-shrink-0" />
+            <Moon className="w-5 h-5 flex-shrink-0" />
           )}
           {!collapsed && <span>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>}
         </button>
@@ -209,12 +209,12 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
         {/* Sign out */}
         <button
           onClick={handleSignOut}
-          className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-[13px] text-white/60 hover:text-white hover:bg-white/10 transition-all mt-0.5 ${
+          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all mt-1 ${
             collapsed ? 'justify-center' : ''
           }`}
           title="Sair"
         >
-          <LogOut className="w-4 h-4 flex-shrink-0" />
+          <LogOut className="w-5 h-5 flex-shrink-0" />
           {!collapsed && <span>Sair</span>}
         </button>
       </div>
