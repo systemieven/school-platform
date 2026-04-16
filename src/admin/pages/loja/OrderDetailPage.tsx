@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
-import { Loader2, ArrowLeft, Check, X } from 'lucide-react';
+import { Loader2, ArrowLeft, Check, X, MessageCircle } from 'lucide-react';
 import OrderStatusBadge from '../../../components/loja/OrderStatusBadge';
 import OrderTimeline from '../../../components/loja/OrderTimeline';
 import type { StoreOrder, StoreOrderStatus } from '../../types/admin.types';
@@ -23,6 +23,79 @@ const NEXT_LABEL: Partial<Record<StoreOrderStatus, string>> = {
   picking:          'Pronto para Retirada',
 };
 
+const STATUS_TO_TRIGGER: Partial<Record<StoreOrderStatus, string>> = {
+  pending_payment:   'order_pending_payment',
+  payment_confirmed: 'order_payment_confirmed',
+  picking:           'order_picking',
+  ready_for_pickup:  'order_ready_for_pickup',
+  picked_up:         'order_picked_up',
+  completed:         'order_completed',
+  cancelled:         'order_cancelled',
+};
+
+type GuardianWithPhone = { id: string; full_name: string; phone?: string | null };
+
+async function dispatchOrderWhatsApp(
+  order: StoreOrder,
+  newStatus: StoreOrderStatus,
+  guardianPhone: string | null | undefined,
+  guardianName: string | null | undefined,
+  schoolName: string,
+): Promise<boolean> {
+  if (!guardianPhone) return false;
+  const triggerEvent = STATUS_TO_TRIGGER[newStatus];
+  if (!triggerEvent) return false;
+
+  try {
+    const { data: templates } = await supabase
+      .from('whatsapp_templates')
+      .select('content, variables')
+      .eq('trigger_event', triggerEvent)
+      .eq('category', 'pedidos')
+      .eq('is_active', true)
+      .limit(1);
+
+    const template = templates?.[0];
+    if (!template) return false;
+
+    const body: string = (template.content as { body: string }).body ?? '';
+
+    // Build items summary
+    const itemsSummary = order.items && order.items.length > 0
+      ? order.items.map((item) => {
+          const variant = item.variant_description ? ` (${item.variant_description})` : '';
+          return `${item.product_name}${variant} ×${item.quantity}`;
+        }).join(', ')
+      : `Pedido ${order.order_number}`;
+
+    const firstName = (guardianName ?? '').split(' ')[0] || 'Responsável';
+    const createdDate = new Date(order.created_at).toLocaleDateString('pt-BR');
+
+    const variables: Record<string, string> = {
+      numero_pedido:     order.order_number ?? '',
+      nome_responsavel:  firstName,
+      nome_aluno:        (order.student as unknown as { full_name?: string } | null)?.full_name ?? '',
+      itens_resumo:      itemsSummary,
+      valor_total:       formatCurrency(Number(order.total_amount)),
+      forma_pagamento:   order.payment_method ?? '—',
+      data_pedido:       createdDate,
+      previsao_retirada: '(a combinar)',
+      link_pedido:       '',
+      instituicao:       schoolName,
+    };
+
+    const rendered = body.replace(/\{\{(\w+)\}\}/g, (_, key: string) => variables[key] ?? '');
+
+    await supabase.functions.invoke('uazapi-proxy', {
+      body: { action: 'sendText', phone: guardianPhone, text: rendered },
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function OrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -36,6 +109,8 @@ export default function OrderDetailPage() {
   const [signedBy, setSignedBy] = useState({ name: '', document: '', relation: '' });
   const [cancelReason, setCancelReason] = useState('');
   const [actionDone, setActionDone] = useState(false);
+  const [schoolName, setSchoolName] = useState('');
+  const [whatsappSent, setWhatsappSent] = useState(false);
 
   const load = useCallback(async () => {
     if (!orderId) return;
@@ -44,7 +119,7 @@ export default function OrderDetailPage() {
       .from('store_orders')
       .select(`
         *,
-        guardian:guardian_profiles(id, full_name),
+        guardian:guardian_profiles(id, full_name, phone),
         student:students(id, full_name),
         items:store_order_items(*, variant:store_product_variants(sku))
       `)
@@ -56,16 +131,36 @@ export default function OrderDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'school_name')
+      .single()
+      .then(({ data }) => {
+        if (data?.value) setSchoolName(String(data.value));
+      });
+  }, []);
+
+  const showWhatsappFeedback = useCallback(() => {
+    setWhatsappSent(true);
+    setTimeout(() => setWhatsappSent(false), 2000);
+  }, []);
+
   const advance = useCallback(async () => {
     if (!order) return;
     const nextStatus = NEXT_STATUS[order.status];
     if (!nextStatus) return;
     setUpdating(true);
     await supabase.from('store_orders').update({ status: nextStatus, updated_at: new Date().toISOString() }).eq('id', order.id);
+    const guardian = order.guardian as unknown as GuardianWithPhone | null;
+    dispatchOrderWhatsApp(order, nextStatus, guardian?.phone, guardian?.full_name, schoolName)
+      .then((sent) => { if (sent) showWhatsappFeedback(); })
+      .catch(() => {});
     setActionDone(true);
     setTimeout(() => { setActionDone(false); load(); }, 900);
     setUpdating(false);
-  }, [order, load]);
+  }, [order, load, schoolName, showWhatsappFeedback]);
 
   const registerPickup = useCallback(async () => {
     if (!order || !signedBy.name.trim()) return;
@@ -82,10 +177,14 @@ export default function OrderDetailPage() {
         created_at: new Date().toISOString(),
       }),
     ]);
+    const guardian = order.guardian as unknown as GuardianWithPhone | null;
+    dispatchOrderWhatsApp(order, 'picked_up', guardian?.phone, guardian?.full_name, schoolName)
+      .then((sent) => { if (sent) showWhatsappFeedback(); })
+      .catch(() => {});
     setShowProtocolForm(false);
     load();
     setUpdating(false);
-  }, [order, signedBy, user, load]);
+  }, [order, signedBy, user, load, schoolName, showWhatsappFeedback]);
 
   const cancelOrder = useCallback(async () => {
     if (!order || !cancelReason.trim()) return;
@@ -97,10 +196,14 @@ export default function OrderDetailPage() {
       cancelled_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq('id', order.id);
+    const guardian = order.guardian as unknown as GuardianWithPhone | null;
+    dispatchOrderWhatsApp(order, 'cancelled', guardian?.phone, guardian?.full_name, schoolName)
+      .then((sent) => { if (sent) showWhatsappFeedback(); })
+      .catch(() => {});
     setShowCancelForm(false);
     load();
     setUpdating(false);
-  }, [order, cancelReason, user, load]);
+  }, [order, cancelReason, user, load, schoolName, showWhatsappFeedback]);
 
   if (loading) {
     return (
@@ -252,6 +355,13 @@ export default function OrderDetailPage() {
               <X className="w-4 h-4" /> Cancelar Pedido
             </button>
           </div>
+
+          {/* WhatsApp sent indicator */}
+          {whatsappSent && (
+            <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp enviado
+            </p>
+          )}
 
           {/* Protocol form */}
           {showProtocolForm && (
