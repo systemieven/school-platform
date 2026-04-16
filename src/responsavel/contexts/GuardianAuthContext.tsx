@@ -57,7 +57,7 @@ const GuardianAuthContext = createContext<GuardianAuthState>({
 import { CLIENT_DEFAULTS } from '../../config/client';
 
 // Fallback: use guardian email suffix if configured, else default
-const GUARDIAN_EMAIL_SUFFIX = (CLIENT_DEFAULTS as Record<string, unknown> & { guardian?: { email_suffix?: string } })
+export const GUARDIAN_EMAIL_SUFFIX = (CLIENT_DEFAULTS as Record<string, unknown> & { guardian?: { email_suffix?: string } })
   .guardian?.email_suffix ?? '@responsavel.portal';
 
 export function normalizeCpf(cpf: string): string {

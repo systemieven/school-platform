@@ -1,12 +1,22 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useGuardian } from '../../contexts/GuardianAuthContext';
-import { Loader2, User, Save, Check, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { GUARDIAN_EMAIL_SUFFIX } from '../../contexts/GuardianAuthContext';
+import { useWebAuthn } from '../../hooks/useWebAuthn';
+import { Loader2, User, Save, Check, Eye, EyeOff, KeyRound, Fingerprint } from 'lucide-react';
 
 type SaveState = 'idle' | 'saving' | 'saved';
 
+type WebAuthnCredentialRow = {
+  id: string;
+  credential_id: string;
+  device_name: string;
+  last_used_at: string | null;
+};
+
 export default function PerfilPage() {
   const { guardian, session } = useGuardian();
+  const { isPlatformAvailable, registerCredential } = useWebAuthn();
 
   const [name, setName]   = useState('');
   const [phone, setPhone] = useState('');
@@ -21,6 +31,12 @@ export default function PerfilPage() {
   const [pwdState, setPwdState]       = useState<SaveState>('idle');
   const [pwdError, setPwdError]       = useState('');
 
+  const [credential, setCredential]         = useState<WebAuthnCredentialRow | null>(null);
+  const [biometricState, setBiometricState] = useState<SaveState>('idle');
+  const [biometricError, setBiometricError] = useState('');
+  const [platformReady, setPlatformReady]   = useState(false);
+  const [deviceName, setDeviceName]         = useState('Meu dispositivo');
+
   useEffect(() => {
     if (guardian) {
       setName(guardian.name ?? '');
@@ -28,6 +44,19 @@ export default function PerfilPage() {
       setEmail(guardian.email ?? '');
     }
   }, [guardian]);
+
+  useEffect(() => {
+    if (!session?.user.id) return;
+    supabase
+      .from('webauthn_credentials')
+      .select('id, credential_id, device_name, last_used_at')
+      .eq('guardian_id', session.user.id)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setCredential(data as WebAuthnCredentialRow | null));
+
+    isPlatformAvailable().then(setPlatformReady);
+  }, [session?.user.id, isPlatformAvailable]);
 
   async function handleSaveInfo(e: React.FormEvent) {
     e.preventDefault();
@@ -58,6 +87,36 @@ export default function PerfilPage() {
     setPwdState('saved');
     setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
     setTimeout(() => setPwdState('idle'), 900);
+  }
+
+  async function handleRegisterBiometric() {
+    if (!guardian || !session) return;
+    setBiometricState('saving'); setBiometricError('');
+    const cpfClean = guardian.cpf?.replace(/\D/g, '') ?? '';
+    const email = `${cpfClean}${GUARDIAN_EMAIL_SUFFIX}`;
+    const { success, error } = await registerCredential({
+      guardianId:    session.user.id,
+      guardianName:  guardian.name ?? 'Responsável',
+      guardianEmail: email,
+      deviceName:    deviceName || 'Meu dispositivo',
+    });
+    if (!success) { setBiometricError(error ?? 'Erro desconhecido.'); setBiometricState('idle'); return; }
+    // Recarregar credencial
+    const { data } = await supabase
+      .from('webauthn_credentials')
+      .select('id, credential_id, device_name, last_used_at')
+      .eq('guardian_id', session.user.id)
+      .limit(1)
+      .maybeSingle();
+    setCredential(data as WebAuthnCredentialRow | null);
+    setBiometricState('saved');
+    setTimeout(() => setBiometricState('idle'), 1500);
+  }
+
+  async function handleRemoveBiometric() {
+    if (!credential) return;
+    await supabase.from('webauthn_credentials').delete().eq('id', credential.id);
+    setCredential(null);
   }
 
   const inp = `w-full px-4 py-3 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none transition-colors`;
@@ -185,6 +244,67 @@ export default function PerfilPage() {
           </button>
         </form>
       </div>
+
+      {/* Acesso Biométrico */}
+      {platformReady && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1 flex items-center gap-2">
+            <Fingerprint className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
+            Acesso Biométrico
+          </h2>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+            Use TouchID, FaceID ou Windows Hello para confirmar autorizações sem digitar sua senha.
+          </p>
+
+          {credential ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30">
+                <div>
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{credential.device_name}</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    {credential.last_used_at
+                      ? `Último uso: ${new Date(credential.last_used_at).toLocaleDateString('pt-BR')}`
+                      : 'Registrado — ainda não utilizado'}
+                  </p>
+                </div>
+                <Fingerprint className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+              </div>
+              <button
+                onClick={handleRemoveBiometric}
+                className="w-full py-2.5 text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                Remover biometria
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Nome do dispositivo</label>
+                <input
+                  value={deviceName}
+                  onChange={(e) => setDeviceName(e.target.value)}
+                  placeholder="Ex: iPhone 15, MacBook"
+                  className={inp}
+                />
+              </div>
+              {biometricError && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">{biometricError}</p>}
+              <button
+                onClick={handleRegisterBiometric}
+                disabled={biometricState !== 'idle'}
+                className={`w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 ${
+                  biometricState === 'saved'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-brand-primary hover:bg-brand-primary-dark text-white'
+                }`}
+              >
+                {biometricState === 'saving' && <Loader2 className="w-4 h-4 animate-spin" />}
+                {biometricState === 'saved'  && <><Check className="w-4 h-4" /> Biometria cadastrada!</>}
+                {biometricState === 'idle'   && <><Fingerprint className="w-4 h-4" /> Cadastrar biometria</>}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
