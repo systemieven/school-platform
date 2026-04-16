@@ -696,17 +696,8 @@ export default function AttendancePage() {
 
   return (
     <div>
-      {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
-            <Ticket className="w-8 h-8" />
-            Atendimentos
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Fila em tempo real das senhas emitidas pela recepção.
-          </p>
-        </div>
+      {/* Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 mb-6">
         <div className="flex items-center gap-2">
           {canView('attendance_history') && (
             <button
