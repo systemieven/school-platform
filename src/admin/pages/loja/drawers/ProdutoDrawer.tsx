@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Check, Trash2, ShoppingBag, Plus, X } from 'lucide-react';
+import { Loader2, Check, Trash2, ShoppingBag, Plus, X, Receipt } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
 import { Toggle } from '../../../components/Toggle';
 import { supabase } from '../../../../lib/supabase';
@@ -47,12 +47,52 @@ const EMPTY_FORM: FormState = {
   status: 'active', is_featured: false, is_digital: false, is_active: true,
 };
 
+interface FiscalProfile {
+  id: string;
+  name: string;
+  description: string | null;
+  ncm: string | null; cest: string | null; cfop_saida: string | null;
+  origem: number; unidade_trib: string | null;
+  cst_icms: string | null; csosn: string | null;
+  mod_bc_icms: number; aliq_icms: number | null; red_bc_icms: number | null; mva: number | null;
+  cst_pis: string | null; aliq_pis: number | null;
+  cst_cofins: string | null; aliq_cofins: number | null;
+  cst_ipi: string | null; ex_tipi: string | null; aliq_ipi: number | null;
+  gera_nfe: boolean;
+}
+
+interface FiscalForm {
+  fiscal_profile_id: string;
+  ncm: string; cest: string; cfop_saida: string;
+  origem: string; unidade_trib: string; ean: string;
+  cst_icms: string; csosn: string; mod_bc_icms: string;
+  aliq_icms: string; red_bc_icms: string; mva: string;
+  cst_pis: string; aliq_pis: string;
+  cst_cofins: string; aliq_cofins: string;
+  cst_ipi: string; ex_tipi: string; aliq_ipi: string;
+  gera_nfe: boolean; obs_fiscal: string;
+}
+
+const EMPTY_FISCAL: FiscalForm = {
+  fiscal_profile_id: '', ncm: '', cest: '', cfop_saida: '',
+  origem: '0', unidade_trib: 'UN', ean: '',
+  cst_icms: '', csosn: '', mod_bc_icms: '3',
+  aliq_icms: '', red_bc_icms: '', mva: '',
+  cst_pis: '', aliq_pis: '',
+  cst_cofins: '', aliq_cofins: '',
+  cst_ipi: '', ex_tipi: '', aliq_ipi: '',
+  gera_nfe: false, obs_fiscal: '',
+};
+
 export default function ProdutoDrawer({ open, product, categories, onClose, onSaved }: Props) {
   const { user } = useAdminAuth();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [fiscal, setFiscal] = useState<FiscalForm>(EMPTY_FISCAL);
+  const [fiscalProfiles, setFiscalProfiles] = useState<FiscalProfile[]>([]);
+  const [fiscalDbId, setFiscalDbId] = useState<string | null>(null);
 
   useEffect(() => {
     if (product) {
@@ -86,6 +126,48 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
       setVariants([]);
     }
     setSaved(false);
+    setFiscal(EMPTY_FISCAL);
+    setFiscalDbId(null);
+    if (product) {
+      // Load fiscal data for this product
+      supabase.from('product_fiscal_data')
+        .select('*')
+        .eq('store_product_id', product.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setFiscalDbId(data.id as string);
+            setFiscal({
+              fiscal_profile_id: (data.fiscal_profile_id as string) ?? '',
+              ncm: (data.ncm as string) ?? '',
+              cest: (data.cest as string) ?? '',
+              cfop_saida: (data.cfop_saida as string) ?? '',
+              origem: String(data.origem ?? 0),
+              unidade_trib: (data.unidade_trib as string) ?? 'UN',
+              ean: (data.ean as string) ?? '',
+              cst_icms: (data.cst_icms as string) ?? '',
+              csosn: (data.csosn as string) ?? '',
+              mod_bc_icms: String(data.mod_bc_icms ?? 3),
+              aliq_icms: data.aliq_icms != null ? String(data.aliq_icms) : '',
+              red_bc_icms: data.red_bc_icms != null ? String(data.red_bc_icms) : '',
+              mva: data.mva != null ? String(data.mva) : '',
+              cst_pis: (data.cst_pis as string) ?? '',
+              aliq_pis: data.aliq_pis != null ? String(data.aliq_pis) : '',
+              cst_cofins: (data.cst_cofins as string) ?? '',
+              aliq_cofins: data.aliq_cofins != null ? String(data.aliq_cofins) : '',
+              cst_ipi: (data.cst_ipi as string) ?? '',
+              ex_tipi: (data.ex_tipi as string) ?? '',
+              aliq_ipi: data.aliq_ipi != null ? String(data.aliq_ipi) : '',
+              gera_nfe: (data.gera_nfe as boolean) ?? false,
+              obs_fiscal: (data.obs_fiscal as string) ?? '',
+            });
+          }
+        });
+    }
+    // Load fiscal profiles (always)
+    supabase.from('fiscal_profiles').select('*').order('name').then(({ data }) => {
+      setFiscalProfiles((data ?? []) as FiscalProfile[]);
+    });
   }, [product, open]);
 
   const set = useCallback(<K extends keyof FormState>(k: K, v: FormState[K]) => {
@@ -105,6 +187,27 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
 
   const removeVariant = (idx: number) => {
     setVariants((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const applyProfile = (profileId: string) => {
+    const p = fiscalProfiles.find((fp) => fp.id === profileId);
+    if (!p) { setFiscal((f) => ({ ...f, fiscal_profile_id: profileId })); return; }
+    setFiscal((f) => ({
+      ...f,
+      fiscal_profile_id: profileId,
+      ncm: p.ncm ?? f.ncm, cest: p.cest ?? f.cest, cfop_saida: p.cfop_saida ?? f.cfop_saida,
+      origem: String(p.origem ?? f.origem), unidade_trib: p.unidade_trib ?? f.unidade_trib,
+      cst_icms: p.cst_icms ?? f.cst_icms, csosn: p.csosn ?? f.csosn,
+      mod_bc_icms: String(p.mod_bc_icms ?? f.mod_bc_icms),
+      aliq_icms: p.aliq_icms != null ? String(p.aliq_icms) : f.aliq_icms,
+      red_bc_icms: p.red_bc_icms != null ? String(p.red_bc_icms) : f.red_bc_icms,
+      mva: p.mva != null ? String(p.mva) : f.mva,
+      cst_pis: p.cst_pis ?? f.cst_pis, aliq_pis: p.aliq_pis != null ? String(p.aliq_pis) : f.aliq_pis,
+      cst_cofins: p.cst_cofins ?? f.cst_cofins, aliq_cofins: p.aliq_cofins != null ? String(p.aliq_cofins) : f.aliq_cofins,
+      cst_ipi: p.cst_ipi ?? f.cst_ipi, ex_tipi: p.ex_tipi ?? f.ex_tipi,
+      aliq_ipi: p.aliq_ipi != null ? String(p.aliq_ipi) : f.aliq_ipi,
+      gera_nfe: p.gera_nfe,
+    }));
   };
 
   const handleSave = async () => {
@@ -155,6 +258,35 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
             await supabase.from('store_product_variants').update(vPayload).eq('id', v.id);
           } else {
             await supabase.from('store_product_variants').insert({ ...vPayload, created_at: new Date().toISOString() });
+          }
+        }
+      }
+
+      // Save fiscal data
+      if (productId) {
+        const hasFiscalData = fiscal.ncm || fiscal.cfop_saida || fiscal.cst_icms || fiscal.csosn || fiscal.cst_pis || fiscal.gera_nfe;
+        if (hasFiscalData || fiscalDbId) {
+          const fiscalPayload = {
+            store_product_id: productId,
+            fiscal_profile_id: fiscal.fiscal_profile_id || null,
+            ncm: fiscal.ncm || null, cest: fiscal.cest || null, cfop_saida: fiscal.cfop_saida || null,
+            origem: Number(fiscal.origem), unidade_trib: fiscal.unidade_trib || 'UN', ean: fiscal.ean || null,
+            cst_icms: fiscal.cst_icms || null, csosn: fiscal.csosn || null,
+            mod_bc_icms: Number(fiscal.mod_bc_icms),
+            aliq_icms: fiscal.aliq_icms ? Number(fiscal.aliq_icms) : null,
+            red_bc_icms: fiscal.red_bc_icms ? Number(fiscal.red_bc_icms) : null,
+            mva: fiscal.mva ? Number(fiscal.mva) : null,
+            cst_pis: fiscal.cst_pis || null, aliq_pis: fiscal.aliq_pis ? Number(fiscal.aliq_pis) : null,
+            cst_cofins: fiscal.cst_cofins || null, aliq_cofins: fiscal.aliq_cofins ? Number(fiscal.aliq_cofins) : null,
+            cst_ipi: fiscal.cst_ipi || null, ex_tipi: fiscal.ex_tipi || null,
+            aliq_ipi: fiscal.aliq_ipi ? Number(fiscal.aliq_ipi) : null,
+            gera_nfe: fiscal.gera_nfe, obs_fiscal: fiscal.obs_fiscal || null,
+            updated_at: new Date().toISOString(),
+          };
+          if (fiscalDbId) {
+            await supabase.from('product_fiscal_data').update(fiscalPayload).eq('id', fiscalDbId);
+          } else {
+            await supabase.from('product_fiscal_data').insert({ ...fiscalPayload, created_at: new Date().toISOString() });
           }
         }
       }
@@ -349,6 +481,203 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
               ))}
             </div>
           )}
+        </div>
+      </DrawerCard>
+
+      <DrawerCard title="Fiscal" icon={Receipt}>
+        <div className="p-4 space-y-4">
+          {/* Profile selector */}
+          {fiscalProfiles.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                Perfil Fiscal (preenchimento automático)
+              </label>
+              <select
+                value={fiscal.fiscal_profile_id}
+                onChange={(e) => applyProfile(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
+              >
+                <option value="">— Selecionar perfil —</option>
+                {fiscalProfiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              {fiscal.fiscal_profile_id && (
+                <p className="text-xs text-gray-400 mt-1">Campos preenchidos pelo perfil. Você pode sobrescrever individualmente.</p>
+              )}
+            </div>
+          )}
+
+          {/* Classificação Fiscal */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Classificação Fiscal</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">NCM (8 dígitos)</label>
+                <input value={fiscal.ncm} onChange={(e) => setFiscal(f => ({...f, ncm: e.target.value}))} maxLength={8}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="00000000" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">CEST (7 dígitos)</label>
+                <input value={fiscal.cest} onChange={(e) => setFiscal(f => ({...f, cest: e.target.value}))} maxLength={7}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="0000000" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">CFOP Saída</label>
+                <input value={fiscal.cfop_saida} onChange={(e) => setFiscal(f => ({...f, cfop_saida: e.target.value}))} maxLength={4}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="5102" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">EAN / Código de Barras</label>
+                <input value={fiscal.ean} onChange={(e) => setFiscal(f => ({...f, ean: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="7891234567890" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Origem</label>
+                <select value={fiscal.origem} onChange={(e) => setFiscal(f => ({...f, origem: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white">
+                  <option value="0">0 — Nacional</option>
+                  <option value="1">1 — Estrangeira (importação direta)</option>
+                  <option value="2">2 — Estrangeira (mercado interno)</option>
+                  <option value="3">3 — Nacional (CI 40%–70%)</option>
+                  <option value="4">4 — Nacional (PPB)</option>
+                  <option value="5">5 — Nacional (CI ≤ 40%)</option>
+                  <option value="6">6 — Estrangeira (sem similar, importação direta)</option>
+                  <option value="7">7 — Estrangeira (sem similar, mercado interno)</option>
+                  <option value="8">8 — Nacional (CI &gt; 70%)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Unidade Tributável</label>
+                <input value={fiscal.unidade_trib} onChange={(e) => setFiscal(f => ({...f, unidade_trib: e.target.value}))} maxLength={6}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono uppercase"
+                  placeholder="UN" />
+              </div>
+            </div>
+          </div>
+
+          {/* ICMS */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">ICMS</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">CST ICMS</label>
+                <input value={fiscal.cst_icms} onChange={(e) => setFiscal(f => ({...f, cst_icms: e.target.value}))} maxLength={3}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="00" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">CSOSN (Simples)</label>
+                <input value={fiscal.csosn} onChange={(e) => setFiscal(f => ({...f, csosn: e.target.value}))} maxLength={3}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="400" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Modalidade BC</label>
+                <select value={fiscal.mod_bc_icms} onChange={(e) => setFiscal(f => ({...f, mod_bc_icms: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white">
+                  <option value="0">0 — MVA (%)</option>
+                  <option value="1">1 — Pauta (valor)</option>
+                  <option value="2">2 — Preço tabelado</option>
+                  <option value="3">3 — Valor da operação</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alíquota ICMS (%)</label>
+                <input type="number" step="0.01" min="0" max="100" value={fiscal.aliq_icms} onChange={(e) => setFiscal(f => ({...f, aliq_icms: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
+                  placeholder="12.00" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Redução BC (%)</label>
+                <input type="number" step="0.01" min="0" max="100" value={fiscal.red_bc_icms} onChange={(e) => setFiscal(f => ({...f, red_bc_icms: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
+                  placeholder="0.00" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">MVA — ST (%)</label>
+                <input type="number" step="0.01" min="0" value={fiscal.mva} onChange={(e) => setFiscal(f => ({...f, mva: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
+                  placeholder="—" />
+              </div>
+            </div>
+          </div>
+
+          {/* PIS / COFINS */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">PIS / COFINS</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">CST PIS</label>
+                <input value={fiscal.cst_pis} onChange={(e) => setFiscal(f => ({...f, cst_pis: e.target.value}))} maxLength={2}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="07" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alíquota PIS (%)</label>
+                <input type="number" step="0.0001" min="0" max="100" value={fiscal.aliq_pis} onChange={(e) => setFiscal(f => ({...f, aliq_pis: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
+                  placeholder="0.65" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">CST COFINS</label>
+                <input value={fiscal.cst_cofins} onChange={(e) => setFiscal(f => ({...f, cst_cofins: e.target.value}))} maxLength={2}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="07" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alíquota COFINS (%)</label>
+                <input type="number" step="0.0001" min="0" max="100" value={fiscal.aliq_cofins} onChange={(e) => setFiscal(f => ({...f, aliq_cofins: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
+                  placeholder="3.00" />
+              </div>
+            </div>
+          </div>
+
+          {/* IPI */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">IPI (quando aplicável)</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">CST IPI</label>
+                <input value={fiscal.cst_ipi} onChange={(e) => setFiscal(f => ({...f, cst_ipi: e.target.value}))} maxLength={2}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="99" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Código EX TIPI</label>
+                <input value={fiscal.ex_tipi} onChange={(e) => setFiscal(f => ({...f, ex_tipi: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
+                  placeholder="—" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alíquota IPI (%)</label>
+                <input type="number" step="0.01" min="0" max="100" value={fiscal.aliq_ipi} onChange={(e) => setFiscal(f => ({...f, aliq_ipi: e.target.value}))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
+                  placeholder="0.00" />
+              </div>
+            </div>
+          </div>
+
+          {/* Emissão */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Emissão</p>
+            <div className="flex items-center justify-between py-2 px-3 rounded-xl border border-gray-100 dark:border-gray-700">
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Gera NF-e na saída</p>
+                <p className="text-xs text-gray-400">Produto participa do fluxo de emissão fiscal</p>
+              </div>
+              <Toggle checked={fiscal.gera_nfe} onChange={(v: boolean) => setFiscal(f => ({...f, gera_nfe: v}))} onColor="bg-emerald-500" />
+            </div>
+            <div className="mt-3">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Observações Fiscais</label>
+              <textarea value={fiscal.obs_fiscal} onChange={(e) => setFiscal(f => ({...f, obs_fiscal: e.target.value}))} rows={2}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white resize-none"
+                placeholder="Informações complementares para a nota fiscal..." />
+            </div>
+          </div>
         </div>
       </DrawerCard>
     </Drawer>
