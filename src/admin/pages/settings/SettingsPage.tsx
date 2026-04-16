@@ -1826,10 +1826,14 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
         );
       })}
 
-      {/* Fields not in any group (safety net) */}
-      {settings
-        .filter((s) => !INST_GROUPS.flatMap((g) => g.keys).includes(s.key) && s.key !== 'pix')
-        .map((item) => {
+      {/* Fields not in any group (safety net) — exclude keys managed elsewhere */}
+      {(() => {
+        const KNOWN_KEYS = new Set([
+          ...INST_GROUPS.flatMap((g) => g.keys),
+          'pix', 'maintenance_message', 'maintenance_mode',
+        ]);
+        return settings.filter((s) => !KNOWN_KEYS.has(s.key));
+      })().map((item) => {
           const meta = KEY_META[item.key] || { label: item.key };
           const isChanged = editValues[item.id] !== toStr(item.value);
           return (
