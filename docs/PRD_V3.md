@@ -34,6 +34,7 @@
     - 10.8 Fase 13 — IA e Analytics
     - 10.10 Melhorias Transversais
     - 10.11 F6.4 Documentacao Tecnica (ultima etapa da v1)
+    - 10.12 Fase 15 — Achados e Perdidos Digital
 11. [Requisitos Nao Funcionais](#11-requisitos-nao-funcionais)
 12. [Apendices](#apendices)
 
@@ -806,79 +807,215 @@ Gerencia mensalidades, cobrancas, descontos, bolsas, templates de contrato, inad
 
 #### 4.17.11 Plano de Contas
 
+> ✅ Concluído (migrations 67–73, 2026-04-14)
+
 **Tabela**: `financial_account_categories`
 
 Hierarquia pai/filho via `parent_id` (ate 2 niveis), tipos `receita` e `despesa`, codigo contabil opcional. Campo `is_system` protege registros padrao contra exclusao.
 
-| Campo | Tipo | Descricao |
-|---|---|---|
-| name | TEXT NOT NULL | Nome da categoria |
-| type | TEXT | `'receita'` ou `'despesa'` |
-| parent_id | UUID self-ref | Categoria pai |
-| code | TEXT | Codigo contabil opcional (ex.: `1.1.1`) |
-| is_system | BOOLEAN | Defaults protegidos — nao excluiveis |
-| is_active | BOOLEAN | Toggle ativo/inativo |
-| position | INT | Ordem de exibicao |
+```sql
+CREATE TABLE IF NOT EXISTS financial_account_categories (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT        NOT NULL,
+  type        TEXT        NOT NULL CHECK (type IN ('receita', 'despesa')),
+  parent_id   UUID        REFERENCES financial_account_categories(id) ON DELETE SET NULL,
+  code        TEXT,                              -- codigo contabil opcional (ex.: "1.1.1")
+  is_system   BOOLEAN     NOT NULL DEFAULT FALSE, -- defaults protegidos: nao podem ser excluidos
+  is_active   BOOLEAN     NOT NULL DEFAULT TRUE,
+  position    INTEGER     NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
 
 Defaults pre-inseridos (`is_system=true`): **Receitas** → Mensalidades, Taxas e Eventos, Matriculas, Outras Receitas; **Despesas Fixas** → Aluguel, Folha de Pagamento, Contratos de Servico; **Despesas Variaveis** → Material de Consumo, Eventos e Passeios, Manutencao.
+
+**RLS**: admin/super_admin — CRUD completo; coordinator — somente leitura.
 
 Gerenciado em **Configuracoes → Financeiro → Plano de Contas** com arvore hierarquica inline.
 
 #### 4.17.12 Controle de Caixas
 
+> ✅ Concluído (migrations 67–73, 2026-04-14)
+
 **Tabelas**: `financial_cash_registers` e `financial_cash_movements`
 
-Multiplos caixas por escola. Ciclo de vida: abertura → sangria/suprimento → movimentacoes → fechamento.
+Multiplos caixas por escola. Ciclo de vida: abertura (`opening`) → movimentacoes/sangria/suprimento → fechamento (`closing`).
 
-- **Tipos de movimentacao**: `opening`, `closing`, `sangria`, `suprimento`, `inflow`, `outflow`
-- **Sub-tipos**: `recebimento`, `devolucao`, `taxa_evento`, `taxa_passeio`, `taxa_diversa`, `despesa_operacional`
-- **Rastreabilidade**: cada movimentacao salva `balance_after` (snapshot do saldo no momento)
-- **Integracao opcional**: `reference_id` + `reference_type` vincula o movimento a um receivable ou payable
-- **RLS**: acesso restrito a admin/super_admin (coordinators sem acesso — operacao sensivel)
+```sql
+CREATE TABLE IF NOT EXISTS financial_cash_registers (
+  id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                 TEXT          NOT NULL,
+  description          TEXT,
+  responsible_user_id  UUID          REFERENCES profiles(id) ON DELETE SET NULL,
+  status               TEXT          NOT NULL DEFAULT 'closed'
+                                     CHECK (status IN ('open', 'closed')),
+  current_balance      NUMERIC(12,2) NOT NULL DEFAULT 0,
+  is_active            BOOLEAN       NOT NULL DEFAULT TRUE,
+  created_at           TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS financial_cash_movements (
+  id                    UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  cash_register_id      UUID          NOT NULL REFERENCES financial_cash_registers(id) ON DELETE RESTRICT,
+  type                  TEXT          NOT NULL CHECK (type IN (
+                                        'opening', 'closing', 'sangria', 'suprimento', 'inflow', 'outflow'
+                                      )),
+  sub_type              TEXT          CHECK (sub_type IN (
+                                        'recebimento', 'devolucao', 'taxa_evento',
+                                        'taxa_passeio', 'taxa_diversa', 'despesa_operacional'
+                                      )),
+  amount                NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+  balance_after         NUMERIC(12,2) NOT NULL,  -- snapshot do saldo apos este movimento
+  description           TEXT          NOT NULL,
+  payer_name            TEXT,
+  payment_method        TEXT,         -- cash, pix, credit_card, debit_card, transfer, boleto, other
+  account_category_id   UUID          REFERENCES financial_account_categories(id) ON DELETE SET NULL,
+  event_id              UUID,         -- FK opcional para events
+  reference_id          UUID,         -- FK polimórfica: receivable ou payable
+  reference_type        TEXT          CHECK (reference_type IN ('receivable', 'payable')),
+  receipt_url           TEXT,
+  receipt_path          TEXT,
+  recorded_by           UUID          REFERENCES profiles(id) ON DELETE SET NULL,
+  movement_date         TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  created_at            TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+```
+
+**RLS**: acesso restrito a admin/super_admin; coordinators sem acesso (operacao sensivel).
 
 #### 4.17.13 Contas a Receber
 
-**Tabela**: `financial_receivables` — ortogonal a `financial_installments` (mensalidades permanecem intactas). Cobre qualquer recebivel nao-contratual: taxas, eventos, manual, etc.
+> ✅ Concluído (migrations 67–73, 2026-04-14)
+
+**Tabela**: `financial_receivables` — ortogonal a `financial_installments` (mensalidades via contratos permanecem intactas). Cobre qualquer recebivel nao-contratual: taxas, eventos, manual, etc.
+
+```sql
+CREATE TABLE IF NOT EXISTS financial_receivables (
+  id                    UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  payer_name            TEXT          NOT NULL,
+  payer_type            TEXT          NOT NULL DEFAULT 'external'
+                                      CHECK (payer_type IN ('student', 'responsible', 'external')),
+  student_id            UUID          REFERENCES students(id) ON DELETE SET NULL,
+  amount                NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+  account_category_id   UUID          REFERENCES financial_account_categories(id) ON DELETE SET NULL,
+  description           TEXT          NOT NULL,
+  due_date              DATE          NOT NULL,
+  payment_method        TEXT,
+  status                TEXT          NOT NULL DEFAULT 'pending'
+                                      CHECK (status IN ('pending', 'paid', 'partial', 'overdue', 'cancelled')),
+  amount_paid           NUMERIC(12,2) NOT NULL DEFAULT 0,
+  paid_at               TIMESTAMPTZ,
+  late_fee_pct          NUMERIC(5,2)  NOT NULL DEFAULT 0, -- % multa por atraso
+  interest_rate_pct     NUMERIC(5,4)  NOT NULL DEFAULT 0, -- % juros ao dia
+  -- Parcelamento: registros filhos apontam para o pai via parent_id
+  parent_id             UUID          REFERENCES financial_receivables(id) ON DELETE CASCADE,
+  installment_number    INTEGER,
+  total_installments    INTEGER,
+  -- Recorrencia
+  is_recurring          BOOLEAN       NOT NULL DEFAULT FALSE,
+  recurrence_interval   TEXT          CHECK (recurrence_interval IN ('monthly', 'quarterly', 'yearly')),
+  recurrence_end_date   DATE,
+  -- Rastreabilidade de integracao
+  source_type           TEXT          NOT NULL DEFAULT 'manual'
+                                      CHECK (source_type IN ('manual', 'event', 'enrollment', 'cash_movement')),
+  source_id             UUID,
+  notes                 TEXT,
+  created_by            UUID          REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at            TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+```
 
 - **Parcelamento automatico**: `total_installments > 1` → RPC `generate_receivable_installments` cria registros filhos com `parent_id`
-- **Recorrencia**: `is_recurring` + `recurrence_interval` (`monthly`/`quarterly`/`yearly`) + `recurrence_end_date`
-- **Status**: `pending` → `paid`/`partial`/`overdue`/`cancelled`; calculo de juros (`interest_rate_pct` ao dia) e multa (`late_fee_pct`)
-- **Rastreamento de origem**: `source_type` (`manual`/`event`/`enrollment`/`cash_movement`) + `source_id`
-- **Payer types**: `student`, `responsible`, `external`
+- **Recorrencia**: `is_recurring` + `recurrence_interval` + `recurrence_end_date`
+- **Baixa com juros/multa**: calculados sobre `amount` no momento da liquidacao com base em `interest_rate_pct` (ao dia) e `late_fee_pct`
+- **RLS**: admin/super_admin — CRUD; coordinator — somente leitura
 
 #### 4.17.14 Contas a Pagar
 
+> ✅ Concluído (migrations 67–73, 2026-04-14)
+
 **Tabela**: `financial_payables` — despesas da escola com credores externos ou funcionarios.
 
-- **Categorizacao**: `category_type` (`fixed`/`variable`) para classificacao no DRE
+```sql
+CREATE TABLE IF NOT EXISTS financial_payables (
+  id                    UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  creditor_name         TEXT          NOT NULL,
+  creditor_type         TEXT          NOT NULL DEFAULT 'supplier'
+                                      CHECK (creditor_type IN ('supplier', 'employee', 'other')),
+  amount                NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+  account_category_id   UUID          REFERENCES financial_account_categories(id) ON DELETE SET NULL,
+  category_type         TEXT          NOT NULL CHECK (category_type IN ('fixed', 'variable')),
+  description           TEXT          NOT NULL,
+  due_date              DATE          NOT NULL,
+  payment_method        TEXT,
+  status                TEXT          NOT NULL DEFAULT 'pending'
+                                      CHECK (status IN ('pending', 'paid', 'overdue', 'cancelled')),
+  amount_paid           NUMERIC(12,2) NOT NULL DEFAULT 0,
+  paid_at               TIMESTAMPTZ,
+  receipt_url           TEXT,
+  receipt_path          TEXT,
+  -- Parcelamento: mesmo padrao de financial_receivables
+  parent_id             UUID          REFERENCES financial_payables(id) ON DELETE CASCADE,
+  installment_number    INTEGER,
+  total_installments    INTEGER,
+  -- Recorrencia
+  is_recurring          BOOLEAN       NOT NULL DEFAULT FALSE,
+  recurrence_interval   TEXT          CHECK (recurrence_interval IN ('monthly', 'quarterly', 'yearly')),
+  recurrence_end_date   DATE,
+  -- Alertas de vencimento
+  alert_days_before     INTEGER       NOT NULL DEFAULT 3,
+  notes                 TEXT,
+  created_by            UUID          REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at            TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+```
+
+- **Categorizacao**: `category_type` (`fixed`/`variable`) para classificacao fixa vs variavel no DRE
 - **Alertas**: `alert_days_before` (padrao 3 dias) — banner de alerta na tela de A/P
-- **Parcelamento e recorrencia**: mesmo modelo de A/R (`generate_payable_installments`)
+- **Parcelamento e recorrencia**: mesmo modelo de A/R via `generate_payable_installments`
 - **Baixa com comprovante**: `receipt_url` + `receipt_path`
-- **Creditor types**: `supplier`, `employee`, `other`
-- **Status**: `pending` → `paid`/`overdue`/`cancelled`
+- **RLS**: admin/super_admin — CRUD; coordinator — somente leitura
 
 #### 4.17.15 Integracoes Automaticas
 
-RPCs que geram receivables automaticamente a partir de eventos do sistema:
+> ✅ Concluído (migrations 67–73, 2026-04-14)
+
+RPCs `SECURITY DEFINER` que geram receivables automaticamente a partir de eventos do sistema:
 
 | RPC | Trigger | Resultado |
 |---|---|---|
-| `create_enrollment_receivable` | Confirmar pre-matricula | 1 receivable com `source_type='enrollment'`; taxa lida de `system_settings` (category=`financial`, key=`enrollment_fee`); idempotente |
-| `create_event_receivables` | Publicar evento com taxa | 1 receivable por participante confirmado com `source_type='event'`; idempotente por `(source_id, student_id)` |
+| `create_enrollment_receivable(p_enrollment_id)` | Confirmar pre-matricula | 1 receivable com `source_type='enrollment'`; valor lido de `system_settings` (category=`financial`, key=`enrollment_fee`); retorna `NULL` se taxa = 0; idempotente |
+| `create_event_receivables(p_event_id)` | Publicar evento com `registration_fee > 0` | 1 receivable por participante confirmado com `source_type='event'`; categoria padrao "Taxas e Eventos"; idempotente por `(source_id, student_id)` |
+
+Ambas as RPCs verificam existencia antes de inserir (idempotencia) e usam a categoria padrao correta do plano de contas (`financial_account_categories`).
 
 #### 4.17.16 Relatorios Gerenciais
 
-Views SQL + sub-tabs em `FinancialReportsPage`:
+> ✅ Concluído (migrations 67–73, 2026-04-14)
+
+Tres views SQL consolidam dados de `financial_receivables`, `financial_payables`, `financial_cash_movements` e `financial_installments`:
+
+| View | Descricao |
+|---|---|
+| `financial_cash_flow_view` | Entradas e saidas por data: A/R pagas + installments pagos + A/P pagas + movimentacoes de caixa (exceto snapshots de abertura/fechamento) |
+| `financial_dre_view` | DRE simplificado — receitas vs despesas agrupadas por categoria do plano de contas com totais e contagem de lancamentos |
+| `financial_delinquency_view` | Inadimplencia — receivables e installments vencidos em aberto, ordenados por `days_overdue` DESC |
+
+Sub-tabs em `FinancialReportsPage`:
 
 | Sub-tab | View/Fonte | Descricao |
 |---|---|---|
-| Fluxo de Caixa | `financial_cash_flow_view` | Entradas e saidas consolidadas de receivables, installments, payables e movimentacoes de caixa |
-| DRE Simplificado | `financial_dre_view` | Receitas vs Despesas agrupadas por categoria do plano de contas |
-| Inadimplencia | `financial_delinquency_view` | Receivables + installments vencidos em aberto, ordenados por dias em atraso |
-| Previsao Financeira | Calculada client-side | Projecao de recebimentos e pagamentos futuros com base em `pending` do periodo |
-| Extrato por Categoria | Query direta | Movimentacoes filtradas e agrupadas por categoria do plano de contas |
+| Fluxo de Caixa | `financial_cash_flow_view` | Entradas e saidas consolidadas com filtro de periodo |
+| DRE Simplificado | `financial_dre_view` | Receitas vs Despesas por categoria do plano de contas |
+| Inadimplencia | `financial_delinquency_view` | Devedores ordenados por dias em atraso |
+| Previsao Financeira | Calculada client-side | Projecao de recebimentos e pagamentos futuros (`pending` do periodo) |
+| Extrato por Categoria | Query direta | Movimentacoes filtradas por categoria do plano de contas |
 
-Exportacao CSV disponivel em todas as sub-tabs. Filtros: periodo, categoria, responsavel, forma de pagamento.
+Exportacao CSV disponivel em todas as sub-tabs. Filtros globais: periodo, categoria, forma de pagamento.
 
 ---
 
@@ -1591,6 +1728,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 13 | IA e Analytics | ⏳ Pendente | Media | 8 + 9 + 10 |
 | 14 | Loja, PDV e Estoque | ✅ Concluido (migrations 92–102, 2026-04-16) | Alta | 8.5 + 10 |
 | 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
+| 15 | Achados e Perdidos Digital | ⏳ Pendente | Media | 6 + 9 + 10 |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
 
@@ -3051,344 +3189,6 @@ Variáveis disponíveis: `numero_pedido`, `nome_responsavel`, `nome_aluno`, `ite
 | `store-settings` | CRUD | — | — |
 | `store-pdv-discount` | CRUD | — | — |
 
-<!-- old spec content removed — implementation documented above -->
-
-```sql
-create table store_products (
-  id                uuid primary key default gen_random_uuid(),
-  school_id         uuid not null references schools(id) on delete cascade,
-  name              text not null,
-  short_description text,
-  description       text,
-  category_id       uuid references store_categories(id) on delete set null,
-  sku_base          text,
-  cost_price        numeric(10,2),
-  sale_price        numeric(10,2) not null,
-  status            text not null default 'active'
-                      check (status in ('active','inactive','out_of_stock','discontinued')),
-  is_featured       boolean not null default false,
-  is_digital        boolean not null default false,
-  created_by        uuid references auth.users(id),
-  created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
-);
-
-create table store_product_variants (
-  id                uuid primary key default gen_random_uuid(),
-  product_id        uuid not null references store_products(id) on delete cascade,
-  sku               text not null unique,
-  color             text,
-  size              text,
-  price_override    numeric(10,2),
-  stock_quantity    integer not null default 0,
-  reserved_quantity integer not null default 0,
-  min_stock         integer not null default 0,
-  is_active         boolean not null default true,
-  created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
-);
-
-create table store_product_images (
-  id           uuid primary key default gen_random_uuid(),
-  product_id   uuid not null references store_products(id) on delete cascade,
-  variant_id   uuid references store_product_variants(id) on delete set null,
-  url          text not null,
-  storage_path text,
-  alt_text     text,
-  position     integer not null default 0,
-  is_cover     boolean not null default false,
-  created_at   timestamptz not null default now()
-);
-```
-
-**Migration 93 — `store_inventory_movements`**
-
-```sql
-create table store_inventory_movements (
-  id             uuid primary key default gen_random_uuid(),
-  variant_id     uuid not null references store_product_variants(id) on delete cascade,
-  type           text not null
-                   check (type in ('purchase','sale','return','adjustment','reservation_released')),
-  quantity       integer not null,  -- positivo = entrada, negativo = saida
-  balance_after  integer not null,
-  reference_type text check (reference_type in ('order','manual','pdv')),
-  reference_id   uuid,
-  justification  text,              -- obrigatorio para type='adjustment'
-  recorded_by    uuid references auth.users(id),
-  created_at     timestamptz not null default now()
-);
-```
-
-**Migration 94 — `store_orders`, `store_order_items`**
-
-```sql
-create table store_orders (
-  id                  uuid primary key default gen_random_uuid(),
-  school_id           uuid not null references schools(id) on delete cascade,
-  order_number        text not null unique,  -- ex: PED-2026-00001
-  guardian_id         uuid references guardian_profiles(id),
-  student_id          uuid references students(id),
-  channel             text not null default 'store' check (channel in ('store','pdv')),
-  status              text not null default 'pending_payment'
-                        check (status in (
-                          'pending_payment','payment_confirmed','picking',
-                          'ready_for_pickup','picked_up','completed','cancelled'
-                        )),
-  subtotal            numeric(10,2) not null,
-  discount_amount     numeric(10,2) not null default 0,
-  total_amount        numeric(10,2) not null,
-  payment_method      text,
-  installments        integer not null default 1,
-  gateway_charge_id   text,
-  notes               text,
-  cancellation_reason text,
-  cancelled_by        uuid references auth.users(id),
-  cancelled_at        timestamptz,
-  created_by          uuid references auth.users(id),
-  created_at          timestamptz not null default now(),
-  updated_at          timestamptz not null default now()
-);
-
-create table store_order_items (
-  id                  uuid primary key default gen_random_uuid(),
-  order_id            uuid not null references store_orders(id) on delete cascade,
-  variant_id          uuid references store_product_variants(id) on delete set null,
-  product_name        text not null,        -- snapshot no momento da compra
-  variant_description text,                 -- snapshot ex: "Azul / P"
-  quantity            integer not null,
-  unit_price          numeric(10,2) not null,
-  total_price         numeric(10,2) not null,
-  returned_quantity   integer not null default 0,
-  created_at          timestamptz not null default now()
-);
-```
-
-**Migration 95 — `store_pickup_protocols`**
-
-```sql
-create table store_pickup_protocols (
-  id                   uuid primary key default gen_random_uuid(),
-  order_id             uuid not null references store_orders(id) on delete cascade,
-  signed_by_name       text not null,
-  signed_by_document   text,
-  signed_by_relation   text,
-  signed_at            timestamptz not null,
-  confirmed_by         uuid references auth.users(id),
-  protocol_url         text,   -- PDF signed URL
-  protocol_path        text,   -- Storage path
-  created_at           timestamptz not null default now()
-);
-```
-
-**Migration 96 — Permissoes**
-
-```sql
--- Modulos do grupo 'loja'
-insert into modules (key, label, group, position) values
-  ('store-products',    'Produtos',          'loja', 70),
-  ('store-inventory',   'Estoque',           'loja', 71),
-  ('store-orders',      'Pedidos',           'loja', 72),
-  ('store-pdv',         'PDV',               'loja', 73),
-  ('store-reports',     'Relatorios de Loja','loja', 74),
-  ('store-settings',    'Config Loja',       'loja', 75),
-  ('store-pdv-discount','Desconto no PDV',   'loja', 76);
-
--- Permissoes por role (exemplos representativos)
--- super_admin e admin: acesso total
--- coordinator: products, inventory, orders, reports
--- teacher: sem acesso
--- user (atendente/caixa): store-pdv, store-orders (leitura)
-insert into role_permissions (role, module_key, can_view, can_create, can_edit, can_delete)
-values
-  ('super_admin', 'store-products',    true, true, true, true),
-  ('super_admin', 'store-inventory',   true, true, true, true),
-  ('super_admin', 'store-orders',      true, true, true, true),
-  ('super_admin', 'store-pdv',         true, true, true, true),
-  ('super_admin', 'store-reports',     true, true, true, true),
-  ('super_admin', 'store-settings',    true, true, true, true),
-  ('super_admin', 'store-pdv-discount',true, true, true, true),
-  ('admin',       'store-products',    true, true, true, true),
-  ('admin',       'store-inventory',   true, true, true, true),
-  ('admin',       'store-orders',      true, true, true, true),
-  ('admin',       'store-pdv',         true, true, true, true),
-  ('admin',       'store-reports',     true, true, true, true),
-  ('admin',       'store-settings',    true, true, true, true),
-  ('admin',       'store-pdv-discount',true, true, true, true),
-  ('coordinator', 'store-products',    true, true, true, false),
-  ('coordinator', 'store-inventory',   true, true, true, false),
-  ('coordinator', 'store-orders',      true, true, true, false),
-  ('coordinator', 'store-reports',     true, false,false,false),
-  ('user',        'store-pdv',         true, true, true, false),
-  ('user',        'store-orders',      true, false,false,false);
-```
-
-**Migration 97 — WhatsApp categoria `pedidos` + bucket `product-images`**
-
-```sql
-insert into whatsapp_categories (key, label, color) values
-  ('pedidos', 'Pedidos da Loja', '#166534');
-
-insert into storage.buckets (id, name, public) values
-  ('product-images', 'product-images', true);
-```
-
-#### 14.3 Rotas Admin
-
-| Rota | Componente | Roles | Fase |
-|------|-----------|-------|------|
-| `/admin/loja` | `LojaPage` — tabs: Dashboard, Produtos, Pedidos, PDV, Relatorios | admin, coordinator, user (PDV) | 14 |
-| `/admin/loja/pdv` | `PDVPage` — tela full-screen dedicada ao balcao | store-pdv | 14 |
-| `/admin/loja/pedidos/:orderId` | `OrderDetailPage` — detalhe com timeline de status, itens, protocolo | store-orders | 14 |
-
-#### 14.4 Rotas Loja Publica
-
-| Rota | Pagina | Descricao |
-|------|--------|-----------|
-| `/loja` | `LojaPublicaPage` | Home da loja: produtos em destaque, categorias, barra de busca |
-| `/loja/categoria/:slug` | `CategoriaPage` | Listagem de produtos da categoria com filtros |
-| `/loja/produto/:slug` | `ProdutoPage` | Galeria de imagens, seletor de grade (cor x tamanho), botao adicionar ao carrinho |
-| `/loja/carrinho` | `CarrinhoPage` | Resumo do carrinho; requer login para prosseguir |
-| `/loja/checkout` | `CheckoutPage` | Seletor de aluno, forma de pagamento, parcelamento; requer auth de responsavel |
-| `/loja/pedido/:orderNumber` | `ConfirmacaoPedidoPage` | Confirmacao de pedido realizado; resumo e proximo passo |
-
-#### 14.5 Rotas Portal do Responsavel (adicao Fase 14)
-
-| Rota | Pagina | Descricao |
-|------|--------|-----------|
-| `/responsavel/pedidos` | `PedidosPage` | Historico de todos os pedidos do responsavel com status atual |
-| `/responsavel/pedidos/:orderNumber` | `PedidoDetalhePage` | Status detalhado, timeline de transicoes, itens, link para protocolo de retirada quando disponivel |
-
-#### 14.6 Novos Arquivos Frontend
-
-| Arquivo | Descricao |
-|---------|-----------|
-| `src/admin/pages/loja/LojaPage.tsx` | Container com tab rail: Dashboard / Produtos / Pedidos / PDV / Relatorios |
-| `src/admin/pages/loja/tabs/LojaDashboardTab.tsx` | KPIs: faturamento, pedidos por status, estoque critico, top produtos |
-| `src/admin/pages/loja/tabs/ProdutosTab.tsx` | Tabela de produtos com filtros; abre drawer de cadastro/edicao |
-| `src/admin/pages/loja/tabs/PedidosTab.tsx` | Pipeline kanban ou tabela com filtro por status; abre OrderDetailPage |
-| `src/admin/pages/loja/tabs/RelatoriosLojaTab.tsx` | Seletores de periodo + tipo; graficos Recharts; exportacao CSV/Excel |
-| `src/admin/pages/loja/OrderDetailPage.tsx` | Timeline de status, itens, acoes (confirmar pagamento, iniciar separacao, etc.), protocolo |
-| `src/admin/pages/loja/PDVPage.tsx` | Tela full-screen: busca de produto, carrinho PDV, formas de pagamento, modo de troca |
-| `src/admin/pages/loja/drawers/ProdutoDrawer.tsx` | Formulario de produto: dados basicos, grade de variacoes, imagens, estoque por SKU |
-| `src/admin/pages/loja/drawers/CategoriaDrawer.tsx` | Formulario de categoria com seletor de categoria pai |
-| `src/admin/pages/loja/drawers/AjusteEstoqueDrawer.tsx` | Ajuste manual de estoque com justificativa obrigatoria |
-| `src/pages/loja/LojaPublicaPage.tsx` | Home publica da loja |
-| `src/pages/loja/CategoriaPage.tsx` | Listagem de produtos por categoria |
-| `src/pages/loja/ProdutoPage.tsx` | Detalhe do produto com seletor de grade e carrinho |
-| `src/pages/loja/CarrinhoPage.tsx` | Carrinho persistente |
-| `src/pages/loja/CheckoutPage.tsx` | Checkout com seletor de aluno e pagamento |
-| `src/pages/loja/ConfirmacaoPedidoPage.tsx` | Tela pos-pedido |
-| `src/pages/responsavel/PedidosPage.tsx` | Historico de pedidos no portal do responsavel |
-| `src/pages/responsavel/PedidoDetalhePage.tsx` | Detalhe e timeline do pedido |
-| `src/hooks/useCart.ts` | Hook de carrinho persistente (localStorage + Supabase para responsaveis logados) |
-| `src/hooks/useStoreProducts.ts` | Busca de produtos/SKUs para loja publica e PDV |
-| `src/hooks/usePDV.ts` | Estado do carrinho PDV, formas de pagamento, integracao com caixas |
-| `src/components/loja/ProductCard.tsx` | Card de produto para loja publica |
-| `src/components/loja/GradeSelector.tsx` | Seletor visual de cor x tamanho com disponibilidade por SKU |
-| `src/components/loja/OrderStatusBadge.tsx` | Badge colorido por status do pedido |
-| `src/components/loja/OrderTimeline.tsx` | Timeline de transicoes de status com timestamps |
-
-#### 14.7 Integracoes com Modulos Existentes
-
-| Modulo | Integracao |
-|--------|-----------|
-| Financeiro (Caixas) | PDV usa `financial_cash_registers`; cada venda registra `financial_cash_movements` com tipo `sale` |
-| Financeiro (Contas a Receber) | Pedidos parcelados geram `financial_receivables` com `source_type='order'` e `source_id=order_id` |
-| Financeiro (Historico do Aluno) | Compras na loja e no PDV aparecem no historico financeiro do aluno vinculado ao pedido |
-| Portal do Responsavel | `/responsavel/pedidos` exibe historico completo com status em tempo real e link para protocolo |
-| Modulo de Eventos | Pedidos de evento (camiseta, kit) podem ser vinculados via `source_type='event'` em `financial_receivables` |
-| Modulo de Rematricula | Kit escolar pode ser sugerido no fluxo de rematricula com itens pre-adicionados ao carrinho (Fase 14.B futura) |
-| Gateway de Pagamentos | Checkout usa o mesmo `GatewayAdapter` da Fase 8; PDV usa PIX/boleto via gateway quando aplicavel |
-| `generate-document` (Edge Function) | Protocolo de retirada gerado como PDF no mesmo padrao de declaracoes da Fase 11 |
-| WhatsApp | Categoria `pedidos` com 9 templates disparados automaticamente nas transicoes de status do pedido |
-
-#### 14.8 Gaps Identificados
-
-1. **NF-e / NFC-e (Cupom Fiscal Eletronico)** — A spec nao preve emissao fiscal. Vendas de produtos fisicos em PDV podem exigir NFC-e no Brasil. **Mitigacao**: integrar provider fiscal (ex.: Focus NF-e, WebmaniaBR) em Fase 14.B. Por ora, o PDV emite apenas comprovante interno.
-
-2. **Reserva de Estoque (Race Condition)** — Dois responsaveis podem adicionar o mesmo ultimo item ao carrinho simultaneamente. A spec menciona "reserva no momento do pedido" mas nao detalha o mecanismo. **Mitigacao**: campo `reserved_quantity` em `store_product_variants`; RPC `reserve_stock(variant_id, qty, order_id)` que incrementa `reserved_quantity` ao criar o pedido e so decrementa `stock_quantity` na confirmacao de pagamento; job pg_cron libera reservas de pedidos `pending_payment` com mais de 24 h sem confirmacao.
-
-3. **Credito de Loja (Store Credit)** — O modo de troca do PDV menciona "geracao de credito" mas nao ha tabela `store_credits`. Necessario para devolucao sem reembolso imediato. **Mitigacao**: criar tabela `store_credits(id, guardian_id, amount, reason, expires_at, used_at, order_id)` em Fase 14.B; durante Fase 14 o modo de troca apenas gera um novo pedido PDV.
-
-4. **Loja para Visitantes Externos** — O checkout exige responsavel cadastrado. Familias de alunos novos (antes de ter conta) nao conseguem comprar antecipadamente (ex.: uniforme pre-matricula). **Mitigacao**: adicionar fluxo de "compra como visitante" com CPF + nome, sem vinculacao de aluno obrigatoria.
-
-5. **Produto Digital — Entrega** — A spec tem toggle `is_digital` mas nao detalha o fluxo de entrega (link de download, expiracao, controle de acessos). **Mitigacao**: em Fase 14 produtos digitais marcam o pedido como `completed` automaticamente apos confirmacao de pagamento; download via Storage signed URL com TTL configuravel em Fase 14.B.
-
-6. **Integracao com Agenda de Separacao** — Nao ha SLA ou fila de separacao para o time interno. Pedidos em separacao nao tem prioridade, prazo ou responsavel atribuido. **Mitigacao**: campo `picker_id (FK auth.users)` e `picking_started_at` em `store_orders`; Config > Loja configura prazo em horas; alerta de atraso via `alert_notifications`.
-
-7. **Multiplos Alunos no Mesmo Pedido** — O checkout atual vincula o pedido a um unico aluno (`student_id`). Um responsavel com 2 filhos precisaria de 2 pedidos para comprar uniformes de tamanhos diferentes. **Mitigacao**: modelo N:N `store_order_students` para Fase 14.B; em Fase 14, um pedido por filho.
-
-8. **Retentativa de Pagamento** — Pedidos com status `pending_payment` nao tem UI para nova tentativa de pagamento sem cancelar e recriar o pedido. **Mitigacao**: action "Tentar Novamente" no detalhe do pedido no Portal do Responsavel, que reutiliza o mesmo `order_id` com novo `gateway_charge_id`.
-
-#### 14.9 Oportunidades de Melhoria
-
-| Oportunidade | Descricao | Prioridade |
-|---|---|---|
-| **Kit Escolar por Serie** | Ao matricular/rematricular, sugerir kit de uniforme padrao da serie; itens pre-adicionados ao carrinho com tamanho a confirmar | Media |
-| **Sugestao de Tamanho por Idade** | Cruzar data de nascimento do aluno com tabela de tamanhos sugeridos por faixa etaria | Baixa |
-| **Compra em Grupo / Turma** | Coordenador cria pedido coletivo para uma turma (ex.: camiseta de formatura) com lista de alunos e tamanhos; processamento via PDV | Media |
-| **PDV Offline-First** | Cache local dos produtos e estoque; fila de sincronizacao ao reconectar; critico para escolas com internet instavel | Alta |
-| **Relatorio de Previsao de Demanda** | Cruzar historico de vendas + numero de alunos por serie/turma para sugerir quantidade a repor antes do inicio do ano letivo | Media |
-| **Loja no Portal do Aluno** | Versao somente-leitura (catalogo) no Portal do Aluno para que o proprio aluno veja o que esta disponivel e compartilhe com o responsavel | Baixa |
-| **Webhook de Estoque Minimo** | Notificacao interna (alert_notifications) e/ou WhatsApp para o admin quando SKU atingir estoque minimo | Alta |
-| **Programa de Fidelidade** | Pontos por compra resgatados como desconto; tabela `store_loyalty_points`; viavel apos consolidacao da base de dados de pedidos | Baixa |
-| **Modo Quiosque para PDV** | Tela touch-friendly para autoatendimento em eventos escolares; responsavel escaneia QR Code do aluno e finaliza a compra | Baixa |
-| **Integracao com Modulo de Eventos** | Ao criar evento com item vendavel (camiseta, kit), gerar automaticamente um produto na loja com estoque vinculado ao numero de inscritos | Media |
-
-#### 14.10 Configuracoes — Config > Loja
-
-As configuracoes da loja sao armazenadas em `system_settings` com `category='store'`:
-
-| Chave | Tipo | Descricao |
-|-------|------|-----------|
-| `gateway_id` | text | ID do gateway de pagamento ativo para a loja (mesmo GatewayAdapter da Fase 8) |
-| `payment_methods_enabled` | text[] | Formas de pagamento habilitadas: `['credit_card','debit_card','pix','boleto','cash']` |
-| `max_installments` | integer | Numero maximo de parcelas no checkout (padrao: 12) |
-| `min_installment_value` | numeric | Valor minimo por parcela em reais (padrao: 10.00) |
-| `installment_interest_pct` | numeric | Percentual de juros por parcela (0 = sem juros) |
-| `separation_days` | integer | Prazo em dias uteis para separacao do pedido apos confirmacao de pagamento |
-| `pickup_reminder_days` | integer | Dias antes do prazo de retirada para enviar lembrete por WhatsApp |
-| `require_pickup_signature` | boolean | Exige assinatura no protocolo de retirada (padrao: true) |
-| `pickup_protocol_template` | text | Template de texto do protocolo de retirada (suporta variaveis) |
-| `hide_out_of_stock` | boolean | Ocultar produtos sem estoque na loja publica (padrao: false — exibe como indisponivel) |
-| `whatsapp_notifications` | JSONB | Objeto com chave por evento de pedido; valor: `{enabled: bool, template_id: uuid}` |
-
-#### 14.11 WhatsApp — Categoria Pedidos
-
-**Variaveis de template disponiveis:**
-
-`{{numero_pedido}}`, `{{nome_responsavel}}`, `{{nome_aluno}}`, `{{itens_resumo}}`, `{{valor_total}}`, `{{forma_pagamento}}`, `{{parcelas}}`, `{{data_pedido}}`, `{{previsao_retirada}}`, `{{link_pedido}}`, `{{instituicao}}`
-
-| Evento | Destinatario | Template | Gatilho (transicao de status) |
-|--------|-------------|---------|-------------------------------|
-| Pedido recebido aguardando pagamento | Responsavel | `pedido-recebido` | criacao do pedido (status `pending_payment`) |
-| Pagamento confirmado | Responsavel | `pagamento-confirmado` | `pending_payment` → `payment_confirmed` |
-| Pedido em separacao | Responsavel | `em-separacao` | `payment_confirmed` → `picking` |
-| Pedido pronto para retirada | Responsavel | `pronto-retirada` | `picking` → `ready_for_pickup` |
-| Lembrete de retirada pendente | Responsavel | `lembrete-retirada` | agendado via pg_cron conforme `pickup_reminder_days` |
-| Pedido retirado | Responsavel | `pedido-retirado` | `ready_for_pickup` → `picked_up` |
-| Pedido concluido | Responsavel | `pedido-concluido` | `picked_up` → `completed` |
-| Pedido cancelado | Responsavel | `pedido-cancelado` | qualquer status → `cancelled` |
-| Pagamento rejeitado / link expirado | Responsavel | `pagamento-falhou` | evento de webhook do gateway (charge failed/expired) |
-
-#### 14.12 Verificacao
-
-1. Criar categoria raiz e subcategoria; verificar hierarquia exibida corretamente na loja publica
-2. Cadastrar produto com grade 3 cores x 4 tamanhos = 12 SKUs gerados automaticamente; verificar SKUs unicos
-3. Adicionar estoque a um SKU; movimentacao registrada em `store_inventory_movements` com `balance_after` correto
-4. Responsavel adiciona produto ao carrinho → carrinho persiste apos reload da pagina
-5. Checkout: selecionar aluno, forma de pagamento PIX → pedido criado com status `pending_payment`; WhatsApp `pedido-recebido` disparado
-6. Simular confirmacao de pagamento via webhook → status muda para `payment_confirmed`; `stock_quantity` decrementado; `reserved_quantity` liberado; WhatsApp `pagamento-confirmado` disparado
-7. Operador avanca para `picking` → `ready_for_pickup`; WhatsApp correto disparado em cada transicao
-8. Gerar protocolo de retirada: PDF gerado no bucket correto, URL salva em `store_pickup_protocols`; status avanca para `picked_up`
-9. PDV: operador abre caixa → busca produto por nome/SKU → adiciona ao carrinho PDV → finaliza com pagamento em dinheiro → `financial_cash_movements` registrado; estoque decrementado
-10. PDV: modo de troca — produto devolvido → novo pedido gerado; `store_inventory_movements` com tipo `return` registrado
-11. Tentar adicionar ao carrinho SKU com estoque zero → bloqueado; SKU com `reserved_quantity` igual a `stock_quantity` tambem bloqueado
-12. Dois usuarios simultaneos tentam reservar o ultimo item → RPC `reserve_stock` garante que apenas um seja bem-sucedido (sem overselling)
-13. Relatorio de vendas por periodo: dados corretos; exportacao CSV gerada com todos os campos esperados
-14. Config > Loja: alterar `max_installments` para 6 → checkout nao exibe mais que 6 parcelas
-15. WhatsApp lembrete de retirada: pg_cron dispara template `lembrete-retirada` conforme `pickup_reminder_days` configurado
-
 ---
 
 ### 10.10 Melhorias Transversais
@@ -3406,6 +3206,216 @@ As configuracoes da loja sao armazenadas em `system_settings` com `category='sto
 | **Biblioteca Virtual publica** | Rota `/biblioteca-virtual` no site — decidir se migra para /portal/biblioteca | Baixa | ⏳ Pendente |
 | **PWA / Mobile-First** | Layout responsivo mobile-first, manifest, service worker, push notifications. Concern transversal — ver `docs/PRD_PWA_MOBILE_FIRST.md` para detalhamento completo. Nao e uma fase isolada; cada fase deve entregar componentes mobile-ready | Media | ⏳ Pendente |
 | **WebAuthn / Biometria no Portal do Responsavel** | Registro e uso de credencial de plataforma (`TouchID`, `FaceID`, `Windows Hello`) para re-autenticacao no fluxo de autorizacao de saida excepcional; fallback para senha ja entregue em Fase 11.B | Alta | ⏳ Pendente (pos-11.B) |
+
+---
+
+### 10.12 Fase 15 — Achados e Perdidos Digital
+
+**Status**: ⏳ Pendente
+**Dependencias**: Fase 6 (permissoes granulares) + Fase 9 (Portal do Aluno) + Fase 10 (Portal do Responsavel)
+**Prioridade**: Media
+
+---
+
+#### Visao Geral
+
+Modulo digital de achados e perdidos integrado ao sistema institucional, cobrindo o registro de objetos encontrados, a reivindicacao pelo portal do aluno e do responsavel, e a gestao completa da entrega com rastreabilidade total de cada etapa.
+
+---
+
+#### 15.1 Schema do Banco de Dados
+
+**Tabela `lost_found_items`** — registro de cada objeto encontrado
+
+```sql
+CREATE TABLE lost_found_items (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type              TEXT NOT NULL,               -- categoria do objeto
+  description       TEXT NOT NULL,               -- descricao livre
+  photo_url         TEXT,                        -- URL do Supabase Storage
+  found_location    TEXT NOT NULL,               -- onde foi encontrado
+  storage_location  TEXT NOT NULL,               -- onde esta guardado
+  found_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  registered_by     UUID REFERENCES auth.users(id),
+  notes             TEXT,
+  status            TEXT NOT NULL DEFAULT 'available'
+                    CHECK (status IN ('available','claimed','delivered','discarded')),
+  claimed_by_type   TEXT CHECK (claimed_by_type IN ('student','guardian')),
+  claimed_by_id     UUID,                        -- student.id ou guardian_profiles.id
+  claimed_at        TIMESTAMPTZ,
+  claimed_portal    TEXT CHECK (claimed_portal IN ('student','guardian')),
+  delivered_at      TIMESTAMPTZ,
+  delivered_by      UUID REFERENCES auth.users(id),
+  delivery_student_id UUID REFERENCES students(id), -- aluno vinculado na entrega
+  delivery_manual   BOOLEAN NOT NULL DEFAULT false,  -- entrega sem reivindicacao previa
+  discarded_at      TIMESTAMPTZ,
+  discard_reason    TEXT,                        -- doacao | descarte | devolucao
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**Tabela `lost_found_events`** — timeline de eventos por objeto
+
+```sql
+CREATE TABLE lost_found_events (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_id     UUID NOT NULL REFERENCES lost_found_items(id) ON DELETE CASCADE,
+  event_type  TEXT NOT NULL,
+              -- registered | claimed | claim_confirmed | delivered |
+              -- delivered_manual | discarded | edited
+  actor_type  TEXT NOT NULL CHECK (actor_type IN ('admin','student','guardian','system')),
+  actor_id    UUID,
+  actor_name  TEXT,
+  metadata    JSONB,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**Indices e RLS**
+
+```sql
+CREATE INDEX idx_lfi_status   ON lost_found_items(status);
+CREATE INDEX idx_lfi_type     ON lost_found_items(type);
+CREATE INDEX idx_lfi_found_at ON lost_found_items(found_at DESC);
+CREATE INDEX idx_lfe_item_id  ON lost_found_events(item_id, created_at);
+
+ALTER TABLE lost_found_items  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lost_found_events ENABLE ROW LEVEL SECURITY;
+
+-- Admin: acesso total
+CREATE POLICY "admin_all" ON lost_found_items FOR ALL
+  USING (auth.role() = 'authenticated');
+
+-- Portais: apenas itens disponíveis (sem foto se configurado)
+CREATE POLICY "portal_read_available" ON lost_found_items FOR SELECT
+  USING (status = 'available');
+```
+
+---
+
+#### 15.2 Funcionalidades — Admin
+
+**Sidebar**: Novo item `Achados e Perdidos` no grupo **Ferramentas**, `icon: 'PackageSearch'`, `path: '/admin/achados-perdidos'`, `moduleKey: 'lost-found'`.
+
+**Listagem** (`/admin/achados-perdidos`):
+- Cards ou tabela com miniatura da foto, tipo, descricao, locais, data, status e indicador de reivindicacao
+- Filtros: status · tipo · periodo · local de encontro
+- Botao **+ Registrar objeto** abre drawer de registro
+
+**Drawer de registro** — campos:
+- Tipo do objeto (seletor configuravel em `system_settings` `category: 'tools'` `key: 'lost_found_types'`)
+- Descricao (texto livre)
+- Foto (upload para `Storage/lost-found/{id}.jpg`, obrigatorio)
+- Onde foi encontrado (seletor configuravel `lost_found_found_locations`)
+- Onde esta armazenado (seletor configuravel `lost_found_storage_locations`)
+- Data e hora do encontro (default: agora)
+- Observacoes
+
+**Detalhe do objeto** (expandido inline ou drawer):
+- Timeline de eventos (`lost_found_events`) em ordem cronologica
+- Dados do reivindicante (se houver)
+- Acoes contextuais por status:
+
+| Status | Acoes disponiveis |
+|--------|-------------------|
+| `available` | Registrar entrega manual · Descartar |
+| `claimed` | Registrar entrega (reivindicante exibido) · Descartar |
+| `delivered` | Somente visualizar |
+| `discarded` | Somente visualizar |
+
+**Entrega mediante reivindicacao** — confirma com dados do reivindicante ja preenchidos; registra `delivered_at`, `delivered_by`, `delivery_manual: false`.
+
+**Entrega manual** — abre busca de aluno (mesmo componente de busca ativa usado em matriculas e PDV); registra `delivery_manual: true`, `delivery_student_id`.
+
+**Descarte** — exige campo `discard_reason` obrigatorio (doacao | descarte | devolucao ao achador); registra `discarded_at`.
+
+---
+
+#### 15.3 Funcionalidades — Portais
+
+**Portal do Aluno e Portal do Responsavel** — nova secao **Achados e Perdidos** exibindo cards dos objetos `status = 'available'`:
+- Foto (se configuracao `show_photo_on_portal` ativo), tipo, descricao, local de guarda
+- Botao **"E meu"** abre modal de confirmacao com reautenticacao por senha (mesmo padrao de autorizacao de saida da Fase 11.B)
+- Apos reivindicacao: item muda para `claimed`, desaparece dos cards de outros usuarios
+- Acompanhamento de status (`claimed` → `delivered`) com data/hora da entrega exibida
+
+**Reautenticacao**: chamada a `supabase.auth.signInWithPassword` com o e-mail da sessao atual antes de gravar a reivindicacao — sem exposicao do token, mesma logica de confirmacao da Fase 11.B.
+
+---
+
+#### 15.4 Configuracoes — Config > Ferramentas
+
+Novo card **Achados e Perdidos** em `AcademicoSettingsPanel` ou novo `ToolsSettingsPanel` em Config:
+
+| Chave (`system_settings`) | Tipo | Default | Descricao |
+|---------------------------|------|---------|-----------|
+| `lost_found_types` | JSON array | `["eletronico","vestuario","acessorio","material escolar","documento","calcado","bolsa/mochila","outro"]` | Categorias de tipo de objeto |
+| `lost_found_found_locations` | JSON array | `["sala de aula","corredor","patio","quadra","banheiro","refeitorio","portaria","outro"]` | Locais de encontro configuráveis |
+| `lost_found_storage_locations` | JSON array | `["secretaria","portaria","coordenacao","outro"]` | Locais de armazenamento configuráveis |
+| `lost_found_discard_days` | number | `30` | Dias sem retirada para sinalizar elegivel para descarte |
+| `lost_found_show_photo_on_portal` | boolean | `true` | Exibir foto nos portais (desativar por politica de privacidade) |
+
+---
+
+#### 15.5 Permissoes Granulares
+
+Novo modulo na tabela `modules` e nas `role_permissions`:
+
+```sql
+INSERT INTO modules (key, label, description, group_label, depends_on)
+VALUES ('lost-found', 'Achados e Perdidos', 'Modulo de objetos encontrados e gestao de entregas',
+        'Ferramentas', ARRAY['students']);
+```
+
+| Acao | Descricao | Role padrao |
+|------|-----------|-------------|
+| `view` | Visualizar listagem e detalhes | admin, coordinator, user |
+| `create` | Registrar novos objetos | admin, coordinator, user |
+| `update` | Editar dados e confirmar entregas | admin, coordinator |
+| `delete` | Remover registros | super_admin, admin |
+
+---
+
+#### 15.6 Integrações Necessárias
+
+| Modulo | Integracao | Detalhe |
+|--------|-----------|---------|
+| **Supabase Storage** | Upload de foto no registro | Bucket `lost-found`, politica publica para leitura nos portais; upload via `supabase.storage.from('lost-found').upload()` na Edge Function ou diretamente do client com RLS |
+| **Portal do Aluno** (Fase 9) | Nova secao no portal | Rota `/portal/achados-perdidos`; leitura de `lost_found_items` com `status = 'available'`; botao de reivindicacao com reautenticacao |
+| **Portal do Responsavel** (Fase 10) | Nova secao no portal | Rota `/responsavel/achados-perdidos`; mesma logica do portal do aluno, actor_type = `'guardian'` |
+| **Reautenticacao** (Fase 11.B) | Confirmar senha antes de reivindicar | Reutilizar o componente/hook de confirmacao de senha ja desenvolvido para autorizacoes de saida |
+| **Busca de aluno** (Fase 9.M) | Entrega manual | Reutilizar o componente de busca ativa de aluno ja presente no PDV e em Matriculas |
+| **Historico do aluno** (Fase 9) | Linha do tempo de entregas | Exibir eventos `delivered` do `lost_found_events` na aba Historico do `StudentDetailPage` quando `delivery_student_id` estiver preenchido |
+| **Permissoes granulares** (Fase 6) | Controle de acesso ao modulo | ModuleGuard + PermissionGate em torno da rota `/admin/achados-perdidos`; respeitar `canView`, `canCreate`, `canUpdate`, `canDelete` |
+| **Audit Logs** (Fase 6) | Rastreabilidade de acoes | `logAudit()` em registro, entrega, descarte e edicao |
+| **WhatsApp** (Fase 8 + 11) | Notificacao de entrega confirmada | Envio opcional de mensagem ao responsavel quando a entrega e confirmada pelo admin — novo template `lost_found_delivery_confirmed` na categoria `Portaria/Ferramentas` |
+| **Config > Ferramentas** | Configuracoes do modulo | Novo card no painel de configuracoes para listas editaveis de tipos e locais, prazo de descarte e toggle de foto |
+
+---
+
+#### 15.7 Oportunidades de Melhoria
+
+| Melhoria | Valor | Complexidade |
+|----------|-------|--------------|
+| **QR Code no objeto fisico** | Imprimir etiqueta com QR Code vinculada ao `id` do registro; ao escanear, o admin confirma a entrega sem abrir o sistema — ideal para portaria | Media | Media |
+| **Alerta de descarte por WhatsApp** | X dias antes do prazo de descarte (configuravel), enviar WhatsApp automatico ao responsavel vinculado (se entrega foi manual) ou broadcast para a turma do aluno (se objeto identificado) | Alta | Baixa |
+| **Reconhecimento de categoria por IA** | Analisar a foto enviada e sugerir automaticamente o tipo do objeto (vestuario, eletronico, etc.) usando a API de visao do Supabase AI ou servico externo | Media | Alta |
+| **Comunicado automatico de achados sem dono** | Apos N dias sem reivindicacao, criar um Comunicado automatico (Fase Instituicao) com a foto e descricao do objeto, publicado para todos os responsaveis — opt-in configuravel | Alta | Baixa |
+| **Relatorio mensal de achados** | Resumo de objetos registrados, entregues, descartados e pendentes no periodo — exportavel em PDF (reutilizar Edge Function `generate-document`) | Media | Baixa |
+| **Campo de identificacao do proprietario no objeto** | Campo opcional "possivel proprietario" no registro, sugerindo uma turma ou aluno ja na hora do cadastro (ex: objeto com nome identificado) | Alta | Baixa |
+| **Mobile-first para registro na portaria** | O formulario de registro sera usado em dispositivos moveis pela portaria — seguir padrao PWA/Mobile-First da secao 10.10 desde o primeiro deploy | Alta | Baixa |
+| **Historico consolidado no aluno** | Na `StudentDetailPage`, aba Historico, exibir uma linha do tempo de todas as entregas vinculadas ao aluno, facilitando consulta em casos de reincidencia | Media | Baixa |
+
+---
+
+#### 15.8 Plano de Migrations
+
+| # | Descricao |
+|---|-----------|
+| 103 | `lost_found_items` — tabela principal com campos de status, reivindicacao e entrega |
+| 104 | `lost_found_events` — tabela de timeline por objeto; FK para `lost_found_items` |
+| 105 | `modules` INSERT para `lost-found`; `system_settings` INSERTs para as 5 configuracoes do modulo |
 
 ---
 

@@ -35,6 +35,7 @@ import {
   DoorOpen,
   ShoppingBag,
   Monitor,
+  PackageSearch,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -65,6 +66,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   DoorOpen,
   ShoppingBag,
   Monitor,
+  PackageSearch,
 };
 
 interface Props {

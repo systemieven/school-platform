@@ -28,6 +28,7 @@ import {
 import SecuritySettingsPanel from './SecuritySettingsPanel';
 import FinancialSettingsPanel from './FinancialSettingsPanel';
 import AcademicoSettingsPanel from './AcademicoSettingsPanel';
+import LostFoundSettingsPanel from './LostFoundSettingsPanel';
 import SiteSettingsPanel, { type SiteTab, SITE_SUB_TABS } from './SiteSettingsPanel';
 import AuditLogsPage from '../audit/AuditLogsPage';
 import PermissionsPage from '../permissions/PermissionsPage';
@@ -77,6 +78,14 @@ const TABS: TabDef[] = [
     icon: Ticket,
     categories: ['attendance'],
     description: 'Regras de elegibilidade, formato de senha, sons, tela do cliente e feedback.',
+  },
+  {
+    key: 'ferramentas',
+    label: 'Ferramentas',
+    shortLabel: 'Ferramentas',
+    icon: FileSearch,
+    categories: [],
+    description: 'Configure módulos de ferramentas como Achados e Perdidos.',
   },
   {
     key: 'audit',
@@ -614,7 +623,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit', 'financial'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit', 'financial', 'ferramentas'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
@@ -637,6 +646,8 @@ export default function SettingsPage() {
                 <div className="p-6"><AuditLogsPage embedded /></div>
               ) : activeTab === 'financial' ? (
                 <FinancialSettingsPanel />
+              ) : activeTab === 'ferramentas' ? (
+                <LostFoundSettingsPanel />
               ) : activeTab === 'academico' ? (
                 <AcademicoSettingsPanel />
               ) : activeTab === 'institutional' ? (

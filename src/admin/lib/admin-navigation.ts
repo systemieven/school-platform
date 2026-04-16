@@ -96,6 +96,14 @@ export const ADMIN_NAV: NavGroup[] = [
         roles: ['super_admin', 'admin', 'coordinator'],
         moduleKey: 'portaria',
       },
+      {
+        key: 'achados-perdidos',
+        label: 'Achados e Perdidos',
+        icon: 'PackageSearch',
+        path: '/admin/achados-perdidos',
+        roles: ['super_admin', 'admin', 'coordinator', 'user'],
+        moduleKey: 'lost-found',
+      },
     ],
   },
   {

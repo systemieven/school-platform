@@ -11,6 +11,7 @@ import LibraryPage    from './pages/library/LibraryPage';
 import EventsPage     from './pages/events/EventsPage';
 import FinanceiroPage from './pages/financeiro/FinanceiroPage';
 import ProfilePage    from './pages/profile/ProfilePage';
+import AchadosPerdidosPage from './pages/achados-perdidos/AchadosPerdidosPage';
 
 export default function PortalRoutes() {
   return (
@@ -27,8 +28,9 @@ export default function PortalRoutes() {
           <Route path="biblioteca"  element={<LibraryPage />} />
           <Route path="eventos"     element={<EventsPage />} />
           <Route path="financeiro"  element={<FinanceiroPage />} />
-          <Route path="perfil"      element={<ProfilePage />} />
-          <Route path="*"           element={<Navigate to="/portal" replace />} />
+          <Route path="perfil"           element={<ProfilePage />} />
+          <Route path="achados-perdidos" element={<AchadosPerdidosPage />} />
+          <Route path="*"                element={<Navigate to="/portal" replace />} />
         </Route>
       </Routes>
     </StudentAuthProvider>

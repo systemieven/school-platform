@@ -2553,3 +2553,62 @@ export interface PDVCartItem {
   unitPrice: number;
   totalPrice: number;
 }
+
+// ── Achados e Perdidos (Fase 15) ──────────────────────────────────────────────
+
+export type LostFoundStatus = 'available' | 'claimed' | 'delivered' | 'discarded';
+export type LostFoundClaimedByType = 'student' | 'guardian';
+export type LostFoundActorType = 'admin' | 'student' | 'guardian' | 'system';
+
+export interface LostFoundItem {
+  id: string;
+  type: string;
+  description: string;
+  photo_url: string | null;
+  found_location: string;
+  storage_location: string;
+  found_at: string;
+  registered_by: string | null;
+  notes: string | null;
+  status: LostFoundStatus;
+  claimed_by_type: LostFoundClaimedByType | null;
+  claimed_by_id: string | null;
+  claimed_at: string | null;
+  claimed_portal: 'student' | 'guardian' | null;
+  delivered_at: string | null;
+  delivered_by: string | null;
+  delivery_student_id: string | null;
+  delivery_manual: boolean;
+  discarded_at: string | null;
+  discard_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  // joins
+  delivery_student?: { id: string; full_name: string } | null;
+  registrant?: { full_name: string } | null;
+}
+
+export interface LostFoundEvent {
+  id: string;
+  item_id: string;
+  event: string;
+  actor_type: LostFoundActorType;
+  actor_id: string | null;
+  actor_name: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export const LOST_FOUND_STATUS_LABELS: Record<LostFoundStatus, string> = {
+  available:  'Disponível',
+  claimed:    'Reivindicado',
+  delivered:  'Entregue',
+  discarded:  'Descartado',
+};
+
+export const LOST_FOUND_STATUS_COLORS: Record<LostFoundStatus, string> = {
+  available:  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  claimed:    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  delivered:  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  discarded:  'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+};
