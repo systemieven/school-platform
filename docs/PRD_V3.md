@@ -2,7 +2,7 @@
 
 > **Versao**: 3.5
 > **Data**: 17 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–9.8 concluidos, migration 141) + roadmap ate v1
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–9.8 concluidos, migration 149) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -96,7 +96,7 @@ Todos os dados sao armazenados no Supabase (PostgreSQL + RLS + Realtime + Storag
 ### 2.2 Banco de Dados
 
 - **40+ tabelas** com Row Level Security (RLS) em todas
-- **141 migrations** aplicadas sequencialmente
+- **149 migrations** aplicadas sequencialmente
 - **5 storage buckets**: `enrollment-documents`, `site-images`, `whatsapp-media`, `library-resources`, `avatars`
 - **16 Edge Functions** para logica server-side (8 publicas com rate limiting ou auth customizada)
 - **Realtime** habilitado em `visit_appointments`, `enrollments`, `contact_requests`, `attendance_tickets` e `system_settings`
@@ -1136,7 +1136,7 @@ Gerenciamento de contas de usuario com atribuicao de roles (ver secao 4.16).
 
 Grid de permissoes por role (modulo x acao) com overrides por usuario.
 
-**Modelo efetivo (migrations 26, 143, 144, 145):**
+**Modelo efetivo (migrations 26, 143, 144, 145, 146, 148, 149):**
 
 1. **Base por role** — `role_permissions(role, module_key, can_view/create/edit/delete/import)` define o default da função.
 2. **Override por usuário** — `user_permission_overrides(user_id, module_key, can_*, is_deny)`.
@@ -1145,13 +1145,17 @@ Grid de permissoes por role (modulo x acao) com overrides por usuario.
 3. **`super_admin` bypass** — sempre `true`, registrado em `audit_logs` via trigger (migration 144).
 4. **`modules.is_active = false`** — desliga o módulo para todos os roles, inclusive admin (mas não super_admin).
 
-**Função canônica:** `has_module_permission(user, module_key, action)` (SECURITY DEFINER, migration 144). Todas as RLS de tabelas sensíveis usam essa função — frontend (`PermissionsContext`) e backend têm a mesma fonte de verdade.
+**Função canônica:** `has_module_permission(user, module_key, action)` (SECURITY DEFINER, migration 144). Todas as RLS de tabelas sensíveis usam essa função — frontend (`PermissionsContext`) e backend têm a mesma fonte de verdade. ✅ Estendida para `audit_logs` na migration 149.
 
 **Tenancy para role `teacher`** (migration 145): em `students`, `absence_communications` e `exit_authorizations`, teacher só enxerga/edita registros cujo `class_id` esteja em `class_disciplines` com `teacher_id = auth.uid()`. Admin/coordinator/super_admin não são afetados.
 
+**Decomposição granular de Configurações (migration 148)** ✅: as 13 abas de `/admin/configuracoes` deixam de ser gateadas pela chave do módulo subjacente (ex.: `academico`, `nfse-config`) e passam a usar chaves dedicadas `settings-*` — `settings-institutional`, `settings-academico`, `settings-visits`, `settings-attendance`, `settings-ferramentas`, `settings-fiscal`, `settings-contact`, `settings-financial`, `settings-enrollment`, `settings-notifications`, `settings-security`, `settings-site`, `settings-whatsapp`. Seed concede apenas a `super_admin`; qualquer outro role (inclusive admin) precisa ser liberado explicitamente via UI de Permissões. Fecha o gap em que um professor com acesso ao módulo Acadêmico configurava períodos letivos e fórmulas de média.
+
+**Higiene de overrides (migration 146)** ✅: elimina linhas "mirror" (override idêntico ao role default = no-op) e "phantom" (grant em módulo admin-only herdado de downgrade de role) deixadas pelo bug legado do save do EditUserDrawer. UI corrigida em `UsersPage.tsx` grava apenas o **diff** vs role default, nunca mais cria mirror/phantom.
+
 **Realtime invalidation:** mudanças em `role_permissions`, `user_permission_overrides` ou `modules` disparam `postgres_changes` → `PermissionsContext` faz refetch debounced (250 ms). Sessões ativas perdem acesso em < 1 s sem refresh manual.
 
-**Verificação:** `supabase/tests/permissions_verification.sql` executa fixtures + asserts em transação (ROLLBACK automático).
+**Verificação:** `supabase/tests/permissions_verification.sql` executa fixtures + asserts em transação (ROLLBACK automático). Cobre mirror/phantom/deny/tenancy/bypass.
 
 ### 5.12 Auditoria
 
@@ -1493,6 +1497,10 @@ Configuravel na aba Aparencia > Home:
 | 143 | `user_permissions_additive_only` | 17/04 | Overrides aditivos only (revertido parcialmente na 144, que reintroduz `is_deny`) |
 | 144 | `granular_rls_hardening` | 17/04 | **Auditoria de permissões** — helper `has_module_permission`, coluna `is_deny`, RLS reescrito em 13 tabelas críticas, fechamento de `USING(true)` do baseline, seeds de 9 chaves `academic-*`, trigger de bypass super_admin, realtime publication |
 | 145 | `tenancy_scoping` | 17/04 | Helpers `is_admin_like` e `teacher_sees_student`; RLS de `students`/`absence_communications`/`exit_authorizations` escopado ao vínculo `class_disciplines.teacher_id` para role `teacher` |
+| 146 | `cleanup_mirror_and_phantom_overrides` | 17/04 | ✅ Limpeza one-shot de overrides "mirror" (iguais ao role default) e "phantom" (grants admin-only em roles teacher/user/student) gerados pelo bug legado de save do EditUserDrawer. `UsersPage.tsx` pós-fix grava apenas o diff vs role default. |
+| 147 | `fix_module_text_accents` | 17/04 | ✅ Correção de labels e descrições em `modules` (acentuação, cedilha, "Configurações" vs "Config ..."): Parcelas/Cobranças, Relatórios Financeiros, Ocorrências, Diário de Classe, Elaboração de Provas, Declarações, Rematrícula, Transferências, Configurações NFS-e/Loja/Fiscais, etc. |
+| 148 | `settings_granular_modules` | 17/04 | ✅ **13 módulos `settings-*` granulares** — uma chave por aba de `/admin/configuracoes` (institutional, academico, visits, attendance, ferramentas, fiscal, contact, financial, enrollment, notifications, security, site, whatsapp). Seed concede apenas a super_admin; admins e demais roles recebem acesso via UI de Permissões. Desacopla "usar módulo" de "configurar módulo". |
+| 149 | `audit_logs_rls_granular` | 17/04 | ✅ RLS de `audit_logs` usa `has_module_permission(auth.uid(), 'audit', 'view')` em vez de `profiles.role IN ('super_admin','admin')` hardcoded. Permite conceder `audit:view` a qualquer role pela UI com efeito imediato na leitura. |
 
 ### 7.4 RLS Policies
 
