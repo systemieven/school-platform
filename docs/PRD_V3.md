@@ -1848,6 +1848,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | Sprint 13.N | PWA Push Notifications | ✅ Concluido (2026-04-17) — PR1 (13.N.1): migration 153 `push_subscriptions` (endpoint UNIQUE, p256dh, auth, user_id+user_type, revoked_at, RLS: proprio usuario CRUD, admin SELECT/UPDATE), seed `system_settings.push.vapid_public_key`, secrets `VAPID_PRIVATE_KEY` + `VAPID_SUBJECT`, Edge Function `push-send` (npm:web-push@3.6.7, assina VAPID JWT, filtra por `user_ids` ou `subscription_ids`, marca revoked em 404/410, atualiza `last_seen_at`). PR2 (13.N.2): `vite-plugin-pwa` alternado para `injectManifest` com `src/sw.ts` custom (workbox-precaching@7.4.0 + handlers `push` e `notificationclick` com foco de janela existente via `clients.matchAll`), hook `usePushSubscription(userType)` (permission, subscribe com VAPID do DB + upsert por endpoint, unsubscribe com `revoked_at`), componente `PushNotificationsCard` (estados supported/granted/denied/loading com Bell/BellOff/Loader2) integrado em `ProfilePage.tsx` (student) e `PerfilPage.tsx` (guardian). PR3 (13.N.3): migration 154 adiciona `whatsapp_templates.send_push BOOLEAN DEFAULT true`; `message-orchestrator` aceita bloco opcional `push: { user_ids, notification }` e faz fan-out paralelo chamando `push-send` apos o dispatch do WhatsApp, retornando `push_sent/push_failed/push_revoked`; `auto-notify` resolve `user_ids` a partir do telefone via `guardian_profiles` (comparacao por digitos com fallback endsWith para mascaras) e injeta o bloco quando `template.send_push` e verdadeiro; UI `TemplatesPage` ganha toggle "Enviar push junto com WhatsApp" dentro de "Disparo Automatico". | Media | push_subscriptions + whatsapp_templates.send_push + MessageOrchestrator |
 | Sprint 13 | PWA + Mobile-First | ✅ Concluido (2026-04-17) — PR1: `vite-plugin-pwa@1.2.0`, manifest base, icones SVG (`pwa-icon.svg` + `pwa-icon-maskable.svg`), workbox precache ~5 MiB, `devOptions.enabled=false`. PR2: manifest dinamico — `vite.config.ts` com `loadEnv()` (build-time por cliente) + `BrandingContext` injetando `<meta theme-color>` + `<link rel="manifest">` via Blob URL (runtime a partir de `system_settings`). PR3: meta tags iOS (`apple-mobile-web-app-*`, `apple-touch-icon`, `mask-icon`), hook `useInstallPrompt` (captura `beforeinstallprompt`, detecta iOS/Android/desktop/standalone), componente `InstallAppCard` com prompt nativo/instrucao Safari/confirmacao, integrado nos perfis dos Portais do Aluno e Responsavel. PR4: `PortariaPage` mobile-first — busca `type="search"` full-width empilhando botao em `<sm`, touch targets ≥44px, avatars 44–48px, dialogo de confirmar saida com botoes `flex-1` (Cancelar/Confirmar). | Media | BrandingContext + system_settings |
 | Sprint 13.IA | IA e Analytics (orquestrador + workers multi-provider) | ⚙️ **PR1 concluido (2026-04-17)** — PR1: migrations 161-163 (`ai_agents` com seed dos 4 agentes op1_mapping/attendance_triage/discount_suggestion/dashboard_insights, `ai_usage_log` imutavel, modulo granular `settings-ia`). Edge Functions `ai-orchestrator` (JWT, lookup por slug, templating `{{var}}`, dispatch por provider, log em `ai_usage_log`), `ai-worker-anthropic` (POST `api.anthropic.com/v1/messages`) e `ai-worker-openai` (POST `api.openai.com/v1/chat/completions`). `AiAgentsPanel` registrada como aba "IA (Agentes)" em Configuracoes — lista com toggle enabled/disabled, drawer de edicao (provider select Anthropic/OpenAI, model input, temperature/max_tokens, system_prompt e user_prompt_template com chips das variaveis detectadas) + card "Testar agente" que invoca orquestrador com contexto JSON ad-hoc, card "Uso recente" com ultimas 20 chamadas. **PR1.5 (2026-04-17)**: migration 164 (`company_ai_config` singleton com `anthropic_api_key`/`openai_api_key` + trigger `updated_at`, RLS admin/super_admin); `ai-orchestrator` lê as chaves de `company_ai_config` e envia no body do worker (sem dependência de env var); `ai-worker-anthropic` e `ai-worker-openai` aceitam `api_key` no body (fallback env var mantido para compatibilidade); `AiAgentsPanel` ganha card "Chaves de API" no topo com inputs mascarados (Eye/EyeOff) + Salvar no padrão admin, permitindo ao cliente gerenciar credenciais sem tocar no dashboard Supabase. **PR2 (2026-04-17)**: botão "Mapear com IA" no step 2 do `ModuleImportWizard` invoca `op1_mapping` com `{headers, sample_rows, target_fields}`; parser de JSON `{mapping: {coluna: field}}` aplica seleção automática e marca campos sugeridos como `high` confidence. Fallback silencioso para `autoDetectMappingFor` em caso de erro. **PR3 (2026-04-17)**: card "Sugestão IA" no `AttendanceDetailsDrawer` (acima de QuickActions) invoca `attendance_triage` com `{visit_reason, description, history}` (resolve `visit_reason/notes` de `visit_appointments` + resumo das últimas 5 senhas do visitante); renderiza `{categoria_sugerida, prioridade: baixa|media|alta, acoes_rapidas[]}` com badge colorido por prioridade e lista de ações rápidas. **PR4 (2026-04-17)**: agente `discount_suggestion` — card "Sugestão de desconto (IA)" dentro do drawer de pagamento em `FinancialInstallmentsPage` invoca o orquestrador com `{installment_value, payment_history (12 últimas parcelas), applicable_discounts (RPC `calculate_applicable_discounts`)}`; resposta `{valor_sugerido, percentual_sugerido, justificativa}` é exibida em card roxo com botão "Aplicar ao valor pago" (subtrai `valor_sugerido` do `amount` original). Agente `dashboard_insights` — widget `AiInsightsWidget` (lazy render, botão "Gerar insights") no `DashboardPage` (full-width abaixo de UpcomingVisitsWidget) invoca o orquestrador com `{date, metrics_summary}` agregando stats/pipelines/WA/overdue; resposta parseada como JSON array/`bullets[]` ou fallback por linha-a-linha renderiza 3 bullets. Sprint 13.IA concluída. | Media | Secrets Anthropic/OpenAI + modulo granular |
+| Sprint 13.IA-dash | Dashboard de Uso/Consumo IA (configuracoes/ia como root) | ⏳ Proposto (ver §10.8B) — PR1: migrations 165-169 (`ai_usage_snapshots`, `ai_recharges`, extender `company_ai_config` com admin keys, RPC `ai_usage_stats`, job `pg_cron` 00:01). PR2: Edge Functions `ai-billing-sync` + `ai-billing-manual-refresh` (consomem Anthropic Admin API `/v1/organizations/usage_report` + OpenAI `/v1/organization/usage` e `/costs`). PR3: refactor `AiAgentsPanel` em sub-abas (Visão geral default, Agentes, Chaves) + novo `AiUsageDashboard` (KPIs periodo, saldo estimado por provider, top agentes, gráfico histórico, filtros Hoje/Semana/Mês/Personalizado). PR4 opcional: registro manual de recargas + alertas de saldo baixo. **Dependências de integração**: ⚠️ saldo em tempo real e auto-recarga **não têm API pública** em nenhum dos dois providers — dashboard lê tokens/custo via admin keys e estima saldo via snapshots + recargas manuais; auto-recarga fica read-only com deep link para o console do provider. Exige Admin API keys separadas das keys de inference (Anthropic: Organization Admin Key; OpenAI: `sk-admin-*` + `OpenAI-Organization` header). | Media | Admin API keys Anthropic/OpenAI + pg_cron + net.http_post |
 | DASH-1 | Dashboards por Permissao (1 dashboard compartilhado, blocos auto-filtrantes) | ✅ Concluido (2026-04-17) | Media-Alta | Permissoes granulares (migration 143) |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
@@ -3190,6 +3191,111 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 | Portal do Aluno | Card "Dicas de Estudo" no dashboard |
 | Portal do Professor | Painel de recomendacoes pedagogicas semanais |
 | WhatsApp | Possibilidade de enviar insights criticos via template |
+
+---
+
+### 10.8B Sprint 13.IA-dash — Dashboard de Uso e Consumo de IA (proposto)
+
+**Objetivo**: transformar a aba **Configurações → IA (Agentes)** em uma experiência com **dashboard como tela raiz**, agregando telemetria interna (`ai_usage_log`) + dados de billing dos providers (Anthropic/OpenAI). A lista de agentes e o card de chaves migram para sub-abas internas (ex.: "Visão geral", "Agentes", "Chaves de API"). Oferecer visão total de consumo, saldo e histórico sem precisar abrir os consoles externos.
+
+#### 13.IA-dash.1 Escopo funcional
+
+| Bloco | Conteúdo | Fonte |
+|---|---|---|
+| KPIs de período | Tokens (input/output), chamadas, latência média, taxa de erro, custo estimado | `ai_usage_log` (interno) |
+| Saldo / crédito | Saldo atual Anthropic + OpenAI, último valor de recarga, data | API externa (ver dependências) |
+| Recargas | Histórico das últimas 10 recargas (valor, data, método) | API externa |
+| Auto-recarga | Status (on/off), threshold, valor de recarga, botão "abrir console do provider" | API externa (limitado) |
+| Agentes mais usados | Top 10 por chamadas / por custo / por tokens | `ai_usage_log` |
+| Gráfico histórico | Série temporal diária (tokens, custo, chamadas) | `ai_usage_snapshots` (nova) |
+| Filtros | Hoje / Semana / Mês / Personalizado + por provider + por agente | UI |
+
+#### 13.IA-dash.2 Arquitetura
+
+```
+┌───────────────────────────────────────────┐
+│ UI /admin/configuracoes?tab=ia             │
+│ - Sub-tab "Visão geral" (dashboard root)   │
+│ - Sub-tab "Agentes" (painel atual)         │
+│ - Sub-tab "Chaves de API"                  │
+└──────────────┬────────────────────────────┘
+               │
+               ▼
+┌───────────────────────────────────────────┐
+│ Query 1 (rápida): ai_usage_log + RPCs      │
+│ → KPIs por período, tops, série diária     │
+└───────────────────────────────────────────┘
+               │
+               ▼
+┌───────────────────────────────────────────┐
+│ Query 2 (snapshot diário): ai_usage_snapshots│
+│ → saldo, recargas, custo oficial do provider│
+└───────────────────────────────────────────┘
+               ▲
+               │ 00:01 diariamente (pg_cron)
+┌──────────────┴────────────────────────────┐
+│ Edge Function ai-billing-sync              │
+│ - Anthropic: GET /v1/organizations/usage_*  │
+│ - OpenAI:   GET /v1/organization/usage/*    │
+│ - Persiste em ai_usage_snapshots            │
+└───────────────────────────────────────────┘
+```
+
+#### 13.IA-dash.3 Novas tabelas / migrations
+
+| Migration | Tabela / objeto | Descrição |
+|---|---|---|
+| 165 | `ai_usage_snapshots` | Snapshot diário por provider: `id`, `provider` ('anthropic'\|'openai'), `snapshot_date DATE`, `balance_usd NUMERIC`, `total_spent_usd NUMERIC`, `tokens_input BIGINT`, `tokens_output BIGINT`, `requests_count INT`, `auto_recharge_enabled BOOLEAN NULL`, `auto_recharge_threshold NUMERIC NULL`, `auto_recharge_amount NUMERIC NULL`, `raw_payload JSONB`, `fetched_at TIMESTAMPTZ`. UNIQUE `(provider, snapshot_date)`. RLS admin/super_admin SELECT. |
+| 166 | `ai_recharges` | Histórico de recargas: `id`, `provider`, `amount_usd`, `recharged_at`, `source` ('manual'\|'auto'), `external_id TEXT`, `raw_payload JSONB`. |
+| 167 | `company_ai_config` (alter) | Adicionar colunas `anthropic_admin_api_key_enc TEXT`, `openai_admin_api_key_enc TEXT`, `openai_organization_id TEXT`. Chaves **admin** são separadas das chaves de inference (usadas em `ai-worker-*`). |
+| 168 | RPC `ai_usage_stats(p_from, p_to, p_provider?, p_agent_slug?)` | Agregações para o dashboard (tokens, custo estimado, top agentes, série diária). |
+| 169 | `pg_cron` job | `select cron.schedule('ai-billing-sync-daily', '1 0 * * *', $$ select net.http_post(...) $$)` — dispara `ai-billing-sync` às 00:01 UTC. |
+
+#### 13.IA-dash.4 Edge Functions novas
+
+| Função | Auth | Descrição |
+|---|---|---|
+| `ai-billing-sync` | service_role (cron) + admin manual | Chama APIs admin de Anthropic e OpenAI, persiste em `ai_usage_snapshots` + `ai_recharges`. Idempotente por `(provider, snapshot_date)` (UPSERT). Suporta `?force=1` para refazer o dia. |
+| `ai-billing-manual-refresh` | JWT admin | Permite "Atualizar agora" no dashboard (com rate limit de 1 call / 5 min para não estourar API admin). |
+
+#### 13.IA-dash.5 Dependências de integração (provider-side)
+
+Este é o bloco crítico — o que é viável hoje:
+
+**Anthropic**
+- API admin oficial: `GET https://api.anthropic.com/v1/organizations/usage_report/messages` e `GET /v1/organizations/cost_report`. Exige **Admin API key** (criada no console Anthropic em *Organization → Admin Keys*, distinta da API key usada para inference). Retorna uso em tokens + custo em USD. ✅ Viável para KPIs e custo histórico.
+- **Saldo em tempo real**: **não há endpoint público**. Derivar via `credits_purchased - total_spent` agregado do snapshot. Como workaround, ler `raw_payload` do último snapshot e exibir "saldo estimado".
+- **Auto-recarga**: não há API pública para ler ou alterar. UI deve apenas exibir **link "Abrir console Anthropic"** (`https://console.anthropic.com/settings/billing`) e um toggle local informativo (sem efeito real).
+- **Recargas**: também não há endpoint público de recharges. Dependemos de inferir a partir de `cost_report` (saltos no saldo) ou registrar manualmente em `ai_recharges` via botão "Registrar recarga".
+
+**OpenAI**
+- API admin oficial: `GET https://api.openai.com/v1/organization/usage/completions`, `/usage/embeddings`, `/usage/images`, etc., e `GET /v1/organization/costs`. Exige **Admin API key** (`sk-admin-...`, gerada em *Settings → Organization → Admin keys*) **e** `OpenAI-Organization` header com o `org_id`. ✅ Viável para KPIs e custo.
+- **Saldo em tempo real**: endpoint `GET /v1/dashboard/billing/credit_grants` foi descontinuado no plano novo (pay-as-you-go). Derivar via snapshot + recargas manuais, idêntico à Anthropic.
+- **Auto-recarga**: configuração existe no console OpenAI (*Settings → Billing → Auto recharge*) mas **não há endpoint público** para ler/alterar. Mesmo workaround: link para console + toggle informativo.
+- **Recargas**: sem endpoint público. Mesma estratégia: inferir via costs ou registro manual.
+
+**Conclusões de integração**:
+1. Tokens/custo histórico ✅ integráveis via admin keys.
+2. Saldo atual ⚠️ estimativa (derivar de snapshots + recargas manuais).
+3. Recargas ⚠️ manuais (UI "Registrar recarga" + inferência automática opcional).
+4. Auto-recarga ❌ read-only no PRD — apenas link profundo para o console do provider.
+
+#### 13.IA-dash.6 UX do dashboard (Visão geral)
+
+- Header: selector de período (Hoje/Semana/Mês/Personalizado), badge "Última sincronização: DD/MM HH:mm" + botão `RefreshCw` (chama `ai-billing-manual-refresh`).
+- Linha 1 — KPIs: 4 StatCards — **Chamadas**, **Tokens totais**, **Custo estimado (USD)**, **Latência média** (cada um com tendência vs. período anterior, padrão `StatCard` existente).
+- Linha 2 — Saldo: 2 cards (um por provider) com saldo estimado, última recarga, toggle auto-recarga (read-only) + link "Abrir console". Vermelho quando saldo estimado < threshold configurado.
+- Linha 3 — Gráficos: `BarChart` diário de custo (últimos 30 dias) + `BarChart` top agentes (por chamadas).
+- Linha 4 — Histórico de recargas: tabela compacta (data, provider, valor, fonte) + botão "Registrar recarga manual".
+
+#### 13.IA-dash.7 PRs sugeridos
+
+- **PR1**: migrations 165–167 + RPC 168 + job cron 169. Extender `company_ai_config` com admin keys. Atualizar `AiAgentsPanel` para expor campo "Admin API key" no card de Chaves.
+- **PR2**: Edge Function `ai-billing-sync` + `ai-billing-manual-refresh`. Testar contra sandbox com admin keys reais.
+- **PR3**: UI — refactor do `AiAgentsPanel` para sub-abas (`Visão geral` default, `Agentes`, `Chaves de API`). Novo componente `AiUsageDashboard` em `src/admin/pages/settings/ai/` consumindo RPC `ai_usage_stats` + leituras de `ai_usage_snapshots`/`ai_recharges`.
+- **PR4** (opcional): registro manual de recargas + alertas por e-mail quando saldo estimado cair abaixo do threshold (cron 06:00 diário).
+
+**Verificação**: rodar `ai-billing-sync` manualmente, conferir `ai_usage_snapshots` populado para ambos providers; abrir dashboard e validar KPIs contra o console do provider; simular período de 7 dias e comparar custo.
 
 ---
 
