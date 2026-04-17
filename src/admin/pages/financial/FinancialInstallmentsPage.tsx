@@ -9,6 +9,7 @@ import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Loader2, Search, ChevronDown, Receipt, Calendar, DollarSign,
   Check, Save, AlertTriangle, CreditCard, User, FileText, FileCheck2,
+  Sparkles, Percent,
 } from 'lucide-react';
 import { SelectDropdown } from '../../components/FormField';
 
@@ -55,6 +56,11 @@ export default function FinancialInstallmentsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // AI discount suggestion
+  const [discountBusy, setDiscountBusy] = useState(false);
+  const [discountError, setDiscountError] = useState('');
+  const [discountSuggestion, setDiscountSuggestion] = useState<{ valor_sugerido: number; percentual_sugerido: number; justificativa: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -116,10 +122,78 @@ export default function FinancialInstallmentsPage() {
     setPayAmount(Number(inst.total_due ?? inst.amount));
     setPayMethod('pix');
     setPayNotes('');
+    setDiscountSuggestion(null);
+    setDiscountError('');
   }
 
   function closePayDrawer() {
     setPayingInst(null);
+  }
+
+  async function handleSuggestDiscount() {
+    if (!payingInst || discountBusy) return;
+    setDiscountBusy(true);
+    setDiscountError('');
+    try {
+      const installmentValue = Number(payingInst.amount);
+      const studentId = payingInst.student_id;
+
+      const { data: contractRow } = await supabase
+        .from('financial_contracts')
+        .select('plan_id')
+        .eq('id', payingInst.contract_id)
+        .maybeSingle();
+      const planId = (contractRow as { plan_id: string } | null)?.plan_id ?? null;
+
+      const [{ data: history }, { data: discountsData }] = await Promise.all([
+        supabase
+          .from('financial_installments')
+          .select('reference_month, status, amount, paid_amount, paid_at, due_date')
+          .eq('student_id', studentId)
+          .order('due_date', { ascending: false })
+          .limit(12),
+        planId
+          ? supabase.rpc('calculate_applicable_discounts', {
+              p_student_id: studentId,
+              p_plan_id: planId,
+              p_amount: installmentValue,
+            })
+          : Promise.resolve({ data: null }),
+      ]);
+
+      const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
+        body: {
+          agent_slug: 'discount_suggestion',
+          context: {
+            installment_value: installmentValue,
+            payment_history: JSON.stringify(history ?? []),
+            applicable_discounts: JSON.stringify(discountsData ?? {}),
+          },
+        },
+      });
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error((data as { error?: string } | null)?.error ?? error?.message ?? 'Falha na chamada');
+      }
+      const raw = (data as { text?: string }).text ?? '';
+      const jsonStart = raw.indexOf('{');
+      const jsonEnd = raw.lastIndexOf('}');
+      if (jsonStart < 0 || jsonEnd < 0) throw new Error('Resposta sem JSON.');
+      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as {
+        valor_sugerido: number; percentual_sugerido: number; justificativa: string;
+      };
+      setDiscountSuggestion(parsed);
+    } catch (e) {
+      setDiscountError(e instanceof Error ? e.message : 'Erro ao chamar o agente');
+    } finally {
+      setDiscountBusy(false);
+    }
+  }
+
+  function applyDiscount() {
+    if (!discountSuggestion || !payingInst) return;
+    const original = Number(payingInst.amount);
+    const newAmount = Math.max(0, original - Number(discountSuggestion.valor_sugerido));
+    setPayAmount(Number(newAmount.toFixed(2)));
   }
 
   async function handlePay() {
@@ -452,6 +526,64 @@ export default function FinancialInstallmentsPage() {
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Observações</label>
                 <textarea value={payNotes} onChange={(e) => setPayNotes(e.target.value)} rows={2} placeholder="Comprovante, referência..."
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none resize-none" />
+              </div>
+            </DrawerCard>
+
+            <DrawerCard title="Sugestão de desconto (IA)" icon={Sparkles}>
+              <div className="space-y-3">
+                {!discountSuggestion && !discountError && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Considera histórico do aluno e políticas de desconto aplicáveis.
+                  </p>
+                )}
+
+                {discountError && (
+                  <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                    {discountError}
+                  </div>
+                )}
+
+                {discountSuggestion && (
+                  <div className="rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 p-3 space-y-2">
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="inline-flex items-center gap-1 font-semibold text-purple-700 dark:text-purple-300">
+                        <Percent className="w-3.5 h-3.5" />
+                        {Number(discountSuggestion.percentual_sugerido).toFixed(1)}%
+                      </span>
+                      <span className="text-gray-500">·</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-200">
+                        {fmt(Number(discountSuggestion.valor_sugerido))}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 italic">
+                      {discountSuggestion.justificativa}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSuggestDiscount}
+                    disabled={discountBusy}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {discountBusy
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Consultando…</>
+                      : <><Sparkles className="w-3.5 h-3.5" />{discountSuggestion ? 'Reconsultar' : 'Sugerir desconto'}</>}
+                  </button>
+                  {discountSuggestion && (
+                    <button
+                      type="button"
+                      onClick={applyDiscount}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Aplicar ao valor pago
+                    </button>
+                  )}
+                </div>
               </div>
             </DrawerCard>
           </>
