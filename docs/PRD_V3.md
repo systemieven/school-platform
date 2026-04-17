@@ -2,7 +2,7 @@
 
 > **Versao**: 3.5
 > **Data**: 17 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, migrations 153-154) + roadmap ate v1
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P PR1 concluido, migrations 153-155) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -1508,6 +1508,7 @@ Configuravel na aba Aparencia > Home:
 | 152 | `drop_appointments_from_migration` | 17/04 | ✅ Remove módulo `appointments` do escopo da Central de Migração (não vital em ERPs escolares — eventos são transacionais e vivem por fluxo, não por import em lote). |
 | 153 | `push_subscriptions` | 17/04 | ✅ **Sprint 13.N.1** — Web Push: tabela `push_subscriptions` (endpoint UNIQUE, p256dh, auth, user_id, user_type, revoked_at, last_seen_at) com RLS (dono gerencia, admin SELECT/UPDATE). Seed `system_settings.push.vapid_public_key`. |
 | 154 | `whatsapp_templates_send_push` | 17/04 | ✅ **Sprint 13.N.3** — flag `whatsapp_templates.send_push BOOLEAN DEFAULT true` habilita fan-out de push via `message-orchestrator` quando `auto-notify` dispara templates. |
+| 155 | `increment_nfse_numero_rpc` | 17/04 | ✅ **Sprint 14.S.P.1** — RPC `increment_nfse_numero()` SECURITY DEFINER: reserva atomicamente o próximo número da NFS-e (UPDATE ... RETURNING) evitando race em emissões simultâneas. Executada pelo `nfse-emitter` antes de inserir em `nfse_emitidas`. |
 
 ### 7.4 RLS Policies
 
@@ -1817,7 +1818,9 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
 | 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ✅ Concluido (migrations 109–113, Sprint 7, 2026-04-16) | Media | 14 |
 | 14.S | Estrutura NFS-e (tabelas, UI, stub do emitter) | ✅ Concluido (migrations 114–117, NfseEmitidas.tsx, 2026-04-17) | Media-Alta | 14.F + 8.5 + 10 |
-| 14.S.P | Integracao NFS-e com provider municipal (emissao automatica real) | ⏳ Planejado | Media-Alta | 14.S |
+| 14.S.P | Integracao NFS-e com provider real (Nuvem Fiscal) | ⚙️ Em andamento — PR1 concluido (2026-04-17): migration 155 `increment_nfse_numero()` RPC atomica; `nfse-emitter` agora com dispatcher por `cfg.provider` e cliente Nuvem Fiscal completo (`POST /nfse/dps` com payload DPS NFS-e Nacional LC 214/2024: infDPS, prest/toma com endereco nacional por IBGE, cServ com cTribNac/cTribMun/CNAE/xDescServ, valores.trib.tribMun com tpRetISSQN); `nfse-webhook` com parser dedicado para formato Nuvem Fiscal (id, status, nfse.xml/url_pdf, mensagens). Pendente PR2: auto-trigger em baixa de parcela com `gera_nfse=true` + acoes emitir/cancelar/reenviar em `NfseEmitidas.tsx`. | Media-Alta | 14.S |
+| 14.S.P-bis | NFC-e via Nuvem Fiscal (PDV/Loja) | ⏳ Planejado — apos NFS-e em producao. Migration nova `nfce_emitidas` + `store_fiscal_config` (CSC, serie PDV). Integracao com `store_orders`. Painel de settings + listagem. | Media | 14.S.P + 14 |
+| 14.S.P-ter | NF-e via Nuvem Fiscal (antes da v1) | ⏳ Planejado | Media | 14.S.P + 14.F |
 | 14.E | Modulo de Fornecedores | ✅ Concluido (migrations 131–132, Sprint 9, 2026-04-17) | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 | OP-1 | Central de Migracao de Dados (Onboarding) | ✅ Concluido (2026-04-17) — PR1–PR5 + Sprint 10-UX. PR1: infraestrutura (migration 150, hub `/admin/migracao`, lock por modulo). PR2a: refator para `ModuleImportWizard` generico + lock pos-sucesso. PR2b: Contatos, Fornecedores, Produtos. PR2c: Segmentos → Series → Turmas (migration 151). PR3: Contas a Receber e Contas a Pagar. PR4: Lancamentos de Caixa; migration 152 remove `appointments` do escopo (nao vital em ERPs escolares). PR5: Colaboradores — extensao do wizard com step opcional "Revisar" via `perRowOverrides` (admin define `role` por linha, com "aplicar a todos"); Edge Function `bulk-import-users` cria auth rows com senha temporaria + `must_change_password=true`. **Sprint 10-UX**: grupos em `SettingsCard` bicolor, timeline horizontal com avatars redondos, dependencias sequenciais (grupo trava ate o anterior concluir; dentro do grupo cada etapa aguarda a anterior), avatar final por grupo com `%` ou check verde ao completar, breadcrumb "Migração" com acentuacao. **10 importadores ativos, zero modulos pendentes.** | Alta | Todas as tabelas-alvo existentes |
@@ -3521,7 +3524,11 @@ nfe_entry_items                  → itens de NF-e de entrada (ja descrito na sp
 
 ### 10.9C Fase 14.S — Emissao Automatica de NFS-e
 
-**Status**: ✅ Estrutura concluida (migrations 114 `company_nfse_config`, 115 `nfse_category_config`, 117 `nfse_emitidas`; pagina `NfseEmitidas.tsx`; Edge Function `nfse-emitter` como stub). ⏳ **14.S.P — Integracao com provider municipal** pendente: customizacao do `nfse-emitter` para provider real (eNotas / Nuvem Fiscal / prefeitura), trigger automatico em baixas com `gera_nfse=true`, reenvio automatico em rejeicao tratavel, envio do PDF via MessageOrchestrator.
+**Status**: ✅ Estrutura concluida (migrations 114 `company_nfse_config`, 115 `nfse_category_config`, 117 `nfse_emitidas`; pagina `NfseEmitidas.tsx`). ⚙️ **14.S.P — Integracao Nuvem Fiscal** em andamento:
+- **PR1 (2026-04-17) ✅**: migration 155 com RPC atomica `increment_nfse_numero()`; `nfse-emitter` adaptado com dispatcher por `cfg.provider` e cliente Nuvem Fiscal real chamando `POST /nfse/dps` (NFS-e Nacional, LC 214/2024). Payload DPS construido com `infDPS` completo (prest/toma com `endNac` por IBGE, `serv.cServ` com `cTribNac`/`cTribMun`/`CNAE`/`xDescServ`, `valores.trib.tribMun` com `pAliq`/`tpRetISSQN`). `nfse-webhook` com parser dedicado ao formato Nuvem Fiscal (`id`, `status`, `nfse.xml`, `nfse.url_pdf`, `mensagens[].descricao`). Token API continua em `company_nfse_config.api_token_enc` (criptografado no DB, padrao multi-tenant).
+- **PR2 (pendente)**: trigger automatico em baixa de parcela com `gera_nfse=true` (via `pg_net` ou hook no fluxo de baixa), acoes emitir/cancelar/reenviar-PDF em `NfseEmitidas.tsx`, reenvio automatico em rejeicao tratavel.
+
+**Continuidade (fora do sprint 14.S.P):** **14.S.P-bis** — NFC-e via Nuvem Fiscal para PDV/Loja (apos NFS-e estabilizada em prod). **14.S.P-ter** — NF-e via Nuvem Fiscal (antes da v1).
 **Dependencias**:
 - Fase 14.F concluida (`company_fiscal_config` — dados do emitente e padrao de config fiscal estabelecidos)
 - Fase 8.5 concluida (`financial_account_categories`, `financial_receivables`, `financial_installments` — fontes dos pagamentos tributaveis)
