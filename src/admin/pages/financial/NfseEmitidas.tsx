@@ -227,7 +227,7 @@ function DetailDrawer({
     });
     setActionLoading(null);
     if (error) { setActionError(error.message); return; }
-    logAudit({ action: 'send', module: 'nfse-emitidas', description: `PDF da NFS-e nº ${nfse.numero} reenviado` });
+    logAudit({ action: 'update', module: 'nfse-emitidas', description: `PDF da NFS-e nº ${nfse.numero} reenviado` });
     setActionDone('resend');
     setTimeout(() => setActionDone(null), 1500);
   }
