@@ -361,6 +361,21 @@ export default function PDVPage() {
         setChargeResult({ checkoutToken: sessionData.token as string, checkoutUrl });
       }
 
+      // Auto-emissão de NFC-e (best-effort; só quando venda já confirmada)
+      if (orderStatus === 'payment_confirmed') {
+        try {
+          const { data: nfceCfg } = await supabase
+            .from('company_nfce_config')
+            .select('auto_emit_on_payment')
+            .maybeSingle();
+          if ((nfceCfg as { auto_emit_on_payment?: boolean } | null)?.auto_emit_on_payment) {
+            await supabase.functions.invoke('nfce-emitter', {
+              body: { order_id: orderId, initiated_by: user?.id ?? null },
+            });
+          }
+        } catch { /* best-effort */ }
+      }
+
       setLastOrderNumber(orderNumber);
       setSaleDone(true);
       setCart([]);
