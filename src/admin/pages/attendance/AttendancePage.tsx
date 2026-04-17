@@ -22,12 +22,12 @@ import {
   Calendar,
   Footprints,
   ArrowRightLeft,
-  ChevronDown,
   History,
   AlertCircle,
   X,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { SelectDropdown } from '../../components/FormField';
 import AttendanceDetailsDrawer from './AttendanceDetailsDrawer';
 
 // ── Status config ────────────────────────────────────────────────────────────
@@ -358,19 +358,15 @@ function TransferDrawer({ ticket, sectors, quickReasons, onConfirm, onClose, bus
 
           {/* Destination sector */}
           <DrawerCard title="Setor destino" icon={LayoutGrid}>
-            <div className="relative">
-              <select
-                value={sectorKey}
-                onChange={(e) => setSectorKey(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-brand-primary appearance-none pr-9"
-              >
-                <option value="">Selecione o setor...</option>
-                {available.map((s) => (
-                  <option key={s.key} value={s.key}>{s.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
+            <SelectDropdown
+              value={sectorKey}
+              onChange={(e) => setSectorKey(e.target.value)}
+            >
+              <option value="">Selecione o setor...</option>
+              {available.map((s) => (
+                <option key={s.key} value={s.key}>{s.label}</option>
+              ))}
+            </SelectDropdown>
           </DrawerCard>
 
           {/* Justification */}

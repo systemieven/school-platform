@@ -4,6 +4,7 @@ import { logAudit } from '../../../../lib/audit';
 import type { Grade, Activity, SchoolClass } from '../../../types/admin.types';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
 import { Loader2, Star, Plus, Trash2, X, Save, ChevronDown } from 'lucide-react';
+import { SelectDropdown } from '../../../components/FormField';
 
 const PERIODS = ['1º Bimestre', '2º Bimestre', '3º Bimestre', '4º Bimestre'];
 
@@ -67,17 +68,10 @@ function ManualGradeDrawer({ classId, students, subject, period, onClose, onSave
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Aluno *</label>
-            <div className="relative">
-              <select value={form.student_id} onChange={(e) => setForm((p) => ({ ...p, student_id: e.target.value }))}
-                className="w-full appearance-none px-3 py-2 pr-8 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary">
-                <option value="">Selecione...</option>
-                {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
+          <SelectDropdown label="Aluno *" value={form.student_id} onChange={(e) => setForm((p) => ({ ...p, student_id: e.target.value }))}>
+            <option value="">Selecione...</option>
+            {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+          </SelectDropdown>
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nota *</label>
             <input type="number" min="0" max="10" step="0.1" value={form.score}
