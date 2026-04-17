@@ -567,8 +567,10 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
             </div>
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden">
+              {/* Scroll container — header fica fixo no topo enquanto a lista rola */}
+              <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
               {/* Header */}
-              <div className="grid grid-cols-[1fr_repeat(5,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
+              <div className="sticky top-0 z-10 grid grid-cols-[1fr_repeat(5,80px)] bg-gray-50 dark:bg-gray-900/60 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60 backdrop-blur-sm">
                 <span className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">Módulo</span>
                 {ACTIONS.map((a) => (
                   <span key={a} className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 text-center">
@@ -621,6 +623,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
                   })}
                 </div>
               ))}
+              </div>
             </div>
           )}
 
@@ -672,8 +675,9 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
           {selectedUserId && (
             <>
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden">
+                <div className="max-h-[calc(100vh-360px)] overflow-y-auto">
                 {/* Header */}
-                <div className="grid grid-cols-[1fr_repeat(5,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
+                <div className="sticky top-0 z-10 grid grid-cols-[1fr_repeat(5,80px)] bg-gray-50 dark:bg-gray-900/60 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60 backdrop-blur-sm">
                   <span className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">Módulo</span>
                   {ACTIONS.map((a) => (
                     <span key={a} className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 text-center">
@@ -712,6 +716,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
                     </div>
                   );
                 })}
+                </div>
               </div>
 
               {/* Effective permissions preview toggle */}
@@ -747,8 +752,9 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
                     </div>
                   ) : (
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden">
+                      <div className="max-h-[calc(100vh-420px)] overflow-y-auto">
                       {/* Header */}
-                      <div className="grid grid-cols-[1fr_repeat(5,80px)] bg-gray-50 dark:bg-gray-900/40 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60">
+                      <div className="sticky top-0 z-10 grid grid-cols-[1fr_repeat(5,80px)] bg-gray-50 dark:bg-gray-900/60 px-5 py-3 border-b border-gray-100 dark:border-gray-700/60 backdrop-blur-sm">
                         <span className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400">Módulo</span>
                         {ACTIONS.map((a) => (
                           <span key={a} className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-400 text-center">
@@ -788,6 +794,7 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
                           </div>
                         );
                       })}
+                      </div>
                     </div>
                   )}
                 </div>
