@@ -12,6 +12,7 @@ import { SettingsCard } from '../../components/SettingsCard';
 import { SelectDropdown } from '../../components/FormField';
 import { Toggle } from '../../components/Toggle';
 import { sendWhatsAppText, sendWhatsAppTemplate, checkWhatsAppNumber } from '../../lib/whatsapp-api';
+import { loadTemplateBySlug, WHATSAPP_TEMPLATE_SLUGS } from '../../lib/whatsappTemplateIds';
 import { useBranding } from '../../../contexts/BrandingContext';
 
 const ROLE_COLORS: Record<string, string> = {
@@ -350,15 +351,14 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
       } else {
         try {
           const systemUrl = window.location.origin + '/admin/login';
-          // Aceita o nome canônico OU a versão renomeada no admin UI —
-          // o template é identificado pela combinação de variantes conhecidas.
-          const { data: tplRows } = await supabase
-            .from('whatsapp_templates')
-            .select('id, message_type, content, variables')
-            .in('name', ['senha_temporaria', 'Senha temporária'])
-            .eq('is_active', true)
-            .limit(1);
-          const tpl = tplRows?.[0];
+          // Lookup por UUID (resolvido a partir do slug canônico) — imune a
+          // renomeações no admin UI. Ver src/admin/lib/whatsappTemplateIds.ts.
+          const tpl = await loadTemplateBySlug<{
+            id: string;
+            message_type: string;
+            content: Record<string, unknown>;
+            variables: string[] | null;
+          }>(WHATSAPP_TEMPLATE_SLUGS.SENHA_TEMPORARIA);
 
           const templateVars = {
             user_name:    profile.full_name ?? 'usuário',
@@ -751,15 +751,14 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
       } else {
         try {
           const systemUrl = window.location.origin + '/admin/login';
-          // Aceita o nome canônico OU a versão renomeada no admin UI —
-          // o template é identificado pela combinação de variantes conhecidas.
-          const { data: tplRows } = await supabase
-            .from('whatsapp_templates')
-            .select('id, message_type, content, variables')
-            .in('name', ['redefinicao_senha', 'Redefinição de senha'])
-            .eq('is_active', true)
-            .limit(1);
-          const tpl = tplRows?.[0];
+          // Lookup por UUID (resolvido a partir do slug canônico) — imune a
+          // renomeações no admin UI. Ver src/admin/lib/whatsappTemplateIds.ts.
+          const tpl = await loadTemplateBySlug<{
+            id: string;
+            message_type: string;
+            content: Record<string, unknown>;
+            variables: string[] | null;
+          }>(WHATSAPP_TEMPLATE_SLUGS.REDEFINICAO_SENHA);
 
           const templateVars = {
             user_name:    profile.full_name ?? 'usuário',
