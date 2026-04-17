@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   DatabaseBackup,
+  BookOpen,
   GraduationCap,
   Users,
   UserCheck,
@@ -71,7 +72,9 @@ const GROUP_HINT: Record<ModuleGroup, string> = {
 
 const MODULES: ModuleDef[] = [
   // Grupo A
-  { key: 'segments',              label: 'Segmentos, Séries e Turmas', description: 'Estrutura acadêmica base', icon: GraduationCap, group: 'A', importPath: null },
+  { key: 'segments',              label: 'Segmentos',           description: 'Passo 1 — ex: Infantil, Fundamental I, Médio', icon: GraduationCap, group: 'A', importPath: '/admin/migracao/segmentos' },
+  { key: 'school-series',         label: 'Séries',              description: 'Passo 2 — depende de segmentos importados',  icon: BookOpen,      group: 'A', importPath: '/admin/migracao/series' },
+  { key: 'school-classes',        label: 'Turmas',              description: 'Passo 3 — depende de séries importadas',     icon: Users,         group: 'A', importPath: '/admin/migracao/turmas' },
   { key: 'contacts',              label: 'Contatos',            description: 'Leads e contatos do CRM',    icon: MessageSquare,  group: 'A', importPath: '/admin/migracao/contatos' },
   { key: 'fornecedores',          label: 'Fornecedores',        description: 'Cadastro de fornecedores',   icon: Building2,     group: 'A', importPath: '/admin/migracao/fornecedores' },
   { key: 'store-products',        label: 'Produtos',            description: 'Catálogo da loja',           icon: Package,       group: 'A', importPath: '/admin/migracao/produtos' },
