@@ -248,6 +248,16 @@ function Breadcrumb() {
     contatos:                 'Contatos',
     usuarios:                 'Usuários',
     segmentos:                'Segmentos',
+    // Migração (OP-1)
+    migracao:                 'Migração',
+    series:                   'Séries',
+    turmas:                   'Turmas',
+    fornecedores:             'Fornecedores',
+    produtos:                 'Produtos',
+    colaboradores:            'Colaboradores',
+    receber:                  'Contas a Receber',
+    pagar:                    'Contas a Pagar',
+    caixa:                    'Lançamentos de Caixa',
   };
 
   // Nomes de sub-abas para páginas com ?tab=

@@ -26,17 +26,18 @@ import {
   TrendingDown,
   Wallet,
   CheckCircle2,
-  Circle,
-  Clock,
   Loader2,
   AlertTriangle,
-  ArrowRight,
   Unlock,
+  Layers,
+  Link2,
+  Coins,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { SettingsCard } from '../../components/SettingsCard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Module catalog
@@ -67,6 +68,12 @@ const GROUP_HINT: Record<ModuleGroup, string> = {
   A: 'Importe primeiro. Nenhuma destas entidades depende de outras para existir.',
   B: 'Estas entidades fazem referência às do Grupo A. Importe depois que A estiver completo.',
   C: 'Dependem de entidades dos Grupos A e B. Importe por último.',
+};
+
+const GROUP_ICON: Record<ModuleGroup, LucideIcon> = {
+  A: Layers,
+  B: Link2,
+  C: Coins,
 };
 
 const MODULES: ModuleDef[] = [
@@ -239,27 +246,19 @@ export default function MigracaoPage() {
         </div>
       ) : (
         (['A', 'B', 'C'] as const).map((group) => (
-          <section key={group} className="space-y-3">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                {GROUP_LABEL[group]}
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {GROUP_HINT[group]}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {modulesByGroup[group].map((mod) => (
-                <ModuleCard
-                  key={mod.key}
-                  mod={mod}
-                  row={statusMap[mod.key]}
-                  onImport={() => openImporter(mod)}
-                  onUnlock={() => requestUnlock(mod)}
-                />
-              ))}
-            </div>
-          </section>
+          <SettingsCard
+            key={group}
+            title={GROUP_LABEL[group]}
+            description={GROUP_HINT[group]}
+            icon={GROUP_ICON[group]}
+          >
+            <GroupTimeline
+              modules={modulesByGroup[group]}
+              statusMap={statusMap}
+              onImport={openImporter}
+              onUnlock={requestUnlock}
+            />
+          </SettingsCard>
         ))
       )}
 
@@ -279,125 +278,131 @@ export default function MigracaoPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ModuleCard
+// GroupTimeline — horizontal timeline com avatars redondos
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface ModuleCardProps {
+interface GroupTimelineProps {
+  modules: ModuleDef[];
+  statusMap: StatusByKey;
+  onImport: (mod: ModuleDef) => void;
+  onUnlock: (mod: ModuleDef) => void;
+}
+
+function GroupTimeline({ modules, statusMap, onImport, onUnlock }: GroupTimelineProps) {
+  return (
+    <div className="relative overflow-x-auto pb-2 -mx-1 px-1">
+      <div className="relative flex items-start gap-6 min-w-max">
+        {/* connecting line */}
+        <div
+          className="absolute top-7 left-7 right-7 h-px bg-gradient-to-r from-gray-200 via-gray-200 to-gray-200 dark:from-gray-700 dark:via-gray-700 dark:to-gray-700"
+          aria-hidden
+        />
+        {modules.map((mod) => (
+          <TimelineNode
+            key={mod.key}
+            mod={mod}
+            row={statusMap[mod.key]}
+            onImport={() => onImport(mod)}
+            onUnlock={() => onUnlock(mod)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface TimelineNodeProps {
   mod: ModuleDef;
   row: ModuleImportRow | undefined;
   onImport: () => void;
   onUnlock: () => void;
 }
 
-function ModuleCard({ mod, row, onImport, onUnlock }: ModuleCardProps) {
+function TimelineNode({ mod, row, onImport, onUnlock }: TimelineNodeProps) {
   const Icon = mod.icon;
   const status = row?.status ?? 'available';
   const completed = status === 'completed';
   const unimplemented = !mod.importPath;
+  const clickable = completed || !unimplemented;
 
-  // Completed badge data
   const records = row?.records_imported ?? 0;
   const completedDate = row?.completed_at
     ? new Date(row.completed_at).toLocaleDateString('pt-BR')
     : null;
 
+  const handleClick = () => {
+    if (unimplemented) return;
+    if (completed) onUnlock();
+    else onImport();
+  };
+
+  const avatarClass = completed
+    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-800'
+    : unimplemented
+      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 ring-gray-200 dark:ring-gray-700'
+      : 'bg-white dark:bg-gray-800 text-brand-primary dark:text-brand-secondary ring-gray-200 dark:ring-gray-700 group-hover:ring-brand-primary dark:group-hover:ring-brand-secondary';
+
+  const dotClass = unimplemented
+    ? 'bg-red-500'
+    : 'bg-emerald-500';
+
   return (
-    <div
-      className={`relative rounded-xl border p-4 transition-all ${
-        completed
-          ? 'bg-emerald-50/40 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'
-          : unimplemented
-            ? 'bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 opacity-70'
-            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-brand-primary dark:hover:border-brand-secondary hover:shadow-sm'
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={!clickable}
+      className={`group relative flex flex-col items-center w-32 shrink-0 text-center outline-none ${
+        clickable ? 'cursor-pointer' : 'cursor-not-allowed'
       }`}
+      title={unimplemented ? 'Em breve' : completed ? 'Reabrir importação' : 'Iniciar importação'}
     >
-      <div className="flex items-start gap-3">
+      {/* Avatar */}
+      <div className="relative">
         <div
-          className={`flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0 ${
-            completed
-              ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-          }`}
+          className={`flex items-center justify-center w-14 h-14 rounded-full ring-2 transition-all ${avatarClass}`}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-6 h-6" />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-              {mod.label}
-            </h3>
-            <StatusPill status={status} unimplemented={unimplemented} />
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {mod.description}
-          </p>
-
-          {/* Completion details */}
-          {completed && (
-            <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-2">
-              {records.toLocaleString('pt-BR')} registro{records === 1 ? '' : 's'}
-              {completedDate ? ` · ${completedDate}` : ''}
-            </p>
-          )}
-          {row?.unlocked_at && !completed && (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
-              <Unlock className="w-3 h-3" /> Reaberto · {row.unlock_reason ?? 'sem motivo'}
-            </p>
-          )}
-
-          {/* Actions */}
-          <div className="mt-3 flex items-center gap-2">
-            {unimplemented ? (
-              <span className="text-[11px] text-gray-400 dark:text-gray-500 italic">
-                Em breve
-              </span>
-            ) : completed ? (
-              <button
-                onClick={onUnlock}
-                className="flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
-              >
-                <Unlock className="w-3 h-3" />
-                Reabrir importação
-              </button>
-            ) : (
-              <button
-                onClick={onImport}
-                className="flex items-center gap-1 text-xs font-semibold text-brand-primary dark:text-brand-secondary hover:gap-2 transition-all"
-              >
-                Importar
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
+        {/* status dot */}
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full ring-2 ring-white dark:ring-gray-800 ${dotClass}`}
+          aria-label={unimplemented ? 'Indisponível' : 'Disponível'}
+        >
+          {completed && <CheckCircle2 className="w-3 h-3 text-white" />}
+        </span>
       </div>
-    </div>
-  );
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// StatusPill
-// ─────────────────────────────────────────────────────────────────────────────
+      {/* Label */}
+      <div className="mt-3 w-full">
+        <p className={`text-xs font-semibold truncate ${
+          unimplemented
+            ? 'text-gray-400 dark:text-gray-500'
+            : 'text-gray-900 dark:text-white'
+        }`}>
+          {mod.label}
+        </p>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2 leading-tight">
+          {mod.description}
+        </p>
 
-function StatusPill({ status, unimplemented }: { status: 'available' | 'completed'; unimplemented: boolean }) {
-  if (unimplemented) {
-    return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-        <Clock className="w-2.5 h-2.5" /> Em breve
-      </span>
-    );
-  }
-  if (status === 'completed') {
-    return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-        <CheckCircle2 className="w-2.5 h-2.5" /> Concluído
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
-      <Circle className="w-2.5 h-2.5" /> Disponível
-    </span>
+        {completed && (
+          <p className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-1.5 font-medium">
+            {records.toLocaleString('pt-BR')} reg.
+            {completedDate ? ` · ${completedDate}` : ''}
+          </p>
+        )}
+        {row?.unlocked_at && !completed && (
+          <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5 inline-flex items-center gap-0.5">
+            <Unlock className="w-2.5 h-2.5" /> Reaberto
+          </p>
+        )}
+        {unimplemented && (
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 italic">
+            Em breve
+          </p>
+        )}
+      </div>
+    </button>
   );
 }
 
