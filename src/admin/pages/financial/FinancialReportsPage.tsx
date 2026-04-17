@@ -336,7 +336,7 @@ export default function FinancialReportsPage() {
       .is('parent_id', null);
 
     type PayRaw = { fornecedor_id: string; amount_paid: number | null; description: string; amount: number; due_date: string; status: string; creditor_name: string; fornecedor: { razao_social: string; nome_fantasia: string | null } | null };
-    const rows = (payData ?? []) as PayRaw[];
+    const rows = (payData ?? []) as unknown as PayRaw[];
 
     // Aggregate volume
     const volMap = new Map<string, { razao_social: string; nome_fantasia: string | null; total: number; count: number }>();
@@ -374,7 +374,7 @@ export default function FinancialReportsPage() {
       .lte('data_emissao', endDate);
 
     type NfeRaw = { id: string; chave_acesso: string; data_emissao: string; valor_total: number; fornecedor_id: string; fornecedor: { razao_social: string; nome_fantasia: string | null } | null };
-    setFornNfe(((nfeData ?? []) as NfeRaw[]).map((r) => ({
+    setFornNfe(((nfeData ?? []) as unknown as NfeRaw[]).map((r) => ({
       id: r.id,
       chave_acesso: r.chave_acesso,
       data_emissao: r.data_emissao,
