@@ -341,11 +341,30 @@ export default function PermissionsPage({ embedded = false }: { embedded?: boole
   // ── Toggle role permission ──
 
   function toggleRolePerm(moduleKey: string, action: ActionKey) {
-    setRolePerms((prev) =>
-      prev.map((p) =>
-        p.module_key === moduleKey ? { ...p, [action]: !p[action] } : p,
-      ),
-    );
+    setRolePerms((prev) => {
+      const existing = prev.find((p) => p.module_key === moduleKey);
+      if (existing) {
+        return prev.map((p) =>
+          p.module_key === moduleKey ? { ...p, [action]: !p[action] } : p,
+        );
+      }
+      // Linha ainda não existe em role_permissions p/ este par role+module
+      // (caso dos módulos `settings-*` seedados só para super_admin na
+      // migration 148, ou qualquer módulo novo). Criamos em memória com o
+      // flag alvo em true; o upsert em saveRolePerms persiste.
+      return [
+        ...prev,
+        {
+          role: selectedRole,
+          module_key: moduleKey,
+          can_view:   action === 'can_view',
+          can_create: action === 'can_create',
+          can_edit:   action === 'can_edit',
+          can_delete: action === 'can_delete',
+          can_import: action === 'can_import',
+        },
+      ];
+    });
     setDirty(true);
     setSaved(false);
   }
