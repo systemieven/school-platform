@@ -334,7 +334,7 @@ function SecretariaDeclaracoesTab() {
     try {
       const { data, error } = await supabase
         .from('document_requests')
-        .select('*, template:document_templates(name, document_type), student:students(full_name, enrollment_code)')
+        .select('*, template:document_templates(name, document_type), student:students(full_name, enrollment_number)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       setRequests((data ?? []) as unknown as DocumentRequest[]);
@@ -477,7 +477,7 @@ function SecretariaDeclaracoesTab() {
               <tr key={req.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
                 <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-400">{fmtDate(req.created_at)}</td>
                 <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{req.student?.full_name ?? '—'}</td>
-                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{req.student?.enrollment_code ?? '—'}</td>
+                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{req.student?.enrollment_number ?? '—'}</td>
                 <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{req.template?.name ?? '—'}</td>
                 <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                   {req.template?.document_type ? DOCUMENT_TYPE_LABELS[req.template.document_type] : '—'}
