@@ -5310,105 +5310,107 @@ O componente `HtmlTemplateEditor` usa `PermissionGate` com os modulos existentes
 
 ---
 
-### 10.16 DASH-1 — Dashboards por Permissao (1 dashboard, blocos auto-filtrantes)
+### 10.16 DASH-1 — Dashboards por Permissao (mesmo vocabulario visual, gatilho por permissao)
 
-**Status**: ✅ Concluido (2026-04-17)
+**Status**: ✅ Concluido (2026-04-17, refatorado em 2026-04-17 para reaproveitar widgets do super_admin)
 **Prioridade**: Media-Alta — quick win de UX
 **Dependencias**: Permissoes granulares aditivas (migration 143) + PermissionsContext
 
 #### Motivacao
 
-O `DashboardPage` original foi desenhado para o `super_admin` — KPIs comparativos de matriculas/contatos, funil completo de leads, metricas de WhatsApp. Quando um professor caia ali, via numeros sem contexto e nao encontrava as informacoes que de fato acompanha (suas turmas, faltas registradas, ocorrencias). Coordenadores e financeiros tinham o mesmo problema com nuance diferente.
+O `DashboardPage` original foi desenhado para o `super_admin` — KPIs comparativos com tendencia, BarCharts de funil, metricas de WhatsApp, lista de proximas visitas com calendar chip, contatos pendentes. A primeira iteracao dos dashboards por role criou "blocos pobres" (cards textuais simples), o que feria a consistencia visual e dava sensacao de produto inferior aos roles nao-super_admin. A refatoracao atual elimina os blocos e reaproveita os mesmos widgets ricos do super_admin — porem renderizados condicionalmente conforme `canView('moduleKey')`.
 
 #### Filosofia de design
 
-> **1 dashboard compartilhado, blocos auto-filtrantes pelas permissoes granulares.**
+> **Mesmos widgets, gatilho por permissao.** O super_admin ve o dashboard completo; cada outro role ve um subconjunto desses widgets — exatamente os correspondentes aos modulos que ele tem permissao de visualizar.
 
 - Habilitar o modulo `dashboard` para um role/usuario significa apenas **liberar a entrada** na tela.
-- O **conteudo** do dashboard (quais blocos aparecem) e governado pelas mesmas permissoes granulares dos modulos: ligar `appointments.can_view = true` libera o bloco "Agendamentos"; ligar `financial.can_view` libera o bloco "Financeiro"; e assim por diante.
-- Zero schema novo: a feature reaproveita 100% o `PermissionsContext` existente. Nao tem tabela `dashboard_configs`, nao tem painel de configuracao em `/config/dashboards`, nao tem novas roles.
-- `super_admin` continua aterrissando no `DashboardPage` classico — esse dashboard nao mudou em nada.
+- O **conteudo** do dashboard (quais widgets aparecem) e governado pelas mesmas permissoes granulares dos modulos: ligar `appointments.can_view = true` libera StatCard "Agendamentos" + BarChart "Agendamentos por status" + lista "Proximas visitas"; ligar `kanban` libera StatCard "Contatos" + BarChart "Funil de leads" + BarChart "Contatos por motivo" + WaStatsWidget + OverdueContactsWidget; etc.
+- Zero schema novo: a feature reaproveita 100% o `PermissionsContext` existente.
+- `super_admin` continua aterrissando no `DashboardPage` classico (agora tambem refatorado para consumir o mesmo barrel `widgets/`, sem mudanca de comportamento).
 
 #### Arquitetura
 
 ```
 /admin (index)
   └── ModuleGuard moduleKey="dashboard"
-       └── DashboardRouter                                ← NOVO (10 linhas)
-            ├── if profile.role === 'super_admin' → DashboardPage  (= o atual, intacto)
-            └── else                              → SharedDashboard (NOVO)
-                 ├── Header (saudacao + role)
-                 ├── Empty-state se zero blocos visiveis
-                 └── Grid responsivo (1 / 2 / 3 colunas)
-                      └── *Block components (cada um:
-                           if (!canView('moduleKey')) return null;
-                           query Supabase + render via BlockCard)
+       └── DashboardRouter
+            ├── if profile.role === 'super_admin' → DashboardPage    (consumindo widgets/)
+            └── else                              → SharedDashboard  (consumindo widgets/ + canView gating)
+
+src/admin/pages/dashboard/
+  ├── DashboardRouter.tsx       — if/else por role
+  ├── DashboardPage.tsx         — super_admin (refatorado: importa de ./widgets)
+  ├── SharedDashboard.tsx       — demais roles (cada widget gated por canView)
+  └── widgets/
+       ├── DashboardHeader.tsx       — saudacao por horario + seletor de periodo + helpers (Period, periodDays, periodStart, pctChange)
+       ├── StatCard.tsx              — card numerico com tendencia % vs periodo anterior
+       ├── BarChart.tsx              — barras horizontais simples sem dependencia externa
+       ├── WaStatsWidget.tsx         — painel 2x2 (sent/delivered/read/failed)
+       ├── OverdueContactsWidget.tsx — lista de contatos sem resposta ha >48h
+       ├── UpcomingVisitsWidget.tsx  — proximas visitas com calendar chip
+       └── index.ts                  — barrel re-exportando todos
 ```
 
-#### Blocos entregues no MVP (9)
+#### Mapa de gating (moduleKey ↔ widget)
 
-| # | Bloco                  | `moduleKey`              | Conteudo                                                       |
-|---|------------------------|--------------------------|----------------------------------------------------------------|
-| 1 | AppointmentsBlock      | `appointments`           | Agendamentos pendentes + proximas 4 visitas                    |
-| 2 | KanbanLeadsBlock       | `kanban`                 | Leads por estagio do funil (mini bar chart)                    |
-| 3 | FinancialOverviewBlock | `financial`              | A receber em aberto + inadimplencia (R$ + contagem)            |
-| 4 | PortariaTodayBlock     | `portaria`               | Saidas autorizadas hoje + faltas comunicadas hoje              |
-| 5 | AbsencesBlock          | `absence-communications` | Faltas pendentes de revisao + total nos ultimos 7 dias         |
-| 6 | OccurrencesBlock       | `occurrences`            | Ocorrencias severidade alta/critica + total nos ultimos 7 dias |
-| 7 | TeacherClassesBlock    | `teacher-area`           | Turmas atribuidas (filtra por `teacher_ids contains profile.id` para professor; mostra todas para coord/admin) |
-| 8 | LostFoundBlock         | `lost-found`             | Itens aguardando dono + cadastrados nos ultimos 7 dias         |
-| 9 | StoreOrdersBlock       | `store-orders`           | Pedidos aguardando pagamento + em separacao/prontos            |
+| `moduleKey` | Widgets liberados |
+|-------------|-------------------|
+| `appointments` | StatCard "Agendamentos", StatCard "Pendentes de confirmacao", BarChart "Agendamentos por status", UpcomingVisitsWidget |
+| `students` | StatCard "Pre-Matriculas", BarChart "Pre-Matriculas por status" |
+| `kanban` | StatCard "Contatos", BarChart "Funil de leads", BarChart "Contatos por motivo", OverdueContactsWidget, WaStatsWidget |
+| `teacher-area` | Secao "Minhas turmas" (filtrada por `teacher_ids contains profile.id` para professor; mostra todas para coord/admin) |
+
+Cada `Promise` no `Promise.all` do `fetchData` so dispara se a permissao correspondente estiver liberada — o usuario sem `appointments` nao gera nenhuma query em `visit_appointments`.
 
 #### Empty-state
 
-Se o usuario tem `dashboard.can_view = true` mas nenhum bloco e visivel para ele (todos os `moduleKey` listados acima estao bloqueados), o `SharedDashboard` renderiza um card educativo:
+Se o usuario tem `dashboard.can_view = true` mas nenhum dos quatro `moduleKey` esta liberado, o `SharedDashboard` renderiza um card educativo apontando para `/admin/configuracoes`.
 
-> "Nenhum bloco para exibir. Voce ainda nao tem acesso a nenhum dos modulos que aparecem neste dashboard. Solicite ao administrador do sistema o acesso aos modulos que voce utiliza." + link para `/admin/configuracoes`.
-
-A deteccao usa `SHARED_DASHBOARD_MODULE_KEYS.filter(canView).length === 0`.
-
-#### Arquivos novos (8)
+#### Arquivos novos (refatoracao 2026-04-17)
 
 | Arquivo | Conteudo |
 |---------|----------|
-| `src/admin/pages/dashboard/DashboardRouter.tsx` | Roteador if/else de 10 linhas por role |
-| `src/admin/pages/dashboard/SharedDashboard.tsx` | Header + empty-state + grid de blocos |
-| `src/admin/pages/dashboard/blocks/BlockCard.tsx` | Wrapper visual reutilizavel + `StatRow` + `BigNumber` + `BlockEmpty` |
-| `src/admin/pages/dashboard/blocks/AppointmentsBlock.tsx` | Bloco 1 |
-| `src/admin/pages/dashboard/blocks/KanbanLeadsBlock.tsx` | Bloco 2 |
-| `src/admin/pages/dashboard/blocks/FinancialOverviewBlock.tsx` | Bloco 3 |
-| `src/admin/pages/dashboard/blocks/PortariaTodayBlock.tsx` | Bloco 4 |
-| `src/admin/pages/dashboard/blocks/AbsencesBlock.tsx` | Bloco 5 |
-| `src/admin/pages/dashboard/blocks/OccurrencesBlock.tsx` | Bloco 6 |
-| `src/admin/pages/dashboard/blocks/TeacherClassesBlock.tsx` | Bloco 7 |
-| `src/admin/pages/dashboard/blocks/LostFoundBlock.tsx` | Bloco 8 |
-| `src/admin/pages/dashboard/blocks/StoreOrdersBlock.tsx` | Bloco 9 |
-| `src/admin/pages/dashboard/blocks/index.ts` | Re-export central + `SHARED_DASHBOARD_MODULE_KEYS` |
+| `src/admin/pages/dashboard/widgets/DashboardHeader.tsx` | Header compartilhado (greeting + period toggle + helpers) |
+| `src/admin/pages/dashboard/widgets/StatCard.tsx` | Stat card com tendencia opcional |
+| `src/admin/pages/dashboard/widgets/BarChart.tsx` | BarChart horizontal sem dependencia externa |
+| `src/admin/pages/dashboard/widgets/WaStatsWidget.tsx` | 2x2 WhatsApp stats |
+| `src/admin/pages/dashboard/widgets/OverdueContactsWidget.tsx` | Lista de contatos sem resposta |
+| `src/admin/pages/dashboard/widgets/UpcomingVisitsWidget.tsx` | Lista de proximas visitas |
+| `src/admin/pages/dashboard/widgets/index.ts` | Barrel |
 
-#### Arquivos modificados (1)
+#### Arquivos modificados
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/admin/routes.tsx` | Import do `DashboardPage` trocado por `DashboardRouter`; rota `index` aponta para o router. Sem mudanca em `ModuleGuard moduleKey="dashboard"`. |
+| `src/admin/pages/dashboard/DashboardPage.tsx` | Substitui componentes inline (StatCard, BarChart, WaStatsWidget, OverdueContactsWidget) por imports de `./widgets`; comportamento identico |
+| `src/admin/pages/dashboard/SharedDashboard.tsx` | Reescrito do zero: layout rico identico ao do super_admin, com cada widget gated por `canView()` e centralizacao de fetch via `Promise.all` condicional |
+
+#### Arquivos removidos
+
+| Diretorio | Motivo |
+|-----------|--------|
+| `src/admin/pages/dashboard/blocks/` (BlockCard + 9 blocos + index) | Substituido pelos widgets ricos reaproveitados do super_admin |
 
 #### Sem migrations / sem edge functions
 
-Toda a logica de filtragem ja existia em `PermissionsContext.canView()`. Cada bloco faz 1 a 2 queries Supabase em colunas indexadas (count + alguns selects pequenos com limit baixo) — impacto de performance desprezivel.
+Toda a logica de filtragem ja existia em `PermissionsContext.canView()`. Performance desprezivel — cada query Supabase ja era utilizada pelo `DashboardPage` classico.
 
-#### Crescimento futuro (nao bloqueia v1)
+#### Crescimento futuro
 
-Adicionar bloco novo: criar `XxxBlock.tsx` em `blocks/`, exportar em `blocks/index.ts`, adicionar key em `SHARED_DASHBOARD_MODULE_KEYS`, render em `SharedDashboard.tsx`. PR isolado, ~50 linhas. Candidatos a proxima leva: `WhatsAppMetricsBlock` (`whatsapp`), `SecretariaQueueBlock` (`secretaria-declaracoes`), `EnrollmentsFunnelBlock` (`enrollments` se virar modulo proprio fora de `gestao`), `ContractsExpiringBlock` (`contracts`).
+Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/index.ts`, adicionar import + render condicional em `SharedDashboard.tsx` (gated por `canView('xxx')`) e em `DashboardPage.tsx` (sem gate). Candidatos: `FinancialOverviewWidget` (`financial`), `OccurrencesAlertWidget` (`occurrences`), `LostFoundCounterWidget` (`lost-found`), `StoreOrdersStatusWidget` (`store-orders`).
 
 #### Trade-offs registrados
 
-- **Sem reordenacao por usuario**: todos veem na mesma ordem do grid. Se virar requisito, adicionar JSONB `dashboard_block_order` em `profiles`.
-- **Sem thresholds configuraveis** (ex.: "alertar quando inadimplencia > X%"): cada bloco tem seus criterios hardcoded. Se necessario, futura tabela `dashboard_block_thresholds` minimal.
-- **Lista de blocos hardcoded**: adicionar bloco exige PR de codigo, nao mudanca de DB. Aceitavel — blocos sao logica, nao conteudo.
+- **Sem reordenacao por usuario**: todos veem na mesma ordem. Se virar requisito, adicionar JSONB `dashboard_widget_order` em `profiles`.
+- **Sem thresholds configuraveis**: cada widget tem seus criterios hardcoded.
+- **Mesmo vocabulario visual entre super_admin e demais**: e proposital — consistencia > diferenciacao.
 
 #### Validacao
 
-- `npx tsc --noEmit` ✅ zero erros
-- Tested manually post-deploy: super_admin ve DashboardPage classico; coordenador/professor/portaria/financeiro veem SharedDashboard com blocos contextuais ao seu role/permissoes; usuario sem permissoes ve empty-state.
+- `npx tsc -b` ✅ zero erros (modo strict project references — usado pelo Lovable)
+- `npx vite build` ✅ build em ~5s
+- Tested manually post-deploy: super_admin ve DashboardPage com todos os widgets; coordenador/professor/portaria/financeiro veem SharedDashboard com widgets contextuais; usuario sem permissoes ve empty-state.
 
 ---
 
