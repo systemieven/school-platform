@@ -70,6 +70,10 @@ function extractVars(template: string): string[] {
 interface AiConfig {
   anthropic_api_key: string | null;
   openai_api_key: string | null;
+  anthropic_admin_api_key: string | null;
+  openai_admin_api_key: string | null;
+  openai_organization_id: string | null;
+  balance_alert_threshold: number | null;
 }
 
 export default function AiAgentsPanel() {
@@ -77,9 +81,18 @@ export default function AiAgentsPanel() {
   const [usage, setUsage] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [cfg, setCfg] = useState<AiConfig>({ anthropic_api_key: '', openai_api_key: '' });
+  const [cfg, setCfg] = useState<AiConfig>({
+    anthropic_api_key: '',
+    openai_api_key: '',
+    anthropic_admin_api_key: '',
+    openai_admin_api_key: '',
+    openai_organization_id: '',
+    balance_alert_threshold: null,
+  });
   const [showAnthropic, setShowAnthropic] = useState(false);
   const [showOpenai, setShowOpenai] = useState(false);
+  const [showAnthropicAdmin, setShowAnthropicAdmin] = useState(false);
+  const [showOpenaiAdmin, setShowOpenaiAdmin] = useState(false);
   const [savingCfg, setSavingCfg] = useState(false);
   const [savedCfg, setSavedCfg] = useState(false);
   const savedCfgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,13 +112,17 @@ export default function AiAgentsPanel() {
     const [{ data: agentsData }, { data: usageData }, { data: cfgData }] = await Promise.all([
       supabase.from('ai_agents').select('*').order('slug'),
       supabase.from('ai_usage_log').select('*').order('created_at', { ascending: false }).limit(20),
-      supabase.from('company_ai_config').select('anthropic_api_key, openai_api_key').limit(1).maybeSingle(),
+      supabase.from('company_ai_config').select('anthropic_api_key, openai_api_key, anthropic_admin_api_key, openai_admin_api_key, openai_organization_id, balance_alert_threshold').limit(1).maybeSingle(),
     ]);
     setAgents((agentsData ?? []) as AiAgent[]);
     setUsage((usageData ?? []) as UsageRow[]);
     setCfg({
       anthropic_api_key: cfgData?.anthropic_api_key ?? '',
       openai_api_key: cfgData?.openai_api_key ?? '',
+      anthropic_admin_api_key: cfgData?.anthropic_admin_api_key ?? '',
+      openai_admin_api_key: cfgData?.openai_admin_api_key ?? '',
+      openai_organization_id: cfgData?.openai_organization_id ?? '',
+      balance_alert_threshold: cfgData?.balance_alert_threshold ?? null,
     });
     setLoading(false);
   }, []);
@@ -123,6 +140,10 @@ export default function AiAgentsPanel() {
     const payload = {
       anthropic_api_key: cfg.anthropic_api_key || null,
       openai_api_key: cfg.openai_api_key || null,
+      anthropic_admin_api_key: cfg.anthropic_admin_api_key || null,
+      openai_admin_api_key: cfg.openai_admin_api_key || null,
+      openai_organization_id: cfg.openai_organization_id || null,
+      balance_alert_threshold: cfg.balance_alert_threshold,
     };
     const { error } = existing
       ? await supabase.from('company_ai_config').update(payload).eq('id', existing.id)
@@ -270,6 +291,78 @@ export default function AiAgentsPanel() {
               </button>
             </div>
           </div>
+
+          <div className="pt-2 mt-2 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              <strong>Admin keys</strong> — necessárias apenas para o dashboard de uso (sincroniza tokens/custo das APIs oficiais). São distintas das chaves de inference acima.
+            </p>
+          </div>
+          <div>
+            <label className={LABEL_CLS}>Anthropic Admin API Key</label>
+            <div className="relative">
+              <input
+                type={showAnthropicAdmin ? 'text' : 'password'}
+                value={cfg.anthropic_admin_api_key ?? ''}
+                onChange={(e) => setCfg({ ...cfg, anthropic_admin_api_key: e.target.value })}
+                placeholder="Organization Admin Key (console Anthropic)"
+                className={`${INPUT_CLS} pr-10 font-mono`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowAnthropicAdmin((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
+                title={showAnthropicAdmin ? 'Ocultar' : 'Mostrar'}
+              >
+                {showAnthropicAdmin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className={LABEL_CLS}>OpenAI Admin API Key</label>
+            <div className="relative">
+              <input
+                type={showOpenaiAdmin ? 'text' : 'password'}
+                value={cfg.openai_admin_api_key ?? ''}
+                onChange={(e) => setCfg({ ...cfg, openai_admin_api_key: e.target.value })}
+                placeholder="sk-admin-..."
+                className={`${INPUT_CLS} pr-10 font-mono`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowOpenaiAdmin((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
+                title={showOpenaiAdmin ? 'Ocultar' : 'Mostrar'}
+              >
+                {showOpenaiAdmin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className={LABEL_CLS}>OpenAI Organization ID</label>
+            <input
+              type="text"
+              value={cfg.openai_organization_id ?? ''}
+              onChange={(e) => setCfg({ ...cfg, openai_organization_id: e.target.value })}
+              placeholder="org-..."
+              className={`${INPUT_CLS} font-mono`}
+            />
+          </div>
+          <div>
+            <label className={LABEL_CLS}>Alerta de saldo baixo (USD)</label>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={cfg.balance_alert_threshold ?? ''}
+              onChange={(e) => setCfg({
+                ...cfg,
+                balance_alert_threshold: e.target.value === '' ? null : Number(e.target.value),
+              })}
+              placeholder="10"
+              className={INPUT_CLS}
+            />
+          </div>
+
           <div className="flex justify-end">
             <button
               onClick={handleSaveCfg}
