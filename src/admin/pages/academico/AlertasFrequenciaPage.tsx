@@ -61,6 +61,8 @@ const STATUS_CONFIG = {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 export default function AlertasFrequenciaPage() {
   const [rows, setRows] = useState<AttendanceRow[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
@@ -68,11 +70,12 @@ export default function AlertasFrequenciaPage() {
   const [loading, setLoading] = useState(true);
   const [filterClass, setFilterClass] = useState('');
   const [filterSegment, setFilterSegment] = useState('');
+  const [filterYear, setFilterYear] = useState(CURRENT_YEAR);
   const [sendingAlert, setSendingAlert] = useState<Record<string, boolean>>({});
   const [alertMsg, setAlertMsg] = useState<{ studentId: string; type: 'success' | 'error'; text: string } | null>(null);
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (year: number) => {
     setLoading(true);
 
     // Fetch classes & segments
@@ -100,7 +103,7 @@ export default function AlertasFrequenciaPage() {
     setClasses(classesData);
     setSegments(segRes.data ?? []);
 
-    // Fetch attendance records
+    // Fetch attendance records filtered by school year
     const { data: attendance, error } = await supabase
       .from('student_attendance')
       .select(`
@@ -109,7 +112,9 @@ export default function AlertasFrequenciaPage() {
         status,
         student:students(id, full_name, class_id, guardian_phone),
         discipline:disciplines(id, name)
-      `);
+      `)
+      .gte('date', `${year}-01-01`)
+      .lte('date', `${year}-12-31`);
 
     if (error) {
       console.error('Erro ao carregar dados de frequência:', error);
@@ -172,8 +177,8 @@ export default function AlertasFrequenciaPage() {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchData(filterYear);
+  }, [fetchData, filterYear]);
 
   // ── Send WhatsApp alert ─────────────────────────────────────────────────────
   const handleSendAlert = async (studentId: string, studentName: string, guardianPhone: string) => {
@@ -294,6 +299,17 @@ export default function AlertasFrequenciaPage() {
           {segments.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
+        </select>
+
+        <select
+          value={filterYear}
+          onChange={(e) => setFilterYear(Number(e.target.value))}
+          className="rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200"
+        >
+          {[0, 1, 2].map((offset) => {
+            const y = CURRENT_YEAR - offset;
+            return <option key={y} value={y}>{y}</option>;
+          })}
         </select>
       </div>
 

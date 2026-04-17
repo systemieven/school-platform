@@ -186,7 +186,7 @@ function parseNfeXml(xmlStr: string, fileName: string): ParsedNfe | null {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function NfeEntradasPage() {
-  useAdminAuth();
+  const { profile } = useAdminAuth();
   usePermissions();
 
   // List state
@@ -364,6 +364,31 @@ export default function NfeEntradasPage() {
       await supabase.from('nfe_entry_items').insert(itemRows);
     }
 
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 30);
+
+    const { error: apError } = await supabase
+      .from('financial_payables')
+      .insert({
+        creditor_name: fornecedor?.nome_fantasia ?? fornecedor?.razao_social ?? parsed.emitenteNome,
+        creditor_type: 'supplier',
+        category_type: 'variable',
+        description: `NF-e ${parsed.chaveAcesso?.slice(-9) ?? ''} — ${parsed.emitenteNome}`,
+        amount: parsed.valorTotal,
+        due_date: dueDate.toISOString().split('T')[0],
+        status: 'pending',
+        fornecedor_id: fornecedor?.id ?? null,
+        nfe_entry_id: nfeEntryId,
+        created_by: profile?.id ?? null,
+      });
+
+    if (!apError) {
+      await supabase
+        .from('nfe_entries')
+        .update({ status: 'processed' })
+        .eq('id', nfeEntryId);
+    }
+
     logAudit({
       action: 'create',
       module: 'store-fiscal',
@@ -373,12 +398,19 @@ export default function NfeEntradasPage() {
 
     setSaving(false);
     setSaved(true);
+
+    if (apError) {
+      setParseError(
+        'NF-e importada. Não foi possível criar a conta a pagar automaticamente — crie manualmente em Contas a Pagar.'
+      );
+    }
+
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => {
       setSaved(false);
       closeDrawer();
       load();
-    }, 1200);
+    }, apError ? 4000 : 1200);
   }
 
   // ── Drawer helpers ────────────────────────────────────────────────────────

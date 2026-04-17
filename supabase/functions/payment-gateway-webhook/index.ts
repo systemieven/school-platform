@@ -308,6 +308,29 @@ Deno.serve(async (req: Request) => {
           .eq("status", "pending");
 
         console.log(`[webhook] Store order ${order.order_number} marked as payment_confirmed`);
+
+        // Upsert receivable — idempotent via uq_financial_receivables_source (migration 135)
+        try {
+          const now = new Date();
+          const { error: recvErr } = await service.from("financial_receivables").upsert({
+            source_type: "store_order",
+            source_id: order.id,
+            description: `Pedido loja #${order.order_number}`,
+            amount: order.total_amount,
+            amount_paid: order.total_amount,
+            due_date: now.toISOString().split("T")[0],
+            paid_at: now.toISOString(),
+            status: "paid",
+            payment_method: order.payment_method ?? "online",
+            payer_name: order.guardian?.full_name ?? "Responsável",
+            payer_type: "responsible",
+            student_id: order.student?.id ?? null,
+          }, { onConflict: "source_type,source_id", ignoreDuplicates: true });
+          if (recvErr) throw recvErr;
+          console.log(`[webhook] financial_receivable upserted for store order ${order.order_number}`);
+        } catch (recvErr) {
+          console.error(`[webhook] Failed to upsert financial_receivable for order ${order.order_number}:`, recvErr);
+        }
       } else if (event.status === "overdue") {
         // Don't auto-cancel — the order stays pending_payment, school decides
         console.log(`[webhook] Store order ${order.order_number} charge is overdue — no auto-cancel`);

@@ -234,6 +234,37 @@ export default function FinancialReceivablesPage() {
       updated_at: new Date().toISOString(),
     }).eq('id', payItem.id);
     logAudit({ action: 'update', module: 'financial-receivables', description: `Baixa A/R: ${payItem.description}` });
+
+    // Registrar movimento no caixa aberto do dia (melhor-esforço)
+    const { data: reg } = await supabase
+      .from('financial_cash_registers')
+      .select('id, current_balance')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (reg) {
+      const newBalance = reg.current_balance + amountPaid;
+      await Promise.all([
+        supabase.from('financial_cash_movements').insert({
+          cash_register_id: reg.id,
+          type: 'inflow',
+          sub_type: 'recebimento',
+          amount: amountPaid,
+          balance_after: newBalance,
+          description: `Recebimento A/R: ${payItem.description}`,
+          payment_method: payMethod || null,
+          reference_type: 'receivable',
+          reference_id: payItem.id,
+          recorded_by: profile?.id ?? null,
+        }),
+        supabase
+          .from('financial_cash_registers')
+          .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
+          .eq('id', reg.id),
+      ]);
+    }
+
     setPaySaving(false);
     setPaySaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
