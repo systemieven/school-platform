@@ -3,6 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import { useStudentAuth } from '../../contexts/StudentAuthContext';
 import { User, Lock, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import InstallAppCard from '../../../components/InstallAppCard';
+import PushNotificationsCard from '../../../components/PushNotificationsCard';
 
 export default function ProfilePage() {
   const { student } = useStudentAuth();
@@ -58,6 +59,8 @@ export default function ProfilePage() {
       </div>
 
       <InstallAppCard />
+
+      <PushNotificationsCard userType="student" />
 
       {/* Change password */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">

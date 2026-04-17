@@ -28,6 +28,8 @@
     "react-router-dom": "^6.28.0",
     "recharts": "2.15.0",
     "sweetalert2": "^11.10.6",
+    "workbox-precaching": "7.4.0",
+    "workbox-routing": "7.4.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
