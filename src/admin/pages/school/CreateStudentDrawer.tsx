@@ -17,7 +17,7 @@ import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { Drawer, DrawerCard } from '../../components/Drawer';
-import { SelectDropdown } from '../../components/FormField';
+import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 import CapacityOverrideModal, { parseCapacityError } from '../../components/CapacityOverrideModal';
 import { maskCPF, maskPhone, maskCEP, isValidCPF, isValidEmail } from '../../lib/masks';
 import type { Student, SchoolSegment, SchoolSeries, SchoolClass } from '../../types/admin.types';
@@ -743,12 +743,14 @@ export default function CreateStudentDrawer({ onClose, onCreated }: Props) {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </SelectDropdown>
-            <SelectDropdown label={`Turma (${currentSchoolYear})`} value={classId} onChange={(e) => setClassId(e.target.value)} disabled={!seriesId}>
-              <option value="">Selecione...</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </SelectDropdown>
+            <SearchableSelect
+              label={`Turma (${currentSchoolYear})`}
+              value={classId}
+              onChange={(val) => setClassId(val)}
+              options={classes.map((c) => ({ value: c.id, label: c.name }))}
+              placeholder="Selecione a turma..."
+              disabled={!seriesId}
+            />
           </div>
           {seriesId && classes.length === 0 && (
             <p className="text-xs text-amber-600 dark:text-amber-400">

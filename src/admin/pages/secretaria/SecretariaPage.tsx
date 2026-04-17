@@ -1999,10 +1999,13 @@ function TransferDrawer({
               placeholder="Descreva o motivo da movimentação" />
           </div>
           {type === 'internal' && (
-            <SelectDropdown label="Turma de Destino" value={toClassId} onChange={(e) => setToClassId(e.target.value)}>
-              <option value="">— Selecionar turma —</option>
-              {classOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </SelectDropdown>
+            <SearchableSelect
+              label="Turma de Destino"
+              value={toClassId}
+              onChange={(val) => setToClassId(val)}
+              options={classOptions.map((c) => ({ value: c.id, label: c.name }))}
+              placeholder="— Selecionar turma —"
+            />
           )}
           {type === 'transfer_out' && (
             <div>
