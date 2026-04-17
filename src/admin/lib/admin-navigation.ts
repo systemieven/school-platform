@@ -5,6 +5,7 @@ import {
   ACADEMICO_SUBTAB_MODULE_KEYS,
   LOJA_SUBTAB_MODULE_KEYS,
   SECRETARIA_SUBTAB_MODULE_KEYS,
+  FINANCIAL_SUBTAB_MODULE_KEYS,
 } from './umbrella-modules';
 
 export const ADMIN_NAV: NavGroup[] = [
@@ -44,7 +45,11 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'DollarSign',
         path: '/admin/financeiro',
         roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'financial',
+        // Umbrella: visible iff the user has view on at least one Financeiro
+        // sub-tab. Permite que um usuário com override granular (ex.: só
+        // `fornecedores:view` para importar NF-e) veja o menu e só a aba
+        // correspondente, sem precisar de permissão global 'financial'.
+        anyModuleKeys: FINANCIAL_SUBTAB_MODULE_KEYS,
       },
     ],
   },
