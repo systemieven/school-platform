@@ -6,6 +6,7 @@ import { usePermissions } from '../../contexts/PermissionsContext';
 import type { Student, SchoolClass, SchoolSegment, StudentStatus } from '../../types/admin.types';
 import { STUDENT_STATUS_LABELS, SHIFT_LABELS, type Shift } from '../../types/admin.types';
 import CreateStudentDrawer from './CreateStudentDrawer';
+import { SelectDropdown } from '../../components/FormField';
 import {
   Users, Search, Loader2, X, GraduationCap, UserPlus, Upload,
   Phone, Mail, Calendar, ChevronDown, Edit3, Save, AlertCircle, FileText,
@@ -118,29 +119,15 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Turma</label>
-              <select
-                value={form.class_id}
-                onChange={(e) => set('class_id', e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary"
-              >
-                <option value="">Sem turma</option>
-                {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
-              <select
-                value={form.status}
-                onChange={(e) => set('status', e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary"
-              >
-                {Object.entries(STUDENT_STATUS_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
+            <SelectDropdown label="Turma" value={form.class_id} onChange={(e) => set('class_id', e.target.value)}>
+              <option value="">Sem turma</option>
+              {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </SelectDropdown>
+            <SelectDropdown label="Status" value={form.status} onChange={(e) => set('status', e.target.value)}>
+              {Object.entries(STUDENT_STATUS_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </SelectDropdown>
           </div>
 
           {error && (

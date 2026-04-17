@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
+import { SelectDropdown } from '../../components/FormField';
 
 // ── Forms ─────────────────────────────────────────────────────────────────────
 interface SegmentForm {
@@ -821,19 +822,11 @@ function ClassDrawer({ isNew, segmentName, seriesName, form, onChange, onSave, o
                 />
               </div>
               <div>
-                <label className={labelCls}>Turno</label>
-                <div className="relative">
-                  <select
-                    value={form.shift}
-                    onChange={(e) => onChange({ ...form, shift: e.target.value as Shift })}
-                    className={`${inputCls} appearance-none pr-9`}
-                  >
-                    <option value="morning">Manhã</option>
-                    <option value="afternoon">Tarde</option>
-                    <option value="evening">Noite</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
+                <SelectDropdown label="Turno" value={form.shift} onChange={(e) => onChange({ ...form, shift: e.target.value as Shift })}>
+                  <option value="morning">Manhã</option>
+                  <option value="afternoon">Tarde</option>
+                  <option value="evening">Noite</option>
+                </SelectDropdown>
               </div>
             </div>
             <div>

@@ -7,6 +7,7 @@ import {
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { SelectDropdown } from '../../components/FormField';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { usePermissions } from '../../contexts/PermissionsContext';
 import type { LostFoundItem, LostFoundEvent, LostFoundStatus } from '../../types/admin.types';
@@ -677,19 +678,10 @@ export default function AchadosPerdidosPage() {
             <DrawerCard title="Informações do Objeto" icon={PackageSearch}>
               <div className="space-y-3">
                 {/* Type */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo *</label>
-                  <select
-                    value={form.type}
-                    onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                               outline-none focus:border-brand-primary transition-colors"
-                  >
-                    <option value="">Selecione o tipo</option>
-                    {types.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
+                <SelectDropdown label="Tipo *" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}>
+                  <option value="">Selecione o tipo</option>
+                  {types.map((t) => <option key={t} value={t}>{t}</option>)}
+                </SelectDropdown>
 
                 {/* Description */}
                 <div>
@@ -723,34 +715,16 @@ export default function AchadosPerdidosPage() {
             <DrawerCard title="Localização" icon={MapPin}>
               <div className="space-y-3">
                 {/* Found location */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Onde foi encontrado *</label>
-                  <select
-                    value={form.found_location}
-                    onChange={(e) => setForm((f) => ({ ...f, found_location: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                               outline-none focus:border-brand-primary transition-colors"
-                  >
-                    <option value="">Selecione o local</option>
-                    {foundLocations.map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
+                <SelectDropdown label="Onde foi encontrado *" value={form.found_location} onChange={(e) => setForm((f) => ({ ...f, found_location: e.target.value }))}>
+                  <option value="">Selecione o local</option>
+                  {foundLocations.map((l) => <option key={l} value={l}>{l}</option>)}
+                </SelectDropdown>
 
                 {/* Storage location */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Onde está guardado *</label>
-                  <select
-                    value={form.storage_location}
-                    onChange={(e) => setForm((f) => ({ ...f, storage_location: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                               outline-none focus:border-brand-primary transition-colors"
-                  >
-                    <option value="">Selecione o local</option>
-                    {storageLocations.map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
+                <SelectDropdown label="Onde está guardado *" value={form.storage_location} onChange={(e) => setForm((f) => ({ ...f, storage_location: e.target.value }))}>
+                  <option value="">Selecione o local</option>
+                  {storageLocations.map((l) => <option key={l} value={l}>{l}</option>)}
+                </SelectDropdown>
               </div>
             </DrawerCard>
 
@@ -982,18 +956,9 @@ export default function AchadosPerdidosPage() {
                         <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">Confirmar Descarte</p>
                       </div>
 
-                      <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Motivo</label>
-                        <select
-                          value={discardReason}
-                          onChange={(e) => setDiscardReason(e.target.value)}
-                          className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                                     bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                                     outline-none focus:border-brand-primary transition-colors"
-                        >
-                          {DISCARD_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                        </select>
-                      </div>
+                      <SelectDropdown label="Motivo" value={discardReason} onChange={(e) => setDiscardReason(e.target.value)}>
+                        {DISCARD_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      </SelectDropdown>
 
                       <div>
                         <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Observações (opcional)</label>
@@ -1083,19 +1048,10 @@ export default function AchadosPerdidosPage() {
           <>
             <DrawerCard title="Informações do Objeto" icon={PackageSearch}>
               <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo *</label>
-                  <select
-                    value={editForm.type}
-                    onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                               outline-none focus:border-brand-primary transition-colors"
-                  >
-                    <option value="">Selecione o tipo</option>
-                    {types.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
+                <SelectDropdown label="Tipo *" value={editForm.type} onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}>
+                  <option value="">Selecione o tipo</option>
+                  {types.map((t) => <option key={t} value={t}>{t}</option>)}
+                </SelectDropdown>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Descrição *</label>
                   <textarea
@@ -1123,32 +1079,14 @@ export default function AchadosPerdidosPage() {
 
             <DrawerCard title="Localização" icon={MapPin}>
               <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Onde foi encontrado *</label>
-                  <select
-                    value={editForm.found_location}
-                    onChange={(e) => setEditForm((f) => ({ ...f, found_location: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                               outline-none focus:border-brand-primary transition-colors"
-                  >
-                    <option value="">Selecione o local</option>
-                    {foundLocations.map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Onde está guardado *</label>
-                  <select
-                    value={editForm.storage_location}
-                    onChange={(e) => setEditForm((f) => ({ ...f, storage_location: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600
-                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-                               outline-none focus:border-brand-primary transition-colors"
-                  >
-                    <option value="">Selecione o local</option>
-                    {storageLocations.map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
+                <SelectDropdown label="Onde foi encontrado *" value={editForm.found_location} onChange={(e) => setEditForm((f) => ({ ...f, found_location: e.target.value }))}>
+                  <option value="">Selecione o local</option>
+                  {foundLocations.map((l) => <option key={l} value={l}>{l}</option>)}
+                </SelectDropdown>
+                <SelectDropdown label="Onde está guardado *" value={editForm.storage_location} onChange={(e) => setEditForm((f) => ({ ...f, storage_location: e.target.value }))}>
+                  <option value="">Selecione o local</option>
+                  {storageLocations.map((l) => <option key={l} value={l}>{l}</option>)}
+                </SelectDropdown>
               </div>
             </DrawerCard>
 
