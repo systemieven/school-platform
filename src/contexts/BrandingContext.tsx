@@ -136,7 +136,71 @@ function injectGoogleFonts(url: string) {
   }
 }
 
-// ── Dynamic Favicon ──
+// ── Dynamic theme-color (PWA + mobile browser chrome) ──
+
+function injectThemeColor(color: string) {
+  if (!color) return;
+  let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.appendChild(meta);
+  }
+  if (meta.content !== color) meta.content = color;
+}
+
+// ── Dynamic Web App Manifest (PWA install values per-client) ──
+
+const MANIFEST_LINK_ID = 'app-manifest-dynamic';
+
+function injectManifest(opts: {
+  name: string;
+  short_name: string;
+  description: string;
+  theme_color: string;
+  background_color: string;
+  icon_url?: string;
+}) {
+  const icons = opts.icon_url
+    ? [
+        { src: opts.icon_url, sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: opts.icon_url, sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: '/pwa-icon-maskable.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
+      ]
+    : [
+        { src: '/pwa-icon.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+        { src: '/pwa-icon.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' },
+        { src: '/pwa-icon-maskable.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
+      ];
+
+  const manifest = {
+    name: opts.name,
+    short_name: opts.short_name,
+    description: opts.description,
+    theme_color: opts.theme_color,
+    background_color: opts.background_color,
+    display: 'standalone',
+    orientation: 'portrait',
+    scope: '/',
+    start_url: '/',
+    lang: 'pt-BR',
+    icons,
+  };
+
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const url = URL.createObjectURL(blob);
+
+  let link = document.getElementById(MANIFEST_LINK_ID) as HTMLLinkElement | null;
+  if (!link) {
+    link = document.createElement('link');
+    link.id = MANIFEST_LINK_ID;
+    link.rel = 'manifest';
+    document.head.appendChild(link);
+  } else if (link.href) {
+    URL.revokeObjectURL(link.href);
+  }
+  link.href = url;
+}
 
 function injectFavicon(url: string) {
   if (!url) return;
@@ -235,6 +299,26 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
   }, []);
+
+  // Sync <meta theme-color> + <link rel="manifest"> with current branding.
+  useEffect(() => {
+    injectThemeColor(colors.primary);
+    injectManifest({
+      name: identity.school_name,
+      short_name: identity.school_short_name || identity.school_name,
+      description: identity.slogan || identity.school_name,
+      theme_color: colors.primary,
+      background_color: colors.surface,
+      icon_url: identity.logo_url || undefined,
+    });
+  }, [
+    colors.primary,
+    colors.surface,
+    identity.school_name,
+    identity.school_short_name,
+    identity.slogan,
+    identity.logo_url,
+  ]);
 
   // Listen for realtime changes to branding settings
   useEffect(() => {
