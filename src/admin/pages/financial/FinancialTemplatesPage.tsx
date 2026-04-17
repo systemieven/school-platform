@@ -12,6 +12,7 @@ import {
   Tag, Code2, Star, Eye,
 } from 'lucide-react';
 import { SelectDropdown } from '../../components/FormField';
+import HtmlTemplateEditor from '../../components/HtmlTemplateEditor';
 
 const TYPE_ICON_COLOR: Record<ContractTemplateType, string> = {
   contract: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
@@ -291,15 +292,16 @@ export default function FinancialTemplatesPage() {
               </label>
             </DrawerCard>
 
-            <DrawerCard title="Conteúdo (HTML)" icon={Code2}>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">HTML com placeholders {'{{variavel}}'} *</label>
-                <textarea value={editing.content} onChange={(e) => updateField('content', e.target.value)} rows={14}
-                  placeholder='<h1>Contrato</h1><p>Aluno: {{student_name}}</p>'
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none text-xs font-mono resize-y" />
-              </div>
-              <p className="text-[11px] text-gray-400">
-                Use placeholders no formato <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{{nome_da_variavel}}'}</code>. Declare as variáveis disponíveis abaixo.
+            <DrawerCard title="Conteúdo" icon={Code2}>
+              <HtmlTemplateEditor
+                value={editing.content}
+                onChange={(html) => updateField('content', html)}
+                variables={editing.variables}
+                placeholder="Escreva o conteúdo do template. Use os chips acima para inserir variáveis."
+                minHeight={360}
+              />
+              <p className="text-[11px] text-gray-400 mt-2">
+                Clique nos chips para inserir <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{{variavel}}'}</code> no cursor. Declare novas variáveis abaixo.
               </p>
             </DrawerCard>
 

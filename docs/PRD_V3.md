@@ -1816,7 +1816,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14.E | Modulo de Fornecedores | ✅ Concluido (migrations 131–132, Sprint 9, 2026-04-17) | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 | OP-1 | Central de Migracao de Dados (Onboarding) | ✅ Concluido (2026-04-17) — PR1–PR5 + Sprint 10-UX. PR1: infraestrutura (migration 150, hub `/admin/migracao`, lock por modulo). PR2a: refator para `ModuleImportWizard` generico + lock pos-sucesso. PR2b: Contatos, Fornecedores, Produtos. PR2c: Segmentos → Series → Turmas (migration 151). PR3: Contas a Receber e Contas a Pagar. PR4: Lancamentos de Caixa; migration 152 remove `appointments` do escopo (nao vital em ERPs escolares). PR5: Colaboradores — extensao do wizard com step opcional "Revisar" via `perRowOverrides` (admin define `role` por linha, com "aplicar a todos"); Edge Function `bulk-import-users` cria auth rows com senha temporaria + `must_change_password=true`. **Sprint 10-UX**: grupos em `SettingsCard` bicolor, timeline horizontal com avatars redondos, dependencias sequenciais (grupo trava ate o anterior concluir; dentro do grupo cada etapa aguarda a anterior), avatar final por grupo com `%` ou check verde ao completar, breadcrumb "Migração" com acentuacao. **10 importadores ativos, zero modulos pendentes.** | Alta | Todas as tabelas-alvo existentes |
-| TV-1 | Editor Visual de Templates HTML | ⏳ Planejado | Media | contract_templates + document_templates + generate-document |
+| TV-1 | Editor Visual de Templates HTML | ⚙️ Em andamento (2026-04-17) — PR1: `HtmlTemplateEditor` em TipTap 3.22.3 com toolbar + chips de variaveis (`src/admin/components/HtmlTemplateEditor.tsx`). PR2/PR3 pendentes (integrar em FinancialTemplatesPage + document_templates). | Media | contract_templates + document_templates + generate-document |
 | DASH-1 | Dashboards por Permissao (1 dashboard compartilhado, blocos auto-filtrantes) | ✅ Concluido (2026-04-17) | Media-Alta | Permissoes granulares (migration 143) |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
@@ -5019,8 +5019,8 @@ A rota `/admin/migracao` e seus filhos retornam 403 para qualquer role que nao s
 ### 10.14 Editor Visual de Templates HTML
 
 **Codigo**: TV-1 (tooling visual, transversal)
-**Status**: ⏳ Planejado
-**Posicionamento no roadmap**: apos Sprint 10 (Fase 14.S — NFS-e) e antes de Sprint 11 (Fase 13 — IA); nao bloqueia NFS-e mas entrega a estrutura necessaria para o PDF da NFS-e
+**Status**: ⚙️ Em andamento (2026-04-17). **PR1 concluido** — `HtmlTemplateEditor` (`src/admin/components/HtmlTemplateEditor.tsx`) baseado em TipTap 3.22.3 (pinado, starter-kit + underline + link + text-align + placeholder) com toolbar completa (bold/italic/underline, H1–H3, listas, alinhamento, link, code block, clear formatting, undo/redo) e chips clicaveis de variaveis que inserem `{{key}}` no cursor. Saida e HTML limpo compativel com o renderer atual. **PR2 (em andamento)**: integrar em `FinancialTemplatesPage`. **PR3**: integrar em `document_templates`.
+**Posicionamento no roadmap**: Sprint 12 apos OP-1 concluido. NFS-e provider (14.S.P) segue pendente ate o cliente definir provider.
 
 ---
 
