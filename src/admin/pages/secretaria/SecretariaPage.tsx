@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FileText, Heart, RefreshCw, ArrowRightLeft,
   PanelLeftClose, PanelLeftOpen,
   Check, Loader2, Trash2, Plus, X, Search, ChevronDown,
-  ShieldCheck, HeartPulse, Stethoscope, AlertTriangle, Bell,
+  ShieldCheck, HeartPulse, Stethoscope, AlertTriangle, Bell, ShieldOff,
 } from 'lucide-react';
+import { usePermissions } from '../../contexts/PermissionsContext';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import { SelectDropdown, SearchableSelect } from '../../components/FormField';
@@ -2375,6 +2376,8 @@ interface TabDef {
   shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
+  /** Granular module key required to view this tab. */
+  moduleKey: string;
 }
 
 const TABS: TabDef[] = [
@@ -2384,6 +2387,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Declarações',
     icon: FileText,
     description: 'Solicitações de documentos e templates para emissão',
+    moduleKey: 'secretaria-declaracoes',
   },
   {
     key: 'fichas-saude',
@@ -2391,6 +2395,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Fichas de Saúde',
     icon: Heart,
     description: 'Dados de saúde, alergias e contatos de emergência dos alunos',
+    moduleKey: 'secretaria-saude',
   },
   {
     key: 'rematricula',
@@ -2398,6 +2403,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Rematrícula',
     icon: RefreshCw,
     description: 'Campanhas e solicitações de rematrícula',
+    moduleKey: 'secretaria-rematricula',
   },
   {
     key: 'transferencias',
@@ -2405,14 +2411,44 @@ const TABS: TabDef[] = [
     shortLabel: 'Transferências',
     icon: ArrowRightLeft,
     description: 'Transferências internas, saídas, trancamentos e cancelamentos',
+    moduleKey: 'secretaria-transferencias',
   },
 ];
 
 export default function SecretariaPage() {
-  const [activeTab, setActiveTab] = useState('declaracoes');
+  const { canView } = usePermissions();
+  const visibleTabs = useMemo(
+    () => TABS.filter((t) => canView(t.moduleKey)),
+    [canView],
+  );
+  const firstVisibleKey = visibleTabs[0]?.key ?? TABS[0].key;
+  const [activeTab, setActiveTab] = useState(firstVisibleKey);
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
 
-  const currentTab = TABS.find((t) => t.key === activeTab) ?? TABS[0];
+  // Bounce when active tab loses visibility (e.g. permissions refresh).
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.key === activeTab)) {
+      setActiveTab(firstVisibleKey);
+    }
+  }, [activeTab, visibleTabs, firstVisibleKey]);
+
+  const currentTab = visibleTabs.find((t) => t.key === activeTab) ?? visibleTabs[0];
+
+  if (visibleTabs.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Secretaria Digital</h1>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-10 text-center">
+          <ShieldOff className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-500 dark:text-gray-400">
+            Você não tem permissão para visualizar nenhum módulo da secretaria.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -2442,7 +2478,7 @@ export default function SecretariaPage() {
               )}
             </button>
             <div className="p-1.5 space-y-0.5">
-              {TABS.map((tab) => {
+              {visibleTabs.map((tab) => {
                 const TabIcon = tab.icon;
                 const isActive = activeTab === tab.key;
                 return (

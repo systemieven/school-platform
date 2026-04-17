@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { usePermissions } from '../../contexts/PermissionsContext';
 import AttendanceSettingsPanel from './AttendanceSettingsPanel';
 import GeolocationField from '../../components/GeolocationField';
 import { SettingsCard } from '../../components/SettingsCard';
@@ -45,6 +46,13 @@ interface TabDef {
   icon: React.ComponentType<{ className?: string }>;
   categories: string[];
   description: string;
+  /**
+   * Granular module key required to *view* this tab. The tab is hidden in the
+   * rail and the URL `?tab=` is rejected for users who lack `canView(requiredModule)`.
+   * Most settings tabs gate on `'settings'`; tabs that surface dedicated modules
+   * (financeiro/fiscal/usuarios/etc.) gate on the matching module key.
+   */
+  requiredModule: string;
 }
 
 // Ordem: Institucional primeiro, demais em ordem alfabética.
@@ -57,6 +65,7 @@ const TABS: TabDef[] = [
     icon: Building2,
     categories: ['general'],
     description: 'Informações principais da escola exibidas no site e documentos.',
+    requiredModule: 'settings',
   },
   {
     key: 'academico',
@@ -65,6 +74,7 @@ const TABS: TabDef[] = [
     icon: GraduationCap,
     categories: ['academico'],
     description: 'Períodos letivos, fórmulas de média e alertas de frequência.',
+    requiredModule: 'academico',
   },
   {
     key: 'visits',
@@ -73,6 +83,7 @@ const TABS: TabDef[] = [
     icon: CalendarCheck,
     categories: ['visit'],
     description: 'Configure motivos, horários e regras para agendamento de visitas.',
+    requiredModule: 'appointments',
   },
   {
     key: 'attendance',
@@ -81,6 +92,7 @@ const TABS: TabDef[] = [
     icon: Ticket,
     categories: ['attendance'],
     description: 'Regras de elegibilidade, formato de senha, sons, tela do cliente e feedback.',
+    requiredModule: 'attendance',
   },
   {
     key: 'ferramentas',
@@ -89,6 +101,7 @@ const TABS: TabDef[] = [
     icon: FileSearch,
     categories: [],
     description: 'Configure módulos de ferramentas como Achados e Perdidos.',
+    requiredModule: 'lost-found',
   },
   {
     key: 'fiscal',
@@ -97,6 +110,7 @@ const TABS: TabDef[] = [
     icon: Receipt,
     categories: ['fiscal'],
     description: 'Dados do emitente NF-e, configurações de emissão e perfis fiscais.',
+    requiredModule: 'nfse-config',
   },
   {
     key: 'audit',
@@ -105,6 +119,7 @@ const TABS: TabDef[] = [
     icon: FileSearch,
     categories: [],
     description: 'Visualize logs de ações realizadas no sistema.',
+    requiredModule: 'audit',
   },
   {
     key: 'contact',
@@ -113,6 +128,7 @@ const TABS: TabDef[] = [
     icon: MessageSquare,
     categories: ['contact'],
     description: 'Gerencie motivos de contato, campos obrigatórios e qualificação de leads.',
+    requiredModule: 'contacts',
   },
   {
     key: 'financial',
@@ -121,6 +137,7 @@ const TABS: TabDef[] = [
     icon: DollarSign,
     categories: ['financial'],
     description: 'Gateways de pagamento, régua de cobrança e chave PIX.',
+    requiredModule: 'payment-gateways',
   },
   {
     key: 'enrollment',
@@ -129,6 +146,7 @@ const TABS: TabDef[] = [
     icon: GraduationCap,
     categories: ['enrollment'],
     description: 'Defina campos obrigatórios, documentos exigidos e regras do formulário.',
+    requiredModule: 'enrollments',
   },
   {
     key: 'notifications',
@@ -137,6 +155,7 @@ const TABS: TabDef[] = [
     icon: Bell,
     categories: ['notifications'],
     description: 'Configure alertas automáticos e templates de comunicação.',
+    requiredModule: 'settings',
   },
   {
     key: 'permissions',
@@ -145,6 +164,7 @@ const TABS: TabDef[] = [
     icon: Shield,
     categories: [],
     description: 'Gerencie permissões por cargo e por usuário.',
+    requiredModule: 'users',
   },
   {
     key: 'security',
@@ -153,6 +173,7 @@ const TABS: TabDef[] = [
     icon: Shield,
     categories: ['security'],
     description: 'Defina critérios de senhas, tempo de vida e reutilização.',
+    requiredModule: 'settings',
   },
   {
     key: 'site',
@@ -161,6 +182,7 @@ const TABS: TabDef[] = [
     icon: Palette,
     categories: ['appearance', 'branding', 'navigation', 'content', 'seo'],
     description: 'Aparência, marca, navegação, conteúdo e SEO do site público.',
+    requiredModule: 'settings',
   },
   {
     key: 'users',
@@ -169,6 +191,7 @@ const TABS: TabDef[] = [
     icon: Users,
     categories: [],
     description: 'Gerencie os usuários do sistema, cargos e acessos.',
+    requiredModule: 'users',
   },
   {
     key: 'whatsapp',
@@ -177,6 +200,7 @@ const TABS: TabDef[] = [
     icon: MessageCircle,
     categories: ['whatsapp'],
     description: 'Conexão com a API WhatsApp para envio de mensagens automáticas.',
+    requiredModule: 'settings',
   },
 ];
 
@@ -234,14 +258,21 @@ const TABS_STORAGE_KEY = 'settings_tabs_collapsed';
 // ── Component ────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
+  const { canView } = usePermissions();
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
-  const initialTab = TABS.some((t) => t.key === searchParams.get('tab'))
-    ? searchParams.get('tab')!
-    : TABS[0].key;
+  // First tab the user is allowed to see — used both as initial fallback and
+  // as the redirect target when an incoming `?tab=` is forbidden.
+  const firstAllowedKey =
+    TABS.find((t) => canView(t.requiredModule))?.key ?? TABS[0].key;
+  const requestedTab = searchParams.get('tab');
+  const initialTab =
+    requestedTab && TABS.some((t) => t.key === requestedTab && canView(t.requiredModule))
+      ? requestedTab
+      : firstAllowedKey;
   const [activeTab, setActiveTab] = useState(initialTab);
   const [siteSubTab, setSiteSubTab] = useState<SiteTab>('appearance');
   const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfse'>('nfe');
@@ -449,24 +480,57 @@ export default function SettingsPage() {
   // Tabs with their own custom panel never depend on the generic settings array
   const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial', 'academico', 'ferramentas', 'fiscal'];
 
-  // Tabs that have settings in the DB OR have a custom panel
+  // Tabs that have settings in the DB OR have a custom panel — gated by permission.
   const availableTabs = TABS.filter(
     (tab) =>
-      CUSTOM_PANEL_TABS.includes(tab.key) ||
-      settings.some((s) => tab.categories.includes(s.category)),
+      canView(tab.requiredModule) &&
+      (CUSTOM_PANEL_TABS.includes(tab.key) ||
+        settings.some((s) => tab.categories.includes(s.category))),
   );
 
-  // Tabs without settings yet (show as "coming soon")
+  // Tabs without settings yet (show as "coming soon") — also gated by permission.
   const emptyTabs = TABS.filter(
     (tab) =>
+      canView(tab.requiredModule) &&
       !CUSTOM_PANEL_TABS.includes(tab.key) &&
       !settings.some((s) => tab.categories.includes(s.category)),
   );
+
+  // If the active tab loses visibility (permissions refresh, URL hand-off,
+  // etc.) bounce the user to the first tab they can actually see.
+  useEffect(() => {
+    const current = TABS.find((t) => t.key === activeTab);
+    if (!current || !canView(current.requiredModule)) {
+      setActiveTab(firstAllowedKey);
+    }
+  }, [activeTab, canView, firstAllowedKey]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
+      </div>
+    );
+  }
+
+  // User reached `/admin/configuracoes` with `settings.view` (or via a stale
+  // shortcut) but no individual sub-panel is permitted: show a graceful
+  // fallback instead of a half-empty layout.
+  if (availableTabs.length === 0 && emptyTabs.length === 0) {
+    return (
+      <div>
+        <div className="mb-6">
+          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
+            <Settings className="w-8 h-8" />
+            Configurações
+          </h1>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-10 text-center">
+          <Shield className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-500 dark:text-gray-400">
+            Você não tem permissão para visualizar nenhuma seção das configurações.
+          </p>
+        </div>
       </div>
     );
   }

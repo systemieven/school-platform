@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useBranding } from '../../../contexts/BrandingContext';
 import { SelectDropdown, SearchableSelect } from '../../components/FormField';
+import { usePermissions } from '../../contexts/PermissionsContext';
 
 // ── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<ContactStatus, { label: string; color: string; dot: string }> = {
@@ -90,6 +91,9 @@ interface DrawerProps {
 function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: DrawerProps) {
   const { profile } = useAdminAuth();
   const { identity } = useBranding();
+  const { can } = usePermissions();
+  const canEditContact = can('contacts', 'edit');
+  const canCreateContact = can('contacts', 'create');
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
   const [newStatus, setNewStatus] = useState<ContactStatus | ''>('');
@@ -345,7 +349,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
               {/* Lead toggle */}
               <button
                 onClick={toggleLead}
-                disabled={saving}
+                disabled={saving || !canEditContact}
                 className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium transition-colors ${
                   contact.is_lead
                     ? 'bg-brand-secondary/20 text-yellow-700 dark:text-yellow-400 border border-brand-secondary/30'
@@ -362,7 +366,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                 <div className="flex gap-2">
                   <input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)}
                     className="flex-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none" />
-                  <button onClick={saveNextDate} disabled={saving || nextDate === (contact.next_contact_date || '')}
+                  <button onClick={saveNextDate} disabled={saving || !canEditContact || nextDate === (contact.next_contact_date || '')}
                     className="px-3 py-2 bg-brand-primary text-white rounded-xl text-xs disabled:opacity-40 hover:bg-brand-primary-dark transition-colors">
                     {saving ? '...' : 'Salvar'}
                   </button>
@@ -387,7 +391,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Notas visíveis apenas para a equipe..."
                   className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none resize-none" />
                 <div className="flex justify-end mt-2">
-                  <button onClick={saveNotes} disabled={saving || notes === (contact.internal_notes || '')}
+                  <button onClick={saveNotes} disabled={saving || !canEditContact || notes === (contact.internal_notes || '')}
                     className="text-xs px-3 py-1.5 bg-brand-primary text-white rounded-lg disabled:opacity-40 hover:bg-brand-primary-dark transition-colors">
                     {saving ? 'Salvando...' : 'Salvar notas'}
                   </button>
@@ -409,7 +413,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                         .map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                     </SelectDropdown>
                   </div>
-                  <button onClick={changeStatus} disabled={!newStatus || saving}
+                  <button onClick={changeStatus} disabled={!newStatus || saving || !canEditContact}
                     className="px-4 py-2 bg-brand-primary text-white rounded-xl text-sm disabled:opacity-40 hover:bg-brand-primary-dark transition-colors">
                     {saving ? '...' : 'OK'}
                   </button>
@@ -423,7 +427,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                   <MessageCircle className="w-4 h-4" /> Enviar WhatsApp
                 </button>
 
-                {!contact.converted_to_enrollment_id && (
+                {!contact.converted_to_enrollment_id && canCreateContact && (
                   <button onClick={convertToEnrollment} disabled={converting === 'enrollment'}
                     className="w-full flex items-center justify-center gap-2 py-2 border border-brand-primary/20 dark:border-brand-secondary/20 text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/5 dark:hover:bg-brand-secondary/5 rounded-xl text-xs font-medium transition-colors disabled:opacity-40">
                     <GraduationCap className="w-3.5 h-3.5" />
@@ -436,7 +440,7 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
                   </div>
                 )}
 
-                {!contact.converted_to_appointment_id && (
+                {!contact.converted_to_appointment_id && canCreateContact && (
                   <button onClick={convertToAppointment} disabled={converting === 'appointment'}
                     className="w-full flex items-center justify-center gap-2 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl text-xs font-medium transition-colors disabled:opacity-40">
                     <CalendarPlus className="w-3.5 h-3.5" />
