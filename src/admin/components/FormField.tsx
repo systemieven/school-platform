@@ -139,12 +139,13 @@ export function SelectField({ label, hint, children, className, ...rest }: Selec
 export interface SelectDropdownProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   hint?: string;
+  wrapperClassName?: string;
   children: React.ReactNode;
 }
 
-export function SelectDropdown({ label, hint, children, className, ...rest }: SelectDropdownProps) {
+export function SelectDropdown({ label, hint, children, className, wrapperClassName, ...rest }: SelectDropdownProps) {
   return (
-    <div>
+    <div className={wrapperClassName}>
       {label && <label className={LABEL_CLS}>{label}</label>}
       <div className="relative">
         <AlignJustify className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
