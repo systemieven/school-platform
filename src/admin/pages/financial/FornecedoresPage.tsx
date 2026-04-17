@@ -13,7 +13,7 @@ import { Drawer, DrawerCard } from '../../components/Drawer';
 import PermissionGate from '../../components/PermissionGate';
 import {
   Building2, Plus, Search, Loader2, Check, Pencil, Trash2,
-  AlertTriangle, Phone, Mail, MapPin, CreditCard, X,
+  AlertTriangle, Phone, MapPin, CreditCard, X,
   TrendingDown, ChevronDown,
 } from 'lucide-react';
 
@@ -218,7 +218,7 @@ const CONTRIBUINTE_OPTIONS = [
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function FornecedoresPage() {
-  const { profile } = useAdminAuth();
+  useAdminAuth();
   const { loading: cepLoading, lookup: cepLookup } = useCepLookup();
 
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -409,12 +409,12 @@ export default function FornecedoresPage() {
     if (form.id) {
       const { error } = await supabase.from('fornecedores').update(payload).eq('id', form.id);
       if (error) { setSaveState('idle'); return; }
-      await logAudit('update', 'fornecedores', form.id, profile?.id);
+      await logAudit({ action: 'update', module: 'fornecedores', recordId: form.id, description: `Fornecedor atualizado: ${payload.razao_social}` });
     } else {
       const { data, error } = await supabase.from('fornecedores').insert(payload).select('id').single();
       if (error) { setSaveState('idle'); return; }
       fornecedorId = data.id;
-      await logAudit('create', 'fornecedores', fornecedorId!, profile?.id);
+      await logAudit({ action: 'create', module: 'fornecedores', recordId: fornecedorId!, description: `Fornecedor criado: ${payload.razao_social}` });
     }
 
     // Save contas bancárias
@@ -468,7 +468,7 @@ export default function FornecedoresPage() {
   const handleDelete = async () => {
     if (!form.id) return;
     await supabase.from('fornecedores').delete().eq('id', form.id);
-    await logAudit('delete', 'fornecedores', form.id, profile?.id);
+    await logAudit({ action: 'delete', module: 'fornecedores', recordId: form.id, description: `Fornecedor excluído: ${form.razao_social}` });
     setDrawerOpen(false);
     load();
   };
@@ -644,12 +644,13 @@ export default function FornecedoresPage() {
 
         {/* Drawer */}
         <Drawer
-          isOpen={drawerOpen}
+          open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           title={form.id ? 'Editar Fornecedor' : 'Novo Fornecedor'}
-          width="xl"
+          icon={Building2}
+          width="w-[640px]"
           footer={
-            <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <div className="flex gap-2">
               {form.id && (
                 <PermissionGate moduleKey="fornecedores" action="delete">
                   {deleteConfirm ? (
