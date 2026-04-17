@@ -11,7 +11,7 @@ import {
   History, GraduationCap, CalendarPlus, Filter, AlertTriangle,
 } from 'lucide-react';
 import { useBranding } from '../../../contexts/BrandingContext';
-import { SelectDropdown } from '../../components/FormField';
+import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 
 // ── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<ContactStatus, { label: string; color: string; dot: string }> = {
@@ -370,16 +370,16 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
               </div>
 
               {/* Assigned to */}
-              <SelectDropdown
+              <SearchableSelect
                 label="Responsável"
                 value={assignedTo}
-                onChange={(e) => saveAssignedTo(e.target.value)}
-              >
-                <option value="">Ninguém atribuído</option>
-                {adminProfiles.map((p) => (
-                  <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
-                ))}
-              </SelectDropdown>
+                onChange={(val) => saveAssignedTo(val)}
+                options={[
+                  { value: '', label: 'Ninguém atribuído' },
+                  ...adminProfiles.map((p) => ({ value: p.id, label: p.full_name || p.id.slice(0, 8) })),
+                ]}
+                placeholder="Selecionar responsável..."
+              />
 
               {/* Internal notes */}
               <div>
