@@ -29,7 +29,9 @@ export default function AttendanceTab({ cls }: { cls: SchoolClass }) {
       .eq('class_id', cls.id)
       .then(({ data }) => {
         if (!data) return;
-        const list = (data as { discipline_id: string; discipline: { id: string; name: string } | null }[])
+        // Cast via `unknown` porque o tipo gerado do Supabase trata embedded
+        // joins como array; aqui sabemos que `discipline` é 1-to-1 (FK simples).
+        const list = (data as unknown as { discipline_id: string; discipline: { id: string; name: string } | null }[])
           .filter((row) => row.discipline !== null)
           .map((row) => ({ id: row.discipline!.id, name: row.discipline!.name }));
         setDisciplines(list);

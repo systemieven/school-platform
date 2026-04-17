@@ -31,26 +31,20 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   associacao:       'Associação',
 };
 
-const PERIOD_OPTIONS = [
-  '1º Bimestre',
-  '2º Bimestre',
-  '3º Bimestre',
-  '4º Bimestre',
-] as const;
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SchoolClass   { id: string; name: string; }
 interface TeacherOption { id: string; full_name: string; }
 interface SubjectOption { id: string; name: string; }
 
+// `discipline_id` e `period` já vêm de `ClassExam`; aqui só estendemos
+// com os joins inline opcionais (Supabase `.select('..., teacher:profiles(...)')`)
+// e contagens calculadas.
 interface ExamRow extends ClassExam {
   class?:       { id: string; name: string } | null;
   subject?:     { id: string; name: string } | null;
   teacher?:     { id: string; full_name: string } | null;
   discipline?:  { id: string; name: string } | null;
-  discipline_id?: string | null;
-  period?:      string | null;
   question_count?: number;
 }
 
@@ -220,7 +214,9 @@ export default function ProvasAdminPage() {
       resultMap[r.student_id] = { score: r.score, feedback: r.feedback };
     });
 
-    const rows: ScoreRow[] = ((enrollRes.data ?? []) as Array<{
+    // Cast via `unknown` porque o tipo gerado do Supabase trata embedded
+    // joins como array; aqui sabemos que `students` é 1-to-1 (FK simples).
+    const rows: ScoreRow[] = ((enrollRes.data ?? []) as unknown as Array<{
       student_id: string;
       students: { id: string; full_name: string } | null;
     }>).map(e => ({
