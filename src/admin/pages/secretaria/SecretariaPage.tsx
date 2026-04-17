@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
-import { SelectDropdown } from '../../components/FormField';
+import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 import type {
   DocumentTemplate,
   DocumentRequest,
@@ -725,10 +725,13 @@ function HealthDrawer({
 
       {!isEdit && (
         <DrawerCard title="Aluno" icon={Search}>
-          <SelectDropdown label="Selecione o aluno *" value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)}>
-            <option value="">— Selecionar aluno —</option>
-            {studentOptions.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-          </SelectDropdown>
+          <SearchableSelect
+            label="Selecione o aluno *"
+            value={selectedStudentId}
+            onChange={(val) => setSelectedStudentId(val)}
+            options={studentOptions.map((s) => ({ value: s.id, label: s.full_name }))}
+            placeholder="Selecione o aluno..."
+          />
         </DrawerCard>
       )}
 
@@ -1967,10 +1970,13 @@ function TransferDrawer({
       title="Nova Movimentação" icon={ArrowRightLeft} footer={footer}>
       <DrawerCard title="Aluno e Tipo" icon={ArrowRightLeft}>
         <div className="space-y-3">
-          <SelectDropdown label="Aluno *" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
-            <option value="">— Selecionar aluno —</option>
-            {studentOptions.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-          </SelectDropdown>
+          <SearchableSelect
+            label="Aluno *"
+            value={studentId}
+            onChange={(val) => setStudentId(val)}
+            options={studentOptions.map((s) => ({ value: s.id, label: s.full_name }))}
+            placeholder="Selecione o aluno..."
+          />
           <SelectDropdown label="Tipo de Movimentação *" value={type} onChange={(e) => setType(e.target.value as StudentTransferType)}>
             {(Object.keys(STUDENT_TRANSFER_TYPE_LABELS) as StudentTransferType[]).map((t) => (
               <option key={t} value={t}>{STUDENT_TRANSFER_TYPE_LABELS[t]}</option>

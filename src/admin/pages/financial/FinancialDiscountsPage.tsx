@@ -17,7 +17,7 @@ import {
   Percent, Loader2, Pencil, Trash2, X, Save, Check,
   Tag, Info, Calendar, Globe, Users, User, Layers, Clock, Plus, TrendingDown,
 } from 'lucide-react';
-import { SelectDropdown } from '../../components/FormField';
+import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -461,10 +461,13 @@ export default function FinancialDiscountsPage() {
               )}
 
               {editing.scope === 'student' && (
-                <SelectDropdown label="Aluno *" value={editing.student_id || ''} onChange={(e) => updateField('student_id', e.target.value || null)}>
-                  <option value="">— Selecione —</option>
-                  {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-                </SelectDropdown>
+                <SearchableSelect
+                  label="Aluno *"
+                  value={editing.student_id || ''}
+                  onChange={(val) => updateField('student_id', val || null)}
+                  options={students.map((s) => ({ value: s.id, label: s.full_name }))}
+                  placeholder="Selecione o aluno..."
+                />
               )}
             </DrawerCard>
 

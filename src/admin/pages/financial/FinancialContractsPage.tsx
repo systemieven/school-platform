@@ -11,7 +11,7 @@ import {
   Save, Check, FileSignature, User, Calendar, Tag, Pencil,
   Upload, FileText, ExternalLink, Link as LinkIcon, Download, Trash2,
 } from 'lucide-react';
-import { SelectDropdown } from '../../components/FormField';
+import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 
 const STORAGE_BUCKET = 'financial-contracts';
 const ALLOWED_MIME = [
@@ -420,10 +420,13 @@ export default function FinancialContractsPage() {
         }
       >
         <DrawerCard title="Aluno e Plano" icon={User}>
-          <SelectDropdown label="Aluno *" value={form.student_id} onChange={(e) => setForm((p) => ({ ...p, student_id: e.target.value }))}>
-            <option value="">Selecione o aluno</option>
-            {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.enrollment_number})</option>)}
-          </SelectDropdown>
+          <SearchableSelect
+            label="Aluno *"
+            value={form.student_id}
+            onChange={(val) => setForm((p) => ({ ...p, student_id: val }))}
+            options={students.map((s) => ({ value: s.id, label: `${s.full_name} (${s.enrollment_number})` }))}
+            placeholder="Selecione o aluno..."
+          />
           <SelectDropdown label="Plano *" value={form.plan_id} onChange={(e) => setForm((p) => ({ ...p, plan_id: e.target.value }))}>
             <option value="">Selecione o plano</option>
             {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {fmt(p.amount)}</option>)}
