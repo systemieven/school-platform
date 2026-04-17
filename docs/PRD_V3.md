@@ -5358,6 +5358,203 @@ O componente `HtmlTemplateEditor` usa `PermissionGate` com os modulos existentes
 
 ---
 
+## 12. Auditoria de Pipelines — Gaps Criticos (2026-04-17)
+
+> Levantamento tecnico completo dos pipelines criticos do sistema, identificando desconexoes entre modulos. Ordenado por severidade e impacto operacional.
+
+---
+
+### 12.1 Pipeline Financeiro
+
+#### F-1 — NF-e de entrada NAO cria lancamento em `financial_payables` [CRITICO]
+
+**Arquivo:** `src/admin/pages/financial/NfeEntradasPage.tsx`, funcao `handleSave()` (linhas ~307–382)
+
+O fluxo de importacao de XML persiste em `nfe_entries` + `nfe_entry_items` e encerra. Nenhuma chamada para `financial_payables` e o campo `nfe_entries.status` fica eternamente em `'imported'` — nunca transita para `'processed'`. Compras de fornecedores existem no modulo fiscal mas sao **invisiveis para o modulo financeiro**, causando subnotificacao sistematica de despesas.
+
+**Solucao:** Apos a importacao (ou via botao "Processar NF-e"), criar automaticamente um `financial_payables` com `amount = valor_total_nfe`, `fornecedor_id`, `due_date` configuravel, e atualizar `nfe_entries.status = 'processed'`. Adicionar coluna `nfe_entry_id UUID REFERENCES nfe_entries` em `financial_payables` para rastreabilidade bidirecional. Migration necessaria.
+
+---
+
+#### F-2 — Baixa de A/P e A/R nao cria movimentacao no caixa [ALTO]
+
+**Arquivo:** `FinancialPayablesPage.tsx` funcao `payPayable()` (linhas ~303–318); padrao identico em `FinancialReceivablesPage.tsx`
+
+`payPayable()` faz `UPDATE financial_payables SET status = 'paid'` e encerra. Nao cria `financial_cash_movements` com `type = 'outflow'`. O caixa fisico (`financial_cash_registers.current_balance`) nao e reduzido. O mesmo padrao ocorre em receivables — recebimentos marcados manualmente nao entram no caixa.
+
+**Solucao:** Ao confirmar pagamento/recebimento, criar automaticamente um `financial_cash_movements` vinculado ao caixa aberto do dia. Se nenhum caixa estiver aberto, exibir modal de confirmacao antes de registrar.
+
+---
+
+#### F-3 — PDV manual: insert de `financial_cash_movements` falha silenciosamente [CRITICO]
+
+**Arquivo:** `src/admin/pages/loja/PDVPage.tsx` linhas ~300–306
+
+O PDV insere `reference_type: 'order'` mas a constraint do banco aceita apenas `'receivable' | 'payable'`. O insert tambem omite `cash_register_id` (NOT NULL FK) e `balance_after` (NOT NULL). O erro e capturado pelo `catch` e ignorado. Toda venda PDV manual registra `store_orders` mas **nenhum movimento financeiro e criado**.
+
+**Solucao:** (a) Adicionar `'order'` ao CHECK de `reference_type` em `financial_cash_movements` via migration; (b) buscar o caixa aberto do dia e incluir `cash_register_id` e `balance_after` calculado no insert; (c) se nenhum caixa estiver aberto, bloquear a finalizacao e orientar o usuario a abrir caixa primeiro.
+
+---
+
+#### F-4 — Pedido online pago via webhook NAO cria lancamento financeiro [CRITICO]
+
+**Arquivo:** `supabase/functions/payment-gateway-webhook/index.ts` linhas ~297–313
+
+O webhook de confirmacao de pagamento apenas faz `UPDATE store_orders SET status = 'payment_confirmed'`. Nao cria `financial_receivables`, `financial_cash_movements` nem atualiza parcelas. Toda receita da loja virtual e **invisivel** para o modulo financeiro.
+
+**Solucao:** Apos confirmar o pagamento no webhook, criar um `financial_receivables` com `source_type = 'store_order'`, `source_id = order_id`, `amount = total_amount`, e opcionalmente um `financial_cash_movements` se existir caixa do dia aberto. Tornar idempotente via `ON CONFLICT DO NOTHING`.
+
+---
+
+#### F-5 — `store_orders` ausente das views de relatorio financeiro [ALTO]
+
+**Arquivo:** `supabase/migrations/00000000000073_financial_report_views.sql`
+
+As views `financial_cash_flow_view` e `financial_dre_view` consolidam `financial_receivables + financial_installments + financial_payables + financial_cash_movements`. Nenhuma delas inclui `store_orders`. Mesmo apos F-4 ser corrigido (pedidos gerando receivables), as views devem ser auditadas para garantir que a cadeia esteja completa.
+
+**Solucao:** Apos implementar F-3 e F-4, auditar as views e incluir `store_orders` como fonte direta de receita caso o modelo de dados justifique (vs. transitar sempre via `financial_receivables`).
+
+---
+
+#### F-6 — Pagamento manual de parcela nao atualiza o caixa [ALTO]
+
+**Arquivo:** `src/admin/pages/financial/FinancialInstallmentsPage.tsx` funcao `handlePay()` (linhas ~125–157)
+
+`handlePay()` faz `UPDATE financial_installments SET status = 'paid'` e encerra. Nao cria `financial_cash_movements` nem atualiza `current_balance` do caixa aberto. Pagamentos em dinheiro na secretaria nao refletem no caixa fisico.
+
+**Solucao:** Mesmo padrao de F-2 — ao confirmar pagamento manual, criar movimento no caixa aberto do dia.
+
+---
+
+### 12.2 Pipeline Academico
+
+#### A-1 — Frequencia por disciplina nunca gravada: `AttendanceTab` omite `discipline_id` [CRITICO]
+
+**Arquivo:** `src/admin/pages/teacher/tabs/AttendanceTab.tsx` linha ~55
+
+O upsert de presenca usa `{ student_id, class_id, date, status }` — sem `discipline_id`. A migration 50 adicionou a coluna mas o frontend nunca a preenche. Consequencias em cascata:
+- `AlertasFrequenciaPage.tsx` tenta agrupar por `discipline_id` mas todos os registros sao `null` — % de frequencia por disciplina e invalido
+- `calculate-grades` (Edge Function) le `student_attendance.discipline_id` para calcular `attendance_pct` no boletim — resultado incorreto para todas as turmas
+
+**Solucao:** Passar `discipline_id` no upsert de frequencia; adicionar seletor de disciplina na UI do `AttendanceTab` (pode ser derivado do horario do dia via `class_schedules`).
+
+---
+
+#### A-2 — Provas (`class_exams`) desconectadas do boletim: sem tabela de resultados por aluno [CRITICO]
+
+**Arquivo:** `ProvasAdminPage.tsx`, `supabase/migrations/00000000000080_class_exams.sql`
+
+`class_exams` armazena a prova mas nao ha tabela `exam_results` ou `exam_student_scores`. Nao e possivel registrar a nota de um aluno numa prova especifica. O modulo de provas esta conceitualmente completo mas **desconectado do boletim** — nenhuma nota de prova alimenta `grades` automaticamente. O professor precisaria lancar manualmente em `GradesTab` sem vinculo com a prova.
+
+**Solucao:** Criar tabela `exam_results (exam_id FK, student_id FK, score, feedback, graded_at, graded_by)` com upsert no portal do professor. Conectar ao `calculate-grades` para incluir nota de prova na media do periodo. Migration necessaria.
+
+---
+
+#### A-3 — Dois cadastros de disciplinas paralelos sem mapeamento [CRITICO]
+
+**Arquivos:** `ObjetivosPage.tsx` (usa `school_subjects`); `GradeHorariaPage.tsx`, `class_exams`, `grades`, `AttendanceTab` (usam `disciplines`)
+
+`school_subjects` (tabela legada, usada no diario e objetivos BNCC) e `disciplines` (tabela atual, usada em grade horaria, notas e frequencia) coexistem sem FK nem tabela de mapeamento. E impossivel vincular um objetivo BNCC diretamente a uma disciplina da grade, ou correlacionar o diario de classe com notas reais.
+
+**Solucao:** Migration de consolidacao: adicionar `discipline_id UUID REFERENCES disciplines` em `school_subjects`, criar migration de mapeamento para registros existentes, e deprecar progressivamente `school_subjects` migrando referencias para `disciplines`. Ou inverso: adicionar `subject_id` em `disciplines`. Decisao de design necessaria antes da migracao.
+
+---
+
+#### A-4 — `student_results` (boletim) so atualiza via "Fechar Periodo" manual [ALTO]
+
+**Arquivo:** `src/admin/pages/academico/BoletimPage.tsx` linha ~159
+
+A tabela `student_results` fica desatualizada ate o admin clicar em "Fechar Periodo". Lancar uma nota nao atualiza o boletim em tempo real.
+
+**Solucao:** Trigger Postgres em `grades` e `student_attendance` que chame `calculate-grades` de forma incremental (ou via pg_net para invocar a Edge Function), ou executar o calculo como cron diario. Para MVP: exibir aviso no boletim indicando data do ultimo calculo.
+
+---
+
+#### A-5 — Grade horaria e diario do professor completamente desconectados [ALTO]
+
+**Arquivos:** `GradeHorariaPage.tsx`, `DiarioAdminPage.tsx`, `supabase/migrations/00000000000077_class_diary.sql`
+
+Nao existe logica que, ao abrir o diario, pré-popule as aulas com base na grade configurada. O campo `class_diary_entries.lesson_plan_id` tem comentario "FK para lesson_plans (add depois)" — nunca implementado. O professor escreve qualquer coisa em qualquer data sem referencia ao horario programado.
+
+**Solucao:** Ao abrir o diario para uma data, buscar `class_schedules` para aquele dia e pre-popular entradas de diario com `discipline_id`, `teacher_id` e `class_id` correspondentes. O professor confirma e complementa o conteudo.
+
+---
+
+#### A-6 — `AlertasFrequenciaPage` carrega todo historico sem filtro de ano letivo [ALTO]
+
+**Arquivo:** `src/admin/pages/academico/AlertasFrequenciaPage.tsx` linha ~104
+
+SELECT sem `.eq('school_year', ...)` — em producao com varios anos letivos, carrega todos os registros, degradando performance e calculando % incorretos (mistura anos).
+
+**Solucao:** Adicionar filtro por `school_year = current_year` (ou seletor de ano na toolbar). Simples de implementar.
+
+---
+
+#### A-7 — Parcelas de matricula sempre iniciam em janeiro, criando vencidas retroativas [ALTO]
+
+**Arquivo:** `supabase/migrations/00000000000046_financial_module.sql` linha ~408
+
+`generate_installments_for_contract` calcula vencimentos a partir de `make_date(school_year, 1, 1)`. Uma matricula em abril gera parcelas jan-abr com status `'overdue'` imediatamente. O sistema infla artificialmente a inadimplencia e envia cobranças erroneas.
+
+**Solucao:** Adicionar parametro `p_start_month INT DEFAULT EXTRACT(MONTH FROM CURRENT_DATE)` a funcao e iniciar a geracao no mes da matricula. Oferecer opcao de cobrar retroativamente ou nao no wizard de contrato.
+
+---
+
+### 12.3 Tabela Resumo — Priorizacao
+
+| # | Gap | Severidade | Impacto | Sprint Sugerido |
+|---|-----|-----------|---------|-----------------|
+| F-3 | PDV manual nao grava no caixa | **CRITICO** | Caixa do dia incorreto | 9.6 |
+| F-4 | Pedido online invisivel para financeiro | **CRITICO** | Receita nao contabilizada | 9.6 |
+| A-1 | Frequencia por disciplina sempre nula | **CRITICO** | Boletim e alertas incorretos | 9.6 |
+| A-2 | Provas sem tabela de resultados por aluno | **CRITICO** | Modulo inteiro nao funcional | 9.7 |
+| A-3 | Dois cadastros de disciplinas sem mapeamento | **CRITICO** | Bloqueia integracao de modulos | 9.8 |
+| F-1 | NF-e nao gera contas a pagar | **CRITICO** | Despesas nao contabilizadas | 9.6 |
+| F-2 | Baixa A/P e A/R nao atualiza caixa | Alto | Caixa inconsistente | 9.6 |
+| F-6 | Parcela paga manualmente nao atualiza caixa | Alto | Caixa inconsistente | 9.6 |
+| A-4 | Boletim so atualiza com "Fechar Periodo" | Alto | UX degradada | 9.7 |
+| A-5 | Grade horaria desconectada do diario | Alto | Diario sem contexto | 9.8 |
+| A-6 | Frequencia sem filtro de ano letivo | Alto | Performance + dados errados | 9.6 |
+| A-7 | Parcelas iniciam sempre em janeiro | Alto | Inadimplencia inflada | 9.6 |
+| F-5 | store_orders fora das views de relatorio | Alto | Relatorios incompletos | 9.6 |
+
+---
+
+### 12.4 Sprints Propostos para Correcao
+
+#### Sprint 9.6 — Pontes Financeiras (bugs criticos de integracao)
+**Estimativa: 3-4 dias | Prioritario — corrige dados incorretos em producao**
+
+| Item | Arquivo | Acao |
+|------|---------|------|
+| F-1 | `NfeEntradasPage.tsx` + migration | `handleSave()` cria `financial_payables`; migration adiciona `nfe_entry_id` FK em `financial_payables` |
+| F-2 | `FinancialPayablesPage.tsx`, `FinancialReceivablesPage.tsx` | Baixa cria `financial_cash_movements` no caixa aberto |
+| F-3 | `PDVPage.tsx` + migration | Corrige insert: `reference_type 'order'`, busca caixa aberto, inclui `cash_register_id` e `balance_after` |
+| F-4 | `payment-gateway-webhook/index.ts` | Apos confirmar pagamento, cria `financial_receivables` idempotente |
+| F-5 | `migration 073` (views) | Auditar e incluir `store_orders` como fonte de receita |
+| F-6 | `FinancialInstallmentsPage.tsx` | `handlePay()` cria movimento no caixa aberto |
+| A-6 | `AlertasFrequenciaPage.tsx` | Adicionar filtro de ano letivo no SELECT |
+| A-7 | `migration 046` (funcao SQL) | Parametro `p_start_month` em `generate_installments_for_contract` |
+
+#### Sprint 9.7 — Pipeline Academico (modulos desconectados)
+**Estimativa: 3-4 dias**
+
+| Item | Arquivo | Acao |
+|------|---------|------|
+| A-1 | `AttendanceTab.tsx` | Passar `discipline_id` no upsert; seletor de disciplina derivado de `class_schedules` |
+| A-2 | Nova migration + `ProvasAdminPage.tsx` + portal professor | Criar `exam_results`; UI de lancamento de nota por prova; conectar ao `calculate-grades` |
+| A-4 | Trigger Postgres ou cron | Recalculo incremental de `student_results` ao inserir em `grades` |
+
+#### Sprint 9.8 — Consolidacao de Disciplinas (debito tecnico estrutural)
+**Estimativa: 2-3 dias | Alta complexidade — requer decisao de design**
+
+| Item | Arquivo | Acao |
+|------|---------|------|
+| A-3 | Migration de consolidacao | Adicionar `discipline_id` em `school_subjects`; mapeamento de dados existentes |
+| A-5 | `DiarioAdminPage.tsx`, portal professor | Pre-popular diario com grade horaria do dia |
+
+---
+
 ## Apendices
 
 ### A. Glossario
