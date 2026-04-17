@@ -203,22 +203,24 @@ export default function PortariaPage() {
 
       {/* Search */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
-              type="text"
-              placeholder="Buscar aluno por nome ou número de matrícula..."
+              type="search"
+              inputMode="search"
+              autoComplete="off"
+              placeholder="Nome ou matrícula..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary transition-colors"
+              className="w-full pl-9 pr-3 min-h-[48px] py-3 text-base sm:text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary transition-colors"
             />
           </div>
           <button
             onClick={handleSearch}
             disabled={searching || !query.trim()}
-            className="px-4 py-2.5 rounded-xl bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="min-h-[48px] px-4 py-3 rounded-xl bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             Buscar
@@ -232,12 +234,12 @@ export default function PortariaPage() {
               <button
                 key={s.id}
                 onClick={() => selectStudent(s)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left border-b border-gray-50 dark:border-gray-700/50 last:border-b-0"
+                className="w-full flex items-center gap-3 px-4 py-4 min-h-[56px] hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors text-left border-b border-gray-50 dark:border-gray-700/50 last:border-b-0"
               >
                 {s.photo_url ? (
-                  <img src={s.photo_url} alt={s.full_name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                  <img src={s.photo_url} alt={s.full_name} className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
                 ) : (
-                  <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-sm font-semibold text-gray-500 flex-shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-base font-semibold text-gray-500 flex-shrink-0">
                     {s.full_name.charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -341,71 +343,71 @@ export default function PortariaPage() {
                 ) : (
                   <div className="space-y-3">
                     {exitAuths.map((auth) => (
-                      <div key={auth.id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              {auth.third_party_photo_url && (
-                                <img
-                                  src={auth.third_party_photo_url}
-                                  alt={auth.third_party_name}
-                                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                                />
-                              )}
-                              <div>
-                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{auth.third_party_name}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  {THIRD_PARTY_REL_LABELS[auth.third_party_rel] ?? auth.third_party_rel} · {auth.third_party_cpf}
-                                </p>
-                              </div>
+                      <div key={auth.id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3 space-y-3">
+                        <div className="flex items-start gap-3">
+                          {auth.third_party_photo_url ? (
+                            <img
+                              src={auth.third_party_photo_url}
+                              alt={auth.third_party_name}
+                              className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-base font-semibold text-gray-500 flex-shrink-0">
+                              {auth.third_party_name.charAt(0).toUpperCase()}
                             </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{auth.third_party_name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {THIRD_PARTY_REL_LABELS[auth.third_party_rel] ?? auth.third_party_rel} · {auth.third_party_cpf}
+                            </p>
                             {auth.period && (
-                              <p className="text-xs text-gray-500 mt-1">Turno: {PERIOD_LABELS[auth.period] ?? auth.period}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">Turno: {PERIOD_LABELS[auth.period] ?? auth.period}</p>
                             )}
                             <p className="text-xs text-gray-400 mt-0.5">
                               Válida: {formatDate(auth.valid_from)} → {formatDate(auth.valid_until)}
                             </p>
                           </div>
+                        </div>
 
-                          <div className="flex-shrink-0">
-                            {confirmingAuth?.id === auth.id ? (
-                              <div className="flex flex-col gap-2">
-                                <p className="text-xs text-gray-600 dark:text-gray-400 text-center">Confirmar saída?</p>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => { setConfirmingAuth(null); setConfirmState('idle'); }}
-                                    className="px-2 py-1.5 rounded-lg text-xs border border-gray-200 dark:border-gray-700 text-gray-600 hover:bg-gray-50 transition-colors"
-                                  >
-                                    Não
-                                  </button>
-                                  <button
-                                    onClick={confirmExit}
-                                    disabled={confirmState === 'saving'}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
-                                      confirmState === 'done'
-                                        ? 'bg-emerald-500 text-white'
-                                        : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
-                                    }`}
-                                  >
-                                    {confirmState === 'saving' ? (
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : confirmState === 'done' ? (
-                                      <><Check className="w-3 h-3" /> Confirmado</>
-                                    ) : (
-                                      'Sim'
-                                    )}
-                                  </button>
-                                </div>
+                        <div>
+                          {confirmingAuth?.id === auth.id ? (
+                            <div className="space-y-2">
+                              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 text-center">Confirmar saída de {auth.third_party_name}?</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => { setConfirmingAuth(null); setConfirmState('idle'); }}
+                                  className="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  onClick={confirmExit}
+                                  disabled={confirmState === 'saving'}
+                                  className={`flex-1 min-h-[44px] px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                                    confirmState === 'done'
+                                      ? 'bg-emerald-500 text-white'
+                                      : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
+                                  }`}
+                                >
+                                  {confirmState === 'saving' ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : confirmState === 'done' ? (
+                                    <><Check className="w-4 h-4" /> Confirmado</>
+                                  ) : (
+                                    <><Check className="w-4 h-4" /> Confirmar</>
+                                  )}
+                                </button>
                               </div>
-                            ) : (
-                              <button
-                                onClick={() => startConfirm(auth)}
-                                className="px-3 py-1.5 rounded-xl text-xs font-medium bg-brand-primary text-white hover:bg-brand-primary-dark transition-colors flex items-center gap-1"
-                              >
-                                <User className="w-3 h-3" /> Confirmar Saída
-                              </button>
-                            )}
-                          </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startConfirm(auth)}
+                              className="w-full min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary-dark transition-colors flex items-center justify-center gap-2"
+                            >
+                              <User className="w-4 h-4" /> Confirmar Saída
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
