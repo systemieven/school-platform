@@ -9,6 +9,7 @@ import {
   X, ChevronDown, Pencil, Copy, Check, MessageCircle, KeyRound, Trash2, AlertTriangle, UserPlus,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
+import { SelectDropdown } from '../../components/FormField';
 import { Toggle } from '../../components/Toggle';
 import { sendWhatsAppText, sendWhatsAppTemplate, checkWhatsAppNumber } from '../../lib/whatsapp-api';
 import { useBranding } from '../../../contexts/BrandingContext';
@@ -476,17 +477,11 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
           </SettingsCard>
 
           <SettingsCard title="Perfil de Acesso">
-            <div>
-              <label className={labelCls}>Função</label>
-              <div className="relative">
-                <select value={form.role} onChange={(e) => set('role', e.target.value as Role)} className={`${inputCls} pr-9 appearance-none`}>
-                  {allowedRoles.map((r) => (
-                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
+            <SelectDropdown label="Função" value={form.role} onChange={(e) => set('role', e.target.value as Role)}>
+              {allowedRoles.map((r) => (
+                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+              ))}
+            </SelectDropdown>
             <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
               <KeyRound className="w-3 h-3 flex-shrink-0" />
               Uma senha temporária será gerada automaticamente no momento da criação.
@@ -874,17 +869,11 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
               />
               {phoneError && <p className="text-[11px] text-red-500 mt-1">{phoneError}</p>}
             </div>
-            <div>
-              <label className={labelCls}>Função</label>
-              <div className="relative">
-                <select value={form.role} onChange={(e) => set('role', e.target.value as Role)} className={`${inputCls} pr-9 appearance-none`}>
-                  {allowedRoles.map((r) => (
-                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
+            <SelectDropdown label="Função" value={form.role} onChange={(e) => set('role', e.target.value as Role)}>
+              {allowedRoles.map((r) => (
+                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+              ))}
+            </SelectDropdown>
           </SettingsCard>
 
           <SettingsCard title="Permissões de Acesso" collapseId="drawer.edit.permissions">
