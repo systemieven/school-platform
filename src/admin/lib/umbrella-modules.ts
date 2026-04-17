@@ -15,18 +15,26 @@
  */
 
 // /admin/configuracoes — src/admin/pages/settings/SettingsPage.tsx
+//
+// Desde a migration 148, cada aba de Configurações é gateada por uma chave
+// granular `settings-*`. As chaves `users` e `audit` permanecem "cruas" pois
+// já eram módulos independentes (não foram desdobrados de `settings`).
 export const SETTINGS_SUBTAB_MODULE_KEYS = [
-  'settings',          // institucional, notificações, segurança, site, whatsapp
-  'academico',         // configurações acadêmicas
-  'appointments',      // configurações de agendamentos
-  'attendance',        // configurações de atendimento
-  'lost-found',        // configurações de achados e perdidos
-  'nfse-config',       // configurações fiscais
-  'audit',             // log de auditoria
-  'contacts',          // configurações de contatos
-  'payment-gateways',  // gateways de pagamento
-  'enrollments',       // configurações de matrículas
-  'users',             // usuários e perfis
+  'settings-institutional',
+  'settings-academico',
+  'settings-visits',
+  'settings-attendance',
+  'settings-ferramentas',
+  'settings-fiscal',
+  'settings-contact',
+  'settings-financial',
+  'settings-enrollment',
+  'settings-notifications',
+  'settings-security',
+  'settings-site',
+  'settings-whatsapp',
+  'audit',
+  'users',
 ] as const;
 
 // /admin/gestao — src/admin/pages/gestao/GestaoPage.tsx

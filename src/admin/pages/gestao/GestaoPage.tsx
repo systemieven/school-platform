@@ -64,13 +64,16 @@ const TABS: TabDef[] = [
   },
 ];
 
-/** Mapeamento tab → aba de Configurações (/admin/configuracoes?tab=X) */
-const TAB_SETTINGS: Record<string, string> = {
-  agendamentos: 'visits',
-  atendimentos: 'attendance',
-  contatos:     'contact',
-  matriculas:   'enrollment',
-  historico:    'attendance',
+/**
+ * Mapeamento tab → aba de Configurações (/admin/configuracoes?tab=X) com a
+ * chave granular `settings-*` usada para gatear o atalho.
+ */
+const TAB_SETTINGS: Record<string, { tab: string; moduleKey: string }> = {
+  agendamentos: { tab: 'visits',      moduleKey: 'settings-visits' },
+  atendimentos: { tab: 'attendance',  moduleKey: 'settings-attendance' },
+  contatos:     { tab: 'contact',     moduleKey: 'settings-contact' },
+  matriculas:   { tab: 'enrollment',  moduleKey: 'settings-enrollment' },
+  historico:    { tab: 'attendance',  moduleKey: 'settings-attendance' },
 };
 
 export default function GestaoPage() {
@@ -115,8 +118,9 @@ export default function GestaoPage() {
     );
   }
 
+  const settingsShortcut = TAB_SETTINGS[activeTab];
   const showSettingsLink =
-    !!TAB_SETTINGS[activeTab] && canView('settings');
+    !!settingsShortcut && canView(settingsShortcut.moduleKey);
 
   return (
     <div className="space-y-6">
@@ -130,7 +134,7 @@ export default function GestaoPage() {
         </div>
         {showSettingsLink && (
           <Link
-            to={`/admin/configuracoes?tab=${TAB_SETTINGS[activeTab]}`}
+            to={`/admin/configuracoes?tab=${settingsShortcut.tab}`}
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
           >
             <Settings className="w-4 h-4 text-brand-secondary" />

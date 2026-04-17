@@ -562,7 +562,7 @@ export default function AchadosPerdidosPage() {
             Controle de objetos encontrados e devoluções
           </p>
         </div>
-        {can('settings', 'view') && (
+        {can('settings-ferramentas', 'view') && (
           <Link
             to="/admin/configuracoes?tab=ferramentas"
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
