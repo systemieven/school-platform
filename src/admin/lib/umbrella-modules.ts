@@ -39,7 +39,16 @@ export const GESTAO_SUBTAB_MODULE_KEYS = [
 
 // /admin/academico — src/admin/pages/academico/AcademicoPage.tsx
 export const ACADEMICO_SUBTAB_MODULE_KEYS = [
-  'academico',
+  'academico',                 // mantido para retrocompat (ainda usado em alguns lugares)
+  'academic-dashboard',
+  'academic-disciplines',
+  'academic-schedule',
+  'academic-calendar',
+  'academic-report-cards',
+  'academic-results',
+  'academic-alerts',
+  'academic-history',
+  'academic-bncc',
   'students',
   'segments',
   'absence-communications',
@@ -61,4 +70,22 @@ export const SECRETARIA_SUBTAB_MODULE_KEYS = [
   'secretaria-saude',
   'secretaria-rematricula',
   'secretaria-transferencias',
+] as const;
+
+// /admin/financeiro — src/admin/pages/financial/FinancialPage.tsx
+// A própria página filtra tabs internamente por permissão. A umbrella libera
+// o acesso à rota se o usuário tem view em **qualquer** sub-aba do Financeiro.
+export const FINANCIAL_SUBTAB_MODULE_KEYS = [
+  'financial',                     // dashboard (visão geral)
+  'financial-plans',
+  'financial-contracts',
+  'financial-installments',
+  'financial-cash',
+  'financial-receivables',
+  'financial-payables',
+  'financial-reports',
+  'financial-account-categories',  // descontos, bolsas, templates
+  'nfse-emitidas',
+  'nfse-apuracao',
+  'fornecedores',                  // cobre fornecedores + NF-e de entrada
 ] as const;

@@ -130,19 +130,33 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
-        {ADMIN_NAV.map((group) => {
+        {/*
+          Enquanto `permsLoading` é true, renderizamos skeletons — e NÃO
+          caímos no fallback por role. O fallback antigo vazava itens cuja
+          permissão granular foi revogada, porque admin ainda cumpria
+          `item.roles.includes('admin')`. Com skeleton o usuário espera a
+          hidratação (tipicamente < 300 ms) em lugar de ver link proibido.
+        */}
+        {permsLoading ? (
+          <div className="space-y-3" aria-hidden="true">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="h-9 rounded-xl bg-white/5 animate-pulse"
+              />
+            ))}
+          </div>
+        ) : null}
+        {!permsLoading && ADMIN_NAV.map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (!profile) return false;
-            // Granular permissions take precedence once loaded.
-            if (!permsLoading) {
-              // Umbrella entries: visible iff ANY sub-tab is accessible.
-              if (item.anyModuleKeys && item.anyModuleKeys.length > 0) {
-                return item.anyModuleKeys.some((k) => canView(k));
-              }
-              if (item.moduleKey) return canView(item.moduleKey);
+            // Umbrella entries: visible iff ANY sub-tab is accessible.
+            if (item.anyModuleKeys && item.anyModuleKeys.length > 0) {
+              return item.anyModuleKeys.some((k) => canView(k));
             }
-            // Legacy fallback while permissions hydrate (or for items without
-            // any module mapping at all).
+            if (item.moduleKey) return canView(item.moduleKey);
+            // Itens sem mapeamento de módulo (raros — restrito a fluxos
+            // administrativos sem feature flag granular) seguem role legado.
             return item.roles.includes(profile.role);
           });
           if (visibleItems.length === 0) return null;
