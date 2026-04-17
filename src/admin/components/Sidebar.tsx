@@ -39,6 +39,7 @@ import {
   LayoutGrid,
   Target,
   Briefcase,
+  DatabaseBackup,
 } from 'lucide-react';
 
 // Map icon name → component
@@ -73,6 +74,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutGrid,
   Target,
   Briefcase,
+  DatabaseBackup,
 };
 
 interface Props {

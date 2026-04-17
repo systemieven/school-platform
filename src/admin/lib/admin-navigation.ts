@@ -197,6 +197,17 @@ export const ADMIN_NAV: NavGroup[] = [
         // Umbrella: visible iff user can view at least one Configurações sub-tab.
         anyModuleKeys: SETTINGS_SUBTAB_MODULE_KEYS,
       },
+      {
+        // OP-1 — Central de Migração (Sprint 10). super_admin only:
+        // modulo `data-migration` nao tem linha em role_permissions para
+        // admin/coordinator, entao apenas super_admin (bypass em can()) ve.
+        key: 'data-migration',
+        label: 'Central de Migração',
+        icon: 'DatabaseBackup',
+        path: '/admin/migracao',
+        roles: ['super_admin'],
+        moduleKey: 'data-migration',
+      },
     ],
   },
 ];

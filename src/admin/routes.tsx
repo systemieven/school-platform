@@ -28,6 +28,7 @@ const KanbanPage           = lazy(() => import('./pages/leads/KanbanPage'));
 const ReportsPage          = lazy(() => import('./pages/reports/ReportsPage'));
 const StudentsPage         = lazy(() => import('./pages/school/StudentsPage'));
 const StudentImportPage    = lazy(() => import('./pages/school/StudentImportPage'));
+const MigracaoPage         = lazy(() => import('./pages/migracao/MigracaoPage'));
 const StudentDetailPage    = lazy(() => import('./pages/school/StudentDetailPage'));
 const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'));
 const LibraryPage          = lazy(() => import('./pages/library/LibraryPage'));
@@ -177,6 +178,11 @@ export default function AdminRoutes() {
               Umbrella: liberado quando o usuário tem `view` em pelo menos uma
               sub-tab. SettingsPage filtra suas próprias tabs por permissão. */}
           <Route path="configuracoes"  element={<ModuleGuard anyModuleKeys={SETTINGS_SUBTAB_MODULE_KEYS}><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />
+
+          {/* OP-1 — Central de Migração (Sprint 10, super_admin only).
+              O modulo `data-migration` nao tem linha em role_permissions para
+              admin/coordinator, entao apenas super_admin (bypass em can()) acessa. */}
+          <Route path="migracao" element={<ModuleGuard moduleKey="data-migration"><LazyPage><MigracaoPage /></LazyPage></ModuleGuard>} />
         </Route>
       </Routes>
     </AdminAuthProvider>
