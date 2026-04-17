@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   LayoutDashboard, ShoppingBag, ClipboardList, Monitor, BarChart3,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, ShieldOff,
 } from 'lucide-react';
 import LojaDashboardTab   from './tabs/LojaDashboardTab';
 import ProdutosTab        from './tabs/ProdutosTab';
 import PedidosTab         from './tabs/PedidosTab';
 import PDVTab             from './tabs/PDVTab';
 import RelatoriosLojaTab  from './tabs/RelatoriosLojaTab';
+import { usePermissions } from '../../contexts/PermissionsContext';
 
 interface TabDef {
   key: string;
@@ -15,21 +16,52 @@ interface TabDef {
   shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
+  /** Granular module key required to view this tab. */
+  moduleKey: string;
 }
 
 const TABS: TabDef[] = [
-  { key: 'dashboard',  label: 'Dashboard',       shortLabel: 'Dashboard',  icon: LayoutDashboard, description: 'Visão geral da loja'                },
-  { key: 'produtos',   label: 'Produtos',         shortLabel: 'Produtos',   icon: ShoppingBag,     description: 'Gerencie produtos, variantes e categorias' },
-  { key: 'pedidos',    label: 'Pedidos',          shortLabel: 'Pedidos',    icon: ClipboardList,   description: 'Pipeline de pedidos e status de entrega' },
-  { key: 'pdv',        label: 'PDV',              shortLabel: 'PDV',        icon: Monitor,         description: 'Ponto de venda e caixa'              },
-  { key: 'relatorios', label: 'Relatórios',       shortLabel: 'Relatórios', icon: BarChart3,       description: 'Relatórios e análises da loja'       },
+  { key: 'dashboard',  label: 'Dashboard',       shortLabel: 'Dashboard',  icon: LayoutDashboard, description: 'Visão geral da loja',                       moduleKey: 'loja' },
+  { key: 'produtos',   label: 'Produtos',         shortLabel: 'Produtos',   icon: ShoppingBag,     description: 'Gerencie produtos, variantes e categorias', moduleKey: 'store-products' },
+  { key: 'pedidos',    label: 'Pedidos',          shortLabel: 'Pedidos',    icon: ClipboardList,   description: 'Pipeline de pedidos e status de entrega',  moduleKey: 'store-orders' },
+  { key: 'pdv',        label: 'PDV',              shortLabel: 'PDV',        icon: Monitor,         description: 'Ponto de venda e caixa',                    moduleKey: 'store-pdv' },
+  { key: 'relatorios', label: 'Relatórios',       shortLabel: 'Relatórios', icon: BarChart3,       description: 'Relatórios e análises da loja',             moduleKey: 'store-reports' },
 ];
 
 export default function LojaPage() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { canView } = usePermissions();
+  const visibleTabs = useMemo(
+    () => TABS.filter((t) => canView(t.moduleKey)),
+    [canView],
+  );
+  const firstVisibleKey = visibleTabs[0]?.key ?? TABS[0].key;
+  const [activeTab, setActiveTab] = useState(firstVisibleKey);
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
 
-  const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
+  // Bounce when active tab loses visibility.
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.key === activeTab)) {
+      setActiveTab(firstVisibleKey);
+    }
+  }, [activeTab, visibleTabs, firstVisibleKey]);
+
+  const currentTab = visibleTabs.find((t) => t.key === activeTab) ?? visibleTabs[0];
+
+  if (visibleTabs.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Loja</h1>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-10 text-center">
+          <ShieldOff className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-500 dark:text-gray-400">
+            Você não tem permissão para visualizar nenhum módulo da loja.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -59,7 +91,7 @@ export default function LojaPage() {
               )}
             </button>
             <div className="p-1.5 space-y-0.5">
-              {TABS.map((tab) => {
+              {visibleTabs.map((tab) => {
                 const TabIcon = tab.icon;
                 const isActive = activeTab === tab.key;
                 return (

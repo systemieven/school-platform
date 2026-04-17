@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   GraduationCap, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
   CalendarRange, PanelLeftClose, PanelLeftOpen, LayoutDashboard, UserCheck,
-  MessageSquare, DoorOpen, Target, Settings,
+  MessageSquare, DoorOpen, Target, Settings, ShieldOff,
 } from 'lucide-react';
+import { usePermissions } from '../../contexts/PermissionsContext';
 import BnccPage from './BnccPage';
 import AcademicoDashboardPage from './AcademicoDashboardPage';
 import StudentsPage from '../school/StudentsPage';
@@ -26,6 +27,8 @@ interface TabDef {
   shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
+  /** Granular module key required to view this tab. */
+  moduleKey: string;
 }
 
 const TABS: TabDef[] = [
@@ -35,6 +38,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Dashboard',
     icon: LayoutDashboard,
     description: 'KPIs, eventos da semana e gráficos personalizáveis',
+    moduleKey: 'academico',
   },
   {
     key: 'alunos',
@@ -42,6 +46,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Alunos',
     icon: UserCheck,
     description: 'Cadastro, busca e gestão de alunos',
+    moduleKey: 'students',
   },
   {
     key: 'segmentos',
@@ -49,6 +54,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Segmentos',
     icon: GraduationCap,
     description: 'Gerencie a hierarquia acadêmica em três níveis',
+    moduleKey: 'segments',
   },
   {
     key: 'disciplinas',
@@ -56,6 +62,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Disciplinas',
     icon: BookOpen,
     description: 'Cadastro de disciplinas e atribuição por turma',
+    moduleKey: 'academico',
   },
   {
     key: 'grade-horaria',
@@ -63,6 +70,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Grade',
     icon: CalendarClock,
     description: 'Grade de horários por turma',
+    moduleKey: 'academico',
   },
   {
     key: 'calendario',
@@ -70,6 +78,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Calendário',
     icon: Calendar,
     description: 'Períodos, feriados e eventos do ano letivo',
+    moduleKey: 'academico',
   },
   {
     key: 'boletim',
@@ -77,6 +86,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Boletim',
     icon: FileText,
     description: 'Boletim formal — notas por turma, período e disciplina',
+    moduleKey: 'academico',
   },
   {
     key: 'resultado',
@@ -84,6 +94,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Resultado',
     icon: Award,
     description: 'Resultado final dos alunos por turma e ano letivo',
+    moduleKey: 'academico',
   },
   {
     key: 'alertas',
@@ -91,6 +102,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Alertas',
     icon: Bell,
     description: 'Alunos em risco por baixa frequência',
+    moduleKey: 'academico',
   },
   {
     key: 'historico',
@@ -98,6 +110,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Histórico',
     icon: ScrollText,
     description: 'Histórico escolar e transcrições dos alunos',
+    moduleKey: 'academico',
   },
   {
     key: 'ano-letivo',
@@ -105,6 +118,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Ano Letivo',
     icon: CalendarRange,
     description: 'Sugestões de progressão de série para o próximo ano letivo',
+    moduleKey: 'academico',
   },
   {
     key: 'faltas',
@@ -112,6 +126,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Faltas',
     icon: MessageSquare,
     description: 'Notifique responsáveis sobre faltas e ausências dos alunos',
+    moduleKey: 'absence-communications',
   },
   {
     key: 'autorizacoes-saida',
@@ -119,6 +134,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Autorizações',
     icon: DoorOpen,
     description: 'Gerencie autorizações de saída antecipada dos alunos',
+    moduleKey: 'exit-authorizations',
   },
   {
     key: 'bncc',
@@ -126,24 +142,57 @@ const TABS: TabDef[] = [
     shortLabel: 'BNCC',
     icon: Target,
     description: 'Objetivos de aprendizagem, cobertura curricular e relatórios pedagógicos',
+    moduleKey: 'academico',
   },
 ];
 
 export default function AcademicoPage() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { canView } = usePermissions();
+  const visibleTabs = useMemo(
+    () => TABS.filter((t) => canView(t.moduleKey)),
+    [canView],
+  );
+  const firstVisibleKey = visibleTabs[0]?.key ?? TABS[0].key;
+  const [activeTab, setActiveTab] = useState(firstVisibleKey);
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
 
-  // Listen for "Ver calendário" link from AcademicoDashboardPage
+  // Listen for "Ver calendário" link from AcademicoDashboardPage —
+  // honours the request only when the target tab is visible to this user.
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<string>).detail;
-      if (detail) setActiveTab(detail);
+      if (detail && visibleTabs.some((t) => t.key === detail)) {
+        setActiveTab(detail);
+      }
     };
     window.addEventListener('academico:switch-tab', handler);
     return () => window.removeEventListener('academico:switch-tab', handler);
-  }, []);
+  }, [visibleTabs]);
 
-  const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
+  // Bounce when active tab loses visibility.
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.key === activeTab)) {
+      setActiveTab(firstVisibleKey);
+    }
+  }, [activeTab, visibleTabs, firstVisibleKey]);
+
+  const currentTab = visibleTabs.find((t) => t.key === activeTab) ?? visibleTabs[0];
+
+  if (visibleTabs.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Acadêmico</h1>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-10 text-center">
+          <ShieldOff className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-500 dark:text-gray-400">
+            Você não tem permissão para visualizar nenhum módulo acadêmico.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -155,13 +204,15 @@ export default function AcademicoPage() {
             Disciplinas, grade horária, calendário letivo, boletim e resultados
           </p>
         </div>
-        <Link
-          to="/admin/configuracoes?tab=academico"
-          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
-        >
-          <Settings className="w-4 h-4 text-brand-secondary" />
-          Configurações
-        </Link>
+        {canView('settings') && (
+          <Link
+            to="/admin/configuracoes?tab=academico"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
+          >
+            <Settings className="w-4 h-4 text-brand-secondary" />
+            Configurações
+          </Link>
+        )}
       </div>
 
       {/* Tabs + Content layout */}
@@ -191,7 +242,7 @@ export default function AcademicoPage() {
 
             {/* Tab items */}
             <div className="p-1.5 space-y-0.5">
-              {TABS.map((tab) => {
+              {visibleTabs.map((tab) => {
                 const TabIcon = tab.icon;
                 const isActive = activeTab === tab.key;
 

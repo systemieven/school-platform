@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   CalendarCheck, Ticket, MessageSquare, GraduationCap, History,
-  PanelLeftClose, PanelLeftOpen, Settings,
+  PanelLeftClose, PanelLeftOpen, Settings, ShieldOff,
 } from 'lucide-react';
 import AppointmentsPage      from '../appointments/AppointmentsPage';
 import AttendancePage        from '../attendance/AttendancePage';
 import AttendanceHistoryPage from '../attendance/AttendanceHistoryPage';
 import ContactsPage          from '../contacts/ContactsPage';
 import EnrollmentsPage       from '../enrollments/EnrollmentsPage';
+import { usePermissions } from '../../contexts/PermissionsContext';
 
 interface TabDef {
   key: string;
@@ -16,6 +17,8 @@ interface TabDef {
   shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
+  /** Granular module key required to view this tab. */
+  moduleKey: string;
 }
 
 const TABS: TabDef[] = [
@@ -25,6 +28,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Agendamentos',
     icon: CalendarCheck,
     description: 'Visitas agendadas e controle de horários',
+    moduleKey: 'appointments',
   },
   {
     key: 'atendimentos',
@@ -32,6 +36,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Atendimentos',
     icon: Ticket,
     description: 'Fila de atendimento presencial, senhas e histórico',
+    moduleKey: 'attendance',
   },
   {
     key: 'contatos',
@@ -39,6 +44,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Contatos',
     icon: MessageSquare,
     description: 'Mensagens recebidas pelo formulário do site',
+    moduleKey: 'contacts',
   },
   {
     key: 'matriculas',
@@ -46,6 +52,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Matrícula',
     icon: GraduationCap,
     description: 'Pré-matrículas, fichas e documentação',
+    moduleKey: 'enrollments',
   },
   {
     key: 'historico',
@@ -53,6 +60,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Histórico',
     icon: History,
     description: 'Tickets finalizados, abandonados e faltas',
+    moduleKey: 'attendance',
   },
 ];
 
@@ -67,13 +75,48 @@ const TAB_SETTINGS: Record<string, string> = {
 
 export default function GestaoPage() {
   const [searchParams] = useSearchParams();
-  const initialTab = TABS.some(t => t.key === searchParams.get('tab'))
-    ? searchParams.get('tab')!
-    : 'agendamentos';
+  const { canView } = usePermissions();
+  const visibleTabs = useMemo(
+    () => TABS.filter((t) => canView(t.moduleKey)),
+    [canView],
+  );
+  const firstVisibleKey = visibleTabs[0]?.key ?? TABS[0].key;
+  const requestedTab = searchParams.get('tab');
+  const initialTab =
+    requestedTab && visibleTabs.some((t) => t.key === requestedTab)
+      ? requestedTab
+      : firstVisibleKey;
   const [activeTab, setActiveTab] = useState(initialTab);
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
 
-  const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
+  // If the active tab disappears from `visibleTabs` (perm refresh, etc.),
+  // bounce to the first one the user is allowed to see.
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.key === activeTab)) {
+      setActiveTab(firstVisibleKey);
+    }
+  }, [activeTab, visibleTabs, firstVisibleKey]);
+
+  const currentTab = visibleTabs.find((t) => t.key === activeTab) ?? visibleTabs[0];
+
+  if (visibleTabs.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Gestão</h1>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-10 text-center">
+          <ShieldOff className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-500 dark:text-gray-400">
+            Você não tem permissão para visualizar nenhum módulo de gestão.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const showSettingsLink =
+    !!TAB_SETTINGS[activeTab] && canView('settings');
 
   return (
     <div className="space-y-6">
@@ -85,7 +128,7 @@ export default function GestaoPage() {
             Agendamentos, atendimentos, contatos e matrículas
           </p>
         </div>
-        {TAB_SETTINGS[activeTab] && (
+        {showSettingsLink && (
           <Link
             to={`/admin/configuracoes?tab=${TAB_SETTINGS[activeTab]}`}
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
@@ -123,7 +166,7 @@ export default function GestaoPage() {
 
             {/* Tab items */}
             <div className="p-1.5 space-y-0.5">
-              {TABS.map((tab) => {
+              {visibleTabs.map((tab) => {
                 const TabIcon = tab.icon;
                 const isActive = activeTab === tab.key;
 
