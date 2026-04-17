@@ -163,6 +163,12 @@ export default function MigracaoPage() {
     return groups;
   }, []);
 
+  // Maior grupo → usado para alinhar o avatar-final das três timelines.
+  const maxGroupSize = useMemo(
+    () => Math.max(...Object.values(modulesByGroup).map((m) => m.length)),
+    [modulesByGroup],
+  );
+
   // Progresso por grupo + cadeia de dependência (A → B → C; sequencial dentro)
   const groupProgress = useMemo(() => {
     const res: Record<ModuleGroup, { completed: number; total: number; pct: number; done: boolean }> = {
@@ -286,6 +292,7 @@ export default function MigracaoPage() {
               statusMap={statusMap}
               groupUnlocked={isGroupUnlocked(group)}
               progress={groupProgress[group]}
+              maxSize={maxGroupSize}
               onImport={openImporter}
               onUnlock={requestUnlock}
             />
@@ -317,11 +324,13 @@ interface GroupTimelineProps {
   statusMap: StatusByKey;
   groupUnlocked: boolean;
   progress: { completed: number; total: number; pct: number; done: boolean };
+  maxSize: number;
   onImport: (mod: ModuleDef) => void;
   onUnlock: (mod: ModuleDef) => void;
 }
 
-function GroupTimeline({ modules, statusMap, groupUnlocked, progress, onImport, onUnlock }: GroupTimelineProps) {
+function GroupTimeline({ modules, statusMap, groupUnlocked, progress, maxSize, onImport, onUnlock }: GroupTimelineProps) {
+  const spacerCount = Math.max(0, maxSize - modules.length);
   // Sequencial dentro do grupo: um módulo só desbloqueia depois que todos
   // anteriores (mesma ordem do catálogo) estiverem concluídos.
   let previousDone = true;
@@ -350,6 +359,10 @@ function GroupTimeline({ modules, statusMap, groupUnlocked, progress, onImport, 
           if (!completed) previousDone = false;
           return node;
         })}
+        {/* Spacers para alinhar o avatar final das 3 timelines na mesma coluna */}
+        {Array.from({ length: spacerCount }).map((_, i) => (
+          <div key={`spacer-${i}`} className="w-32 shrink-0" aria-hidden />
+        ))}
         {/* Avatar final do grupo — porcentagem / check */}
         <GroupFinishAvatar progress={progress} />
       </div>
