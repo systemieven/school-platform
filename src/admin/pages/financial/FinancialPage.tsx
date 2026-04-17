@@ -14,7 +14,7 @@
  * antes vazavam todo o conteúdo independentemente da permissão.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, FileSignature, Receipt,
   Percent, GraduationCap, FileCode2,
@@ -176,17 +176,21 @@ const TABS: TabDef[] = [
 ];
 
 export default function FinancialPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { canView } = usePermissions();
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
 
   // Filtra as abas em runtime: o usuário só vê aquilo que pode visualizar.
   const visibleTabs = useMemo(() => TABS.filter((t) => canView(t.moduleKey)), [canView]);
 
-  // O default é a primeira aba visível (não necessariamente "dashboard"
-  // — o usuário pode ter perdido a permissão umbrella mas mantido p.ex.
-  // só "Relatórios").
+  // Prioriza ?tab= da URL (links diretos, breadcrumb); cai na primeira
+  // aba visível se o tab pedido não existir ou não tiver permissão.
+  const requestedTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<string>(
-    () => visibleTabs[0]?.key ?? 'dashboard',
+    () => {
+      const found = requestedTab && visibleTabs.some((t) => t.key === requestedTab);
+      return found ? requestedTab : (visibleTabs[0]?.key ?? 'dashboard');
+    },
   );
 
   // Se a permissão muda no meio da sessão (ex.: super_admin alterou perms
@@ -288,7 +292,7 @@ export default function FinancialPage() {
                 return (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
+                    onClick={() => { setActiveTab(tab.key); setSearchParams({ tab: tab.key }, { replace: true }); }}
                     title={tabsCollapsed ? tab.label : undefined}
                     className={`
                       relative w-full flex items-center rounded-xl text-sm font-medium transition-all duration-200

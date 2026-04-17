@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, ClipboardList, Monitor, BarChart3,
   PanelLeftClose, PanelLeftOpen, ShieldOff,
@@ -29,13 +30,19 @@ const TABS: TabDef[] = [
 ];
 
 export default function LojaPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { canView } = usePermissions();
   const visibleTabs = useMemo(
     () => TABS.filter((t) => canView(t.moduleKey)),
     [canView],
   );
   const firstVisibleKey = visibleTabs[0]?.key ?? TABS[0].key;
-  const [activeTab, setActiveTab] = useState(firstVisibleKey);
+  const requestedTab = searchParams.get('tab');
+  const initialTab =
+    requestedTab && visibleTabs.some((t) => t.key === requestedTab)
+      ? requestedTab
+      : firstVisibleKey;
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
 
   // Bounce when active tab loses visibility.
@@ -97,7 +104,7 @@ export default function LojaPage() {
                 return (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
+                    onClick={() => { setActiveTab(tab.key); setSearchParams({ tab: tab.key }, { replace: true }); }}
                     title={tabsCollapsed ? tab.label : undefined}
                     className={`
                       relative w-full flex items-center rounded-xl text-sm font-medium transition-all duration-200
