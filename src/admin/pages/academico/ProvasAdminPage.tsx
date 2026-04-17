@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   ClipboardList, Filter, Loader2, Eye,
-  ChevronLeft, ChevronRight, ListChecks,
+  ChevronLeft, ChevronRight, ListChecks, Check, BookOpen,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
 import type { ClassExam, ExamStatus, ExamQuestion, QuestionType } from '../../types/admin.types';
 
 // ── Colour maps ───────────────────────────────────────────────────────────────
@@ -30,17 +31,34 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   associacao:       'Associação',
 };
 
+const PERIOD_OPTIONS = [
+  '1º Bimestre',
+  '2º Bimestre',
+  '3º Bimestre',
+  '4º Bimestre',
+] as const;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface SchoolClass  { id: string; name: string; }
+interface SchoolClass   { id: string; name: string; }
 interface TeacherOption { id: string; full_name: string; }
 interface SubjectOption { id: string; name: string; }
 
 interface ExamRow extends ClassExam {
-  class?:   { id: string; name: string } | null;
-  subject?: { id: string; name: string } | null;
-  teacher?: { id: string; full_name: string } | null;
+  class?:       { id: string; name: string } | null;
+  subject?:     { id: string; name: string } | null;
+  teacher?:     { id: string; full_name: string } | null;
+  discipline?:  { id: string; name: string } | null;
+  discipline_id?: string | null;
+  period?:      string | null;
   question_count?: number;
+}
+
+interface ScoreRow {
+  student_id: string;
+  full_name: string;
+  score: string;
+  feedback: string;
 }
 
 const PAGE_SIZE = 20;
@@ -56,6 +74,8 @@ function currentMonthRange() {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ProvasAdminPage() {
+  const { profile } = useAdminAuth();
+
   // List state
   const [rows, setRows] = useState<ExamRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +91,7 @@ export default function ProvasAdminPage() {
   const [filterFrom, setFilterFrom] = useState(defaultFrom);
   const [filterTo, setFilterTo] = useState(defaultTo);
 
-  // Reference
+  // Reference data
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
@@ -84,6 +104,11 @@ export default function ProvasAdminPage() {
   const [detailItem, setDetailItem] = useState<ExamRow | null>(null);
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
+
+  // Score entry state
+  const [scores, setScores] = useState<ScoreRow[]>([]);
+  const [scoresLoading, setScoresLoading] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   // ── Reference data ──
   useEffect(() => {
@@ -104,7 +129,7 @@ export default function ProvasAdminPage() {
     let q = supabase
       .from('class_exams')
       .select(
-        `*, class:school_classes(id,name), subject:school_subjects(id,name), teacher:profiles!teacher_id(id,full_name)`,
+        `*, class:school_classes(id,name), subject:school_subjects(id,name), teacher:profiles!teacher_id(id,full_name), discipline:disciplines(id,name)`,
         { count: 'exact' },
       )
       .order('created_at', { ascending: false })
@@ -128,7 +153,7 @@ export default function ProvasAdminPage() {
         .select('exam_id')
         .in('exam_id', ids);
       const counts: Record<string, number> = {};
-      (qData ?? []).forEach((q: any) => {
+      (qData ?? []).forEach((q: { exam_id: string }) => {
         counts[q.exam_id] = (counts[q.exam_id] ?? 0) + 1;
       });
       exams.forEach(e => { e.question_count = counts[e.id] ?? 0; });
@@ -144,7 +169,7 @@ export default function ProvasAdminPage() {
       .gte('created_at', `${defaultFrom}T00:00:00`)
       .lte('created_at', `${defaultTo}T23:59:59`);
     const byStatus: Record<string, number> = {};
-    (kpiData ?? []).forEach((e: any) => {
+    (kpiData ?? []).forEach((e: { status: string }) => {
       byStatus[e.status] = (byStatus[e.status] ?? 0) + 1;
     });
     setKpiByStatus(byStatus);
@@ -158,19 +183,126 @@ export default function ProvasAdminPage() {
   async function openDetail(row: ExamRow) {
     setDetailItem(row);
     setDetailOpen(true);
+    setSaveState('idle');
     setQuestionsLoading(true);
-    const { data } = await supabase
-      .from('exam_questions')
-      .select('*')
-      .eq('exam_id', row.id)
-      .order('block_number')
-      .order('question_number');
-    setQuestions((data as ExamQuestion[]) ?? []);
+
+    const needsScores = row.status === 'applied' || row.status === 'corrected';
+    const [{ data: qData }] = await Promise.all([
+      supabase
+        .from('exam_questions')
+        .select('*')
+        .eq('exam_id', row.id)
+        .order('block_number')
+        .order('question_number'),
+      needsScores ? loadScores(row) : Promise.resolve(),
+    ]);
+    setQuestions((qData as ExamQuestion[]) ?? []);
     setQuestionsLoading(false);
+  }
+
+  async function loadScores(exam: ExamRow) {
+    setScoresLoading(true);
+
+    const [enrollRes, resultsRes] = await Promise.all([
+      supabase
+        .from('student_class_enrollments')
+        .select('student_id, students(id, full_name)')
+        .eq('class_id', exam.class_id)
+        .eq('status', 'active'),
+      supabase
+        .from('exam_results')
+        .select('*')
+        .eq('exam_id', exam.id),
+    ]);
+
+    const resultMap: Record<string, { score: number | null; feedback: string | null }> = {};
+    ((resultsRes.data ?? []) as Array<{ student_id: string; score: number | null; feedback: string | null }>).forEach(r => {
+      resultMap[r.student_id] = { score: r.score, feedback: r.feedback };
+    });
+
+    const rows: ScoreRow[] = ((enrollRes.data ?? []) as Array<{
+      student_id: string;
+      students: { id: string; full_name: string } | null;
+    }>).map(e => ({
+      student_id: e.student_id,
+      full_name: e.students?.full_name ?? e.student_id,
+      score: resultMap[e.student_id]?.score != null ? String(resultMap[e.student_id].score) : '',
+      feedback: resultMap[e.student_id]?.feedback ?? '',
+    }));
+
+    setScores(rows);
+    setScoresLoading(false);
+  }
+
+  async function saveScores() {
+    if (!detailItem || !profile) return;
+    setSaveState('saving');
+
+    const now = new Date().toISOString();
+    const examResultsPayload = scores
+      .filter(s => s.score !== '')
+      .map(s => ({
+        exam_id: detailItem.id,
+        student_id: s.student_id,
+        score: parseFloat(s.score),
+        feedback: s.feedback || null,
+        graded_at: now,
+        graded_by: profile.id,
+        updated_at: now,
+      }));
+
+    const { error: examErr } = await supabase
+      .from('exam_results')
+      .upsert(examResultsPayload, { onConflict: 'exam_id,student_id' });
+
+    if (examErr) {
+      setSaveState('idle');
+      console.error('Erro ao salvar notas:', examErr);
+      return;
+    }
+
+    // Upsert to grades if discipline_id and period are set
+    if (detailItem.discipline_id && detailItem.period) {
+      const gradesPayload = scores
+        .filter(s => s.score !== '')
+        .map(s => ({
+          class_id: detailItem.class_id,
+          student_id: s.student_id,
+          discipline_id: detailItem.discipline_id,
+          period: detailItem.period,
+          score: parseFloat(s.score),
+          max_score: detailItem.total_score,
+          subject: detailItem.title,
+          created_by: profile.id,
+          updated_at: now,
+        }));
+
+      const { error: gradesErr } = await supabase
+        .from('grades')
+        .upsert(gradesPayload, { onConflict: 'student_id,class_id,discipline_id,period' });
+
+      if (gradesErr) {
+        console.warn('Notas salvas em exam_results, mas não propagadas para grades:', gradesErr);
+      }
+    }
+
+    // Update exam status to corrected
+    await supabase
+      .from('class_exams')
+      .update({ status: 'corrected', updated_at: now })
+      .eq('id', detailItem.id);
+
+    // Update local state
+    setDetailItem(prev => prev ? { ...prev, status: 'corrected' } : prev);
+    setRows(prev => prev.map(r => r.id === detailItem.id ? { ...r, status: 'corrected' } : r));
+
+    setSaveState('saved');
+    setTimeout(() => setSaveState('idle'), 900);
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const kpiTotal = Object.values(kpiByStatus).reduce((a, b) => a + b, 0);
+  const canEnterScores = detailItem?.status === 'applied' || detailItem?.status === 'corrected';
 
   // ── Render ──
   return (
@@ -282,7 +414,7 @@ export default function ProvasAdminPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700">
-                  {['Título', 'Professor', 'Turma', 'Disciplina', 'Data', 'Status', 'Questões', 'Pontuação', ''].map(h => (
+                  {['Título', 'Professor', 'Turma', 'Disciplina', 'Período', 'Data', 'Status', 'Questões', 'Pontuação', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -296,13 +428,16 @@ export default function ProvasAdminPage() {
                       {row.title}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                      {(row as any).teacher?.full_name ?? '—'}
+                      {row.teacher?.full_name ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                       {row.class?.name ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                      {row.subject?.name ?? '—'}
+                      {row.discipline?.name ?? row.subject?.name ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {row.period ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                       {row.exam_date ? new Date(row.exam_date).toLocaleDateString('pt-BR') : '—'}
@@ -359,13 +494,13 @@ export default function ProvasAdminPage() {
         )}
       </div>
 
-      {/* ── Detail Drawer (read-only) ── */}
+      {/* ── Detail Drawer ── */}
       <Drawer
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         title="Detalhes da prova"
         icon={ClipboardList}
-        width="w-[540px]"
+        width="w-[600px]"
       >
         {detailItem && (
           <>
@@ -373,9 +508,10 @@ export default function ProvasAdminPage() {
               <div className="space-y-2 text-sm">
                 {[
                   { label: 'Título',      value: detailItem.title },
-                  { label: 'Professor',   value: (detailItem as any).teacher?.full_name },
+                  { label: 'Professor',   value: detailItem.teacher?.full_name },
                   { label: 'Turma',       value: detailItem.class?.name },
-                  { label: 'Disciplina',  value: detailItem.subject?.name },
+                  { label: 'Disciplina',  value: detailItem.discipline?.name ?? detailItem.subject?.name },
+                  { label: 'Período',     value: detailItem.period },
                   { label: 'Data',        value: detailItem.exam_date ? new Date(detailItem.exam_date).toLocaleDateString('pt-BR') : '—' },
                   { label: 'Status',      value: EXAM_STATUS_LABELS[detailItem.status] },
                   { label: 'Pontuação',   value: detailItem.total_score != null ? String(detailItem.total_score) : '—' },
@@ -433,6 +569,105 @@ export default function ProvasAdminPage() {
                 </div>
               )}
             </DrawerCard>
+
+            {/* ── Lançar Notas ── */}
+            {canEnterScores && (
+              <DrawerCard title="Lançar Notas" icon={BookOpen}>
+                {scoresLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                  </div>
+                ) : scores.length === 0 ? (
+                  <p className="text-sm text-gray-400 py-4 text-center">Nenhum aluno matriculado nesta turma</p>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto -mx-4">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100 dark:border-gray-700">
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Aluno</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide w-28">
+                              Nota {detailItem.total_score != null ? `(0–${detailItem.total_score})` : ''}
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Observação</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                          {scores.map((s, idx) => (
+                            <tr key={s.student_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/20">
+                              <td className="px-4 py-2 text-gray-700 dark:text-gray-200">{s.full_name}</td>
+                              <td className="px-4 py-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={detailItem.total_score ?? undefined}
+                                  step="0.01"
+                                  value={s.score}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setScores(prev => prev.map((r, i) => i === idx ? { ...r, score: val } : r));
+                                  }}
+                                  className="w-24 py-1 px-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                                  placeholder="—"
+                                />
+                              </td>
+                              <td className="px-4 py-2">
+                                <input
+                                  type="text"
+                                  value={s.feedback}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setScores(prev => prev.map((r, i) => i === idx ? { ...r, feedback: val } : r));
+                                  }}
+                                  className="w-full py-1 px-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                                  placeholder="Opcional"
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Footer buttons */}
+                    <div className="flex gap-3 pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">
+                      <button
+                        type="button"
+                        onClick={() => loadScores(detailItem)}
+                        disabled={saveState === 'saving'}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={saveScores}
+                        disabled={saveState === 'saving' || saveState === 'saved'}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium rounded-xl text-white transition-colors disabled:opacity-70 ${
+                          saveState === 'saved'
+                            ? 'bg-emerald-500'
+                            : 'bg-brand-primary hover:bg-brand-primary/90'
+                        }`}
+                      >
+                        {saveState === 'saving' ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
+                        ) : saveState === 'saved' ? (
+                          <><Check className="w-4 h-4" /> Salvo!</>
+                        ) : (
+                          <><BookOpen className="w-4 h-4" /> Salvar Notas</>
+                        )}
+                      </button>
+                    </div>
+
+                    {detailItem.discipline_id == null || detailItem.period == null ? (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                        Defina disciplina e período na prova para propagar notas automaticamente ao boletim.
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              </DrawerCard>
+            )}
           </>
         )}
       </Drawer>

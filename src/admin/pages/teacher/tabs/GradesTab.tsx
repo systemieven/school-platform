@@ -156,6 +156,14 @@ export default function GradesTab({ cls }: { cls: SchoolClass }) {
       }).select('*').single();
       if (data) setGrades((p) => [...p, data as Grade]);
     }
+
+    // Silent background recalculation — do NOT await or show any toast for this
+    supabase.functions.invoke('calculate-grades', {
+      body: {
+        class_id: cls.id,
+        school_year: cls.school_year,
+      },
+    }).catch(() => {/* silently ignore */});
   }
 
   async function deleteGrade(id: string) {

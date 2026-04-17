@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 
 import type { StudentResult, ClassDiscipline } from '../../types/admin.types';
@@ -46,6 +46,7 @@ export default function BoletimPage() {
   const [loading, setLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState('');
 
   const currentPeriod = PERIODS[selectedPeriodIdx];
   const schoolYear = new Date().getFullYear();
@@ -110,6 +111,7 @@ export default function BoletimPage() {
     setStudents(studentsRes.data ?? []);
     setDisciplines(discRes.data ?? []);
     setResults(resultsRes.data ?? []);
+    setCloseError('');
     setLoadingData(false);
   }, [schoolYear]);
 
@@ -142,10 +144,17 @@ export default function BoletimPage() {
     return 'bg-red-50/50 dark:bg-red-900/10';
   }
 
+  // ── Last calculated timestamp ───────────────────────────────────────────────
+  const lastCalc = useMemo(
+    () => results.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), ''),
+    [results],
+  );
+
   // ── Close period ────────────────────────────────────────────────────────────
   async function handleClosePeriod() {
     if (!selectedClassId) return;
     setClosing(true);
+    setCloseError('');
 
     try {
       const body: Record<string, unknown> = {
@@ -161,8 +170,9 @@ export default function BoletimPage() {
       if (error) throw error;
       console.log('Notas calculadas com sucesso');
       fetchData(selectedClassId);
-    } catch {
-      console.error('Erro ao calcular notas');
+    } catch (err) {
+      console.error(err);
+      setCloseError('Erro ao recalcular boletim');
     }
     setClosing(false);
   }
@@ -215,24 +225,34 @@ export default function BoletimPage() {
               </button>
             ))}
           </div>
+          {lastCalc && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Último cálculo: {new Date(lastCalc).toLocaleString('pt-BR')}
+            </p>
+          )}
         </div>
 
         <div className="flex-1" />
 
         {/* Close period */}
         {selectedClassId && (
-          <button
-            onClick={handleClosePeriod}
-            disabled={closing}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50 self-end"
-          >
-            {closing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Lock className="w-4 h-4" />
+          <div className="flex flex-col items-end gap-1 self-end">
+            <button
+              onClick={handleClosePeriod}
+              disabled={closing}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
+            >
+              {closing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Lock className="w-4 h-4" />
+              )}
+              Fechar Período
+            </button>
+            {closeError && (
+              <p className="text-xs text-red-500">{closeError}</p>
             )}
-            Fechar Período
-          </button>
+          </div>
         )}
       </div>
 
