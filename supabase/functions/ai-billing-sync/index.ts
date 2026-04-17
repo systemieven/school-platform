@@ -15,12 +15,14 @@
  *   1. Carrega admin key de company_ai_config.
  *   2. Consulta API oficial do provider para o dia solicitado.
  *       - Anthropic: /v1/organizations/usage_report/messages + /cost_report
+ *         (filtrado por `workspace_ids[]` se company_ai_config.anthropic_workspace_id)
  *       - OpenAI:    /v1/organization/usage/completions + /organization/costs
  *   3. Calcula tokens_input/output, requests_count, total_spent_usd.
  *   4. UPSERT em ai_usage_snapshots por (provider, snapshot_date).
- *   5. Compara com snapshot do dia anterior: salto positivo em `total_spent_usd`
- *      menor que a diferença de custo real sugere recarga — registra em
- *      ai_recharges com source='inferred'. (Best-effort; cliente pode ignorar.)
+ *
+ * Saldo/créditos restantes NÃO são expostos pelas Admin APIs dos providers
+ * (tanto Anthropic quanto OpenAI só retornam usage + cost). Por isso esta
+ * função registra apenas gasto real — saldo deve ser consultado no console.
  *
  * Retorna:
  *   { results: [{ provider, status: 'ok'|'error'|'skipped', snapshot?, error? }] }
@@ -33,7 +35,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, authorization, x-trigger-secret",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-trigger-secret",
 };
 
 function json(data: unknown, status = 200) {
@@ -50,31 +52,29 @@ function todayUtcISO(): string {
 interface SnapshotRow {
   provider: "anthropic" | "openai";
   snapshot_date: string;
-  balance_usd: number | null;
   total_spent_usd: number | null;
   tokens_input: number | null;
   tokens_output: number | null;
   requests_count: number | null;
-  auto_recharge_enabled: boolean | null;
-  auto_recharge_threshold: number | null;
-  auto_recharge_amount: number | null;
   raw_payload: unknown;
 }
 
 async function fetchAnthropic(
   adminKey: string,
   date: string,
+  workspaceId: string | null,
 ): Promise<Omit<SnapshotRow, "provider" | "snapshot_date">> {
   const start = `${date}T00:00:00Z`;
   const end = `${date}T23:59:59Z`;
+  const wsQs = workspaceId ? `&workspace_ids[]=${encodeURIComponent(workspaceId)}` : "";
 
   const [usageRes, costRes] = await Promise.all([
     fetch(
-      `https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at=${encodeURIComponent(start)}&ending_at=${encodeURIComponent(end)}`,
+      `https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at=${encodeURIComponent(start)}&ending_at=${encodeURIComponent(end)}${wsQs}`,
       { headers: { "x-api-key": adminKey, "anthropic-version": "2023-06-01" } },
     ),
     fetch(
-      `https://api.anthropic.com/v1/organizations/cost_report?starting_at=${encodeURIComponent(start)}&ending_at=${encodeURIComponent(end)}`,
+      `https://api.anthropic.com/v1/organizations/cost_report?starting_at=${encodeURIComponent(start)}&ending_at=${encodeURIComponent(end)}${wsQs}`,
       { headers: { "x-api-key": adminKey, "anthropic-version": "2023-06-01" } },
     ),
   ]);
@@ -103,14 +103,10 @@ async function fetchAnthropic(
   }
 
   return {
-    balance_usd: null,
     total_spent_usd,
     tokens_input,
     tokens_output,
     requests_count,
-    auto_recharge_enabled: null,
-    auto_recharge_threshold: null,
-    auto_recharge_amount: null,
     raw_payload: { usage, cost },
   };
 }
@@ -160,14 +156,10 @@ async function fetchOpenAI(
   }
 
   return {
-    balance_usd: null,
     total_spent_usd,
     tokens_input,
     tokens_output,
     requests_count,
-    auto_recharge_enabled: null,
-    auto_recharge_threshold: null,
-    auto_recharge_amount: null,
     raw_payload: { usage, cost },
   };
 }
@@ -225,7 +217,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: cfgRow } = await service
     .from("company_ai_config")
-    .select("anthropic_admin_api_key, openai_admin_api_key, openai_organization_id")
+    .select("anthropic_admin_api_key, openai_admin_api_key, openai_organization_id, anthropic_workspace_id")
     .limit(1)
     .maybeSingle();
 
@@ -251,7 +243,8 @@ Deno.serve(async (req: Request) => {
       if (provider === "anthropic") {
         const key = cfgRow?.anthropic_admin_api_key;
         if (!key) { results.push({ provider, status: "skipped", reason: "no_admin_key" }); continue; }
-        payload = await fetchAnthropic(key, date);
+        const ws = cfgRow?.anthropic_workspace_id ?? null;
+        payload = await fetchAnthropic(key, date, ws);
       } else {
         const key = cfgRow?.openai_admin_api_key;
         const org = cfgRow?.openai_organization_id ?? null;
@@ -265,25 +258,6 @@ Deno.serve(async (req: Request) => {
         .from("ai_usage_snapshots")
         .upsert(row, { onConflict: "provider,snapshot_date" });
       if (upsertErr) throw upsertErr;
-
-      // Detecção heurística de recarga: se total_spent do dia anterior era
-      // maior que o de hoje, houve reset (recarga). Best-effort.
-      const prevDate = new Date(Date.parse(`${date}T00:00:00Z`) - 86400000).toISOString().split("T")[0];
-      const { data: prevRow } = await service
-        .from("ai_usage_snapshots")
-        .select("total_spent_usd")
-        .eq("provider", provider)
-        .eq("snapshot_date", prevDate)
-        .maybeSingle();
-      if (prevRow && Number(prevRow.total_spent_usd ?? 0) > Number(row.total_spent_usd ?? 0) + 0.01) {
-        await service.from("ai_recharges").insert({
-          provider,
-          amount_usd: Number(prevRow.total_spent_usd) - Number(row.total_spent_usd ?? 0),
-          recharged_at: `${date}T00:00:00Z`,
-          source: "inferred",
-          raw_payload: { prev_total: prevRow.total_spent_usd, new_total: row.total_spent_usd },
-        });
-      }
 
       results.push({
         provider,

@@ -2,7 +2,10 @@
  * ai-billing-manual-refresh
  *
  * POST /ai-billing-manual-refresh
- * Auth: JWT admin/super_admin.
+ * Auth: JWT admin/super_admin (validado dentro da função).
+ * verify_jwt=false no gateway para que respostas 401 incluam headers CORS
+ * — caso contrário o gateway rejeita antes da função e o browser bloqueia
+ * com net::ERR_FAILED por falta de Access-Control-Allow-Origin.
  *
  * Body: { provider?: 'anthropic' | 'openai', date?: 'YYYY-MM-DD' }
  *
@@ -15,7 +18,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, authorization",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function json(data: unknown, status = 200) {

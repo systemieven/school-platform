@@ -316,7 +316,7 @@ export default function ContentSettingsPanel() {
     <div className="p-6 space-y-5">
 
       {/* ── Sub-tab bar ── */}
-      <div className="flex flex-wrap gap-1.5 -mx-6 px-6 pb-1">
+      <div className="flex flex-wrap gap-1.5 w-fit rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
         {SUB_TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
