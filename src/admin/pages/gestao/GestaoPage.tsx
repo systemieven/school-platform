@@ -77,7 +77,7 @@ const TAB_SETTINGS: Record<string, { tab: string; moduleKey: string }> = {
 };
 
 export default function GestaoPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { canView } = usePermissions();
   const visibleTabs = useMemo(
     () => TABS.filter((t) => canView(t.moduleKey)),
@@ -177,7 +177,7 @@ export default function GestaoPage() {
                 return (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
+                    onClick={() => { setActiveTab(tab.key); setSearchParams({ tab: tab.key }, { replace: true }); }}
                     title={tabsCollapsed ? tab.label : undefined}
                     className={`
                       relative w-full flex items-center rounded-xl text-sm font-medium transition-all duration-200

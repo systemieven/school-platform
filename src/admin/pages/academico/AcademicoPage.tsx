@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   GraduationCap, BookOpen, CalendarClock, Calendar, FileText, Award, Bell, ScrollText,
   CalendarRange, PanelLeftClose, PanelLeftOpen, LayoutDashboard, UserCheck,
@@ -147,13 +147,19 @@ const TABS: TabDef[] = [
 ];
 
 export default function AcademicoPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { canView } = usePermissions();
   const visibleTabs = useMemo(
     () => TABS.filter((t) => canView(t.moduleKey)),
     [canView],
   );
   const firstVisibleKey = visibleTabs[0]?.key ?? TABS[0].key;
-  const [activeTab, setActiveTab] = useState(firstVisibleKey);
+  const requestedTab = searchParams.get('tab');
+  const initialTab =
+    requestedTab && visibleTabs.some((t) => t.key === requestedTab)
+      ? requestedTab
+      : firstVisibleKey;
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
 
   // Listen for "Ver calendário" link from AcademicoDashboardPage —
@@ -163,11 +169,12 @@ export default function AcademicoPage() {
       const detail = (e as CustomEvent<string>).detail;
       if (detail && visibleTabs.some((t) => t.key === detail)) {
         setActiveTab(detail);
+        setSearchParams({ tab: detail }, { replace: true });
       }
     };
     window.addEventListener('academico:switch-tab', handler);
     return () => window.removeEventListener('academico:switch-tab', handler);
-  }, [visibleTabs]);
+  }, [visibleTabs, setSearchParams]);
 
   // Bounce when active tab loses visibility.
   useEffect(() => {
@@ -249,7 +256,7 @@ export default function AcademicoPage() {
                 return (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
+                    onClick={() => { setActiveTab(tab.key); setSearchParams({ tab: tab.key }, { replace: true }); }}
                     title={tabsCollapsed ? tab.label : undefined}
                     className={`
                       relative w-full flex items-center rounded-xl text-sm font-medium transition-all duration-200

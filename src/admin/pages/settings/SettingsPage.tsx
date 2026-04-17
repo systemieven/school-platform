@@ -258,7 +258,7 @@ const TABS_STORAGE_KEY = 'settings_tabs_collapsed';
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { canView } = usePermissions();
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -606,7 +606,7 @@ export default function SettingsPage() {
                 return (
                   <button
                     key={tab.key}
-                    onClick={() => !isEmpty && setActiveTab(tab.key)}
+                    onClick={() => { if (!isEmpty) { setActiveTab(tab.key); setSearchParams({ tab: tab.key }, { replace: true }); } }}
                     disabled={isEmpty}
                     title={tabsCollapsed ? tab.label : undefined}
                     className={`

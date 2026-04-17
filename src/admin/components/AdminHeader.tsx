@@ -307,6 +307,19 @@ function Breadcrumb() {
       'ano-letivo':   'Ano Letivo',
       bncc:           'BNCC',
     },
+    loja: {
+      dashboard:   'Dashboard',
+      produtos:    'Produtos',
+      pedidos:     'Pedidos',
+      pdv:         'PDV',
+      relatorios:  'Relatórios',
+    },
+    secretaria: {
+      declaracoes:    'Declarações',
+      'fichas-saude': 'Fichas de Saúde',
+      rematricula:    'Rematrícula',
+      transferencias: 'Transferências',
+    },
   };
 
   // Fallback: converte slug para título (ex: "area-professor" → "Area Professor")
