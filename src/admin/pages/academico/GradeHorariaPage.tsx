@@ -6,7 +6,7 @@ import {
   CalendarClock, Check, Clock, AlertTriangle, Loader2, Save, Trash2,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
-import { SelectDropdown } from '../../components/FormField';
+import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 
 // ── Time slots ───────────────────────────────────────────────────────────────
 
@@ -431,18 +431,13 @@ export default function GradeHorariaPage() {
             ))}
           </SelectDropdown>
 
-          <SelectDropdown
+          <SearchableSelect
             label="Professor"
             value={formTeacherId}
-            onChange={(e) => setFormTeacherId(e.target.value)}
-          >
-            <option value="">Selecione</option>
-            {teachers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.full_name}
-              </option>
-            ))}
-          </SelectDropdown>
+            onChange={(val) => setFormTeacherId(val)}
+            options={teachers.map((t) => ({ value: t.id, label: t.full_name }))}
+            placeholder="Selecione"
+          />
         </DrawerCard>
 
         {editingSchedule && (

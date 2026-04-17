@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
-import { SelectDropdown } from '../../components/FormField';
+import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 import { useBranding } from '../../../contexts/BrandingContext';
 
 // ── Pipeline config ──────────────────────────────────────────────────────────
@@ -903,19 +903,16 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                           ))}
                         </SelectDropdown>
 
-                        <SelectDropdown
+                        <SearchableSelect
                           value={confirmClassId}
-                          onChange={(e) => setConfirmClassId(e.target.value)}
+                          onChange={(val) => setConfirmClassId(val)}
+                          options={filteredClasses.map((c) => ({
+                            value: c.id,
+                            label: `${c.name} · ${c.school_year}${c.max_students ? ` · max ${c.max_students}` : ''}`,
+                          }))}
+                          placeholder="Turma…"
                           disabled={!confirmSeriesId}
-                        >
-                          <option value="">Turma…</option>
-                          {filteredClasses.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name} · {c.school_year}
-                              {c.max_students ? ` · max ${c.max_students}` : ''}
-                            </option>
-                          ))}
-                        </SelectDropdown>
+                        />
                       </>
                     )}
                   </div>

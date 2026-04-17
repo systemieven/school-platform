@@ -444,19 +444,24 @@ export default function FinancialDiscountsPage() {
                       .filter((s) => !editing.segment_id || s.segment_id === editing.segment_id)
                       .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </SelectDropdown>
-                  <SelectDropdown label="Turma" value={editing.class_id || ''} onChange={(e) => updateField('class_id', e.target.value || null)}>
-                    <option value="">— Qualquer turma —</option>
-                    {classes
-                      .filter((c) => !editing.series_id || c.series_id === editing.series_id)
-                      .map((c) => {
-                        const ser = seriesList.find((s) => s.id === c.series_id);
-                        return (
-                          <option key={c.id} value={c.id}>
-                            {ser ? `${ser.name} ${c.name}` : c.name} {c.school_year}
-                          </option>
-                        );
-                      })}
-                  </SelectDropdown>
+                  <SearchableSelect
+                    label="Turma"
+                    value={editing.class_id || ''}
+                    onChange={(val) => updateField('class_id', val || null)}
+                    options={[
+                      { value: '', label: '— Qualquer turma —' },
+                      ...classes
+                        .filter((c) => !editing.series_id || c.series_id === editing.series_id)
+                        .map((c) => {
+                          const ser = seriesList.find((s) => s.id === c.series_id);
+                          return {
+                            value: c.id,
+                            label: `${ser ? `${ser.name} ${c.name}` : c.name} ${c.school_year}`,
+                          };
+                        }),
+                    ]}
+                    placeholder="— Qualquer turma —"
+                  />
                 </div>
               )}
 

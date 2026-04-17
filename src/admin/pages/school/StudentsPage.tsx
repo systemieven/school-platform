@@ -6,7 +6,7 @@ import { usePermissions } from '../../contexts/PermissionsContext';
 import type { Student, SchoolClass, SchoolSegment, StudentStatus } from '../../types/admin.types';
 import { STUDENT_STATUS_LABELS, SHIFT_LABELS, type Shift } from '../../types/admin.types';
 import CreateStudentDrawer from './CreateStudentDrawer';
-import { SelectDropdown } from '../../components/FormField';
+import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 import {
   Users, Search, Loader2, X, GraduationCap, UserPlus, Upload,
   Phone, Mail, Calendar, ChevronDown, Edit3, Save, AlertCircle, FileText,
@@ -119,10 +119,13 @@ function StudentDrawer({ student, classes, onClose, onSaved }: {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <SelectDropdown label="Turma" value={form.class_id} onChange={(e) => set('class_id', e.target.value)}>
-              <option value="">Sem turma</option>
-              {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </SelectDropdown>
+            <SearchableSelect
+              label="Turma"
+              value={form.class_id}
+              onChange={(val) => set('class_id', val)}
+              options={[{ value: '', label: 'Sem turma' }, ...classes.map((c) => ({ value: c.id, label: c.name }))]}
+              placeholder="Sem turma"
+            />
             <SelectDropdown label="Status" value={form.status} onChange={(e) => set('status', e.target.value)}>
               {Object.entries(STUDENT_STATUS_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
