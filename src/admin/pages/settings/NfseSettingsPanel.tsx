@@ -37,6 +37,7 @@ interface NfseConfig {
   reter_inss: boolean;
   optante_simples: boolean;
   incentivador_cultural: boolean;
+  auto_emit_on_payment: boolean;
   provider: Provider;
   api_token_enc: string;
   api_base_url: string;
@@ -61,6 +62,7 @@ const EMPTY: NfseConfig = {
   reter_inss: false,
   optante_simples: false,
   incentivador_cultural: false,
+  auto_emit_on_payment: false,
   provider: '',
   api_token_enc: '',
   api_base_url: '',
@@ -457,6 +459,14 @@ export default function NfseSettingsPanel() {
               className={INPUT_CLS}
             />
           </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700/60">
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Emitir NFS-e automaticamente ao baixar parcela</p>
+            <p className="text-xs text-gray-400 mt-0.5">Quando uma mensalidade é marcada como paga, a nota é emitida sem intervenção manual</p>
+          </div>
+          <Toggle checked={form.auto_emit_on_payment} onChange={(v) => set('auto_emit_on_payment', v)} onColor="bg-emerald-500" />
         </div>
       </SettingsCard>
 

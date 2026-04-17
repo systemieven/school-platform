@@ -2,7 +2,7 @@
 
 > **Versao**: 3.5
 > **Data**: 17 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P PR1 concluido, migrations 153-155) + roadmap ate v1
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, migrations 153-156) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -1509,6 +1509,7 @@ Configuravel na aba Aparencia > Home:
 | 153 | `push_subscriptions` | 17/04 | ✅ **Sprint 13.N.1** — Web Push: tabela `push_subscriptions` (endpoint UNIQUE, p256dh, auth, user_id, user_type, revoked_at, last_seen_at) com RLS (dono gerencia, admin SELECT/UPDATE). Seed `system_settings.push.vapid_public_key`. |
 | 154 | `whatsapp_templates_send_push` | 17/04 | ✅ **Sprint 13.N.3** — flag `whatsapp_templates.send_push BOOLEAN DEFAULT true` habilita fan-out de push via `message-orchestrator` quando `auto-notify` dispara templates. |
 | 155 | `increment_nfse_numero_rpc` | 17/04 | ✅ **Sprint 14.S.P.1** — RPC `increment_nfse_numero()` SECURITY DEFINER: reserva atomicamente o próximo número da NFS-e (UPDATE ... RETURNING) evitando race em emissões simultâneas. Executada pelo `nfse-emitter` antes de inserir em `nfse_emitidas`. |
+| 156 | `nfse_auto_emit_on_payment` | 17/04 | ✅ **Sprint 14.S.P.2** — `company_nfse_config.auto_emit_on_payment BOOLEAN DEFAULT false` (disparo automático de NFS-e em baixa de parcela, via client-side em `handlePay`) + `nfse_emitidas.motivo_cancelamento TEXT` (gravado pela Edge Function `nfse-cancel`). |
 
 ### 7.4 RLS Policies
 
@@ -1628,6 +1629,7 @@ Configuravel na aba Aparencia > Home:
 | `nfse-webhook` | Secret URL param | — | 14.S | Recebe callbacks do provider (autorizacao, rejeicao, cancelamento, substituicao); atualiza `nfse_emitidas.status`; idempotente via `nfse_emission_log` |
 | `nfse-retry-job` | pg_cron | — | 14.S | Job agendado que reprocessa emissoes com status `pendente` ou `rejeitada` dentro do limite de tentativas configuravel |
 | `nfse-certificado` | JWT (admin / super_admin) | 17/04 | 14.S.P.1.5 | Proxy para upload/consulta/remocao do certificado A1 na Nuvem Fiscal (`PUT/GET/DELETE /empresas/{cnpj}/certificado`). Evita expor API token no frontend. Valida role admin via `profiles.role`. |
+| `nfse-cancel` | JWT (admin / super_admin) | 17/04 | 14.S.P.2 | Cancela NFS-e autorizada: chama `POST /nfse/{id}/cancelamento` na Nuvem Fiscal, atualiza `nfse_emitidas.status='cancelada'` + `motivo_cancelamento` + `cancelada_em`, registra tentativa em `nfse_emission_log`. |
 
 ---
 
@@ -1819,7 +1821,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
 | 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ✅ Concluido (migrations 109–113, Sprint 7, 2026-04-16) | Media | 14 |
 | 14.S | Estrutura NFS-e (tabelas, UI, stub do emitter) | ✅ Concluido (migrations 114–117, NfseEmitidas.tsx, 2026-04-17) | Media-Alta | 14.F + 8.5 + 10 |
-| 14.S.P | Integracao NFS-e com provider real (Nuvem Fiscal) | ⚙️ Em andamento — PR1+PR1.5 concluidos (2026-04-17): migration 155 `increment_nfse_numero()` RPC atomica; `nfse-emitter` agora com dispatcher por `cfg.provider` e cliente Nuvem Fiscal completo (`POST /nfse/dps` com payload DPS NFS-e Nacional LC 214/2024); `nfse-webhook` com parser dedicado; Edge Function `nfse-certificado` proxy para upload/consulta/remocao do certificado A1 na Nuvem Fiscal; card "Certificado Digital A1" no `NfseSettingsPanel` com upload client-side (base64) + status de validade + alerta de expiracao. Pendente PR2: auto-trigger em baixa de parcela com `gera_nfse=true` + acoes emitir/cancelar/reenviar em `NfseEmitidas.tsx`. | Media-Alta | 14.S |
+| 14.S.P | Integracao NFS-e com provider real (Nuvem Fiscal) | ✅ Concluido (2026-04-17) — PR1: migration 155 `increment_nfse_numero()` RPC atomica; `nfse-emitter` com dispatcher por `cfg.provider` e cliente Nuvem Fiscal (`POST /nfse/dps`, payload DPS NFS-e Nacional LC 214/2024); `nfse-webhook` com parser dedicado. PR1.5: Edge Function `nfse-certificado` (proxy upload/consulta/remocao do A1 na Nuvem Fiscal) + card "Certificado Digital A1" no `NfseSettingsPanel`. PR2: migration 156 `auto_emit_on_payment` + `motivo_cancelamento`; toggle de auto-emissao em `NfseSettingsPanel`; auto-trigger best-effort em `handlePay` apos baixa; Edge Function `nfse-cancel`; drawer de `NfseEmitidas` com acoes condicionais (Reenviar PDF, Cancelar, Emitir novamente). | Media-Alta | 14.S |
 | 14.S.P-bis | NFC-e via Nuvem Fiscal (PDV/Loja) | ⏳ Planejado — apos NFS-e em producao. Migration nova `nfce_emitidas` + `store_fiscal_config` (CSC, serie PDV). Integracao com `store_orders`. Painel de settings + listagem. | Media | 14.S.P + 14 |
 | 14.S.P-ter | NF-e via Nuvem Fiscal (antes da v1) | ⏳ Planejado | Media | 14.S.P + 14.F |
 | 14.E | Modulo de Fornecedores | ✅ Concluido (migrations 131–132, Sprint 9, 2026-04-17) | Media | 14.F + 8.5 |
@@ -3528,7 +3530,7 @@ nfe_entry_items                  → itens de NF-e de entrada (ja descrito na sp
 **Status**: ✅ Estrutura concluida (migrations 114 `company_nfse_config`, 115 `nfse_category_config`, 117 `nfse_emitidas`; pagina `NfseEmitidas.tsx`). ⚙️ **14.S.P — Integracao Nuvem Fiscal** em andamento:
 - **PR1 (2026-04-17) ✅**: migration 155 com RPC atomica `increment_nfse_numero()`; `nfse-emitter` adaptado com dispatcher por `cfg.provider` e cliente Nuvem Fiscal real chamando `POST /nfse/dps` (NFS-e Nacional, LC 214/2024). Payload DPS construido com `infDPS` completo (prest/toma com `endNac` por IBGE, `serv.cServ` com `cTribNac`/`cTribMun`/`CNAE`/`xDescServ`, `valores.trib.tribMun` com `pAliq`/`tpRetISSQN`). `nfse-webhook` com parser dedicado ao formato Nuvem Fiscal (`id`, `status`, `nfse.xml`, `nfse.url_pdf`, `mensagens[].descricao`). Token API continua em `company_nfse_config.api_token_enc` (criptografado no DB, padrao multi-tenant).
 - **PR1.5 (2026-04-17) ✅ — Certificado digital A1**: Edge Function `nfse-certificado` proxy (PUT/GET/DELETE em `/empresas/{cnpj}/certificado` da Nuvem Fiscal), evita expor API token no frontend. Novo card "Certificado Digital A1" em `NfseSettingsPanel` (aparece quando provider=`nuvem_fiscal`): consulta status via `GET` na abertura (mostra titular, emissor, `not_valid_before`, `not_valid_after` com badge verde/âmbar/vermelho conforme dias restantes); quando ausente, exibe upload com file picker `.pfx`/`.p12` + senha (convertido client-side para base64 e enviado ao proxy, que faz `PUT` na Nuvem Fiscal); botao "Remover certificado" com confirmacao. Certificado NAO e armazenado no nosso DB — fica apenas no vault da Nuvem Fiscal.
-- **PR2 (pendente)**: trigger automatico em baixa de parcela com `gera_nfse=true` (via `pg_net` ou hook no fluxo de baixa), acoes emitir/cancelar/reenviar-PDF em `NfseEmitidas.tsx`, reenvio automatico em rejeicao tratavel.
+- **PR2 (2026-04-17) ✅**: migration 156 adiciona `company_nfse_config.auto_emit_on_payment BOOLEAN` + `nfse_emitidas.motivo_cancelamento TEXT`. Toggle "Emitir NFS-e automaticamente ao baixar parcela" em `NfseSettingsPanel` (card Emissao). `FinancialInstallmentsPage.handlePay` le a flag apos update e dispara `handleEmitNfse` em best-effort (nao bloqueia a baixa). Nova Edge Function `nfse-cancel` (JWT admin+) que chama `POST /nfse/{id}/cancelamento` na Nuvem Fiscal e atualiza `status='cancelada'` + `motivo_cancelamento` + `cancelada_em` com log em `nfse_emission_log`. Drawer de `NfseEmitidas` ganha acoes condicionais no footer: "Reenviar PDF" (via `message-orchestrator` para status=autorizada com link_pdf), "Cancelar" (abre prompt de motivo, status=autorizada), "Emitir novamente" (status=rejeitada ou pendente — reinvoca `nfse-emitter` com os mesmos dados do registro).
 
 **Continuidade (fora do sprint 14.S.P):** **14.S.P-bis** — NFC-e via Nuvem Fiscal para PDV/Loja (apos NFS-e estabilizada em prod). **14.S.P-ter** — NF-e via Nuvem Fiscal (antes da v1).
 **Dependencias**:
