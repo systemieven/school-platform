@@ -48,6 +48,9 @@ const FaltasComunicacoesPage   = lazy(() => import('./pages/school/FaltasComunic
 const AutorizacoesSaidaAdminPage = lazy(() => import('./pages/school/AutorizacoesSaidaAdminPage'));
 const PortariaPage             = lazy(() => import('./pages/school/PortariaPage'));
 
+// Histórico de Atendimentos (Sprint 9.5.C — orphan reconectado)
+const AttendanceHistoryPage    = lazy(() => import('./pages/attendance/AttendanceHistoryPage'));
+
 // Fase 15 — Achados e Perdidos Digital
 const AchadosPerdidosPage      = lazy(() => import('./pages/school/AchadosPerdidosPage'));
 
@@ -99,7 +102,7 @@ export default function AdminRoutes() {
           <Route path="matriculas"             element={<Navigate to="/admin/gestao?tab=matriculas" replace />} />
           <Route path="contatos"               element={<Navigate to="/admin/gestao?tab=contatos" replace />} />
           <Route path="atendimentos"           element={<Navigate to="/admin/gestao?tab=atendimentos" replace />} />
-          <Route path="historico-atendimentos" element={<Navigate to="/admin/gestao?tab=atendimentos" replace />} />
+          <Route path="historico-atendimentos" element={<ModuleGuard moduleKey="attendance"><LazyPage><AttendanceHistoryPage /></LazyPage></ModuleGuard>} />
 
           <Route path="leads/kanban" element={<ModuleGuard moduleKey="kanban"><LazyPage><KanbanPage /></LazyPage></ModuleGuard>} />
           <Route path="relatorios"   element={<ModuleGuard moduleKey="reports"><LazyPage><ReportsPage /></LazyPage></ModuleGuard>} />
