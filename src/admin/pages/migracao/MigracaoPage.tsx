@@ -77,7 +77,7 @@ const MODULES: ModuleDef[] = [
   { key: 'contacts',              label: 'Contatos',            description: 'Leads e contatos do CRM',    icon: MessageSquare,  group: 'A', importPath: '/admin/migracao/contatos' },
   { key: 'fornecedores',          label: 'Fornecedores',        description: 'Cadastro de fornecedores',   icon: Building2,     group: 'A', importPath: '/admin/migracao/fornecedores' },
   { key: 'store-products',        label: 'Produtos',            description: 'Catálogo da loja',           icon: Package,       group: 'A', importPath: '/admin/migracao/produtos' },
-  { key: 'users',                 label: 'Colaboradores',       description: 'Usuários administrativos',   icon: Users,         group: 'A', importPath: null },
+  { key: 'users',                 label: 'Colaboradores',       description: 'Usuários administrativos (senha temporária + troca no 1º login)', icon: Users,         group: 'A', importPath: '/admin/migracao/colaboradores' },
 
   // Grupo B
   { key: 'students',              label: 'Alunos',              description: 'Cadastro de alunos ativos',  icon: UserCheck,     group: 'B', importPath: '/admin/alunos/importar' },

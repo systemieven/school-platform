@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Upload, ArrowLeft, ArrowRight, FileSpreadsheet, Check, X,
   AlertTriangle, Loader2, Download, Save, Trash2, Wand2, Sparkles, Lock,
+  ClipboardList,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { logAudit } from '../../lib/audit';
@@ -34,11 +35,19 @@ import type { ImportTemplate, ImportTemplateMapping } from '../types/admin.types
 const INPUT_CLASS =
   'w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none';
 
-const STEPS = [
+const BASE_STEPS = [
   { num: 1, label: 'Upload' },
   { num: 2, label: 'Mapeamento' },
   { num: 3, label: 'Validação' },
   { num: 4, label: 'Importação' },
+];
+
+const STEPS_WITH_REVIEW = [
+  { num: 1, label: 'Upload' },
+  { num: 2, label: 'Mapeamento' },
+  { num: 3, label: 'Validação' },
+  { num: 4, label: 'Revisar' },
+  { num: 5, label: 'Importação' },
 ];
 
 const BATCH_SIZE = 50;
@@ -87,6 +96,10 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
   }, [config.moduleKey]);
 
   // Wizard state -------------------------------------------------------------
+  const hasReviewStep = !!(config.perRowOverrides && config.perRowOverrides.length > 0);
+  const STEPS = hasReviewStep ? STEPS_WITH_REVIEW : BASE_STEPS;
+  const IMPORT_STEP = hasReviewStep ? 5 : 4;
+
   const [step, setStep] = useState(1);
 
   const [headers, setHeaders] = useState<string[]>([]);
@@ -107,6 +120,9 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [validating, setValidating] = useState(false);
+
+  // Per-row overrides (step "Revisar")
+  const [rowOverrides, setRowOverrides] = useState<Record<number, Record<string, string>>>({});
 
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
@@ -294,6 +310,21 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
 
     setValidationResults(results);
     setExpandedRows(new Set());
+
+    // Seed per-row overrides with defaults (apenas para linhas validas)
+    if (config.perRowOverrides && config.perRowOverrides.length > 0) {
+      const seed: Record<number, Record<string, string>> = {};
+      for (const r of results) {
+        if (!r.valid) continue;
+        const ov: Record<string, string> = {};
+        for (const o of config.perRowOverrides) {
+          ov[o.key] = o.defaultValue ?? '';
+        }
+        seed[r.rowIndex] = ov;
+      }
+      setRowOverrides(seed);
+    }
+
     setValidating(false);
     setStep(3);
   }, [config, rows, mapping, extraMapping]);
@@ -324,7 +355,7 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
     const toImport = validationResults.filter((r) => r.valid && r.included);
     setImportTotal(toImport.length);
     setImportProgress(0);
-    setStep(4);
+    setStep(hasReviewStep ? 5 : 4);
 
     try {
       const ctx = (config.preImport
@@ -347,7 +378,8 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
             const col = extraMapping[ex.key];
             extras[ex.key] = col ? (item.row[col] ?? '') : '';
           }
-          return config.buildRecord(mappedRow, extras, i + bIdx, ctx);
+          const overrides = rowOverrides[item.rowIndex] ?? {};
+          return config.buildRecord(mappedRow, extras, i + bIdx, ctx, overrides);
         });
 
         if (config.insertBatch) {
@@ -394,7 +426,7 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
       setImportError(err instanceof Error ? err.message : 'Erro desconhecido na importação');
     }
     setImporting(false);
-  }, [validationResults, mapping, extraMapping, config, profile]);
+  }, [validationResults, mapping, extraMapping, rowOverrides, config, profile, hasReviewStep]);
 
   // ── Template download ───────────────────────────────────────────────────
 
@@ -806,9 +838,142 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
               <ArrowLeft className="w-4 h-4" />
               Voltar
             </button>
+            {hasReviewStep ? (
+              <button
+                onClick={() => setStep(4)}
+                disabled={validCount === 0}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg bg-brand-primary text-white hover:bg-brand-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ClipboardList className="w-4 h-4" />
+                Revisar {validCount} {config.labelPlural}
+              </button>
+            ) : (
+              <button
+                onClick={handleImport}
+                disabled={validCount === 0}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                Importar {validCount} {config.labelPlural}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Step 4 (optional): Revisar per-row overrides */}
+      {hasReviewStep && step === 4 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Revisar antes de importar</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Defina os campos abaixo para cada linha. Tudo é aplicado de uma só vez ao confirmar.
+            </p>
+          </div>
+          <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700/60">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-10">#</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Nome</th>
+                  {config.perRowOverrides!.map((o) => (
+                    <th key={o.key} className="px-3 py-2 text-left font-medium text-gray-500 dark:text-gray-400">
+                      {o.label}{o.required && <span className="text-red-500 ml-0.5">*</span>}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                {validationResults.filter((r) => r.valid && r.included).map((r) => (
+                  <tr key={r.rowIndex}>
+                    <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{r.rowIndex + 1}</td>
+                    <td className="px-3 py-2 text-gray-800 dark:text-gray-200">{getNameValue(r.row)}</td>
+                    {config.perRowOverrides!.map((o) => {
+                      const v = rowOverrides[r.rowIndex]?.[o.key] ?? '';
+                      const setValue = (val: string) =>
+                        setRowOverrides((prev) => ({
+                          ...prev,
+                          [r.rowIndex]: { ...(prev[r.rowIndex] ?? {}), [o.key]: val },
+                        }));
+                      return (
+                        <td key={o.key} className="px-3 py-2">
+                          {o.type === 'select' ? (
+                            <select
+                              value={v}
+                              onChange={(e) => setValue(e.target.value)}
+                              className={INPUT_CLASS}
+                            >
+                              <option value="">—</option>
+                              {(o.options ?? []).map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={v}
+                              onChange={(e) => setValue(e.target.value)}
+                              className={INPUT_CLASS}
+                            />
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Bulk apply helpers */}
+          {config.perRowOverrides!.some((o) => o.type === 'select') && (
+            <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+              <span className="text-xs text-gray-500 dark:text-gray-400 self-center">Aplicar a todas:</span>
+              {config.perRowOverrides!.filter((o) => o.type === 'select').map((o) => (
+                <select
+                  key={o.key}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    setRowOverrides((prev) => {
+                      const next: typeof prev = { ...prev };
+                      for (const r of validationResults) {
+                        if (r.valid && r.included) {
+                          next[r.rowIndex] = { ...(next[r.rowIndex] ?? {}), [o.key]: val };
+                        }
+                      }
+                      return next;
+                    });
+                    e.target.value = '';
+                  }}
+                  className={INPUT_CLASS}
+                >
+                  <option value="">{o.label}</option>
+                  {(o.options ?? []).map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
+            <button
+              onClick={() => setStep(3)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Voltar
+            </button>
             <button
               onClick={handleImport}
-              disabled={validCount === 0}
+              disabled={(() => {
+                const required = (config.perRowOverrides ?? []).filter((o) => o.required);
+                if (required.length === 0) return false;
+                return validationResults.some(
+                  (r) => r.valid && r.included && required.some((o) => !rowOverrides[r.rowIndex]?.[o.key]),
+                );
+              })()}
               className="flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Upload className="w-4 h-4" />
@@ -818,8 +983,8 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
         </div>
       )}
 
-      {/* Step 4: Import result */}
-      {step === 4 && (
+      {/* Step N: Import result */}
+      {step === IMPORT_STEP && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Importação</h2>
           {importing && (

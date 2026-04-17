@@ -31,6 +31,21 @@ export interface ExtraColumnDef {
   hint?: string;
 }
 
+/**
+ * Definicao de um campo decidido per-linha no step "Revisar" (pos-validacao,
+ * pre-importacao). Renderizado como select/input em uma tabela onde o admin
+ * preenche uma celula por linha valida.
+ */
+export interface PerRowOverride {
+  key: string;
+  label: string;
+  type: 'select' | 'text';
+  options?: { value: string; label: string }[]; // obrigatorio para type=select
+  defaultValue?: string;
+  required?: boolean;
+  hint?: string;
+}
+
 export type MappingConfidence = 'high' | 'low';
 
 export interface AutoDetectedField {
@@ -80,6 +95,14 @@ export interface ModuleImportConfig<Ctx extends ImportContext = ImportContext> {
   extraColumns?: ExtraColumnDef[];
 
   /**
+   * Sobrescritas per-linha que o admin preenche em um step "Revisar" apos
+   * a validacao e antes da importacao. Util quando um campo nao existe na
+   * planilha e deve ser decidido pelo operador por linha (ex.: papel de
+   * cada usuario importado). Se omitido, o step de revisao e pulado.
+   */
+  perRowOverrides?: PerRowOverride[];
+
+  /**
    * Carrega chaves ja existentes no banco para deteccao de duplicata
    * (ex.: Set de CPFs). Opcional — se omitido, nao ha dedupe com banco.
    */
@@ -118,6 +141,7 @@ export interface ModuleImportConfig<Ctx extends ImportContext = ImportContext> {
     extras: Record<string, string>,
     absoluteIdx: number,
     ctx: Ctx,
+    overrides?: Record<string, string>,
   ) => Record<string, unknown>;
 
   /**
