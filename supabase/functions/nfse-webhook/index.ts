@@ -1,14 +1,15 @@
 /**
  * nfse-webhook
  *
- * Public POST endpoint — receives status callbacks from the NFS-e provider.
+ * Endpoint publico POST — recebe callbacks de status do provider NFS-e.
  * URL: POST /nfse-webhook?secret=<webhook_secret>
  *
- * No JWT auth required. Request authenticity is validated via the
- * webhook_secret query param matched against company_nfse_config.webhook_secret.
+ * Nao exige JWT. Autenticidade validada pelo query param `secret` comparado
+ * contra company_nfse_config.webhook_secret.
  *
- * On success the nfse_emitidas record is updated and, if newly authorized
- * and guardian has a phone, a WhatsApp notification is dispatched.
+ * Formatos suportados:
+ *   - Nuvem Fiscal (NFS-e Nacional): { id, status, numero, nfse: { xml, pdf } }
+ *   - Generico: best-effort em `id|nfse_id`, `status|situacao`, etc.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -25,22 +26,74 @@ function json(data: unknown, status = 200) {
   });
 }
 
-// ── Provider status mapping ───────────────────────────────────────────────────
+// ── Status mapping ────────────────────────────────────────────────────────────
 
 type OurStatus = "autorizada" | "cancelada" | "rejeitada" | "substituida" | "pendente";
 
-/**
- * TODO: Map your provider's status strings to our enum.
- * Common values across providers are handled below; extend as needed.
- */
 function mapProviderStatus(raw: string | undefined): OurStatus {
   if (!raw) return "pendente";
   const s = raw.toLowerCase();
-  if (["autorizada", "authorized", "issued", "emitida", "aprovada"].includes(s)) return "autorizada";
+  if (["autorizada", "authorized", "issued", "emitida", "aprovada", "processada"].includes(s)) return "autorizada";
   if (["cancelada", "cancelled", "canceled"].includes(s)) return "cancelada";
   if (["substituida", "substituted"].includes(s)) return "substituida";
   if (["rejeitada", "rejected", "negada", "denied", "erro", "error"].includes(s)) return "rejeitada";
   return "pendente";
+}
+
+// ── Parser por provider ───────────────────────────────────────────────────────
+
+interface ParsedPayload {
+  provider_nfse_id: string;
+  raw_status: string;
+  link_pdf: string | null;
+  xml: string | null;
+  error_message: string | null;
+}
+
+function parseNuvemFiscal(payload: Record<string, unknown>, baseUrl: string): ParsedPayload {
+  const id = (payload.id as string) ?? "";
+  const status = (payload.status as string) ?? "";
+  const nfse = (payload.nfse ?? {}) as Record<string, unknown>;
+  const link_pdf =
+    (nfse.url_pdf as string | undefined) ??
+    (payload.url_pdf as string | undefined) ??
+    (id ? `${baseUrl}/nfse/${id}/pdf` : null);
+  const xml =
+    (nfse.xml as string | undefined) ??
+    (payload.xml as string | undefined) ??
+    null;
+  const mensagens = payload.mensagens as { descricao?: string }[] | undefined;
+  const error_message =
+    mensagens?.[0]?.descricao ??
+    (payload.mensagem as string | undefined) ??
+    null;
+  return { provider_nfse_id: id, raw_status: status, link_pdf, xml, error_message };
+}
+
+function parseGeneric(payload: Record<string, unknown>): ParsedPayload {
+  return {
+    provider_nfse_id:
+      (payload.id as string) ??
+      (payload.nfse_id as string) ??
+      (payload.provider_id as string) ??
+      "",
+    raw_status:
+      (payload.status as string) ??
+      (payload.situacao as string) ??
+      "",
+    link_pdf:
+      (payload.link_pdf as string | undefined) ??
+      (payload.url_pdf as string | undefined) ??
+      null,
+    xml:
+      (payload.xml as string | undefined) ??
+      (payload.xml_nfse as string | undefined) ??
+      null,
+    error_message:
+      (payload.error_message as string | undefined) ??
+      (payload.motivo as string | undefined) ??
+      null,
+  };
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -54,21 +107,21 @@ Deno.serve(async (req: Request) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // 1. Validate webhook secret
+  // 1. Valida secret
   const url = new URL(req.url);
   const secret = url.searchParams.get("secret") ?? "";
 
   const { data: cfg, error: cfgErr } = await service
     .from("company_nfse_config")
-    .select("id, webhook_secret")
+    .select("id, provider, api_base_url, webhook_secret")
     .single();
 
-  if (cfgErr || !cfg) return json({ error: "Configuração NFS-e não encontrada" }, 500);
+  if (cfgErr || !cfg) return json({ error: "Configuracao NFS-e nao encontrada" }, 500);
   if (!cfg.webhook_secret || cfg.webhook_secret !== secret) {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  // 2. Parse provider body
+  // 2. Parse body
   let payload: Record<string, unknown>;
   try {
     payload = await req.json();
@@ -76,39 +129,38 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  // TODO: adapt field names to match the actual provider's callback payload
-  const provider_nfse_id =
-    (payload.id ?? payload.nfse_id ?? payload.provider_id ?? "") as string;
-  const rawStatus = (payload.status ?? payload.situacao ?? "") as string;
-  const link_pdf = (payload.link_pdf ?? payload.url_pdf ?? null) as string | null;
-  const xml = (payload.xml ?? payload.xml_nfse ?? null) as string | null;
-  const error_message = (payload.error_message ?? payload.motivo ?? null) as string | null;
+  // 3. Dispatcher de parsing por provider
+  const baseUrl = (cfg.api_base_url as string | null) || "https://api.nuvemfiscal.com.br";
+  const parsed =
+    cfg.provider === "nuvem_fiscal"
+      ? parseNuvemFiscal(payload, baseUrl)
+      : parseGeneric(payload);
 
-  if (!provider_nfse_id) {
+  if (!parsed.provider_nfse_id) {
     return json({ error: "provider_nfse_id ausente no payload" }, 400);
   }
 
-  // 3. Find nfse_emitidas by provider_nfse_id
+  // 4. Localiza nfse_emitidas
   const { data: nfse, error: findErr } = await service
     .from("nfse_emitidas")
     .select("id, numero, status, guardian_id")
-    .eq("provider_nfse_id", provider_nfse_id)
+    .eq("provider_nfse_id", parsed.provider_nfse_id)
     .single();
 
   if (findErr || !nfse) {
-    return json({ error: "NFS-e não encontrada", provider_nfse_id }, 404);
+    return json({ error: "NFS-e nao encontrada", provider_nfse_id: parsed.provider_nfse_id }, 404);
   }
 
   const previousStatus = nfse.status as OurStatus;
-
-  // 4. Map to our enum
-  const newStatus = mapProviderStatus(rawStatus);
+  const newStatus = mapProviderStatus(parsed.raw_status);
 
   // 5. Update nfse_emitidas
   const updatePayload: Record<string, unknown> = { status: newStatus };
-  if (link_pdf) updatePayload.link_pdf = link_pdf;
-  if (xml) updatePayload.xml_retorno = xml;
-  if (newStatus === "rejeitada" && error_message) updatePayload.motivo_rejeicao = error_message;
+  if (parsed.link_pdf) updatePayload.link_pdf = parsed.link_pdf;
+  if (parsed.xml) updatePayload.xml_retorno = parsed.xml;
+  if (newStatus === "rejeitada" && parsed.error_message) {
+    updatePayload.motivo_rejeicao = parsed.error_message;
+  }
 
   const { error: updateErr } = await service
     .from("nfse_emitidas")
@@ -117,12 +169,12 @@ Deno.serve(async (req: Request) => {
 
   const logStatus = updateErr ? "error" : newStatus === "rejeitada" ? "error" : "success";
 
-  // 6. Insert emission log
+  // 6. Log
   await service.from("nfse_emission_log").insert({
     nfse_id: nfse.id,
-    tentativa: null, // webhook-triggered, no retry count
+    tentativa: null,
     iniciado_por: "webhook",
-    dados_env: { provider_nfse_id, raw_status: rawStatus },
+    dados_env: { provider_nfse_id: parsed.provider_nfse_id, raw_status: parsed.raw_status },
     resposta: payload,
     status: logStatus,
   });
@@ -131,7 +183,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Falha ao atualizar NFS-e", detail: updateErr.message }, 500);
   }
 
-  // 7. WhatsApp notification if newly authorized
+  // 7. WhatsApp se recem-autorizada
   if (newStatus === "autorizada" && previousStatus !== "autorizada") {
     const { data: guardian } = await service
       .from("guardian_profiles")
@@ -152,12 +204,12 @@ Deno.serve(async (req: Request) => {
           body: JSON.stringify({
             phone,
             module: "fiscal",
-            body: `Sua NFS-e nº ${nfse.numero} foi autorizada. Link: ${link_pdf ?? "em breve disponível"}`,
+            body: `Sua NFS-e n. ${nfse.numero} foi autorizada. Link: ${parsed.link_pdf ?? "em breve disponivel"}`,
             priority: 1,
           }),
         });
       } catch {
-        // notification failure is non-fatal
+        // notificacao nao bloqueia
       }
     }
   }
