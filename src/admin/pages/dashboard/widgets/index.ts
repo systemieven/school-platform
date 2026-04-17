@@ -20,3 +20,6 @@ export type { OverdueContactsWidgetProps, OverdueContact } from './OverdueContac
 
 export { UpcomingVisitsWidget } from './UpcomingVisitsWidget';
 export type { UpcomingVisitsWidgetProps, UpcomingAppointment } from './UpcomingVisitsWidget';
+
+export { AiInsightsWidget } from './AiInsightsWidget';
+export type { AiInsightsWidgetProps } from './AiInsightsWidget';

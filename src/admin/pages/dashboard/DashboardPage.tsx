@@ -21,6 +21,7 @@ import {
   WaStatsWidget,
   OverdueContactsWidget,
   UpcomingVisitsWidget,
+  AiInsightsWidget,
 } from './widgets';
 import type {
   Period,
@@ -276,6 +277,23 @@ export default function DashboardPage() {
           {/* Upcoming appointments — full width */}
           <div className="mt-4">
             <UpcomingVisitsWidget appointments={upcoming} reasonLabels={REASON_LABELS} />
+          </div>
+
+          {/* AI insights — full width, lazy */}
+          <div className="mt-4">
+            <AiInsightsWidget
+              metrics={{
+                period,
+                stats,
+                enrollment_pipeline: enrollmentGroups,
+                appointments_by_status: apptGroups,
+                contacts_by_reason: contactGroups,
+                lead_funnel: leadFunnel,
+                whatsapp: waStats,
+                overdue_contacts_count: overdueContacts.length,
+                upcoming_visits_count: upcoming.length,
+              }}
+            />
           </div>
         </>
       )}
