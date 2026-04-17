@@ -4,7 +4,7 @@
  * POST /ai-worker-openai
  * Auth: service_role (chamado pelo ai-orchestrator).
  *
- * Body: { model: string, system: string, user: string, temperature: number, max_tokens: number }
+ * Body: { model: string, system: string, user: string, temperature: number, max_tokens: number, api_key: string }
  * Response: { text, input_tokens, output_tokens } | { error }
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -25,13 +25,12 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) return json({ error: "OPENAI_API_KEY ausente" }, 500);
-
-  let body: { model?: string; system?: string; user?: string; temperature?: number; max_tokens?: number };
+  let body: { model?: string; system?: string; user?: string; temperature?: number; max_tokens?: number; api_key?: string };
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
-  const { model, system, user, temperature, max_tokens } = body;
+  const { model, system, user, temperature, max_tokens, api_key } = body;
   if (!model || !user) return json({ error: "model e user sao obrigatorios" }, 400);
+  const apiKey = api_key ?? Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) return json({ error: "api_key ausente (configure em /admin/configuracoes?tab=ia)" }, 400);
 
   const messages: { role: string; content: string }[] = [];
   if (system) messages.push({ role: "system", content: system });
