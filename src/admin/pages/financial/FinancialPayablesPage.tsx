@@ -25,6 +25,7 @@ import {
   Pencil, Trash2, X, DollarSign, User, Calendar,
   ToggleLeft, ToggleRight, AlertTriangle, Building2,
 } from 'lucide-react';
+import { SelectDropdown } from '../../components/FormField';
 
 // ── Fornecedor types (lightweight for search) ─────────────────────────────────
 interface FornecedorLite {
@@ -579,14 +580,10 @@ export default function FinancialPayablesPage() {
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Categoria</label>
-            <select value={form.account_category_id} onChange={(e) => setForm({ ...form, account_category_id: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
-              <option value="">Sem categoria</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
+          <SelectDropdown label="Categoria" value={form.account_category_id} onChange={(e) => setForm({ ...form, account_category_id: e.target.value })}>
+            <option value="">Sem categoria</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </SelectDropdown>
           <div>
             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Alertar com antecedência (dias)</label>
             <input type="number" min={0} max={30} value={form.alert_days_before} onChange={(e) => setForm({ ...form, alert_days_before: e.target.value })}
@@ -605,15 +602,11 @@ export default function FinancialPayablesPage() {
           </div>
           {form.is_recurring && (
             <div className="grid grid-cols-2 gap-3 pt-1">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Intervalo</label>
-                <select value={form.recurrence_interval} onChange={(e) => setForm({ ...form, recurrence_interval: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none">
-                  <option value="monthly">Mensal</option>
-                  <option value="quarterly">Trimestral</option>
-                  <option value="yearly">Anual</option>
-                </select>
-              </div>
+              <SelectDropdown label="Intervalo" value={form.recurrence_interval} onChange={(e) => setForm({ ...form, recurrence_interval: e.target.value })}>
+                <option value="monthly">Mensal</option>
+                <option value="quarterly">Trimestral</option>
+                <option value="yearly">Anual</option>
+              </SelectDropdown>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Encerrar em</label>
                 <input type="date" value={form.recurrence_end_date} onChange={(e) => setForm({ ...form, recurrence_end_date: e.target.value })}
@@ -652,13 +645,9 @@ export default function FinancialPayablesPage() {
               <input type="number" min={0.01} step={0.01} value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none" />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Forma de Pagamento</label>
-              <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
-                {PAYMENT_METHODS.filter((m) => m.value).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </div>
+            <SelectDropdown label="Forma de Pagamento" value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
+              {PAYMENT_METHODS.filter((m) => m.value).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </SelectDropdown>
           </DrawerCard>
         )}
       </Drawer>

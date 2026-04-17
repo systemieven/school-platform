@@ -17,6 +17,7 @@ import {
   Percent, Loader2, Pencil, Trash2, X, Save, Check,
   Tag, Info, Calendar, Globe, Users, User, Layers, Clock, Plus, TrendingDown,
 } from 'lucide-react';
+import { SelectDropdown } from '../../components/FormField';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -412,74 +413,58 @@ export default function FinancialDiscountsPage() {
               {editing.scope === 'group' && (
                 <div className="space-y-3">
                   <p className="text-[11px] text-gray-400">Preencha ao menos um filtro. Múltiplos filtros se combinam (OR).</p>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Plano</label>
-                    <select value={editing.plan_id || ''} onChange={(e) => updateField('plan_id', e.target.value || null)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                      <option value="">— Qualquer plano —</option>
-                      {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Segmento</label>
-                    <select
-                      value={editing.segment_id || ''}
-                      onChange={(e) => {
-                        const next = e.target.value || null;
-                        updateField('segment_id', next);
-                        // Reset série/turma se o segmento mudou
-                        if (editing.series_id) {
-                          const ser = seriesList.find((s) => s.id === editing.series_id);
-                          if (!next || ser?.segment_id !== next) updateField('series_id', null);
-                        }
-                      }}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                      <option value="">— Qualquer segmento —</option>
-                      {segments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Série</label>
-                    <select
-                      value={editing.series_id || ''}
-                      onChange={(e) => updateField('series_id', e.target.value || null)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                      <option value="">— Qualquer série —</option>
-                      {seriesList
-                        .filter((s) => !editing.segment_id || s.segment_id === editing.segment_id)
-                        .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                    <p className="text-[11px] text-gray-400 mt-1">Mais específico que segmento, menos que turma.</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Turma</label>
-                    <select value={editing.class_id || ''} onChange={(e) => updateField('class_id', e.target.value || null)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                      <option value="">— Qualquer turma —</option>
-                      {classes
-                        .filter((c) => !editing.series_id || c.series_id === editing.series_id)
-                        .map((c) => {
-                          const ser = seriesList.find((s) => s.id === c.series_id);
-                          return (
-                            <option key={c.id} value={c.id}>
-                              {ser ? `${ser.name} ${c.name}` : c.name} {c.school_year}
-                            </option>
-                          );
-                        })}
-                    </select>
-                  </div>
+                  <SelectDropdown label="Plano" value={editing.plan_id || ''} onChange={(e) => updateField('plan_id', e.target.value || null)}>
+                    <option value="">— Qualquer plano —</option>
+                    {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </SelectDropdown>
+                  <SelectDropdown
+                    label="Segmento"
+                    value={editing.segment_id || ''}
+                    onChange={(e) => {
+                      const next = e.target.value || null;
+                      updateField('segment_id', next);
+                      // Reset série/turma se o segmento mudou
+                      if (editing.series_id) {
+                        const ser = seriesList.find((s) => s.id === editing.series_id);
+                        if (!next || ser?.segment_id !== next) updateField('series_id', null);
+                      }
+                    }}
+                  >
+                    <option value="">— Qualquer segmento —</option>
+                    {segments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </SelectDropdown>
+                  <SelectDropdown
+                    label="Série"
+                    hint="Mais específico que segmento, menos que turma."
+                    value={editing.series_id || ''}
+                    onChange={(e) => updateField('series_id', e.target.value || null)}
+                  >
+                    <option value="">— Qualquer série —</option>
+                    {seriesList
+                      .filter((s) => !editing.segment_id || s.segment_id === editing.segment_id)
+                      .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </SelectDropdown>
+                  <SelectDropdown label="Turma" value={editing.class_id || ''} onChange={(e) => updateField('class_id', e.target.value || null)}>
+                    <option value="">— Qualquer turma —</option>
+                    {classes
+                      .filter((c) => !editing.series_id || c.series_id === editing.series_id)
+                      .map((c) => {
+                        const ser = seriesList.find((s) => s.id === c.series_id);
+                        return (
+                          <option key={c.id} value={c.id}>
+                            {ser ? `${ser.name} ${c.name}` : c.name} {c.school_year}
+                          </option>
+                        );
+                      })}
+                  </SelectDropdown>
                 </div>
               )}
 
               {editing.scope === 'student' && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Aluno *</label>
-                  <select value={editing.student_id || ''} onChange={(e) => updateField('student_id', e.target.value || null)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                    <option value="">— Selecione —</option>
-                    {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-                  </select>
-                </div>
+                <SelectDropdown label="Aluno *" value={editing.student_id || ''} onChange={(e) => updateField('student_id', e.target.value || null)}>
+                  <option value="">— Selecione —</option>
+                  {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                </SelectDropdown>
               )}
             </DrawerCard>
 
@@ -516,14 +501,10 @@ export default function FinancialDiscountsPage() {
 
               {!isProgressive && (
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tipo *</label>
-                    <select value={editing.discount_type} onChange={(e) => updateField('discount_type', e.target.value as DiscountType)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                      <option value="percentage">Porcentagem (%)</option>
-                      <option value="fixed">Valor fixo (R$)</option>
-                    </select>
-                  </div>
+                  <SelectDropdown label="Tipo *" value={editing.discount_type} onChange={(e) => updateField('discount_type', e.target.value as DiscountType)}>
+                    <option value="percentage">Porcentagem (%)</option>
+                    <option value="fixed">Valor fixo (R$)</option>
+                  </SelectDropdown>
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Valor *</label>
                     <input type="number" step="0.01" min="0" value={editing.discount_value || ''} onChange={(e) => updateField('discount_value', Number(e.target.value))}

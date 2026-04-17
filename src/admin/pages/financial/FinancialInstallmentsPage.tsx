@@ -10,6 +10,7 @@ import {
   Loader2, Search, ChevronDown, Receipt, Calendar, DollarSign,
   Check, Save, AlertTriangle, CreditCard, User, FileText, FileCheck2,
 } from 'lucide-react';
+import { SelectDropdown } from '../../components/FormField';
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   boleto: 'Boleto',
@@ -398,15 +399,11 @@ export default function FinancialInstallmentsPage() {
                 <input type="number" step="0.01" min="0" value={payAmount || ''} onChange={(e) => setPayAmount(Number(e.target.value))}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none" />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Forma de pagamento *</label>
-                <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
-                  {(Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown label="Forma de pagamento *" value={payMethod} onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}>
+                {(Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </SelectDropdown>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Observações</label>
                 <textarea value={payNotes} onChange={(e) => setPayNotes(e.target.value)} rows={2} placeholder="Comprovante, referência..."
