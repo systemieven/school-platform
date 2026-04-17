@@ -4,6 +4,7 @@ import { useGuardian } from '../../contexts/GuardianAuthContext';
 import { GUARDIAN_EMAIL_SUFFIX } from '../../contexts/GuardianAuthContext';
 import { useWebAuthn } from '../../hooks/useWebAuthn';
 import { Loader2, User, Save, Check, Eye, EyeOff, KeyRound, Fingerprint } from 'lucide-react';
+import InstallAppCard from '../../../components/InstallAppCard';
 
 type SaveState = 'idle' | 'saving' | 'saved';
 
@@ -137,6 +138,8 @@ export default function PerfilPage() {
           Gerencie seus dados de contato e senha.
         </p>
       </div>
+
+      <InstallAppCard />
 
       {/* Personal info */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">

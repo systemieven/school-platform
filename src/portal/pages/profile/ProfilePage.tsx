@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useStudentAuth } from '../../contexts/StudentAuthContext';
 import { User, Lock, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import InstallAppCard from '../../../components/InstallAppCard';
 
 export default function ProfilePage() {
   const { student } = useStudentAuth();
@@ -55,6 +56,8 @@ export default function ProfilePage() {
         )}
         <p className="text-xs text-gray-400">Para atualizar dados pessoais, entre em contato com a secretaria.</p>
       </div>
+
+      <InstallAppCard />
 
       {/* Change password */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
