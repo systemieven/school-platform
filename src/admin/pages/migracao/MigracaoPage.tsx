@@ -163,6 +163,35 @@ export default function MigracaoPage() {
     return groups;
   }, []);
 
+  // Progresso por grupo + cadeia de dependência (A → B → C; sequencial dentro)
+  const groupProgress = useMemo(() => {
+    const res: Record<ModuleGroup, { completed: number; total: number; pct: number; done: boolean }> = {
+      A: { completed: 0, total: 0, pct: 0, done: false },
+      B: { completed: 0, total: 0, pct: 0, done: false },
+      C: { completed: 0, total: 0, pct: 0, done: false },
+    };
+    (['A', 'B', 'C'] as const).forEach((g) => {
+      const mods = modulesByGroup[g];
+      const completed = mods.filter((m) => statusMap[m.key]?.status === 'completed').length;
+      res[g] = {
+        completed,
+        total: mods.length,
+        pct: mods.length ? Math.round((completed / mods.length) * 100) : 0,
+        done: mods.length > 0 && completed === mods.length,
+      };
+    });
+    return res;
+  }, [modulesByGroup, statusMap]);
+
+  const isGroupUnlocked = useCallback(
+    (g: ModuleGroup) => {
+      if (g === 'A') return true;
+      if (g === 'B') return groupProgress.A.done;
+      return groupProgress.B.done;
+    },
+    [groupProgress],
+  );
+
   const openImporter = (mod: ModuleDef) => {
     if (!mod.importPath) return;
     navigate(mod.importPath);
@@ -255,6 +284,8 @@ export default function MigracaoPage() {
             <GroupTimeline
               modules={modulesByGroup[group]}
               statusMap={statusMap}
+              groupUnlocked={isGroupUnlocked(group)}
+              progress={groupProgress[group]}
               onImport={openImporter}
               onUnlock={requestUnlock}
             />
@@ -284,11 +315,17 @@ export default function MigracaoPage() {
 interface GroupTimelineProps {
   modules: ModuleDef[];
   statusMap: StatusByKey;
+  groupUnlocked: boolean;
+  progress: { completed: number; total: number; pct: number; done: boolean };
   onImport: (mod: ModuleDef) => void;
   onUnlock: (mod: ModuleDef) => void;
 }
 
-function GroupTimeline({ modules, statusMap, onImport, onUnlock }: GroupTimelineProps) {
+function GroupTimeline({ modules, statusMap, groupUnlocked, progress, onImport, onUnlock }: GroupTimelineProps) {
+  // Sequencial dentro do grupo: um módulo só desbloqueia depois que todos
+  // anteriores (mesma ordem do catálogo) estiverem concluídos.
+  let previousDone = true;
+
   return (
     <div className="relative overflow-x-auto overflow-y-visible pt-2 pb-2 -mx-2 px-3">
       <div className="relative flex items-start gap-6 min-w-max">
@@ -297,15 +334,55 @@ function GroupTimeline({ modules, statusMap, onImport, onUnlock }: GroupTimeline
           className="absolute top-7 left-10 right-10 h-px bg-gradient-to-r from-gray-200 via-gray-200 to-gray-200 dark:from-gray-700 dark:via-gray-700 dark:to-gray-700"
           aria-hidden
         />
-        {modules.map((mod) => (
-          <TimelineNode
-            key={mod.key}
-            mod={mod}
-            row={statusMap[mod.key]}
-            onImport={() => onImport(mod)}
-            onUnlock={() => onUnlock(mod)}
-          />
-        ))}
+        {modules.map((mod) => {
+          const completed = statusMap[mod.key]?.status === 'completed';
+          const locked = !groupUnlocked || !previousDone;
+          const node = (
+            <TimelineNode
+              key={mod.key}
+              mod={mod}
+              row={statusMap[mod.key]}
+              locked={locked}
+              onImport={() => onImport(mod)}
+              onUnlock={() => onUnlock(mod)}
+            />
+          );
+          if (!completed) previousDone = false;
+          return node;
+        })}
+        {/* Avatar final do grupo — porcentagem / check */}
+        <GroupFinishAvatar progress={progress} />
+      </div>
+    </div>
+  );
+}
+
+function GroupFinishAvatar({ progress }: { progress: { pct: number; done: boolean; completed: number; total: number } }) {
+  const { pct, done, completed, total } = progress;
+  return (
+    <div className="flex flex-col items-center w-28 shrink-0 text-center">
+      <div className="relative">
+        <div
+          className={`flex items-center justify-center w-14 h-14 rounded-full ring-2 transition-all ${
+            done
+              ? 'bg-emerald-500 text-white ring-emerald-300 dark:ring-emerald-700'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 ring-gray-200 dark:ring-gray-600'
+          }`}
+        >
+          {done ? (
+            <CheckCircle2 className="w-7 h-7" />
+          ) : (
+            <span className="text-xs font-bold tabular-nums">{pct}%</span>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 w-full">
+        <p className={`text-xs font-semibold ${done ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+          {done ? 'Concluído' : 'Em progresso'}
+        </p>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+          {completed} / {total} módulos
+        </p>
       </div>
     </div>
   );
@@ -314,16 +391,17 @@ function GroupTimeline({ modules, statusMap, onImport, onUnlock }: GroupTimeline
 interface TimelineNodeProps {
   mod: ModuleDef;
   row: ModuleImportRow | undefined;
+  locked: boolean;
   onImport: () => void;
   onUnlock: () => void;
 }
 
-function TimelineNode({ mod, row, onImport, onUnlock }: TimelineNodeProps) {
+function TimelineNode({ mod, row, locked, onImport, onUnlock }: TimelineNodeProps) {
   const Icon = mod.icon;
   const status = row?.status ?? 'available';
   const completed = status === 'completed';
   const unimplemented = !mod.importPath;
-  const clickable = completed || !unimplemented;
+  const clickable = completed || (!unimplemented && !locked);
 
   const records = row?.records_imported ?? 0;
   const completedDate = row?.completed_at
@@ -331,20 +409,23 @@ function TimelineNode({ mod, row, onImport, onUnlock }: TimelineNodeProps) {
     : null;
 
   const handleClick = () => {
-    if (unimplemented) return;
+    if (unimplemented || locked) return;
     if (completed) onUnlock();
     else onImport();
   };
 
   const avatarClass = completed
     ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-800'
-    : unimplemented
+    : locked || unimplemented
       ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 ring-gray-200 dark:ring-gray-700'
       : 'bg-white dark:bg-gray-800 text-brand-primary dark:text-brand-secondary ring-gray-200 dark:ring-gray-700 group-hover:ring-brand-primary dark:group-hover:ring-brand-secondary';
 
+  // Status dot: verde disponível, verde+check concluído, cinza bloqueado, vermelho em breve.
   const dotClass = unimplemented
     ? 'bg-red-500'
-    : 'bg-emerald-500';
+    : locked && !completed
+      ? 'bg-gray-300 dark:bg-gray-500'
+      : 'bg-emerald-500';
 
   return (
     <button
@@ -353,8 +434,13 @@ function TimelineNode({ mod, row, onImport, onUnlock }: TimelineNodeProps) {
       disabled={!clickable}
       className={`group relative flex flex-col items-center w-32 shrink-0 text-center outline-none ${
         clickable ? 'cursor-pointer' : 'cursor-not-allowed'
-      }`}
-      title={unimplemented ? 'Em breve' : completed ? 'Reabrir importação' : 'Iniciar importação'}
+      } ${locked && !completed ? 'opacity-70' : ''}`}
+      title={
+        unimplemented ? 'Em breve'
+        : locked && !completed ? 'Indisponível — conclua as etapas anteriores'
+        : completed ? 'Reabrir importação'
+        : 'Iniciar importação'
+      }
     >
       {/* Avatar */}
       <div className="relative">
@@ -399,6 +485,11 @@ function TimelineNode({ mod, row, onImport, onUnlock }: TimelineNodeProps) {
         {unimplemented && (
           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 italic">
             Em breve
+          </p>
+        )}
+        {locked && !completed && !unimplemented && (
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 italic">
+            Aguardando etapa anterior
           </p>
         )}
       </div>
