@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { DrawerCard } from '../../components/Drawer';
 import {
@@ -14,6 +14,7 @@ import {
   Copy,
   Check,
   AlertCircle,
+  X,
 } from 'lucide-react';
 import type { AttendanceTicket, GuardianProfile, Enrollment, FinancialInstallment } from '../../types/admin.types';
 
@@ -57,6 +58,12 @@ export default function AttendanceQuickActions({ ticket }: Props) {
   const [schedSaving, setSchedSaving] = useState(false);
   const [schedSaved, setSchedSaved] = useState(false);
   const [schedError, setSchedError] = useState<string | null>(null);
+
+  // WhatsApp via MessageOrchestrator
+  const [waSending, setWaSending] = useState(false);
+  const [waSent, setWaSent] = useState(false);
+  const [waError, setWaError] = useState<string | null>(null);
+  const waSentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 2ª via
   const [showInstallments, setShowInstallments] = useState(false);
@@ -125,12 +132,31 @@ export default function AttendanceQuickActions({ ticket }: Props) {
 
   // ── Actions ─────────────────────────────────────────────────────────────
 
-  function handleWhatsApp() {
+  async function handleWhatsApp() {
+    if (waSending || waSent) return;
     const phone = normalizePhone(ticket.visitor_phone);
-    const msg = encodeURIComponent(
-      `Olá ${ticket.visitor_name}, tudo bem? Passando para dar continuidade ao atendimento.`,
-    );
-    window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
+    if (!phone) return;
+
+    setWaSending(true);
+    setWaError(null);
+
+    const body = `Olá ${ticket.visitor_name}, tudo bem? Passando para dar continuidade ao atendimento.`;
+
+    const { error } = await supabase.functions.invoke('message-orchestrator', {
+      body: { phone: '55' + phone, module: 'atendimento', body, priority: 2 },
+    });
+
+    setWaSending(false);
+
+    if (error) {
+      setWaError('Falha ao enviar. Tente novamente.');
+      if (waSentTimer.current) clearTimeout(waSentTimer.current);
+      waSentTimer.current = setTimeout(() => setWaError(null), 4000);
+    } else {
+      setWaSent(true);
+      if (waSentTimer.current) clearTimeout(waSentTimer.current);
+      waSentTimer.current = setTimeout(() => setWaSent(false), 3000);
+    }
   }
 
   async function handleScheduleReturn() {
@@ -223,10 +249,24 @@ export default function AttendanceQuickActions({ ticket }: Props) {
         {/* WhatsApp */}
         <button
           onClick={handleWhatsApp}
-          className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-xs font-medium transition-colors"
+          disabled={waSending || waSent}
+          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors disabled:cursor-default ${
+            waSent
+              ? 'bg-emerald-500 text-white'
+              : waError
+                ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+                : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400'
+          }`}
         >
-          <MessageCircle className="w-4 h-4 flex-shrink-0" />
-          Enviar WhatsApp
+          {waSending ? (
+            <><Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />Enviando…</>
+          ) : waSent ? (
+            <><Check className="w-4 h-4 flex-shrink-0" />Enviado!</>
+          ) : waError ? (
+            <><X className="w-4 h-4 flex-shrink-0" />Erro — tentar de novo</>
+          ) : (
+            <><MessageCircle className="w-4 h-4 flex-shrink-0" />Enviar WhatsApp</>
+          )}
         </button>
 
         {/* Agendar retorno */}

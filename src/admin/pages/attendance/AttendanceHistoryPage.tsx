@@ -456,7 +456,7 @@ export default function AttendanceHistoryPage() {
           Solicite a um administrador que conceda acesso ao seu perfil.
         </p>
         <button
-          onClick={() => navigate('/admin/atendimentos')}
+          onClick={() => navigate('/admin/gestao')}
           className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary text-white text-sm font-medium hover:bg-brand-primary-dark transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -482,7 +482,7 @@ export default function AttendanceHistoryPage() {
           </p>
         </div>
         <button
-          onClick={() => navigate('/admin/atendimentos')}
+          onClick={() => navigate('/admin/gestao')}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
