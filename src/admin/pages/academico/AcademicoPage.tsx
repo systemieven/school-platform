@@ -204,7 +204,7 @@ export default function AcademicoPage() {
             Disciplinas, grade horária, calendário letivo, boletim e resultados
           </p>
         </div>
-        {canView('settings') && (
+        {canView('settings-academico') && (
           <Link
             to="/admin/configuracoes?tab=academico"
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"

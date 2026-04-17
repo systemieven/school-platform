@@ -49,8 +49,9 @@ interface TabDef {
   /**
    * Granular module key required to *view* this tab. The tab is hidden in the
    * rail and the URL `?tab=` is rejected for users who lack `canView(requiredModule)`.
-   * Most settings tabs gate on `'settings'`; tabs that surface dedicated modules
-   * (financeiro/fiscal/usuarios/etc.) gate on the matching module key.
+   * Desde a migration 148, cada aba usa uma chave dedicada `settings-*`
+   * (ex.: `settings-academico`, `settings-financial`). As abas `users`,
+   * `permissions` e `audit` mantêm as chaves históricas `users` e `audit`.
    */
   requiredModule: string;
 }
@@ -65,7 +66,7 @@ const TABS: TabDef[] = [
     icon: Building2,
     categories: ['general'],
     description: 'Informações principais da escola exibidas no site e documentos.',
-    requiredModule: 'settings',
+    requiredModule: 'settings-institutional',
   },
   {
     key: 'academico',
@@ -74,7 +75,7 @@ const TABS: TabDef[] = [
     icon: GraduationCap,
     categories: ['academico'],
     description: 'Períodos letivos, fórmulas de média e alertas de frequência.',
-    requiredModule: 'academico',
+    requiredModule: 'settings-academico',
   },
   {
     key: 'visits',
@@ -83,7 +84,7 @@ const TABS: TabDef[] = [
     icon: CalendarCheck,
     categories: ['visit'],
     description: 'Configure motivos, horários e regras para agendamento de visitas.',
-    requiredModule: 'appointments',
+    requiredModule: 'settings-visits',
   },
   {
     key: 'attendance',
@@ -92,7 +93,7 @@ const TABS: TabDef[] = [
     icon: Ticket,
     categories: ['attendance'],
     description: 'Regras de elegibilidade, formato de senha, sons, tela do cliente e feedback.',
-    requiredModule: 'attendance',
+    requiredModule: 'settings-attendance',
   },
   {
     key: 'ferramentas',
@@ -101,7 +102,7 @@ const TABS: TabDef[] = [
     icon: FileSearch,
     categories: [],
     description: 'Configure módulos de ferramentas como Achados e Perdidos.',
-    requiredModule: 'lost-found',
+    requiredModule: 'settings-ferramentas',
   },
   {
     key: 'fiscal',
@@ -110,7 +111,7 @@ const TABS: TabDef[] = [
     icon: Receipt,
     categories: ['fiscal'],
     description: 'Dados do emitente NF-e, configurações de emissão e perfis fiscais.',
-    requiredModule: 'nfse-config',
+    requiredModule: 'settings-fiscal',
   },
   {
     key: 'audit',
@@ -128,7 +129,7 @@ const TABS: TabDef[] = [
     icon: MessageSquare,
     categories: ['contact'],
     description: 'Gerencie motivos de contato, campos obrigatórios e qualificação de leads.',
-    requiredModule: 'contacts',
+    requiredModule: 'settings-contact',
   },
   {
     key: 'financial',
@@ -137,7 +138,7 @@ const TABS: TabDef[] = [
     icon: DollarSign,
     categories: ['financial'],
     description: 'Gateways de pagamento, régua de cobrança e chave PIX.',
-    requiredModule: 'payment-gateways',
+    requiredModule: 'settings-financial',
   },
   {
     key: 'enrollment',
@@ -146,7 +147,7 @@ const TABS: TabDef[] = [
     icon: GraduationCap,
     categories: ['enrollment'],
     description: 'Defina campos obrigatórios, documentos exigidos e regras do formulário.',
-    requiredModule: 'enrollments',
+    requiredModule: 'settings-enrollment',
   },
   {
     key: 'notifications',
@@ -155,7 +156,7 @@ const TABS: TabDef[] = [
     icon: Bell,
     categories: ['notifications'],
     description: 'Configure alertas automáticos e templates de comunicação.',
-    requiredModule: 'settings',
+    requiredModule: 'settings-notifications',
   },
   {
     key: 'permissions',
@@ -173,7 +174,7 @@ const TABS: TabDef[] = [
     icon: Shield,
     categories: ['security'],
     description: 'Defina critérios de senhas, tempo de vida e reutilização.',
-    requiredModule: 'settings',
+    requiredModule: 'settings-security',
   },
   {
     key: 'site',
@@ -182,7 +183,7 @@ const TABS: TabDef[] = [
     icon: Palette,
     categories: ['appearance', 'branding', 'navigation', 'content', 'seo'],
     description: 'Aparência, marca, navegação, conteúdo e SEO do site público.',
-    requiredModule: 'settings',
+    requiredModule: 'settings-site',
   },
   {
     key: 'users',
@@ -200,7 +201,7 @@ const TABS: TabDef[] = [
     icon: MessageCircle,
     categories: ['whatsapp'],
     description: 'Conexão com a API WhatsApp para envio de mensagens automáticas.',
-    requiredModule: 'settings',
+    requiredModule: 'settings-whatsapp',
   },
 ];
 

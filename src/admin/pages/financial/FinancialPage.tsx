@@ -200,9 +200,8 @@ export default function FinancialPage() {
   const currentTab = visibleTabs.find((t) => t.key === activeTab) ?? visibleTabs[0];
 
   // Botão "Configurações" só faz sentido para quem pode entrar lá:
-  // gateamos pela chave umbrella `settings`. O sub-painel "Financeiro"
-  // do SettingsPage tem proteção própria (gating por `payment-gateways`).
-  const canSeeSettingsShortcut = canView('settings');
+  // gateamos pela chave granular `settings-financial` (migration 148).
+  const canSeeSettingsShortcut = canView('settings-financial');
 
   // Empty-state: usuário tem `financial.can_view` (passou no ModuleGuard
   // da rota) mas perdeu todas as sub-permissões — caso raro mas possível.
