@@ -24,7 +24,6 @@ import {
   Building2,
   TrendingUp,
   TrendingDown,
-  CalendarCheck,
   Wallet,
   CheckCircle2,
   Circle,
@@ -86,8 +85,7 @@ const MODULES: ModuleDef[] = [
   { key: 'financial-payables',    label: 'Contas a Pagar',      description: 'A-Pagar em aberto (despesas fixas e variáveis)', icon: TrendingDown,  group: 'B', importPath: '/admin/migracao/pagar' },
 
   // Grupo C
-  { key: 'appointments',          label: 'Agendamentos',        description: 'Agenda histórica',           icon: CalendarCheck, group: 'C', importPath: null },
-  { key: 'financial-cash',        label: 'Lançamentos de Caixa', description: 'Movimentações anteriores',   icon: Wallet,        group: 'C', importPath: null },
+  { key: 'financial-cash',        label: 'Lançamentos de Caixa', description: 'Movimentações anteriores',   icon: Wallet,        group: 'C', importPath: '/admin/migracao/caixa' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
