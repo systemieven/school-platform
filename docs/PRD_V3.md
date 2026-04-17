@@ -1785,6 +1785,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 | OP-1 | Central de Migracao de Dados (Onboarding) | ⏳ Planejado | Alta | Todas as tabelas-alvo existentes |
 | TV-1 | Editor Visual de Templates HTML | ⏳ Planejado | Media | contract_templates + document_templates + generate-document |
+| DASH-1 | Dashboards por Permissao (1 dashboard compartilhado, blocos auto-filtrantes) | ✅ Concluido (2026-04-17) | Media-Alta | Permissoes granulares (migration 143) |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
 
@@ -1798,6 +1799,11 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 - ✅ Renomear tabela `attendance` → `student_attendance` (migration 43)
 - ✅ Criar tabela `student_guardians` N:N (migration 44)
 - ✅ Adicionar `testimonials` ao seed da tabela `modules` (migration 45)
+
+**Notas de manutencao recentes (2026-04-17)**
+- ✅ **Migration 142** (`whatsapp_templates_slug_names`): forca formato slug imutavel para `whatsapp_templates.name` (CHECK constraint `^[a-z0-9_]+$`), evitando que renomeacoes via UI quebrem lookups de codigo. Ver `src/admin/lib/whatsappTemplateIds.ts`.
+- ✅ **Migration 143** (`user_permissions_additive_only`): troca COALESCE por OR em `get_effective_permissions`, tornando `user_permission_overrides` puramente aditivo. Limpou 19 linhas "vazias" deixadas pelo save antigo do drawer de usuario. `UsersPage.tsx` agora filtra flags `false` antes do INSERT. Trade-off documentado: nao da mais para "negar explicitamente" um modulo a um user que o role libera — virá com coluna `is_deny` no futuro se necessario.
+- ✅ **SelectDropdown rollout** (PRs #18/#19/#20): selects nativos dentro de drawers do admin substituidos pelo componente `SelectDropdown` (FormField.tsx) com icone `AlignJustify` a esquerda + `ChevronDown` a direita + `appearance-none` no `<select>`. Padroniza UX e sinaliza visualmente que e uma lista.
 
 ---
 
@@ -5301,6 +5307,108 @@ O componente `HtmlTemplateEditor` usa `PermissionGate` com os modulos existentes
 | Templates compartilhados entre clientes (multi-tenant) | Arquitetura adicional; v2 |
 | Editor de templates WhatsApp | WhatsApp usa texto, nao HTML — TemplatesPage.tsx tem editor proprio adequado |
 | NFS-e PDF integrado | Gerado pela Edge Function `nfse-emitter` do Sprint 10; este sprint entrega apenas o tipo e o esquema |
+
+---
+
+### 10.16 DASH-1 — Dashboards por Permissao (1 dashboard, blocos auto-filtrantes)
+
+**Status**: ✅ Concluido (2026-04-17)
+**Prioridade**: Media-Alta — quick win de UX
+**Dependencias**: Permissoes granulares aditivas (migration 143) + PermissionsContext
+
+#### Motivacao
+
+O `DashboardPage` original foi desenhado para o `super_admin` — KPIs comparativos de matriculas/contatos, funil completo de leads, metricas de WhatsApp. Quando um professor caia ali, via numeros sem contexto e nao encontrava as informacoes que de fato acompanha (suas turmas, faltas registradas, ocorrencias). Coordenadores e financeiros tinham o mesmo problema com nuance diferente.
+
+#### Filosofia de design
+
+> **1 dashboard compartilhado, blocos auto-filtrantes pelas permissoes granulares.**
+
+- Habilitar o modulo `dashboard` para um role/usuario significa apenas **liberar a entrada** na tela.
+- O **conteudo** do dashboard (quais blocos aparecem) e governado pelas mesmas permissoes granulares dos modulos: ligar `appointments.can_view = true` libera o bloco "Agendamentos"; ligar `financial.can_view` libera o bloco "Financeiro"; e assim por diante.
+- Zero schema novo: a feature reaproveita 100% o `PermissionsContext` existente. Nao tem tabela `dashboard_configs`, nao tem painel de configuracao em `/config/dashboards`, nao tem novas roles.
+- `super_admin` continua aterrissando no `DashboardPage` classico — esse dashboard nao mudou em nada.
+
+#### Arquitetura
+
+```
+/admin (index)
+  └── ModuleGuard moduleKey="dashboard"
+       └── DashboardRouter                                ← NOVO (10 linhas)
+            ├── if profile.role === 'super_admin' → DashboardPage  (= o atual, intacto)
+            └── else                              → SharedDashboard (NOVO)
+                 ├── Header (saudacao + role)
+                 ├── Empty-state se zero blocos visiveis
+                 └── Grid responsivo (1 / 2 / 3 colunas)
+                      └── *Block components (cada um:
+                           if (!canView('moduleKey')) return null;
+                           query Supabase + render via BlockCard)
+```
+
+#### Blocos entregues no MVP (9)
+
+| # | Bloco                  | `moduleKey`              | Conteudo                                                       |
+|---|------------------------|--------------------------|----------------------------------------------------------------|
+| 1 | AppointmentsBlock      | `appointments`           | Agendamentos pendentes + proximas 4 visitas                    |
+| 2 | KanbanLeadsBlock       | `kanban`                 | Leads por estagio do funil (mini bar chart)                    |
+| 3 | FinancialOverviewBlock | `financial`              | A receber em aberto + inadimplencia (R$ + contagem)            |
+| 4 | PortariaTodayBlock     | `portaria`               | Saidas autorizadas hoje + faltas comunicadas hoje              |
+| 5 | AbsencesBlock          | `absence-communications` | Faltas pendentes de revisao + total nos ultimos 7 dias         |
+| 6 | OccurrencesBlock       | `occurrences`            | Ocorrencias severidade alta/critica + total nos ultimos 7 dias |
+| 7 | TeacherClassesBlock    | `teacher-area`           | Turmas atribuidas (filtra por `teacher_ids contains profile.id` para professor; mostra todas para coord/admin) |
+| 8 | LostFoundBlock         | `lost-found`             | Itens aguardando dono + cadastrados nos ultimos 7 dias         |
+| 9 | StoreOrdersBlock       | `store-orders`           | Pedidos aguardando pagamento + em separacao/prontos            |
+
+#### Empty-state
+
+Se o usuario tem `dashboard.can_view = true` mas nenhum bloco e visivel para ele (todos os `moduleKey` listados acima estao bloqueados), o `SharedDashboard` renderiza um card educativo:
+
+> "Nenhum bloco para exibir. Voce ainda nao tem acesso a nenhum dos modulos que aparecem neste dashboard. Solicite ao administrador do sistema o acesso aos modulos que voce utiliza." + link para `/admin/configuracoes`.
+
+A deteccao usa `SHARED_DASHBOARD_MODULE_KEYS.filter(canView).length === 0`.
+
+#### Arquivos novos (8)
+
+| Arquivo | Conteudo |
+|---------|----------|
+| `src/admin/pages/dashboard/DashboardRouter.tsx` | Roteador if/else de 10 linhas por role |
+| `src/admin/pages/dashboard/SharedDashboard.tsx` | Header + empty-state + grid de blocos |
+| `src/admin/pages/dashboard/blocks/BlockCard.tsx` | Wrapper visual reutilizavel + `StatRow` + `BigNumber` + `BlockEmpty` |
+| `src/admin/pages/dashboard/blocks/AppointmentsBlock.tsx` | Bloco 1 |
+| `src/admin/pages/dashboard/blocks/KanbanLeadsBlock.tsx` | Bloco 2 |
+| `src/admin/pages/dashboard/blocks/FinancialOverviewBlock.tsx` | Bloco 3 |
+| `src/admin/pages/dashboard/blocks/PortariaTodayBlock.tsx` | Bloco 4 |
+| `src/admin/pages/dashboard/blocks/AbsencesBlock.tsx` | Bloco 5 |
+| `src/admin/pages/dashboard/blocks/OccurrencesBlock.tsx` | Bloco 6 |
+| `src/admin/pages/dashboard/blocks/TeacherClassesBlock.tsx` | Bloco 7 |
+| `src/admin/pages/dashboard/blocks/LostFoundBlock.tsx` | Bloco 8 |
+| `src/admin/pages/dashboard/blocks/StoreOrdersBlock.tsx` | Bloco 9 |
+| `src/admin/pages/dashboard/blocks/index.ts` | Re-export central + `SHARED_DASHBOARD_MODULE_KEYS` |
+
+#### Arquivos modificados (1)
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/admin/routes.tsx` | Import do `DashboardPage` trocado por `DashboardRouter`; rota `index` aponta para o router. Sem mudanca em `ModuleGuard moduleKey="dashboard"`. |
+
+#### Sem migrations / sem edge functions
+
+Toda a logica de filtragem ja existia em `PermissionsContext.canView()`. Cada bloco faz 1 a 2 queries Supabase em colunas indexadas (count + alguns selects pequenos com limit baixo) — impacto de performance desprezivel.
+
+#### Crescimento futuro (nao bloqueia v1)
+
+Adicionar bloco novo: criar `XxxBlock.tsx` em `blocks/`, exportar em `blocks/index.ts`, adicionar key em `SHARED_DASHBOARD_MODULE_KEYS`, render em `SharedDashboard.tsx`. PR isolado, ~50 linhas. Candidatos a proxima leva: `WhatsAppMetricsBlock` (`whatsapp`), `SecretariaQueueBlock` (`secretaria-declaracoes`), `EnrollmentsFunnelBlock` (`enrollments` se virar modulo proprio fora de `gestao`), `ContractsExpiringBlock` (`contracts`).
+
+#### Trade-offs registrados
+
+- **Sem reordenacao por usuario**: todos veem na mesma ordem do grid. Se virar requisito, adicionar JSONB `dashboard_block_order` em `profiles`.
+- **Sem thresholds configuraveis** (ex.: "alertar quando inadimplencia > X%"): cada bloco tem seus criterios hardcoded. Se necessario, futura tabela `dashboard_block_thresholds` minimal.
+- **Lista de blocos hardcoded**: adicionar bloco exige PR de codigo, nao mudanca de DB. Aceitavel — blocos sao logica, nao conteudo.
+
+#### Validacao
+
+- `npx tsc --noEmit` ✅ zero erros
+- Tested manually post-deploy: super_admin ve DashboardPage classico; coordenador/professor/portaria/financeiro veem SharedDashboard com blocos contextuais ao seu role/permissoes; usuario sem permissoes ve empty-state.
 
 ---
 

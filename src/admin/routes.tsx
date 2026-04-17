@@ -11,7 +11,9 @@ import LoginPage from './pages/login/LoginPage';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange';
 
 // Lazy: all admin pages
-const DashboardPage        = lazy(() => import('./pages/dashboard/DashboardPage'));
+// DashboardRouter escolhe entre DashboardPage (super_admin) e
+// SharedDashboard (demais roles, com blocos filtrados por permissão).
+const DashboardRouter      = lazy(() => import('./pages/dashboard/DashboardRouter'));
 const GestaoPage           = lazy(() => import('./pages/gestao/GestaoPage'));
 const SettingsPage         = lazy(() => import('./pages/settings/SettingsPage'));
 const KanbanPage           = lazy(() => import('./pages/leads/KanbanPage'));
@@ -90,7 +92,7 @@ export default function AdminRoutes() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<ModuleGuard moduleKey="dashboard"><LazyPage><DashboardPage /></LazyPage></ModuleGuard>} />
+          <Route index element={<ModuleGuard moduleKey="dashboard"><LazyPage><DashboardRouter /></LazyPage></ModuleGuard>} />
 
           {/* Gestão (tab rail: Agendamentos, Atendimentos, Contatos, Matrícula) */}
           <Route path="gestao" element={<ModuleGuard moduleKey="appointments"><LazyPage><GestaoPage /></LazyPage></ModuleGuard>} />
