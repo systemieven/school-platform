@@ -65,7 +65,16 @@ export default function SharedDashboard() {
     );
   }
 
-  const greeting = profile?.name?.split(' ')[0] ?? 'olá';
+  // Pega o primeiro nome do `full_name` se existir; senão tenta o e-mail
+  // (parte antes do @) como fallback amigavel; em ultimo caso, omite o
+  // nome para nao renderizar "Ola, ola".
+  const firstName = (() => {
+    const fn = profile?.full_name?.trim();
+    if (fn) return fn.split(/\s+/)[0];
+    const email = profile?.email?.trim();
+    if (email) return email.split('@')[0];
+    return null;
+  })();
   const roleLabel = profile?.role ? ROLE_LABELS[profile.role] ?? null : null;
 
   return (
@@ -77,7 +86,7 @@ export default function SharedDashboard() {
         </div>
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Olá, {greeting}
+            {firstName ? `Olá, ${firstName}` : 'Olá'}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {roleLabel
