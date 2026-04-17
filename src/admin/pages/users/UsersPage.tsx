@@ -764,7 +764,7 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
     // sem o admin perceber. Nesse caso, um hard reset é mais honesto:
     // apagar TODOS os overrides do usuário e deixar só os diffs do estado
     // atual contra o novo role default.
-    const roleChanged = form.role !== user.role;
+    // `roleChanged` já foi declarado acima para o audit log.
     const toUpsert: Array<{
       user_id: string;
       module_key: string;
