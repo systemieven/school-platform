@@ -11,9 +11,10 @@ import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import { SelectDropdown } from '../../components/FormField';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import AiUsageDashboard from './AiUsageDashboard';
 import {
   Bot, Loader2, Check, Save, Sparkles, Play, Activity, AlertCircle,
-  Pencil, Zap, ZapOff, Brain, Key, Eye, EyeOff,
+  Pencil, Zap, ZapOff, Brain, Key, Eye, EyeOff, LayoutDashboard,
 } from 'lucide-react';
 
 type Provider = 'anthropic' | 'openai';
@@ -71,12 +72,26 @@ interface AiConfig {
   anthropic_api_key: string | null;
   openai_api_key: string | null;
   anthropic_admin_api_key: string | null;
+  anthropic_workspace_id: string | null;
   openai_admin_api_key: string | null;
   openai_organization_id: string | null;
-  balance_alert_threshold: number | null;
 }
 
-export default function AiAgentsPanel() {
+export type AiSubTab = 'overview' | 'agents' | 'keys';
+
+export const AI_SUB_TABS: Array<{ key: AiSubTab; label: string; icon: typeof Bot }> = [
+  { key: 'overview', label: 'Visão geral', icon: LayoutDashboard },
+  { key: 'agents',   label: 'Agentes',     icon: Bot },
+  { key: 'keys',     label: 'Chaves de API', icon: Key },
+];
+
+interface AiAgentsPanelProps {
+  activeSubTab?: AiSubTab;
+}
+
+export default function AiAgentsPanel({ activeSubTab = 'overview' }: AiAgentsPanelProps) {
+  const subTab = activeSubTab;
+  const [keysProvider, setKeysProvider] = useState<Provider>('anthropic');
   const [agents, setAgents] = useState<AiAgent[]>([]);
   const [usage, setUsage] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,9 +100,9 @@ export default function AiAgentsPanel() {
     anthropic_api_key: '',
     openai_api_key: '',
     anthropic_admin_api_key: '',
+    anthropic_workspace_id: '',
     openai_admin_api_key: '',
     openai_organization_id: '',
-    balance_alert_threshold: null,
   });
   const [showAnthropic, setShowAnthropic] = useState(false);
   const [showOpenai, setShowOpenai] = useState(false);
@@ -112,7 +127,7 @@ export default function AiAgentsPanel() {
     const [{ data: agentsData }, { data: usageData }, { data: cfgData }] = await Promise.all([
       supabase.from('ai_agents').select('*').order('slug'),
       supabase.from('ai_usage_log').select('*').order('created_at', { ascending: false }).limit(20),
-      supabase.from('company_ai_config').select('anthropic_api_key, openai_api_key, anthropic_admin_api_key, openai_admin_api_key, openai_organization_id, balance_alert_threshold').limit(1).maybeSingle(),
+      supabase.from('company_ai_config').select('anthropic_api_key, openai_api_key, anthropic_admin_api_key, anthropic_workspace_id, openai_admin_api_key, openai_organization_id').limit(1).maybeSingle(),
     ]);
     setAgents((agentsData ?? []) as AiAgent[]);
     setUsage((usageData ?? []) as UsageRow[]);
@@ -120,9 +135,9 @@ export default function AiAgentsPanel() {
       anthropic_api_key: cfgData?.anthropic_api_key ?? '',
       openai_api_key: cfgData?.openai_api_key ?? '',
       anthropic_admin_api_key: cfgData?.anthropic_admin_api_key ?? '',
+      anthropic_workspace_id: cfgData?.anthropic_workspace_id ?? '',
       openai_admin_api_key: cfgData?.openai_admin_api_key ?? '',
       openai_organization_id: cfgData?.openai_organization_id ?? '',
-      balance_alert_threshold: cfgData?.balance_alert_threshold ?? null,
     });
     setLoading(false);
   }, []);
@@ -141,9 +156,9 @@ export default function AiAgentsPanel() {
       anthropic_api_key: cfg.anthropic_api_key || null,
       openai_api_key: cfg.openai_api_key || null,
       anthropic_admin_api_key: cfg.anthropic_admin_api_key || null,
+      anthropic_workspace_id: cfg.anthropic_workspace_id || null,
       openai_admin_api_key: cfg.openai_admin_api_key || null,
       openai_organization_id: cfg.openai_organization_id || null,
-      balance_alert_threshold: cfg.balance_alert_threshold,
     };
     const { error } = existing
       ? await supabase.from('company_ai_config').update(payload).eq('id', existing.id)
@@ -245,123 +260,150 @@ export default function AiAgentsPanel() {
 
   return (
     <div className="space-y-6">
-      <SettingsCard
-        title="Chaves de API"
-        icon={Key}
-        description="Configure as credenciais dos providers. As chaves são usadas pelo orquestrador em cada chamada dos agentes."
-      >
-        <div className="space-y-3">
-          <div>
-            <label className={LABEL_CLS}>Anthropic API Key</label>
-            <div className="relative">
-              <input
-                type={showAnthropic ? 'text' : 'password'}
-                value={cfg.anthropic_api_key ?? ''}
-                onChange={(e) => setCfg({ ...cfg, anthropic_api_key: e.target.value })}
-                placeholder="sk-ant-..."
-                className={`${INPUT_CLS} pr-10 font-mono`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowAnthropic((s) => !s)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
-                title={showAnthropic ? 'Ocultar' : 'Mostrar'}
-              >
-                {showAnthropic ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className={LABEL_CLS}>OpenAI API Key</label>
-            <div className="relative">
-              <input
-                type={showOpenai ? 'text' : 'password'}
-                value={cfg.openai_api_key ?? ''}
-                onChange={(e) => setCfg({ ...cfg, openai_api_key: e.target.value })}
-                placeholder="sk-..."
-                className={`${INPUT_CLS} pr-10 font-mono`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowOpenai((s) => !s)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
-                title={showOpenai ? 'Ocultar' : 'Mostrar'}
-              >
-                {showOpenai ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
+      {subTab === 'overview' && <AiUsageDashboard />}
 
-          <div className="pt-2 mt-2 border-t border-gray-100 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              <strong>Admin keys</strong> — necessárias apenas para o dashboard de uso (sincroniza tokens/custo das APIs oficiais). São distintas das chaves de inference acima.
-            </p>
-          </div>
-          <div>
-            <label className={LABEL_CLS}>Anthropic Admin API Key</label>
-            <div className="relative">
-              <input
-                type={showAnthropicAdmin ? 'text' : 'password'}
-                value={cfg.anthropic_admin_api_key ?? ''}
-                onChange={(e) => setCfg({ ...cfg, anthropic_admin_api_key: e.target.value })}
-                placeholder="Organization Admin Key (console Anthropic)"
-                className={`${INPUT_CLS} pr-10 font-mono`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowAnthropicAdmin((s) => !s)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
-                title={showAnthropicAdmin ? 'Ocultar' : 'Mostrar'}
-              >
-                {showAnthropicAdmin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className={LABEL_CLS}>OpenAI Admin API Key</label>
-            <div className="relative">
-              <input
-                type={showOpenaiAdmin ? 'text' : 'password'}
-                value={cfg.openai_admin_api_key ?? ''}
-                onChange={(e) => setCfg({ ...cfg, openai_admin_api_key: e.target.value })}
-                placeholder="sk-admin-..."
-                className={`${INPUT_CLS} pr-10 font-mono`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowOpenaiAdmin((s) => !s)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
-                title={showOpenaiAdmin ? 'Ocultar' : 'Mostrar'}
-              >
-                {showOpenaiAdmin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className={LABEL_CLS}>OpenAI Organization ID</label>
-            <input
-              type="text"
-              value={cfg.openai_organization_id ?? ''}
-              onChange={(e) => setCfg({ ...cfg, openai_organization_id: e.target.value })}
-              placeholder="org-..."
-              className={`${INPUT_CLS} font-mono`}
-            />
-          </div>
-          <div>
-            <label className={LABEL_CLS}>Alerta de saldo baixo (USD)</label>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={cfg.balance_alert_threshold ?? ''}
-              onChange={(e) => setCfg({
-                ...cfg,
-                balance_alert_threshold: e.target.value === '' ? null : Number(e.target.value),
-              })}
-              placeholder="10"
-              className={INPUT_CLS}
-            />
-          </div>
+      {subTab === 'keys' && (
+      <>
+        <div className="flex flex-wrap gap-1.5 w-fit rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
+          {(['anthropic', 'openai'] as Provider[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setKeysProvider(p)}
+              className={[
+                'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
+                keysProvider === p
+                  ? 'bg-brand-secondary text-brand-primary shadow-md shadow-brand-secondary/20'
+                  : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
+              ].join(' ')}
+            >
+              {PROVIDER_LABEL[p]}
+            </button>
+          ))}
+        </div>
+
+        <SettingsCard
+          title="Chaves de API"
+          icon={Key}
+          description="Configure as credenciais dos providers. As chaves são usadas pelo orquestrador em cada chamada dos agentes."
+        >
+          <div className="space-y-3">
+            {keysProvider === 'anthropic' && (
+            <>
+              <div>
+                <label className={LABEL_CLS}>Anthropic API Key</label>
+                <div className="relative">
+                  <input
+                    type={showAnthropic ? 'text' : 'password'}
+                    value={cfg.anthropic_api_key ?? ''}
+                    onChange={(e) => setCfg({ ...cfg, anthropic_api_key: e.target.value })}
+                    placeholder="sk-ant-..."
+                    className={`${INPUT_CLS} pr-10 font-mono`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAnthropic((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
+                    title={showAnthropic ? 'Ocultar' : 'Mostrar'}
+                  >
+                    {showAnthropic ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">Chave de inference usada pelos agentes.</p>
+              </div>
+              <div>
+                <label className={LABEL_CLS}>Anthropic Admin API Key</label>
+                <div className="relative">
+                  <input
+                    type={showAnthropicAdmin ? 'text' : 'password'}
+                    value={cfg.anthropic_admin_api_key ?? ''}
+                    onChange={(e) => setCfg({ ...cfg, anthropic_admin_api_key: e.target.value })}
+                    placeholder="Organization Admin Key (console Anthropic)"
+                    className={`${INPUT_CLS} pr-10 font-mono`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAnthropicAdmin((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
+                    title={showAnthropicAdmin ? 'Ocultar' : 'Mostrar'}
+                  >
+                    {showAnthropicAdmin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">Usada pelo dashboard para sincronizar tokens/custo via API oficial.</p>
+              </div>
+              <div>
+                <label className={LABEL_CLS}>Workspace ID (opcional)</label>
+                <input
+                  type="text"
+                  value={cfg.anthropic_workspace_id ?? ''}
+                  onChange={(e) => setCfg({ ...cfg, anthropic_workspace_id: e.target.value })}
+                  placeholder="wrkspc_... (deixe vazio para toda a organização)"
+                  className={`${INPUT_CLS} font-mono`}
+                />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Filtra o consumo a um Workspace específico. Console Anthropic → Settings → Workspaces.
+                </p>
+              </div>
+            </>
+          )}
+
+          {keysProvider === 'openai' && (
+            <>
+              <div>
+                <label className={LABEL_CLS}>OpenAI API Key</label>
+                <div className="relative">
+                  <input
+                    type={showOpenai ? 'text' : 'password'}
+                    value={cfg.openai_api_key ?? ''}
+                    onChange={(e) => setCfg({ ...cfg, openai_api_key: e.target.value })}
+                    placeholder="sk-..."
+                    className={`${INPUT_CLS} pr-10 font-mono`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOpenai((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
+                    title={showOpenai ? 'Ocultar' : 'Mostrar'}
+                  >
+                    {showOpenai ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">Chave de inference usada pelos agentes.</p>
+              </div>
+              <div>
+                <label className={LABEL_CLS}>OpenAI Admin API Key</label>
+                <div className="relative">
+                  <input
+                    type={showOpenaiAdmin ? 'text' : 'password'}
+                    value={cfg.openai_admin_api_key ?? ''}
+                    onChange={(e) => setCfg({ ...cfg, openai_admin_api_key: e.target.value })}
+                    placeholder="sk-admin-..."
+                    className={`${INPUT_CLS} pr-10 font-mono`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOpenaiAdmin((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
+                    title={showOpenaiAdmin ? 'Ocultar' : 'Mostrar'}
+                  >
+                    {showOpenaiAdmin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">Usada pelo dashboard para sincronizar tokens/custo via API oficial.</p>
+              </div>
+              <div>
+                <label className={LABEL_CLS}>Organization ID</label>
+                <input
+                  type="text"
+                  value={cfg.openai_organization_id ?? ''}
+                  onChange={(e) => setCfg({ ...cfg, openai_organization_id: e.target.value })}
+                  placeholder="org-..."
+                  className={`${INPUT_CLS} font-mono`}
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Necessário como header `OpenAI-Organization` nas chamadas admin.</p>
+              </div>
+            </>
+          )}
 
           <div className="flex justify-end">
             <button
@@ -380,9 +422,12 @@ export default function AiAgentsPanel() {
               )}
             </button>
           </div>
-        </div>
-      </SettingsCard>
+          </div>
+        </SettingsCard>
+      </>
+      )}
 
+      {subTab === 'agents' && (<>
       <SettingsCard title="Agentes de IA" icon={Brain} description="Cada agente encapsula um prompt + provider. Admins podem trocar entre Anthropic e OpenAI por agente.">
         {agents.length === 0 ? (
           <p className="text-sm text-gray-400">Nenhum agente cadastrado.</p>
@@ -459,6 +504,8 @@ export default function AiAgentsPanel() {
           </div>
         )}
       </SettingsCard>
+
+      </>)}
 
       {/* ── Edit Drawer ─────────────────────────────────────────────────── */}
       <Drawer

@@ -3254,6 +3254,7 @@ Agentes de IA como Edge Functions que consomem dados do Supabase e geram insight
 | 167 | `company_ai_config` (alter) | Adicionar colunas `anthropic_admin_api_key_enc TEXT`, `openai_admin_api_key_enc TEXT`, `openai_organization_id TEXT`. Chaves **admin** são separadas das chaves de inference (usadas em `ai-worker-*`). |
 | 168 | RPC `ai_usage_stats(p_from, p_to, p_provider?, p_agent_slug?)` | Agregações para o dashboard (tokens, custo estimado, top agentes, série diária). |
 | 169 | `pg_cron` job | `select cron.schedule('ai-billing-sync-daily', '1 0 * * *', $$ select net.http_post(...) $$)` — dispara `ai-billing-sync` às 00:01 UTC. |
+| 170 | `company_ai_config` (alter) | Adicionar coluna `anthropic_workspace_id TEXT` — quando informada, o `ai-billing-sync` envia `workspace_ids[]=<id>` para a Anthropic Admin API, escopando o consumo a um Workspace específico em vez da organização inteira. |
 
 #### 13.IA-dash.4 Edge Functions novas
 
@@ -3268,6 +3269,7 @@ Este é o bloco crítico — o que é viável hoje:
 
 **Anthropic**
 - API admin oficial: `GET https://api.anthropic.com/v1/organizations/usage_report/messages` e `GET /v1/organizations/cost_report`. Exige **Admin API key** (criada no console Anthropic em *Organization → Admin Keys*, distinta da API key usada para inference). Retorna uso em tokens + custo em USD. ✅ Viável para KPIs e custo histórico.
+- **Filtro por Workspace**: ambos os endpoints aceitam `workspace_ids[]=<wrkspc_...>` como query param para escopar o relatório a um Workspace específico. Armazenado em `company_ai_config.anthropic_workspace_id` (migration 170) e configurável pelo admin em *Configurações → IA → Chaves de API*. Quando vazio, o sync usa toda a organização.
 - **Saldo em tempo real**: **não há endpoint público**. Derivar via `credits_purchased - total_spent` agregado do snapshot. Como workaround, ler `raw_payload` do último snapshot e exibir "saldo estimado".
 - **Auto-recarga**: não há API pública para ler ou alterar. UI deve apenas exibir **link "Abrir console Anthropic"** (`https://console.anthropic.com/settings/billing`) e um toggle local informativo (sem efeito real).
 - **Recargas**: também não há endpoint público de recharges. Dependemos de inferir a partir de `cost_report` (saltos no saldo) ou registrar manualmente em `ai_recharges` via botão "Registrar recarga".

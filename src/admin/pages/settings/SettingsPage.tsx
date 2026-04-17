@@ -35,7 +35,7 @@ import FiscalSettingsPanel from './FiscalSettingsPanel';
 import NfseSettingsPanel from './NfseSettingsPanel';
 import NfceSettingsPanel from './NfceSettingsPanel';
 import NfeSettingsPanel from './NfeSettingsPanel';
-import AiAgentsPanel from './AiAgentsPanel';
+import AiAgentsPanel, { type AiSubTab, AI_SUB_TABS } from './AiAgentsPanel';
 import SiteSettingsPanel, { type SiteTab, SITE_SUB_TABS } from './SiteSettingsPanel';
 import AuditLogsPage from '../audit/AuditLogsPage';
 import PermissionsPage from '../permissions/PermissionsPage';
@@ -288,7 +288,9 @@ export default function SettingsPage() {
       : firstAllowedKey;
   const [activeTab, setActiveTab] = useState(initialTab);
   const [siteSubTab, setSiteSubTab] = useState<SiteTab>('appearance');
+  const [aiSubTab, setAiSubTab] = useState<AiSubTab>('overview');
   const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfe-emissao' | 'nfse' | 'nfce'>('nfe');
+  const [waSubTab, setWaSubTab] = useState<WaSubTab>('templates');
   const [tabsCollapsed, setTabsCollapsed] = useState(() => {
     try { return localStorage.getItem(TABS_STORAGE_KEY) === 'true'; } catch { return false; }
   });
@@ -676,7 +678,7 @@ export default function SettingsPage() {
 
               {/* Fiscal sub-tabs */}
               {activeTab === 'fiscal' && (
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex flex-wrap gap-1.5 flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
                   {([
                     { key: 'nfe', label: 'NF-e (Produtos)' },
                     { key: 'nfe-emissao', label: 'NF-e (Emissão)' },
@@ -702,7 +704,7 @@ export default function SettingsPage() {
               {/* Site sub-tabs + preset buttons */}
               {activeTab === 'site' && (
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
                     {SITE_SUB_TABS.map(({ key, label, icon: Icon }) => (
                       <button
                         key={key}
@@ -744,12 +746,54 @@ export default function SettingsPage() {
                   </div>
                 </div>
               )}
+
+              {/* WhatsApp sub-tabs */}
+              {activeTab === 'whatsapp' && (
+                <div className="flex flex-wrap gap-1.5 flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
+                  {WA_SUB_TABS.map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => setWaSubTab(key)}
+                      className={[
+                        'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
+                        waSubTab === key
+                          ? 'bg-brand-primary text-brand-secondary shadow-md shadow-brand-primary/20'
+                          : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
+                      ].join(' ')}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* IA sub-tabs */}
+              {activeTab === 'ia' && (
+                <div className="flex flex-wrap gap-1.5 flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
+                  {AI_SUB_TABS.map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => setAiSubTab(key)}
+                      className={[
+                        'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
+                        aiSubTab === key
+                          ? 'bg-brand-primary text-brand-secondary shadow-md shadow-brand-primary/20'
+                          : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
+                      ].join(' ')}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Fields */}
             <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit', 'financial', 'ferramentas', 'fiscal', 'nfse-config', 'ia'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
-                <WhatsAppSettingsPanel />
+                <WhatsAppSettingsPanel activeSubTab={waSubTab} />
               ) : activeTab === 'visits' ? (
                 <AppointmentsSettingsPanel />
               ) : activeTab === 'attendance' ? (
@@ -779,7 +823,7 @@ export default function SettingsPage() {
               ) : activeTab === 'academico' ? (
                 <AcademicoSettingsPanel />
               ) : activeTab === 'ia' ? (
-                <div className="p-6"><AiAgentsPanel /></div>
+                <div className="p-6"><AiAgentsPanel activeSubTab={aiSubTab} /></div>
               ) : activeTab === 'institutional' ? (
                 <InstitutionalSettingsPanel
                   settings={tabSettings}
@@ -2020,36 +2064,14 @@ const WA_SUB_TABS: { key: WaSubTab; label: string; icon: React.ElementType }[] =
   { key: 'apis',      label: 'APIs',      icon: Wifi          },
 ];
 
-function WhatsAppSettingsPanel() {
-  const [sub, setSub] = useState<WaSubTab>('templates');
+function WhatsAppSettingsPanel({ activeSubTab = 'templates' }: { activeSubTab?: WaSubTab }) {
+  const sub = activeSubTab;
 
   return (
-    <div>
-      {/* Sub-tab bar */}
-      <div className="flex flex-wrap gap-1.5 px-6 pt-5 pb-1">
-        {WA_SUB_TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setSub(key)}
-            className={[
-              'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
-              sub === key
-                ? 'bg-brand-secondary text-brand-primary shadow-md shadow-brand-secondary/20'
-                : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
-            ].join(' ')}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Sub-tab content */}
-      <div className="p-6">
-        {sub === 'apis'      && <WhatsAppProvidersPanel />}
-        {sub === 'templates' && <TemplatesPage embedded />}
-        {sub === 'historico' && <MessageLogPage embedded />}
-      </div>
+    <div className="p-6">
+      {sub === 'apis'      && <WhatsAppProvidersPanel />}
+      {sub === 'templates' && <TemplatesPage embedded />}
+      {sub === 'historico' && <MessageLogPage embedded />}
     </div>
   );
 }
