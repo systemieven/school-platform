@@ -326,20 +326,39 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
 
     logAudit({ action: 'create', module: 'users', recordId: profile.id, description: `Usuário ${profile.full_name} criado com role ${form.role}`, newData: { full_name: profile.full_name, email: form.email, role: form.role } });
 
-    // Save module permission overrides — apenas linhas ADITIVAS (>=1 flag true).
-    // user_permission_overrides é OR com role_permissions (migration 143);
-    // gravar `false` viraria no-op e poluiria a tabela.
-    const permOverrides = Object.entries(modulePerms)
+    // Save module permission overrides — apenas linhas que ADICIONAM algo
+    // além do role default do novo usuário. Se clicar ON num módulo cujo
+    // role já concede view/create/edit, o override seria mirror (no-op)
+    // e poluiria user_permission_overrides.
+    const enabledKeys = Object.entries(modulePerms)
       .filter(([, enabled]) => enabled === true)
-      .map(([key]) => ({
-        user_id: profile.id,
-        module_key: key,
-        can_view: true, can_create: true, can_edit: true,
-        can_delete: false,
-        granted_by: currentUser?.id ?? profile.id,
-      }));
-    if (permOverrides.length > 0) {
-      await supabase.from('user_permission_overrides').insert(permOverrides);
+      .map(([key]) => key);
+    if (enabledKeys.length > 0) {
+      const { data: defaultsRows } = await supabase
+        .from('role_permissions')
+        .select('module_key, can_view, can_create, can_edit')
+        .eq('role', form.role)
+        .in('module_key', enabledKeys);
+      const defMap = new Map(
+        (defaultsRows ?? []).map((r) => [r.module_key, r]),
+      );
+      const permOverrides = enabledKeys
+        .filter((key) => {
+          const d = defMap.get(key);
+          // Escreve se role NÃO concede view+create+edit — caso contrário é mirror.
+          return !(d && d.can_view && d.can_create && d.can_edit);
+        })
+        .map((key) => ({
+          user_id: profile.id,
+          module_key: key,
+          can_view: true, can_create: true, can_edit: true,
+          can_delete: false,
+          is_deny: false,
+          granted_by: currentUser?.id ?? profile.id,
+        }));
+      if (permOverrides.length > 0) {
+        await supabase.from('user_permission_overrides').insert(permOverrides);
+      }
     }
 
     // WhatsApp check + send (all before showing modal)
@@ -583,10 +602,36 @@ interface EditDrawerProps {
   onDeleted: (id: string) => void;
 }
 
+// Row shape dos defaults por role (mesmos flags que user_permission_overrides).
+type RoleDefaultsRow = QuickActionPerms;
+
+// Compara flags profundamente (sem is_deny).
+function permsEqual(a: QuickActionPerms, b: QuickActionPerms): boolean {
+  return (
+    a.can_view === b.can_view &&
+    a.can_create === b.can_create &&
+    a.can_edit === b.can_edit &&
+    a.can_delete === b.can_delete &&
+    a.can_import === b.can_import
+  );
+}
+
 function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onUpdated, onDeleted }: EditDrawerProps) {
   const { identity } = useBranding();
   const [form, setForm] = useState({ full_name: user.full_name || '', phone: user.phone || '', role: user.role, is_active: user.is_active, sector_keys: user.sector_keys ?? [] });
+
+  // `modulePerms` guarda o valor EFETIVO exibido (= override se existir,
+  // senão role default). Usado só para display e edição local.
   const [modulePerms, setModulePerms] = useState<Record<string, QuickActionPerms>>({});
+
+  // `roleDefaults` = snapshot de role_permissions para o role ATUAL do usuário.
+  // Recarrega quando `form.role` muda (UI refletir o que o novo role já concede).
+  const [roleDefaults, setRoleDefaults] = useState<Record<string, RoleDefaultsRow>>({});
+
+  // `dbOverrides` = snapshot do que está persistido em user_permission_overrides
+  // no momento da carga. Referência para detectar diffs no save.
+  const [dbOverrides, setDbOverrides] = useState<Record<string, QuickActionPerms>>({});
+
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -606,33 +651,72 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
     return true;
   });
 
-  // Load current module permission overrides
+  // Carrega defaults por role + overrides reais. NÃO pré-enche estado com
+  // defaults do role como se fossem overrides — esse era o bug que poluía
+  // user_permission_overrides no save.
   useEffect(() => {
-    supabase
-      .from('user_permission_overrides')
-      .select('module_key, can_view, can_create, can_edit, can_delete, can_import')
-      .eq('user_id', user.id)
-      .in('module_key', ALL_MODULE_KEYS)
-      .then(({ data }) => {
-        const roleHasAccess = ['super_admin', 'admin', 'coordinator'].includes(user.role);
-        const perms: Record<string, QuickActionPerms> = {};
-        ALL_MODULE_KEYS.forEach(key => {
-          perms[key] = roleHasAccess ? { ...FULL_ACCESS_PERMS } : { ...DEFAULT_ACTION_PERMS };
-        });
-        if (data && data.length > 0) {
-          data.forEach(d => {
-            perms[d.module_key] = {
-              can_view:   d.can_view   ?? false,
-              can_create: d.can_create ?? false,
-              can_edit:   d.can_edit   ?? false,
-              can_delete: d.can_delete ?? false,
-              can_import: d.can_import ?? false,
-            };
-          });
-        }
-        setModulePerms(perms);
+    let cancelled = false;
+
+    async function load() {
+      const [defaultsRes, overridesRes] = await Promise.all([
+        supabase
+          .from('role_permissions')
+          .select('module_key, can_view, can_create, can_edit, can_delete, can_import')
+          .eq('role', form.role)
+          .in('module_key', ALL_MODULE_KEYS),
+        supabase
+          .from('user_permission_overrides')
+          .select('module_key, can_view, can_create, can_edit, can_delete, can_import')
+          .eq('user_id', user.id)
+          .in('module_key', ALL_MODULE_KEYS),
+      ]);
+
+      if (cancelled) return;
+
+      // super_admin não tem linhas em role_permissions — bypass via backend.
+      // Para UX, mostrar tudo liberado (mas save não escreve overrides porque
+      // os diffs serão zero: o effective view já mostra FULL).
+      const isSuperAdmin = form.role === 'super_admin';
+
+      const defaults: Record<string, RoleDefaultsRow> = {};
+      ALL_MODULE_KEYS.forEach(key => {
+        defaults[key] = isSuperAdmin ? { ...FULL_ACCESS_PERMS } : { ...DEFAULT_ACTION_PERMS };
       });
-  }, [user.id, user.role]);
+      (defaultsRes.data ?? []).forEach(d => {
+        defaults[d.module_key] = {
+          can_view:   d.can_view   ?? false,
+          can_create: d.can_create ?? false,
+          can_edit:   d.can_edit   ?? false,
+          can_delete: d.can_delete ?? false,
+          can_import: d.can_import ?? false,
+        };
+      });
+
+      const overrides: Record<string, QuickActionPerms> = {};
+      (overridesRes.data ?? []).forEach(d => {
+        overrides[d.module_key] = {
+          can_view:   d.can_view   ?? false,
+          can_create: d.can_create ?? false,
+          can_edit:   d.can_edit   ?? false,
+          can_delete: d.can_delete ?? false,
+          can_import: d.can_import ?? false,
+        };
+      });
+
+      // Estado efetivo exibido = override se existir, senão default do role.
+      const effective: Record<string, QuickActionPerms> = {};
+      ALL_MODULE_KEYS.forEach(key => {
+        effective[key] = overrides[key] ?? { ...defaults[key] };
+      });
+
+      setRoleDefaults(defaults);
+      setDbOverrides(overrides);
+      setModulePerms(effective);
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [user.id, form.role]);
 
   async function handleSave() {
     setSaving(true);
@@ -669,32 +753,88 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
       logAudit({ action: 'update', module: 'users', recordId: user.id, description: `Dados do usuário ${user.full_name} atualizados`, oldData: { full_name: user.full_name, role: user.role, is_active: user.is_active }, newData: { full_name: form.full_name, role: form.role, is_active: form.is_active } });
     }
 
-    // Update all module permission overrides
-    await supabase
-      .from('user_permission_overrides')
-      .delete()
-      .eq('user_id', user.id)
-      .in('module_key', ALL_MODULE_KEYS);
+    // ── Persistência de overrides por DIFF ────────────────────────────────
+    // Regra: user_permission_overrides só deve conter linhas que DIFEREM do
+    // role default. Se o admin deixou o toggle no valor-herdado, não escreve
+    // nada. Se mudou, faz upsert. Se havia override no DB mas agora está
+    // igual ao default, deleta.
+    //
+    // Se o role mudou, os overrides anteriores foram calculados contra o
+    // role antigo → o effective exibido pode ter virado "= novo default"
+    // sem o admin perceber. Nesse caso, um hard reset é mais honesto:
+    // apagar TODOS os overrides do usuário e deixar só os diffs do estado
+    // atual contra o novo role default.
+    const roleChanged = form.role !== user.role;
+    const toUpsert: Array<{
+      user_id: string;
+      module_key: string;
+      can_view: boolean;
+      can_create: boolean;
+      can_edit: boolean;
+      can_delete: boolean;
+      can_import: boolean;
+      is_deny: boolean;
+      granted_by: string;
+    }> = [];
+    const toDelete: string[] = [];
 
-    // Apenas linhas ADITIVAS (>=1 flag true). user_permission_overrides
-    // funciona como OR com role_permissions (migration 143); um override
-    // com tudo false vira no-op e só polui a tabela.
-    const permOverrides = Object.entries(modulePerms)
-      .filter(([, perms]) =>
-        perms.can_view || perms.can_create || perms.can_edit || perms.can_delete || perms.can_import,
-      )
-      .map(([key, perms]) => ({
-        user_id: user.id,
-        module_key: key,
-        can_view:   perms.can_view,
-        can_create: perms.can_create,
-        can_edit:   perms.can_edit,
-        can_delete: perms.can_delete,
-        can_import: perms.can_import,
-        granted_by: currentUserId,
-      }));
-    if (permOverrides.length > 0) {
-      await supabase.from('user_permission_overrides').insert(permOverrides);
+    // Detecta se `effective` concede algo que `roleDefault` NÃO concede.
+    // Override aditivo só faz sentido se adiciona ≥1 flag true — caso contrário
+    // o backend (OR com role_permissions) retorna o role default e o override
+    // vira no-op, poluindo a tabela (bug-pattern mirror de novo).
+    const grantsExtra = (eff: QuickActionPerms, def: QuickActionPerms): boolean =>
+      (eff.can_view   && !def.can_view)   ||
+      (eff.can_create && !def.can_create) ||
+      (eff.can_edit   && !def.can_edit)   ||
+      (eff.can_delete && !def.can_delete) ||
+      (eff.can_import && !def.can_import);
+
+    for (const key of ALL_MODULE_KEYS) {
+      const effective = modulePerms[key] ?? DEFAULT_ACTION_PERMS;
+      const roleDefault = roleDefaults[key] ?? DEFAULT_ACTION_PERMS;
+      const hadOverride = Object.prototype.hasOwnProperty.call(dbOverrides, key);
+
+      if (permsEqual(effective, roleDefault) || !grantsExtra(effective, roleDefault)) {
+        // Estado = default, ou estado removeu flags mas não adicionou nenhum →
+        // override inútil (backend OR volta ao default). Apaga se havia.
+        // Revogação só será possível quando a UI expuser is_deny.
+        if (hadOverride) toDelete.push(key);
+      } else {
+        // Estado adiciona pelo menos um flag → persistir override aditivo.
+        toUpsert.push({
+          user_id: user.id,
+          module_key: key,
+          can_view: effective.can_view,
+          can_create: effective.can_create,
+          can_edit: effective.can_edit,
+          can_delete: effective.can_delete,
+          can_import: effective.can_import,
+          is_deny: false, // UI atual não expõe deny; flag reservado p/ extensão futura.
+          granted_by: currentUserId,
+        });
+      }
+    }
+
+    if (roleChanged) {
+      // Role mudou → apaga overrides do role anterior (inclusive keys fora
+      // de ALL_MODULE_KEYS que possam existir por legado).
+      await supabase
+        .from('user_permission_overrides')
+        .delete()
+        .eq('user_id', user.id);
+    } else if (toDelete.length > 0) {
+      await supabase
+        .from('user_permission_overrides')
+        .delete()
+        .eq('user_id', user.id)
+        .in('module_key', toDelete);
+    }
+
+    if (toUpsert.length > 0) {
+      // Upsert seguro via on_conflict no par (user_id, module_key).
+      await supabase
+        .from('user_permission_overrides')
+        .upsert(toUpsert, { onConflict: 'user_id,module_key' });
     }
 
     setSaving(false);

@@ -213,6 +213,57 @@ BEGIN
   RESET role;
 END$$;
 
+-- 4. Regressão do bug "mirror overrides" (UsersPage pré-fix):
+--    overrides que espelham exatamente o role default do usuário são
+--    funcionalmente no-op e devem ser removidos pela migration 146 E
+--    nunca mais criados pela UI corrigida. Este assert garante que a
+--    tabela não contém linhas mirror para os fixtures carregados acima.
+DO $$
+DECLARE
+  v_mirror int;
+BEGIN
+  SELECT count(*) INTO v_mirror
+  FROM user_permission_overrides upo
+  JOIN profiles p ON p.id = upo.user_id
+  JOIN role_permissions rp
+    ON rp.role = p.role AND rp.module_key = upo.module_key
+  WHERE upo.is_deny = false
+    AND upo.can_view   = rp.can_view
+    AND upo.can_create = rp.can_create
+    AND upo.can_edit   = rp.can_edit
+    AND upo.can_delete = rp.can_delete
+    AND COALESCE(upo.can_import, false) = COALESCE(rp.can_import, false);
+  PERFORM pg_temp.assert(
+    v_mirror = 0,
+    format('Nenhum override mirror deve existir (encontrou %s)', v_mirror)
+  );
+END$$;
+
+-- 5. Regressão do bug "phantom grant": roles teacher/user/student não
+--    devem ter overrides concedendo módulos admin-only com is_deny=false.
+--    A UI corrigida bloqueia a criação; esta migration de cleanup apaga
+--    as linhas legadas.
+DO $$
+DECLARE
+  v_phantom int;
+BEGIN
+  SELECT count(*) INTO v_phantom
+  FROM user_permission_overrides upo
+  JOIN profiles p ON p.id = upo.user_id
+  WHERE p.role IN ('teacher','user','student')
+    AND upo.is_deny = false
+    AND upo.module_key IN (
+      'financial','audit','users','permissions','settings',
+      'fornecedores','nfse-emitidas','store-orders','store-products',
+      'financial-plans','financial-contracts','financial-installments',
+      'financial-receivables','financial-payables'
+    );
+  PERFORM pg_temp.assert(
+    v_phantom = 0,
+    format('Nenhum phantom grant admin-only para role não-admin (encontrou %s)', v_phantom)
+  );
+END$$;
+
 -- Resumo
 DO $$ BEGIN RAISE NOTICE '============================================================';
             RAISE NOTICE 'Verificação de permissões concluída sem falhas.';
