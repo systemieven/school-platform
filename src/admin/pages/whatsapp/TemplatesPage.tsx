@@ -430,6 +430,25 @@ function MediaAttachment({ value, onChange, label = 'Imagem (opcional)', acceptV
 
 // ── Template Drawer ───────────────────────────────────────────────────────────
 
+/**
+ * Converte input arbitrário para o formato slug aceito pelo CHECK constraint
+ * `whatsapp_templates_name_slug_format` (`^[a-z0-9_]+$`).
+ *   - Remove acentos (NFD + strip diacríticos)
+ *   - Lowercase
+ *   - Espaços, traços, pontos → `_`
+ *   - Underscore duplicado → único
+ *   - Demais caracteres especiais são descartados
+ */
+function slugifyTemplateName(input: string): string {
+  return input
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[\s\-.]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 const EMPTY_TEMPLATE: Omit<WhatsAppTemplate, 'id' | 'created_at' | 'updated_at' | 'created_by'> = {
   name: '',
   category: 'geral',
@@ -534,6 +553,16 @@ function TemplateDrawer({
 
   const handleSave = async () => {
     if (!form.name.trim()) { setError('Informe o nome do template.'); return; }
+    // Garantia extra: mesmo que o input tenha sido bypassado (paste em campo
+    // controlado, console, etc.), nunca persiste um name fora do formato slug.
+    const slug = slugifyTemplateName(form.name);
+    if (slug !== form.name) {
+      setForm((p) => ({ ...p, name: slug }));
+    }
+    if (!slug) {
+      setError('Nome inválido — use apenas letras minúsculas, números e _.');
+      return;
+    }
     if (!body.trim())      { setError('O corpo da mensagem não pode estar vazio.'); return; }
 
     // Type-specific validation
@@ -570,6 +599,7 @@ function TemplateDrawer({
 
     const payload = {
       ...form,
+      name:          slug,            // garantia: name persistido sempre é slug válido
       trigger_event: form.trigger_event || null,
       variables:     extractVars(body),
       ...(isEdit ? {} : { created_by: profile?.id }),
@@ -774,17 +804,24 @@ function TemplateDrawer({
               {/* Identificação */}
               <SettingsCard title="Identificação" icon={Tag}>
                 <div className="space-y-4">
-                  {/* Nome */}
+                  {/* Nome (slug — identificador estável usado pelo código) */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                       Nome do Template *
                     </label>
                     <input
                       value={form.name}
-                      onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                      placeholder="Ex: Confirmação de Visita"
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 transition-all"
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, name: slugifyTemplateName(e.target.value) }))
+                      }
+                      placeholder="Ex: confirmacao_de_visita"
+                      pattern="^[a-z0-9_]+$"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm font-mono outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 transition-all"
                     />
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      Identificador interno (slug). Apenas letras minúsculas, números e <code className="px-1 rounded bg-gray-100 dark:bg-gray-800">_</code>.
+                      Acentos, espaços e traços são convertidos automaticamente.
+                    </p>
                   </div>
 
                   {/* Categoria + Tipo */}
