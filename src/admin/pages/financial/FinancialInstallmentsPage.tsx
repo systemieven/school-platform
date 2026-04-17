@@ -176,6 +176,19 @@ export default function FinancialInstallmentsPage() {
         ]);
       }
 
+      // Auto-emissao de NFS-e (se habilitado em company_nfse_config)
+      try {
+        const { data: cfg } = await supabase
+          .from('company_nfse_config')
+          .select('auto_emit_on_payment')
+          .maybeSingle();
+        if (cfg?.auto_emit_on_payment) {
+          await handleEmitNfse(payingInst);
+        }
+      } catch {
+        // auto-emissao e best-effort; nao bloqueia a baixa
+      }
+
       setSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => {

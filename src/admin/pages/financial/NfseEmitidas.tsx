@@ -10,7 +10,9 @@ import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   FileText, Eye, AlertCircle, Loader2, Search,
   Receipt, CheckCircle2, Clock, XCircle, Ban, RefreshCw,
+  Send, MessageSquare, Check,
 } from 'lucide-react';
+import { logAudit } from '../../../lib/audit';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -126,15 +128,22 @@ function StatCard({ label, count, value, colorCls = 'text-gray-800 dark:text-whi
 function DetailDrawer({
   nfse,
   onClose,
+  onRefresh,
 }: {
   nfse: NfseEmitida | null;
   onClose: () => void;
+  onRefresh: () => void;
 }) {
   const [logs, setLogs] = useState<EmissionLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [actionLoading, setActionLoading] = useState<null | 'cancel' | 'retry' | 'resend'>(null);
+  const [actionDone, setActionDone] = useState<null | 'cancel' | 'retry' | 'resend'>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!nfse) return;
+    setActionError(null);
+    setActionDone(null);
     setLoadingLogs(true);
     supabase
       .from('nfse_emission_log')
@@ -146,6 +155,82 @@ function DetailDrawer({
         setLoadingLogs(false);
       });
   }, [nfse]);
+
+  async function handleCancel() {
+    if (!nfse) return;
+    const motivo = prompt('Motivo do cancelamento (obrigatório por algumas prefeituras):', '');
+    if (motivo === null) return;
+    setActionLoading('cancel');
+    setActionError(null);
+    const { data, error } = await supabase.functions.invoke('nfse-cancel', {
+      body: { nfse_id: nfse.id, motivo: motivo || undefined },
+    });
+    setActionLoading(null);
+    if (error || !data?.ok) {
+      const msg = error?.message ?? (typeof data?.detail === 'object' ? JSON.stringify(data.detail) : String(data?.detail ?? 'falha no cancelamento'));
+      setActionError(msg);
+      return;
+    }
+    logAudit({ action: 'update', module: 'nfse-emitidas', description: `NFS-e nº ${nfse.numero} cancelada` });
+    setActionDone('cancel');
+    onRefresh();
+    setTimeout(() => { setActionDone(null); onClose(); }, 900);
+  }
+
+  async function handleRetry() {
+    if (!nfse) return;
+    setActionLoading('retry');
+    setActionError(null);
+    const servico = (nfse.servico ?? {}) as Record<string, unknown>;
+    const { data, error } = await supabase.functions.invoke('nfse-emitter', {
+      body: {
+        source: nfse.installment_id ? 'installment' : 'receivable',
+        source_id: nfse.installment_id ?? (nfse as NfseEmitida & { receivable_id?: string }).receivable_id,
+        guardian_id: nfse.guardian_id,
+        valor_servico: Number(nfse.valor_servico ?? 0),
+        discriminacao: String(servico.discriminacao ?? `Reemissao NFS-e ${nfse.numero}`),
+        initiated_by: (await supabase.auth.getUser()).data.user?.id,
+      },
+    });
+    setActionLoading(null);
+    if (error || !data?.success) {
+      setActionError(error?.message ?? JSON.stringify(data ?? {}));
+      return;
+    }
+    setActionDone('retry');
+    onRefresh();
+    setTimeout(() => { setActionDone(null); onClose(); }, 900);
+  }
+
+  async function handleResendPdf() {
+    if (!nfse?.link_pdf || !nfse.guardian_id) return;
+    setActionLoading('resend');
+    setActionError(null);
+    const { data: g } = await supabase
+      .from('guardian_profiles')
+      .select('telefone')
+      .eq('id', nfse.guardian_id)
+      .single();
+    const phone = (g as { telefone?: string } | null)?.telefone;
+    if (!phone) {
+      setActionError('Responsável sem telefone cadastrado.');
+      setActionLoading(null);
+      return;
+    }
+    const { error } = await supabase.functions.invoke('message-orchestrator', {
+      body: {
+        phone,
+        module: 'fiscal',
+        body: `Sua NFS-e nº ${nfse.numero} está disponível. Link: ${nfse.link_pdf}`,
+        priority: 1,
+      },
+    });
+    setActionLoading(null);
+    if (error) { setActionError(error.message); return; }
+    logAudit({ action: 'send', module: 'nfse-emitidas', description: `PDF da NFS-e nº ${nfse.numero} reenviado` });
+    setActionDone('resend');
+    setTimeout(() => setActionDone(null), 1500);
+  }
 
   if (!nfse) return null;
 
@@ -160,12 +245,61 @@ function DetailDrawer({
       icon={Receipt}
       badge={<StatusBadge status={nfse.status} />}
       footer={
-        <button
-          onClick={onClose}
-          className="w-full py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          Fechar
-        </button>
+        <div className="flex flex-col gap-2">
+          {actionError && (
+            <p className="text-xs text-red-600 dark:text-red-400 font-mono whitespace-pre-wrap">{actionError}</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              Fechar
+            </button>
+            {nfse.status === 'autorizada' && nfse.link_pdf && (
+              <button
+                onClick={handleResendPdf}
+                disabled={actionLoading !== null}
+                className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                  actionDone === 'resend'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
+                }`}
+              >
+                {actionLoading === 'resend' ? <Loader2 className="w-4 h-4 animate-spin" />
+                 : actionDone === 'resend' ? <Check className="w-4 h-4" />
+                 : <MessageSquare className="w-4 h-4" />}
+                {actionLoading === 'resend' ? 'Enviando…' : actionDone === 'resend' ? 'Enviado!' : 'Reenviar PDF'}
+              </button>
+            )}
+            {nfse.status === 'autorizada' && (
+              <button
+                onClick={handleCancel}
+                disabled={actionLoading !== null}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors"
+              >
+                {actionLoading === 'cancel' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                {actionLoading === 'cancel' ? 'Cancelando…' : 'Cancelar'}
+              </button>
+            )}
+            {(nfse.status === 'rejeitada' || nfse.status === 'pendente') && (
+              <button
+                onClick={handleRetry}
+                disabled={actionLoading !== null}
+                className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                  actionDone === 'retry'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
+                }`}
+              >
+                {actionLoading === 'retry' ? <Loader2 className="w-4 h-4 animate-spin" />
+                 : actionDone === 'retry' ? <Check className="w-4 h-4" />
+                 : <Send className="w-4 h-4" />}
+                {actionLoading === 'retry' ? 'Emitindo…' : actionDone === 'retry' ? 'Enviado!' : 'Emitir novamente'}
+              </button>
+            )}
+          </div>
+        </div>
       }
     >
       {/* Motivo rejeição */}
@@ -469,7 +603,7 @@ export default function NfseEmitidas() {
       )}
 
       {/* Detail Drawer */}
-      <DetailDrawer nfse={selected} onClose={() => setSelected(null)} />
+      <DetailDrawer nfse={selected} onClose={() => setSelected(null)} onRefresh={load} />
     </div>
   );
 }
