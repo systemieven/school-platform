@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAdminAuth } from '../hooks/useAdminAuth';
-import { usePermissions, type PermissionAction } from '../contexts/PermissionsContext';
+import type { PermissionAction } from '../contexts/PermissionsContext';
 import type { Role } from '../types/admin.types';
 import { Loader2 } from 'lucide-react';
 
@@ -8,23 +8,26 @@ interface Props {
   children: React.ReactNode;
   /** Legacy: array of roles allowed (fallback when moduleKey is not set) */
   roles?: Role[];
-  /** Granular: module key to check permission against */
+  /**
+   * Reserved for future use. **Today this prop is intentionally ignored.**
+   *
+   * `<ProtectedRoute>` wraps `<AdminLayout>`, and `<PermissionsProvider>`
+   * lives *inside* AdminLayout — so calling `usePermissions()` here would
+   * throw ("must be used within <PermissionsProvider>") and lock the whole
+   * app at the loading screen. Granular permission checks must happen
+   * lower in the tree via `<ModuleGuard moduleKey requiredAction>`, which
+   * is mounted around each route element.
+   */
   moduleKey?: string;
-  /** Action required (defaults to 'view') */
+  /** Reserved for future use — see `moduleKey` above. */
   requiredAction?: PermissionAction;
 }
 
-export default function ProtectedRoute({
-  children,
-  roles,
-  moduleKey,
-  requiredAction = 'view',
-}: Props) {
+export default function ProtectedRoute({ children, roles }: Props) {
   const { profile, loading } = useAdminAuth();
-  const { can, loading: permsLoading } = usePermissions();
   const location = useLocation();
 
-  if (loading || permsLoading) {
+  if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
@@ -46,14 +49,9 @@ export default function ProtectedRoute({
     return <>{children}</>;
   }
 
-  // Granular check — preferred path. Blocks direct URL navigation when the
-  // user lacks the required action (default `view`) for the module.
-  if (moduleKey && !can(moduleKey, requiredAction)) {
-    return <Navigate to="/admin" replace />;
-  }
-
-  // Role-based check (legacy fallback — granular checks happen in Sidebar
-  // and PermissionGate within pages, powered by PermissionsContext)
+  // Role-based check (legacy fallback — granular checks happen in
+  // ModuleGuard / PermissionGate within pages, powered by PermissionsContext
+  // which is provided *inside* AdminLayout — i.e. below this guard).
   if (roles && !roles.includes(profile.role)) {
     return <Navigate to="/admin" replace />;
   }
