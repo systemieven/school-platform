@@ -290,11 +290,11 @@ interface GroupTimelineProps {
 
 function GroupTimeline({ modules, statusMap, onImport, onUnlock }: GroupTimelineProps) {
   return (
-    <div className="relative overflow-x-auto pb-2 -mx-1 px-1">
+    <div className="relative overflow-x-auto overflow-y-visible pt-2 pb-2 -mx-2 px-3">
       <div className="relative flex items-start gap-6 min-w-max">
         {/* connecting line */}
         <div
-          className="absolute top-7 left-7 right-7 h-px bg-gradient-to-r from-gray-200 via-gray-200 to-gray-200 dark:from-gray-700 dark:via-gray-700 dark:to-gray-700"
+          className="absolute top-7 left-10 right-10 h-px bg-gradient-to-r from-gray-200 via-gray-200 to-gray-200 dark:from-gray-700 dark:via-gray-700 dark:to-gray-700"
           aria-hidden
         />
         {modules.map((mod) => (
