@@ -451,7 +451,7 @@ export default function ChartWidget({ widget, onEdit, onDelete }: ChartWidgetPro
   }
 
   return (
-    <div className="group relative bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 h-[280px] flex flex-col">
+    <div className="group relative bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 h-[280px] flex flex-col hover:shadow-md transition-shadow duration-200">
       {/* Header */}
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{widget.title}</p>

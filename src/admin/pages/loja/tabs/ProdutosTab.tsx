@@ -214,7 +214,7 @@ export default function ProdutosTab() {
         <button
           onClick={() => setProdutoDrawer({ open: true, product: null })}
           className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors">
-          <ShoppingBag className="w-4 h-4" /> + Novo Produto
+          <ShoppingBag className="w-4 h-4" /> Novo Produto
         </button>
       </div>
 
@@ -307,7 +307,7 @@ export default function ProdutosTab() {
           <button
             onClick={(e) => { e.stopPropagation(); setCategoriaDrawer({ open: true, category: null }); }}
             className="flex items-center gap-1 text-xs font-medium text-brand-primary hover:text-brand-primary-dark mr-3">
-            <FolderOpen className="w-3.5 h-3.5" /> + Nova Categoria
+            <FolderOpen className="w-3.5 h-3.5" /> Nova Categoria
           </button>
           {showCategories ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
         </button>

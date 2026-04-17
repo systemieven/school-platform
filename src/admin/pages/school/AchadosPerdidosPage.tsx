@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
   PackageSearch, Loader2, Check, ChevronLeft, ChevronRight,
   Search, MapPin, Calendar, Trash2, User, Clock, X,
-  AlertTriangle, Camera,
+  AlertTriangle, Camera, Settings,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
@@ -553,6 +554,23 @@ export default function AchadosPerdidosPage() {
 
   return (
     <div className="space-y-6">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Achados e Perdidos</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Controle de objetos encontrados e devoluções
+          </p>
+        </div>
+        <Link
+          to="/admin/configuracoes?tab=ferramentas"
+          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
+        >
+          <Settings className="w-4 h-4 text-brand-secondary" />
+          Configurações
+        </Link>
+      </div>
+
       {/* Filters bar */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 space-y-3">
         {/* Status tabs */}

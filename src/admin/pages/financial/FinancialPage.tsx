@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, FileSignature, Receipt,
   Percent, GraduationCap, FileCode2,
   PanelLeftClose, PanelLeftOpen,
   Vault, TrendingUp, TrendingDown, BarChart3, Building2, Inbox,
-  FileCheck2,
+  FileCheck2, Settings,
 } from 'lucide-react';
 import FinancialDashboardPage from './FinancialDashboardPage';
 import FinancialPlansPage from './FinancialPlansPage';
@@ -147,11 +148,20 @@ export default function FinancialPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Financeiro</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Gerencie planos, contratos e cobranças da instituição
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Financeiro</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Gerencie planos, contratos e cobranças da instituição
+          </p>
+        </div>
+        <Link
+          to="/admin/configuracoes?tab=financial"
+          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
+        >
+          <Settings className="w-4 h-4 text-brand-secondary" />
+          Configurações
+        </Link>
       </div>
 
       {/* Tabs + Content layout */}

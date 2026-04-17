@@ -9,7 +9,8 @@ import {
   Percent, DollarSign, Wifi, WifiOff, Copy, ExternalLink,
   MessageCircle,
 } from 'lucide-react';
-import type { StoreProduct, StoreProductVariant, PDVCartItem } from '../../types/admin.types';
+import type { StoreProduct, StoreProductVariant, PDVCartItem, StorePaymentSurcharge } from '../../types/admin.types';
+import { computeSurcharge } from '../../../lib/paymentSurcharge';
 
 // ── Mapa value→ícone para formas de pagamento manuais ────────────────────────
 const PM_ICON_MAP: Record<string, React.ElementType> = {
@@ -89,6 +90,9 @@ export default function PDVPage() {
   const [gatewayLoading, setGatewayLoading] = useState(false);
   const [manualMethods, setManualMethods] = useState(DEFAULT_MANUAL_METHODS);
 
+  // ── Acréscimos por forma de pagamento ──────────────────────────────────────
+  const [surcharges, setSurcharges] = useState<StorePaymentSurcharge[]>([]);
+
   // ── Venda ───────────────────────────────────────────────────────────────────
   const [finalizing, setFinalizing] = useState(false);
   const [saleDone, setSaleDone]   = useState(false);
@@ -130,6 +134,12 @@ export default function PDVPage() {
       setGatewayLoading(false);
     }
     loadGatewayAndMethods();
+
+    supabase
+      .from('store_payment_surcharges')
+      .select('*')
+      .eq('is_active', true)
+      .then(({ data }) => { if (data) setSurcharges(data as StorePaymentSurcharge[]); });
   }, []);
 
   // Reset método ao trocar modo
@@ -218,7 +228,11 @@ export default function PDVPage() {
   const subtotal = cart.reduce((s, i) => s + i.totalPrice, 0);
   const rawDiscount = parseFloat(discount) || 0;
   const discountAmount = discountType === 'percent' ? subtotal * (rawDiscount / 100) : rawDiscount;
-  const total = Math.max(0, subtotal - discountAmount);
+  const baseForSurcharge = Math.max(0, subtotal - discountAmount);
+  const { pct: surchargePct, amount: surchargeAmount } = computeSurcharge(
+    baseForSurcharge, paymentMethod, surcharges, 'pdv'
+  );
+  const finalTotal = baseForSurcharge + surchargeAmount;
 
   // ── Finalizar venda ─────────────────────────────────────────────────────────
   const finalizeSale = async () => {
@@ -242,8 +256,10 @@ export default function PDVPage() {
           channel:         'pdv',
           status:          orderStatus,
           subtotal,
-          discount_amount: discountAmount,
-          total_amount:    total,
+          discount_amount:  discountAmount,
+          surcharge_pct:    surchargePct,
+          surcharge_amount: surchargeAmount,
+          total_amount:     finalTotal,
           payment_method:  payMode === 'manual' ? paymentMethod : null,
           installments:    1,
           created_by:      user?.id ?? null,
@@ -282,7 +298,7 @@ export default function PDVPage() {
         payMode === 'manual' ? (async () => {
           try {
             await supabase.from('financial_cash_movements').insert({
-              type: 'inflow', sub_type: 'recebimento', amount: total,
+              type: 'inflow', sub_type: 'recebimento', amount: finalTotal,
               description: `Venda PDV ${orderNumber}`, payment_method: paymentMethod,
               reference_type: 'order', reference_id: orderId,
               created_by: user?.id ?? null, created_at: new Date().toISOString(),
@@ -310,7 +326,7 @@ export default function PDVPage() {
             .eq('id', linkedGuardianId)
             .maybeSingle();
           if (gp?.phone) {
-            const text = `Olá, ${(gp.full_name as string).split(' ')[0]}! 👋\n\nAcesse o link abaixo para pagar *${orderNumber}* (${fmt(total)}):\n\n${checkoutUrl}\n\n_Dúvidas? Entre em contato com a secretaria._`;
+            const text = `Olá, ${(gp.full_name as string).split(' ')[0]}! 👋\n\nAcesse o link abaixo para pagar *${orderNumber}* (${fmt(finalTotal)}):\n\n${checkoutUrl}\n\n_Dúvidas? Entre em contato com a secretaria._`;
             await supabase.functions.invoke('uazapi-proxy', {
               body: { action: 'sendText', phone: gp.phone, text },
             }).catch(() => {});
@@ -630,9 +646,15 @@ export default function PDVPage() {
                   <span>Desconto</span><span>−{fmt(discountAmount)}</span>
                 </div>
               )}
+              {surchargeAmount > 0 && (
+                <div className="flex justify-between text-sm text-orange-600">
+                  <span>Acréscimo ({surchargePct}%)</span>
+                  <span>+ {fmt(surchargeAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-xl font-bold text-gray-800 dark:text-white pt-1">
                 <span>Total</span>
-                <span className="text-brand-primary">{fmt(total)}</span>
+                <span className="text-brand-primary">{fmt(finalTotal)}</span>
               </div>
             </div>
 
@@ -696,8 +718,8 @@ export default function PDVPage() {
                 {finalizing
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> {payMode === 'online' ? 'Gerando cobrança…' : 'Processando…'}</>
                   : payMode === 'online'
-                    ? <><Wifi className="w-4 h-4" /> Gerar Cobrança · {fmt(total)}</>
-                    : <><ShoppingCart className="w-4 h-4" /> Finalizar Venda · {fmt(total)}</>
+                    ? <><Wifi className="w-4 h-4" /> Gerar Cobrança · {fmt(finalTotal)}</>
+                    : <><ShoppingCart className="w-4 h-4" /> Finalizar Venda · {fmt(finalTotal)}</>
                 }
               </button>
             )}

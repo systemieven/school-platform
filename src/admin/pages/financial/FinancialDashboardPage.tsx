@@ -121,7 +121,7 @@ export default function FinancialDashboardPage() {
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {cards.map((card) => (
-          <div key={card.label} className="bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+          <div key={card.label} className="bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{card.label}</span>
               <div className={`p-2 rounded-xl ${card.bg}`}>

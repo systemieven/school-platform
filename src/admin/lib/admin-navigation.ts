@@ -20,7 +20,7 @@ export const ADMIN_NAV: NavGroup[] = [
       {
         key: 'gestao',
         label: 'Gestão',
-        icon: 'LayoutGrid',
+        icon: 'Briefcase',
         path: '/admin/gestao',
         roles: ['super_admin', 'admin', 'coordinator'],
         moduleKey: 'appointments',

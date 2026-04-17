@@ -187,7 +187,7 @@ export default function AcademicoDashboardPage() {
           return (
             <div
               key={card.label}
-              className="bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700 p-5"
+              className="bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200"
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-tight">
@@ -222,7 +222,7 @@ export default function AcademicoDashboardPage() {
       {/* Proximos eventos + Chart grid */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         {/* Proximos eventos */}
-        <div className="xl:col-span-1 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
+        <div className="xl:col-span-1 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-brand-primary dark:text-brand-secondary" />
