@@ -326,13 +326,15 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
 
     logAudit({ action: 'create', module: 'users', recordId: profile.id, description: `Usuário ${profile.full_name} criado com role ${form.role}`, newData: { full_name: profile.full_name, email: form.email, role: form.role } });
 
-    // Save module permission overrides for all toggled modules
+    // Save module permission overrides — apenas linhas ADITIVAS (>=1 flag true).
+    // user_permission_overrides é OR com role_permissions (migration 143);
+    // gravar `false` viraria no-op e poluiria a tabela.
     const permOverrides = Object.entries(modulePerms)
-      .filter(([, enabled]) => enabled !== undefined)
-      .map(([key, enabled]) => ({
+      .filter(([, enabled]) => enabled === true)
+      .map(([key]) => ({
         user_id: profile.id,
         module_key: key,
-        can_view: enabled, can_create: enabled, can_edit: enabled,
+        can_view: true, can_create: true, can_edit: true,
         can_delete: false,
         granted_by: currentUser?.id ?? profile.id,
       }));
@@ -674,7 +676,13 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
       .eq('user_id', user.id)
       .in('module_key', ALL_MODULE_KEYS);
 
+    // Apenas linhas ADITIVAS (>=1 flag true). user_permission_overrides
+    // funciona como OR com role_permissions (migration 143); um override
+    // com tudo false vira no-op e só polui a tabela.
     const permOverrides = Object.entries(modulePerms)
+      .filter(([, perms]) =>
+        perms.can_view || perms.can_create || perms.can_edit || perms.can_delete || perms.can_import,
+      )
       .map(([key, perms]) => ({
         user_id: user.id,
         module_key: key,
