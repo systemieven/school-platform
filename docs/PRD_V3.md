@@ -1,8 +1,8 @@
 # PRD v3 — Plataforma Escolar (school-platform)
 
 > **Versao**: 3.5
-> **Data**: 16 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprint 6 WebAuthn) + roadmap ate v1
+> **Data**: 17 de abril de 2026
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–9.8 concluidos, migration 141) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -96,7 +96,7 @@ Todos os dados sao armazenados no Supabase (PostgreSQL + RLS + Realtime + Storag
 ### 2.2 Banco de Dados
 
 - **40+ tabelas** com Row Level Security (RLS) em todas
-- **47 migrations** aplicadas sequencialmente
+- **141 migrations** aplicadas sequencialmente
 - **5 storage buckets**: `enrollment-documents`, `site-images`, `whatsapp-media`, `library-resources`, `avatars`
 - **16 Edge Functions** para logica server-side (8 publicas com rate limiting ou auth customizada)
 - **Realtime** habilitado em `visit_appointments`, `enrollments`, `contact_requests`, `attendance_tickets` e `system_settings`
@@ -1451,16 +1451,27 @@ Configuravel na aba Aparencia > Home:
 | 118 | `nfse_emission_log` | — | Fase 14.S — Log imutavel de tentativas de emissao: nfse_id FK nullable, tentativa INT, iniciado_por UUID, iniciado_por_tipo (user/system), dados_enviados JSONB, resposta JSONB, codigo_retorno TEXT, status (success/error/pending), created_at |
 | 119 | `nfse_permissions` | — | Fase 14.S — Modulos nfse-emitidas, nfse-config, nfse-apuracao + role_permissions |
 | 120 | `nfse_whatsapp_templates` | — | Fase 14.S — Categoria WhatsApp 'fiscal' (cor verde-escuro) + templates nfse_autorizada e nfse_cancelada com variaveis link_nfse e numero_nfse |
-| 121 | `fornecedores` | — | Fase 14.E — Tabela principal de fornecedores: tipo_pessoa, cnpj_cpf, razao_social, nome_fantasia, ie, im, suframa, optante_simples, contatos, endereco completo, dados_fiscais, condicoes_comerciais, categoria, tags, status |
-| 122 | `fornecedor_contas_bancarias` | — | Fase 14.E — Contas bancarias por fornecedor: banco, agencia, conta, tipo_conta, tipo_chave_pix, chave_pix, favorecido, is_default |
-| 123 | `fornecedores_fk_updates` | — | Fase 14.E — ADD COLUMN fornecedor_id em financial_payables e nfe_entries; atualiza RPC generate_payable_installments para propagar fornecedor_id; indices de busca por cnpj_cpf |
-| 124 | `fornecedores_permissions` | — | Fase 14.E — Modulo fornecedores no grupo financeiro + role_permissions |
+| 121 | `fornecedores` | — | Fase 14.E — plano original (substituido por migrations 131–132 aplicadas) |
+| 122 | `fornecedor_contas_bancarias` | — | Fase 14.E — plano original (substituido por migrations 131–132 aplicadas) |
+| 123 | `fornecedores_fk_updates` | — | Fase 14.E — plano original (FKs e RPC integrados na migration 132) |
+| 124 | `fornecedores_permissions` | — | Fase 14.E — plano original (permissoes integradas na migration 132) |
 | 125 | `import_batches` | — | OP-1 — Lotes de importacao: module_key, file_name, template_id FK, status, records_total/imported/skipped/rejected, created_by, timestamps |
 | 126 | `import_batch_logs` | — | OP-1 — Log linha a linha por lote: batch_id FK, row_index, row_data JSONB, rejection_reasons TEXT[] |
 | 127 | `migration_module_status` | — | OP-1 — Estado de migracao por modulo (singleton por modulo): status (available/in_progress/completed/unlocked), last_batch_id FK, completed_at, unlocked_at, unlocked_by FK |
 | 128 | `migration_permissions` | — | OP-1 — Modulo import-manager no grupo operacional, acesso exclusivo super_admin; can_import TRUE so para super_admin |
 | 129 | `document_templates_align` | — | TV-1 — Alinha schema de document_templates com contract_templates: ADD COLUMN style_config JSONB DEFAULT '{}', converte variables TEXT[] para JSONB DEFAULT '[]', adiciona valores 'nfse_recibo' e 'recibo_pagamento' ao CHECK de document_type |
 | 130 | `template_starter_seeds` | — | TV-1 — Seeds de templates iniciais: 1 contrato padrao, 1 recibo padrao, 1 declaracao_matricula padrao (HTML completo com cabecalho, rodape, logo, placeholders pre-populados) |
+| 131 | `fornecedores` | 17/04 | Fase 14.E (Sprint 9) — Tabela principal de fornecedores: tipo_pessoa, cnpj_cpf, razao_social, nome_fantasia, ie, im, suframa, optante_simples, contatos, endereco completo, dados_fiscais, condicoes_comerciais, categoria, tags, status |
+| 132 | `fornecedor_contas_bancarias` | 17/04 | Fase 14.E (Sprint 9) — Contas bancarias por fornecedor: banco, agencia, conta, tipo_conta, tipo_chave_pix, chave_pix, favorecido, is_default |
+| 133 | `store_payment_surcharges` | 17/04 | Sprint 9.6 — Tabela store_payment_surcharges: acrescimo por forma de pagamento (tipo, percentual, valor_fixo, descricao, is_active) |
+| 134 | `surcharges_permissions` | 17/04 | Sprint 9.6 — Modulo store-payment-surcharges + role_permissions; ADD COLUMN surcharge_amount em store_orders |
+| 135 | `nfe_payable_bridge` | 17/04 | Sprint 9.6 — F-1: ADD COLUMN nfe_entry_id FK em financial_payables; trigger que cria A/P automaticamente ao importar NF-e de entrada (NfeEntradasPage → financial_payables) |
+| 136 | `cash_movement_fixes` | 17/04 | Sprint 9.6 — F-2/F-3/F-6: ADD 'order' ao CHECK de reference_type em financial_cash_movements; corrige inserts de PDV, baixa A/R, baixa A/P e parcela paga para incluir cash_register_id e balance_after |
+| 137 | `installments_start_month` | 17/04 | Sprint 9.6 — A-7: parametro p_start_month INT DEFAULT EXTRACT(MONTH FROM CURRENT_DATE) em generate_installments_for_contract; parcelas iniciam no mes da matricula |
+| 138 | `webhook_receivable_bridge` | 17/04 | Sprint 9.6 — F-4: apos confirmar pagamento no payment-gateway-webhook, cria financial_receivables com source_type='store_order' e source_id=order_id via upsert idempotente (ON CONFLICT DO NOTHING) |
+| 139 | `store_orders_cash_views` | 17/04 | Sprint 9.6 — F-5: inclui store_orders como fonte de receita em financial_cash_flow_view e financial_dre_view; A-6: filtro de school_year em AlertasFrequenciaPage |
+| 140 | `academic_pipeline` | 17/04 | Sprint 9.7 — A-1: discipline_id no upsert de chamada (AttendanceTab); A-2: tabela exam_results (aluno x prova x nota); discipline_id e period em class_exams; A-4: trigger pos-insert em grades que dispara calculate-grades em background |
+| 141 | `disciplines_canonical` | 17/04 | Sprint 9.8 — A-3: discipline_id em class_diary_entries; disciplines como tabela canonica; A-5: DiarioEntradaPage busca disciplinas de disciplines, salva discipline_id + subject_id, auto-sugere com base em class_schedules do dia |
 
 ### 7.4 RLS Policies
 
@@ -1756,6 +1767,9 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 9 | Academico Completo | ✅ Concluido (UI + backend + WhatsApp) | Critica | 7 |
 | 9.M | Migracao Arquitetural: Seguimento→Serie→Turma | ✅ Concluido (migrations 61-63, 2026-04-15) | Critica | 1-5 (gap) |
 | 9.5 | Dashboards Analiticos (Financeiro + Academico) | ✅ Concluido (migration 74, Recharts, 2026-04-15) | Alta | 8 + 9 |
+| 9.6 | Pipeline Financeiro — Pontes criticas (NF-e→A/P, baixas→caixa, PDV, pedido online, parcelas, store_orders nas views) | ✅ Concluido (migrations 133–139, 2026-04-17) | Critica | 8.5 + 9 + 14 |
+| 9.7 | Pipeline Academico — Frequencia por disciplina, resultados de provas, recalculo automatico de boletim | ✅ Concluido (migration 140, 2026-04-17) | Critica | 9 + 10.P |
+| 9.8 | Consolidacao de Disciplinas — `disciplines` como tabela canonica; diario vinculado a disciplina; auto-sugestao na grade horaria | ✅ Concluido (migration 141, 2026-04-17) | Alta | 9 + 10.P |
 | 10 | Portal do Responsavel | ✅ Concluido (migrations 75-76, 2026-04-15) | Critica | 8 + 9 + 9.M |
 | 10.P | Portal do Professor / Diario de Classe | ✅ Concluido (migrations 77-81, 2026-04-15) | Alta | 9 + 9.M *(paralelo a Fase 10)* |
 | 11 | Secretaria Digital | ✅ Concluido (migrations 82-86, Edge Function generate-document, 2026-04-15) | Alta | 10 |
@@ -1767,7 +1781,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
 | 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ✅ Concluido (migrations 109–113, Sprint 7, 2026-04-16) | Media | 14 |
 | 14.S | Emissao Automatica de NFS-e (Notas Fiscais de Servicos) | ⏳ Planejado | Media-Alta | 14.F + 8.5 + 10 |
-| 14.E | Modulo de Fornecedores | ✅ Concluido | Media | 14.F + 8.5 |
+| 14.E | Modulo de Fornecedores | ✅ Concluido (migrations 131–132, Sprint 9, 2026-04-17) | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 | OP-1 | Central de Migracao de Dados (Onboarding) | ⏳ Planejado | Alta | Todas as tabelas-alvo existentes |
 | TV-1 | Editor Visual de Templates HTML | ⏳ Planejado | Media | contract_templates + document_templates + generate-document |
@@ -3899,7 +3913,7 @@ nfse_emission_log                   (migration 118 — imutavel: sem UPDATE, sem
 
 ### 10.9D Fase 14.E — Modulo de Fornecedores
 
-**Status**: ✅ Concluido (Sprint 9)
+**Status**: ✅ Concluido (Sprint 9, migrations 131–132, 2026-04-17)
 **Dependencias**:
 - Fase 14.F concluida (`nfe_entries` + `nfe_entry_items` — XML de NF-e de entrada ja importado; emitente armazenado como TEXT)
 - Fase 8.5 concluida (`financial_payables` — A/P criado com `creditor_name` TEXT, sem FK a fornecedor)
@@ -5366,7 +5380,7 @@ O componente `HtmlTemplateEditor` usa `PermissionGate` com os modulos existentes
 
 ### 12.1 Pipeline Financeiro
 
-#### F-1 — NF-e de entrada NAO cria lancamento em `financial_payables` [CRITICO]
+#### F-1 — NF-e de entrada NAO cria lancamento em `financial_payables` [CRITICO] ✅ Resolvido (Sprint 9.6, migration 135)
 
 **Arquivo:** `src/admin/pages/financial/NfeEntradasPage.tsx`, funcao `handleSave()` (linhas ~307–382)
 
@@ -5376,7 +5390,7 @@ O fluxo de importacao de XML persiste em `nfe_entries` + `nfe_entry_items` e enc
 
 ---
 
-#### F-2 — Baixa de A/P e A/R nao cria movimentacao no caixa [ALTO]
+#### F-2 — Baixa de A/P e A/R nao cria movimentacao no caixa [ALTO] ✅ Resolvido (Sprint 9.6, migration 136)
 
 **Arquivo:** `FinancialPayablesPage.tsx` funcao `payPayable()` (linhas ~303–318); padrao identico em `FinancialReceivablesPage.tsx`
 
@@ -5386,7 +5400,7 @@ O fluxo de importacao de XML persiste em `nfe_entries` + `nfe_entry_items` e enc
 
 ---
 
-#### F-3 — PDV manual: insert de `financial_cash_movements` falha silenciosamente [CRITICO]
+#### F-3 — PDV manual: insert de `financial_cash_movements` falha silenciosamente [CRITICO] ✅ Resolvido (Sprint 9.6, migration 136)
 
 **Arquivo:** `src/admin/pages/loja/PDVPage.tsx` linhas ~300–306
 
@@ -5396,7 +5410,7 @@ O PDV insere `reference_type: 'order'` mas a constraint do banco aceita apenas `
 
 ---
 
-#### F-4 — Pedido online pago via webhook NAO cria lancamento financeiro [CRITICO]
+#### F-4 — Pedido online pago via webhook NAO cria lancamento financeiro [CRITICO] ✅ Resolvido (Sprint 9.6, migration 138)
 
 **Arquivo:** `supabase/functions/payment-gateway-webhook/index.ts` linhas ~297–313
 
@@ -5406,7 +5420,7 @@ O webhook de confirmacao de pagamento apenas faz `UPDATE store_orders SET status
 
 ---
 
-#### F-5 — `store_orders` ausente das views de relatorio financeiro [ALTO]
+#### F-5 — `store_orders` ausente das views de relatorio financeiro [ALTO] ✅ Resolvido (Sprint 9.6, migration 139)
 
 **Arquivo:** `supabase/migrations/00000000000073_financial_report_views.sql`
 
@@ -5416,7 +5430,7 @@ As views `financial_cash_flow_view` e `financial_dre_view` consolidam `financial
 
 ---
 
-#### F-6 — Pagamento manual de parcela nao atualiza o caixa [ALTO]
+#### F-6 — Pagamento manual de parcela nao atualiza o caixa [ALTO] ✅ Resolvido (Sprint 9.6, migration 136)
 
 **Arquivo:** `src/admin/pages/financial/FinancialInstallmentsPage.tsx` funcao `handlePay()` (linhas ~125–157)
 
@@ -5428,7 +5442,7 @@ As views `financial_cash_flow_view` e `financial_dre_view` consolidam `financial
 
 ### 12.2 Pipeline Academico
 
-#### A-1 — Frequencia por disciplina nunca gravada: `AttendanceTab` omite `discipline_id` [CRITICO]
+#### A-1 — Frequencia por disciplina nunca gravada: `AttendanceTab` omite `discipline_id` [CRITICO] ✅ Resolvido (Sprint 9.7, migration 140)
 
 **Arquivo:** `src/admin/pages/teacher/tabs/AttendanceTab.tsx` linha ~55
 
@@ -5440,7 +5454,7 @@ O upsert de presenca usa `{ student_id, class_id, date, status }` — sem `disci
 
 ---
 
-#### A-2 — Provas (`class_exams`) desconectadas do boletim: sem tabela de resultados por aluno [CRITICO]
+#### A-2 — Provas (`class_exams`) desconectadas do boletim: sem tabela de resultados por aluno [CRITICO] ✅ Resolvido (Sprint 9.7, migration 140)
 
 **Arquivo:** `ProvasAdminPage.tsx`, `supabase/migrations/00000000000080_class_exams.sql`
 
@@ -5450,7 +5464,7 @@ O upsert de presenca usa `{ student_id, class_id, date, status }` — sem `disci
 
 ---
 
-#### A-3 — Dois cadastros de disciplinas paralelos sem mapeamento [CRITICO]
+#### A-3 — Dois cadastros de disciplinas paralelos sem mapeamento [CRITICO] ✅ Resolvido (Sprint 9.8, migration 141)
 
 **Arquivos:** `ObjetivosPage.tsx` (usa `school_subjects`); `GradeHorariaPage.tsx`, `class_exams`, `grades`, `AttendanceTab` (usam `disciplines`)
 
@@ -5460,7 +5474,7 @@ O upsert de presenca usa `{ student_id, class_id, date, status }` — sem `disci
 
 ---
 
-#### A-4 — `student_results` (boletim) so atualiza via "Fechar Periodo" manual [ALTO]
+#### A-4 — `student_results` (boletim) so atualiza via "Fechar Periodo" manual [ALTO] ✅ Resolvido (Sprint 9.7, migration 140)
 
 **Arquivo:** `src/admin/pages/academico/BoletimPage.tsx` linha ~159
 
@@ -5470,7 +5484,7 @@ A tabela `student_results` fica desatualizada ate o admin clicar em "Fechar Peri
 
 ---
 
-#### A-5 — Grade horaria e diario do professor completamente desconectados [ALTO]
+#### A-5 — Grade horaria e diario do professor completamente desconectados [ALTO] ✅ Resolvido (Sprint 9.8, migration 141)
 
 **Arquivos:** `GradeHorariaPage.tsx`, `DiarioAdminPage.tsx`, `supabase/migrations/00000000000077_class_diary.sql`
 
@@ -5480,7 +5494,7 @@ Nao existe logica que, ao abrir o diario, pré-popule as aulas com base na grade
 
 ---
 
-#### A-6 — `AlertasFrequenciaPage` carrega todo historico sem filtro de ano letivo [ALTO]
+#### A-6 — `AlertasFrequenciaPage` carrega todo historico sem filtro de ano letivo [ALTO] ✅ Resolvido (Sprint 9.6, migration 139)
 
 **Arquivo:** `src/admin/pages/academico/AlertasFrequenciaPage.tsx` linha ~104
 
@@ -5490,7 +5504,7 @@ SELECT sem `.eq('school_year', ...)` — em producao com varios anos letivos, ca
 
 ---
 
-#### A-7 — Parcelas de matricula sempre iniciam em janeiro, criando vencidas retroativas [ALTO]
+#### A-7 — Parcelas de matricula sempre iniciam em janeiro, criando vencidas retroativas [ALTO] ✅ Resolvido (Sprint 9.6, migration 137)
 
 **Arquivo:** `supabase/migrations/00000000000046_financial_module.sql` linha ~408
 
@@ -5502,56 +5516,54 @@ SELECT sem `.eq('school_year', ...)` — em producao com varios anos letivos, ca
 
 ### 12.3 Tabela Resumo — Priorizacao
 
-| # | Gap | Severidade | Impacto | Sprint Sugerido |
-|---|-----|-----------|---------|-----------------|
-| F-3 | PDV manual nao grava no caixa | **CRITICO** | Caixa do dia incorreto | 9.6 |
-| F-4 | Pedido online invisivel para financeiro | **CRITICO** | Receita nao contabilizada | 9.6 |
-| A-1 | Frequencia por disciplina sempre nula | **CRITICO** | Boletim e alertas incorretos | 9.6 |
-| A-2 | Provas sem tabela de resultados por aluno | **CRITICO** | Modulo inteiro nao funcional | 9.7 |
-| A-3 | Dois cadastros de disciplinas sem mapeamento | **CRITICO** | Bloqueia integracao de modulos | 9.8 |
-| F-1 | NF-e nao gera contas a pagar | **CRITICO** | Despesas nao contabilizadas | 9.6 |
-| F-2 | Baixa A/P e A/R nao atualiza caixa | Alto | Caixa inconsistente | 9.6 |
-| F-6 | Parcela paga manualmente nao atualiza caixa | Alto | Caixa inconsistente | 9.6 |
-| A-4 | Boletim so atualiza com "Fechar Periodo" | Alto | UX degradada | 9.7 |
-| A-5 | Grade horaria desconectada do diario | Alto | Diario sem contexto | 9.8 |
-| A-6 | Frequencia sem filtro de ano letivo | Alto | Performance + dados errados | 9.6 |
-| A-7 | Parcelas iniciam sempre em janeiro | Alto | Inadimplencia inflada | 9.6 |
-| F-5 | store_orders fora das views de relatorio | Alto | Relatorios incompletos | 9.6 |
+| # | Gap | Severidade | Impacto | Sprint | Status |
+|---|-----|-----------|---------|--------|--------|
+| F-3 | PDV manual nao grava no caixa | **CRITICO** | Caixa do dia incorreto | 9.6 | ✅ Resolvido |
+| F-4 | Pedido online invisivel para financeiro | **CRITICO** | Receita nao contabilizada | 9.6 | ✅ Resolvido |
+| A-1 | Frequencia por disciplina sempre nula | **CRITICO** | Boletim e alertas incorretos | 9.7 | ✅ Resolvido |
+| A-2 | Provas sem tabela de resultados por aluno | **CRITICO** | Modulo inteiro nao funcional | 9.7 | ✅ Resolvido |
+| A-3 | Dois cadastros de disciplinas sem mapeamento | **CRITICO** | Bloqueia integracao de modulos | 9.8 | ✅ Resolvido |
+| F-1 | NF-e nao gera contas a pagar | **CRITICO** | Despesas nao contabilizadas | 9.6 | ✅ Resolvido |
+| F-2 | Baixa A/P e A/R nao atualiza caixa | Alto | Caixa inconsistente | 9.6 | ✅ Resolvido |
+| F-6 | Parcela paga manualmente nao atualiza caixa | Alto | Caixa inconsistente | 9.6 | ✅ Resolvido |
+| A-4 | Boletim so atualiza com "Fechar Periodo" | Alto | UX degradada | 9.7 | ✅ Resolvido |
+| A-5 | Grade horaria desconectada do diario | Alto | Diario sem contexto | 9.8 | ✅ Resolvido |
+| A-6 | Frequencia sem filtro de ano letivo | Alto | Performance + dados errados | 9.6 | ✅ Resolvido |
+| A-7 | Parcelas iniciam sempre em janeiro | Alto | Inadimplencia inflada | 9.6 | ✅ Resolvido |
+| F-5 | store_orders fora das views de relatorio | Alto | Relatorios incompletos | 9.6 | ✅ Resolvido |
 
 ---
 
-### 12.4 Sprints Propostos para Correcao
+### 12.4 Sprints Concluidos
 
-#### Sprint 9.6 — Pontes Financeiras (bugs criticos de integracao)
-**Estimativa: 3-4 dias | Prioritario — corrige dados incorretos em producao**
+#### Sprint 9.6 — Pontes Financeiras ✅ (migrations 133–139, 2026-04-17)
 
-| Item | Arquivo | Acao |
-|------|---------|------|
-| F-1 | `NfeEntradasPage.tsx` + migration | `handleSave()` cria `financial_payables`; migration adiciona `nfe_entry_id` FK em `financial_payables` |
-| F-2 | `FinancialPayablesPage.tsx`, `FinancialReceivablesPage.tsx` | Baixa cria `financial_cash_movements` no caixa aberto |
-| F-3 | `PDVPage.tsx` + migration | Corrige insert: `reference_type 'order'`, busca caixa aberto, inclui `cash_register_id` e `balance_after` |
-| F-4 | `payment-gateway-webhook/index.ts` | Apos confirmar pagamento, cria `financial_receivables` idempotente |
-| F-5 | `migration 073` (views) | Auditar e incluir `store_orders` como fonte de receita |
-| F-6 | `FinancialInstallmentsPage.tsx` | `handlePay()` cria movimento no caixa aberto |
-| A-6 | `AlertasFrequenciaPage.tsx` | Adicionar filtro de ano letivo no SELECT |
-| A-7 | `migration 046` (funcao SQL) | Parametro `p_start_month` em `generate_installments_for_contract` |
+| Item | Arquivo | Resultado |
+|------|---------|-----------|
+| F-1 | `NfeEntradasPage.tsx` + migration 135 | `handleSave()` cria `financial_payables`; `nfe_entry_id` FK adicionado |
+| F-2 | `FinancialPayablesPage.tsx`, `FinancialReceivablesPage.tsx` | Baixa cria `financial_cash_movements` no caixa aberto (migration 136) |
+| F-3 | `PDVPage.tsx` + migration 136 | `reference_type 'order'` adicionado ao CHECK; `cash_register_id` e `balance_after` incluidos |
+| F-4 | `payment-gateway-webhook/index.ts` + migration 138 | Cria `financial_receivables` idempotente apos confirmacao de pagamento |
+| F-5 | migration 139 | `store_orders` incluidos em `financial_cash_flow_view` e `financial_dre_view` |
+| F-6 | `FinancialInstallmentsPage.tsx` | `handlePay()` cria movimento no caixa aberto (migration 136) |
+| A-6 | `AlertasFrequenciaPage.tsx` | Filtro de `school_year` adicionado no SELECT (migration 139) |
+| A-7 | migration 137 | Parametro `p_start_month` em `generate_installments_for_contract` |
+| Bonus | `PDVPage.tsx`, `CheckoutPage.tsx`, `FinancialSettingsPanel` + migrations 133–134 | `store_payment_surcharges`: acrescimo por forma de pagamento |
 
-#### Sprint 9.7 — Pipeline Academico (modulos desconectados)
-**Estimativa: 3-4 dias**
+#### Sprint 9.7 — Pipeline Academico ✅ (migration 140, 2026-04-17)
 
-| Item | Arquivo | Acao |
-|------|---------|------|
-| A-1 | `AttendanceTab.tsx` | Passar `discipline_id` no upsert; seletor de disciplina derivado de `class_schedules` |
-| A-2 | Nova migration + `ProvasAdminPage.tsx` + portal professor | Criar `exam_results`; UI de lancamento de nota por prova; conectar ao `calculate-grades` |
-| A-4 | Trigger Postgres ou cron | Recalculo incremental de `student_results` ao inserir em `grades` |
+| Item | Arquivo | Resultado |
+|------|---------|-----------|
+| A-1 | `AttendanceTab.tsx` | Seletor de disciplina adicionado; `discipline_id` no upsert de chamada |
+| A-2 | migration 140 + `ProvasAdminPage.tsx` | Tabela `exam_results` criada; UI de lancamento de notas por aluno; `discipline_id` e `period` em `class_exams` |
+| A-4 | migration 140 + `GradesTab.tsx`, `BoletimPage.tsx` | `GradesTab` dispara `calculate-grades` apos cada nota; `BoletimPage` exibe timestamp do ultimo calculo |
 
-#### Sprint 9.8 — Consolidacao de Disciplinas (debito tecnico estrutural)
-**Estimativa: 2-3 dias | Alta complexidade — requer decisao de design**
+#### Sprint 9.8 — Consolidacao de Disciplinas ✅ (migration 141, 2026-04-17)
 
-| Item | Arquivo | Acao |
-|------|---------|------|
-| A-3 | Migration de consolidacao | Adicionar `discipline_id` em `school_subjects`; mapeamento de dados existentes |
-| A-5 | `DiarioAdminPage.tsx`, portal professor | Pre-popular diario com grade horaria do dia |
+| Item | Arquivo | Resultado |
+|------|---------|-----------|
+| A-3 | migration 141 + `DiarioAdminPage.tsx` | `disciplines` eleita tabela canonica; `discipline_id` em `class_diary_entries`; tipo `ClassDiaryEntry` criado; `ProfessorAuthContext` expoe `subject_id` |
+| A-5 | `DiarioEntradaPage.tsx`, `DiarioPage.tsx` | Busca disciplinas de `disciplines`; salva `discipline_id` + `subject_id`; auto-sugere disciplina com base em `class_schedules` do dia da semana |
 
 ---
 
