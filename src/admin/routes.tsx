@@ -109,7 +109,7 @@ export default function AdminRoutes() {
           {/* School */}
           <Route path="segmentos"      element={<Navigate to="/admin/academico" replace />} />
           <Route path="alunos"         element={<ModuleGuard moduleKey="students"><LazyPage><StudentsPage /></LazyPage></ModuleGuard>} />
-          <Route path="alunos/importar" element={<ModuleGuard moduleKey="students"><LazyPage><StudentImportPage /></LazyPage></ModuleGuard>} />
+          <Route path="alunos/importar" element={<ModuleGuard moduleKey="students" requiredAction="import"><LazyPage><StudentImportPage /></LazyPage></ModuleGuard>} />
           <Route path="alunos/:studentId" element={<ModuleGuard moduleKey="students"><LazyPage><StudentDetailPage /></LazyPage></ModuleGuard>} />
           <Route path="area-professor" element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherAreaPage /></LazyPage></ModuleGuard>} />
           <Route path="biblioteca"     element={<ModuleGuard moduleKey="library"><LazyPage><LibraryPage /></LazyPage></ModuleGuard>} />
@@ -128,9 +128,12 @@ export default function AdminRoutes() {
           <Route path="autorizacoes"  element={<ModuleGuard moduleKey="activity-auth"><LazyPage><AutorizacoesPage /></LazyPage></ModuleGuard>} />
           <Route path="responsaveis"  element={<ModuleGuard moduleKey="guardian-portal"><LazyPage><ResponsaveisPage /></LazyPage></ModuleGuard>} />
 
-          {/* Fase 10.P — Diario e Provas (leitura admin/coordenador) */}
-          <Route path="diario"   element={<ModuleGuard moduleKey="teacher-portal-admin"><LazyPage><DiarioAdminPage /></LazyPage></ModuleGuard>} />
-          <Route path="provas"   element={<ModuleGuard moduleKey="teacher-portal-admin"><LazyPage><ProvasAdminPage /></LazyPage></ModuleGuard>} />
+          {/* Fase 10.P — Diario e Provas (leitura admin/coordenador).
+              Cada rota guarda no seu próprio módulo granular (teacher-diary
+              e teacher-exams) para que perfis com apenas uma das duas
+              permissões não acessem indevidamente a outra. */}
+          <Route path="diario"   element={<ModuleGuard moduleKey="teacher-diary"><LazyPage><DiarioAdminPage /></LazyPage></ModuleGuard>} />
+          <Route path="provas"   element={<ModuleGuard moduleKey="teacher-exams"><LazyPage><ProvasAdminPage /></LazyPage></ModuleGuard>} />
 
           {/* Fase 11 — Secretaria Digital */}
           <Route path="secretaria" element={<ModuleGuard moduleKey="secretaria-declaracoes"><LazyPage><SecretariaPage /></LazyPage></ModuleGuard>} />

@@ -3,6 +3,7 @@ import { supabase } from '../../../../lib/supabase';
 import { Loader2, ShoppingBag, FolderOpen, Folder, ChevronDown, ChevronRight, Package } from 'lucide-react';
 import type { StoreProduct, StoreCategory } from '../../../types/admin.types';
 import { PRODUCT_STATUS_LABELS } from '../../../types/admin.types';
+import { usePermissions } from '../../../contexts/PermissionsContext';
 
 // ── Category tree helpers ─────────────────────────────────────────────────────
 
@@ -162,6 +163,9 @@ function CategoryTree({
 // ── ProdutosTab ───────────────────────────────────────────────────────────────
 
 export default function ProdutosTab() {
+  const { can } = usePermissions();
+  const canCreate = can('store-products', 'create');
+  const canEdit = can('store-products', 'edit');
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [categories, setCategories] = useState<StoreCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -211,11 +215,13 @@ export default function ProdutosTab() {
           ))}
         </select>
         <div className="flex-1" />
-        <button
-          onClick={() => setProdutoDrawer({ open: true, product: null })}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors">
-          <ShoppingBag className="w-4 h-4" /> Novo Produto
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setProdutoDrawer({ open: true, product: null })}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary-dark text-white rounded-xl text-sm font-medium transition-colors">
+            <ShoppingBag className="w-4 h-4" /> Novo Produto
+          </button>
+        )}
       </div>
 
       {/* Products table */}
@@ -246,8 +252,8 @@ export default function ProdutosTab() {
                 const totalStock = p.variants?.reduce((s, v) => s + v.stock_quantity, 0) ?? 0;
                 return (
                   <tr key={p.id}
-                    onClick={() => setProdutoDrawer({ open: true, product: p })}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors">
+                    onClick={canEdit ? () => setProdutoDrawer({ open: true, product: p }) : undefined}
+                    className={`hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${canEdit ? 'cursor-pointer' : ''}`}>
                     <td className="py-2.5 px-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
@@ -268,13 +274,20 @@ export default function ProdutosTab() {
                     <td className="py-2.5 px-3 text-center text-gray-600 dark:text-gray-400">{p.variants?.length ?? 0}</td>
                     <td className="py-2.5 px-3 text-right font-medium text-gray-800 dark:text-white">{formatCurrency(p.sale_price)}</td>
                     <td className="py-2.5 px-3 text-right">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); const v = p.variants?.[0]; if (v) setAjusteDrawer({ open: true, variant: v }); }}
-                        className="flex items-center gap-1 ml-auto text-xs text-gray-500 hover:text-brand-primary transition-colors"
-                        title="Ajustar estoque">
-                        <Package className="w-3 h-3" />
-                        {totalStock}
-                      </button>
+                      {canEdit ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); const v = p.variants?.[0]; if (v) setAjusteDrawer({ open: true, variant: v }); }}
+                          className="flex items-center gap-1 ml-auto text-xs text-gray-500 hover:text-brand-primary transition-colors"
+                          title="Ajustar estoque">
+                          <Package className="w-3 h-3" />
+                          {totalStock}
+                        </button>
+                      ) : (
+                        <span className="flex items-center gap-1 ml-auto text-xs text-gray-500 justify-end">
+                          <Package className="w-3 h-3" />
+                          {totalStock}
+                        </span>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] ?? 'bg-gray-100 text-gray-600'}`}>
@@ -304,11 +317,13 @@ export default function ProdutosTab() {
           className="w-full flex items-center gap-3 px-5 py-3.5 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors text-left">
           <FolderOpen className="w-4 h-4 text-brand-primary" />
           <span className="font-semibold text-sm text-gray-800 dark:text-white flex-1">Categorias</span>
-          <button
-            onClick={(e) => { e.stopPropagation(); setCategoriaDrawer({ open: true, category: null }); }}
-            className="flex items-center gap-1 text-xs font-medium text-brand-primary hover:text-brand-primary-dark mr-3">
-            <FolderOpen className="w-3.5 h-3.5" /> Nova Categoria
-          </button>
+          {canCreate && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setCategoriaDrawer({ open: true, category: null }); }}
+              className="flex items-center gap-1 text-xs font-medium text-brand-primary hover:text-brand-primary-dark mr-3">
+              <FolderOpen className="w-3.5 h-3.5" /> Nova Categoria
+            </button>
+          )}
           {showCategories ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
         </button>
         {showCategories && (
@@ -320,7 +335,7 @@ export default function ProdutosTab() {
             ) : (
               <CategoryTree
                 nodes={buildCategoryTree(categories)}
-                onEdit={(cat) => setCategoriaDrawer({ open: true, category: cat })}
+                onEdit={canEdit ? (cat) => setCategoriaDrawer({ open: true, category: cat }) : () => {}}
               />
             )}
           </div>

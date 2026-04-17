@@ -20,6 +20,7 @@ import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
 import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 import { useBranding } from '../../../contexts/BrandingContext';
+import { usePermissions } from '../../contexts/PermissionsContext';
 
 // ── Pipeline config ──────────────────────────────────────────────────────────
 const PIPELINE: { key: EnrollmentStatus; label: string; color: string; dot: string }[] = [
@@ -305,6 +306,9 @@ interface DrawerProps {
 function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
   const { profile, hasRole } = useAdminAuth();
   const { identity } = useBranding();
+  const { can } = usePermissions();
+  const canEditEnrollment = can('enrollments', 'edit');
+  const canCreateEnrollment = can('enrollments', 'create');
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
   const [newStatus, setNewStatus] = useState<EnrollmentStatus | ''>('');
@@ -707,9 +711,11 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                   ))}
                 </div>
                 {!editing ? (
-                  <button onClick={startEditing} className="ml-2 p-1.5 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Editar dados">
-                    <Edit3 className="w-4 h-4" />
-                  </button>
+                  canEditEnrollment ? (
+                    <button onClick={startEditing} className="ml-2 p-1.5 text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Editar dados">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                  ) : null
                 ) : (
                   <div className="ml-2 flex gap-1">
                     <button onClick={saveEdits} disabled={saving} className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors" title="Salvar">
@@ -839,7 +845,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                 <div className="flex justify-end mt-2">
                   <button
                     onClick={saveNotes}
-                    disabled={saving || notes === (enr.internal_notes || '')}
+                    disabled={saving || !canEditEnrollment || notes === (enr.internal_notes || '')}
                     className="text-xs px-3 py-1.5 bg-brand-primary text-white rounded-lg disabled:opacity-40 hover:bg-brand-primary-dark transition-colors"
                   >
                     {saving ? 'Salvando...' : 'Salvar notas'}
@@ -920,6 +926,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                     onClick={changeStatus}
                     disabled={
                       saving
+                      || !canEditEnrollment
                       || (newStatus === 'archived' && !archiveReason.trim())
                       || (newStatus === 'confirmed' && !confirmClassId)
                     }
@@ -943,7 +950,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => createAppointment('Entrega de documentos')}
-                    disabled={creatingAppointment === 'docs'}
+                    disabled={creatingAppointment === 'docs' || !canCreateEnrollment}
                     className="flex items-center justify-center gap-1.5 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl text-xs font-medium transition-colors disabled:opacity-40"
                   >
                     <CalendarPlus className="w-3.5 h-3.5" />
@@ -951,7 +958,7 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                   </button>
                   <button
                     onClick={() => createAppointment('Entrevista de matrícula')}
-                    disabled={creatingAppointment === 'interview'}
+                    disabled={creatingAppointment === 'interview' || !canCreateEnrollment}
                     className="flex items-center justify-center gap-1.5 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl text-xs font-medium transition-colors disabled:opacity-40"
                   >
                     <CalendarPlus className="w-3.5 h-3.5" />
@@ -1374,6 +1381,8 @@ export default function EnrollmentsPage() {
   const [segmentFilter, setSegmentFilter] = useState<string>('all');
   const [selected, setSelected] = useState<Enrollment | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const { can } = usePermissions();
+  const canCreateEnrollment = can('enrollments', 'create');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1423,13 +1432,15 @@ export default function EnrollmentsPage() {
       {/* Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 mb-6">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 text-sm bg-brand-primary text-white px-4 py-2.5 rounded-xl hover:bg-brand-primary-dark transition-colors font-medium shadow-sm"
-          >
-            <GraduationCap className="w-4 h-4" />
-            Nova Matrícula
-          </button>
+          {canCreateEnrollment && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-2 text-sm bg-brand-primary text-white px-4 py-2.5 rounded-xl hover:bg-brand-primary-dark transition-colors font-medium shadow-sm"
+            >
+              <GraduationCap className="w-4 h-4" />
+              Nova Matrícula
+            </button>
+          )}
           <button
             onClick={fetchData}
             className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-brand-primary dark:hover:text-white border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
