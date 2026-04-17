@@ -29,6 +29,9 @@ const ReportsPage          = lazy(() => import('./pages/reports/ReportsPage'));
 const StudentsPage         = lazy(() => import('./pages/school/StudentsPage'));
 const StudentImportPage    = lazy(() => import('./pages/school/StudentImportPage'));
 const MigracaoPage         = lazy(() => import('./pages/migracao/MigracaoPage'));
+const ContactsImportPage        = lazy(() => import('./pages/migracao/ContactsImportPage'));
+const FornecedoresImportPage    = lazy(() => import('./pages/migracao/FornecedoresImportPage'));
+const StoreProductsImportPage   = lazy(() => import('./pages/migracao/StoreProductsImportPage'));
 const StudentDetailPage    = lazy(() => import('./pages/school/StudentDetailPage'));
 const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'));
 const LibraryPage          = lazy(() => import('./pages/library/LibraryPage'));
@@ -183,6 +186,9 @@ export default function AdminRoutes() {
               O modulo `data-migration` nao tem linha em role_permissions para
               admin/coordinator, entao apenas super_admin (bypass em can()) acessa. */}
           <Route path="migracao" element={<ModuleGuard moduleKey="data-migration"><LazyPage><MigracaoPage /></LazyPage></ModuleGuard>} />
+          <Route path="migracao/contatos"      element={<ModuleGuard moduleKey="data-migration"><LazyPage><ContactsImportPage /></LazyPage></ModuleGuard>} />
+          <Route path="migracao/fornecedores"  element={<ModuleGuard moduleKey="data-migration"><LazyPage><FornecedoresImportPage /></LazyPage></ModuleGuard>} />
+          <Route path="migracao/produtos"      element={<ModuleGuard moduleKey="data-migration"><LazyPage><StoreProductsImportPage /></LazyPage></ModuleGuard>} />
         </Route>
       </Routes>
     </AdminAuthProvider>

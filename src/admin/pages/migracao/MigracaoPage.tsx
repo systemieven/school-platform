@@ -72,9 +72,9 @@ const GROUP_HINT: Record<ModuleGroup, string> = {
 const MODULES: ModuleDef[] = [
   // Grupo A
   { key: 'segments',              label: 'Segmentos, Séries e Turmas', description: 'Estrutura acadêmica base', icon: GraduationCap, group: 'A', importPath: null },
-  { key: 'contacts',              label: 'Contatos',            description: 'Leads e contatos do CRM',    icon: MessageSquare,  group: 'A', importPath: null },
-  { key: 'fornecedores',          label: 'Fornecedores',        description: 'Cadastro de fornecedores',   icon: Building2,     group: 'A', importPath: null },
-  { key: 'store-products',        label: 'Produtos',            description: 'Catálogo da loja',           icon: Package,       group: 'A', importPath: null },
+  { key: 'contacts',              label: 'Contatos',            description: 'Leads e contatos do CRM',    icon: MessageSquare,  group: 'A', importPath: '/admin/migracao/contatos' },
+  { key: 'fornecedores',          label: 'Fornecedores',        description: 'Cadastro de fornecedores',   icon: Building2,     group: 'A', importPath: '/admin/migracao/fornecedores' },
+  { key: 'store-products',        label: 'Produtos',            description: 'Catálogo da loja',           icon: Package,       group: 'A', importPath: '/admin/migracao/produtos' },
   { key: 'users',                 label: 'Colaboradores',       description: 'Usuários administrativos',   icon: Users,         group: 'A', importPath: null },
 
   // Grupo B
