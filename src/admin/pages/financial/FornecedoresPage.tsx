@@ -931,26 +931,24 @@ export default function FornecedoresPage() {
                         placeholder="Conta c/ dígito"
                         className="px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none"
                       />
-                      <select
+                      <SelectDropdown
                         value={conta.tipo_conta}
                         onChange={(e) => updateConta(i, 'tipo_conta', e.target.value)}
-                        className="px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none"
                       >
                         <option value="corrente">Corrente</option>
                         <option value="poupanca">Poupança</option>
                         <option value="pagamento">Pagamento</option>
-                      </select>
-                      <select
+                      </SelectDropdown>
+                      <SelectDropdown
                         value={conta.tipo_chave_pix}
                         onChange={(e) => updateConta(i, 'tipo_chave_pix', e.target.value)}
-                        className="px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none"
                       >
                         <option value="">Tipo chave PIX</option>
                         <option value="cpf_cnpj">CPF / CNPJ</option>
                         <option value="email">E-mail</option>
                         <option value="telefone">Telefone</option>
                         <option value="aleatoria">Chave Aleatória</option>
-                      </select>
+                      </SelectDropdown>
                       <input
                         value={conta.chave_pix}
                         onChange={(e) => updateConta(i, 'chave_pix', e.target.value)}
