@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { usePermissions, type PermissionAction } from '../contexts/PermissionsContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 interface BaseProps {
   requiredAction?: PermissionAction;
@@ -26,19 +26,15 @@ interface AnyModuleProps extends BaseProps {
 type Props = SingleModuleProps | AnyModuleProps;
 
 /**
- * Route-level guard that checks:
- * 1. Whether the module is active (not disabled in Módulos tab)
- * 2. Whether the current user has permission for the required action
+ * Route-level guard que:
+ *   1. Espera a hidratação de permissões (`loading`)
+ *   2. Se houve **erro de carga** (RPC falhou), mostra mensagem — não
+ *      redireciona, senão vira um loop infinito para /admin.
+ *   3. Caso contrário, avalia `can(key, action)` e redireciona para /admin
+ *      quando o usuário não tem direito.
  *
- * Two modes:
- * - **Single (`moduleKey`)** — classic per-module gate.
- * - **Union (`anyModuleKeys`)** — for umbrella routes (e.g. /admin/configuracoes,
- *   /admin/academico) whose page body filters its own sub-tabs by permission.
- *   Visible iff at least one sub-tab is accessible to the user. Keep the list
- *   in sync with `src/admin/lib/umbrella-modules.ts`.
- *
- * Must be used inside PermissionsProvider (i.e., inside AdminLayout).
- * For inline element-level gating, use PermissionGate instead.
+ * Deve viver dentro de <PermissionsProvider>. Para gating inline de
+ * elementos, use <PermissionGate>.
  */
 export default function ModuleGuard({
   moduleKey,
@@ -46,7 +42,7 @@ export default function ModuleGuard({
   requiredAction = 'view',
   children,
 }: Props) {
-  const { can, modules, loading } = usePermissions();
+  const { can, loading, loadError } = usePermissions();
 
   if (loading) {
     return (
@@ -56,20 +52,26 @@ export default function ModuleGuard({
     );
   }
 
-  if (anyModuleKeys && anyModuleKeys.length > 0) {
-    const allowed = anyModuleKeys.some((key) => {
-      const mod = modules.find((m) => m.key === key);
-      if (mod && !mod.is_active) return false;
-      return can(key, requiredAction);
-    });
-    if (!allowed) return <Navigate to="/admin" replace />;
-    return <>{children}</>;
+  if (loadError) {
+    return (
+      <div className="max-w-lg mx-auto mt-16 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 text-center">
+        <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+        <h2 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-1">
+          Não foi possível carregar suas permissões
+        </h2>
+        <p className="text-sm text-red-700 dark:text-red-300">{loadError}</p>
+        <p className="text-xs text-red-600 dark:text-red-400 mt-3">
+          Tente recarregar a página. Se o problema persistir, contate o administrador.
+        </p>
+      </div>
+    );
   }
 
-  // Single-module mode
-  const mod = modules.find((m) => m.key === moduleKey);
-  if (mod && !mod.is_active) {
-    return <Navigate to="/admin" replace />;
+  if (anyModuleKeys && anyModuleKeys.length > 0) {
+    // O `can()` já valida modules.is_active internamente.
+    const allowed = anyModuleKeys.some((key) => can(key, requiredAction));
+    if (!allowed) return <Navigate to="/admin" replace />;
+    return <>{children}</>;
   }
 
   if (!can(moduleKey!, requiredAction)) {

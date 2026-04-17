@@ -1136,6 +1136,23 @@ Gerenciamento de contas de usuario com atribuicao de roles (ver secao 4.16).
 
 Grid de permissoes por role (modulo x acao) com overrides por usuario.
 
+**Modelo efetivo (migrations 26, 143, 144, 145):**
+
+1. **Base por role** — `role_permissions(role, module_key, can_view/create/edit/delete/import)` define o default da função.
+2. **Override por usuário** — `user_permission_overrides(user_id, module_key, can_*, is_deny)`.
+   - `is_deny = false` (default): override é **aditivo** sobre o role — concede capacidades extras.
+   - `is_deny = true`: override é **subtrativo** — revoga as capacidades marcadas, vencendo o role.
+3. **`super_admin` bypass** — sempre `true`, registrado em `audit_logs` via trigger (migration 144).
+4. **`modules.is_active = false`** — desliga o módulo para todos os roles, inclusive admin (mas não super_admin).
+
+**Função canônica:** `has_module_permission(user, module_key, action)` (SECURITY DEFINER, migration 144). Todas as RLS de tabelas sensíveis usam essa função — frontend (`PermissionsContext`) e backend têm a mesma fonte de verdade.
+
+**Tenancy para role `teacher`** (migration 145): em `students`, `absence_communications` e `exit_authorizations`, teacher só enxerga/edita registros cujo `class_id` esteja em `class_disciplines` com `teacher_id = auth.uid()`. Admin/coordinator/super_admin não são afetados.
+
+**Realtime invalidation:** mudanças em `role_permissions`, `user_permission_overrides` ou `modules` disparam `postgres_changes` → `PermissionsContext` faz refetch debounced (250 ms). Sessões ativas perdem acesso em < 1 s sem refresh manual.
+
+**Verificação:** `supabase/tests/permissions_verification.sql` executa fixtures + asserts em transação (ROLLBACK automático).
+
 ### 5.12 Auditoria
 
 Consulta de `audit_logs` com filtros por usuario, acao, modulo e periodo.
@@ -1472,6 +1489,10 @@ Configuravel na aba Aparencia > Home:
 | 139 | `store_orders_cash_views` | 17/04 | Sprint 9.6 — F-5: inclui store_orders como fonte de receita em financial_cash_flow_view e financial_dre_view; A-6: filtro de school_year em AlertasFrequenciaPage |
 | 140 | `academic_pipeline` | 17/04 | Sprint 9.7 — A-1: discipline_id no upsert de chamada (AttendanceTab); A-2: tabela exam_results (aluno x prova x nota); discipline_id e period em class_exams; A-4: trigger pos-insert em grades que dispara calculate-grades em background |
 | 141 | `disciplines_canonical` | 17/04 | Sprint 9.8 — A-3: discipline_id em class_diary_entries; disciplines como tabela canonica; A-5: DiarioEntradaPage busca disciplinas de disciplines, salva discipline_id + subject_id, auto-sugere com base em class_schedules do dia |
+| 142 | `whatsapp_templates_slug_names` | 17/04 | Slugs legíveis para templates WhatsApp |
+| 143 | `user_permissions_additive_only` | 17/04 | Overrides aditivos only (revertido parcialmente na 144, que reintroduz `is_deny`) |
+| 144 | `granular_rls_hardening` | 17/04 | **Auditoria de permissões** — helper `has_module_permission`, coluna `is_deny`, RLS reescrito em 13 tabelas críticas, fechamento de `USING(true)` do baseline, seeds de 9 chaves `academic-*`, trigger de bypass super_admin, realtime publication |
+| 145 | `tenancy_scoping` | 17/04 | Helpers `is_admin_like` e `teacher_sees_student`; RLS de `students`/`absence_communications`/`exit_authorizations` escopado ao vínculo `class_disciplines.teacher_id` para role `teacher` |
 
 ### 7.4 RLS Policies
 

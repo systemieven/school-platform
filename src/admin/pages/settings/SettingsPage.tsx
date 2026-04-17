@@ -433,8 +433,14 @@ export default function SettingsPage() {
 
   const toStr = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
 
-  // Current tab info
-  const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
+  // Current tab info — NUNCA cai num fallback que o usuário não pode ver.
+  // Antes usávamos `|| TABS[0]` (settings institucional) como rede de
+  // segurança, mas isso podia causar um flash do painel institucional pra
+  // quem não tem essa permissão. Agora caímos na primeira aba permitida.
+  const currentTab =
+    TABS.find((t) => t.key === activeTab && canView(t.requiredModule)) ||
+    TABS.find((t) => canView(t.requiredModule)) ||
+    TABS[0];
   const tabSettings = useMemo(
     () => settings.filter((s) => currentTab.categories.includes(s.category)),
     [settings, currentTab],

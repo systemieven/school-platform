@@ -38,7 +38,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Dashboard',
     icon: LayoutDashboard,
     description: 'KPIs, eventos da semana e gráficos personalizáveis',
-    moduleKey: 'academico',
+    moduleKey: 'academic-dashboard',
   },
   {
     key: 'alunos',
@@ -62,7 +62,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Disciplinas',
     icon: BookOpen,
     description: 'Cadastro de disciplinas e atribuição por turma',
-    moduleKey: 'academico',
+    moduleKey: 'academic-disciplines',
   },
   {
     key: 'grade-horaria',
@@ -70,7 +70,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Grade',
     icon: CalendarClock,
     description: 'Grade de horários por turma',
-    moduleKey: 'academico',
+    moduleKey: 'academic-schedule',
   },
   {
     key: 'calendario',
@@ -78,7 +78,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Calendário',
     icon: Calendar,
     description: 'Períodos, feriados e eventos do ano letivo',
-    moduleKey: 'academico',
+    moduleKey: 'academic-calendar',
   },
   {
     key: 'boletim',
@@ -86,7 +86,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Boletim',
     icon: FileText,
     description: 'Boletim formal — notas por turma, período e disciplina',
-    moduleKey: 'academico',
+    moduleKey: 'academic-report-cards',
   },
   {
     key: 'resultado',
@@ -94,7 +94,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Resultado',
     icon: Award,
     description: 'Resultado final dos alunos por turma e ano letivo',
-    moduleKey: 'academico',
+    moduleKey: 'academic-results',
   },
   {
     key: 'alertas',
@@ -102,7 +102,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Alertas',
     icon: Bell,
     description: 'Alunos em risco por baixa frequência',
-    moduleKey: 'academico',
+    moduleKey: 'academic-alerts',
   },
   {
     key: 'historico',
@@ -110,7 +110,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Histórico',
     icon: ScrollText,
     description: 'Histórico escolar e transcrições dos alunos',
-    moduleKey: 'academico',
+    moduleKey: 'academic-history',
   },
   {
     key: 'ano-letivo',
@@ -118,7 +118,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Ano Letivo',
     icon: CalendarRange,
     description: 'Sugestões de progressão de série para o próximo ano letivo',
-    moduleKey: 'academico',
+    moduleKey: 'academic-results',
   },
   {
     key: 'faltas',
@@ -142,7 +142,7 @@ const TABS: TabDef[] = [
     shortLabel: 'BNCC',
     icon: Target,
     description: 'Objetivos de aprendizagem, cobertura curricular e relatórios pedagógicos',
-    moduleKey: 'academico',
+    moduleKey: 'academic-bncc',
   },
 ];
 

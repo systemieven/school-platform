@@ -11,6 +11,7 @@ import {
   ACADEMICO_SUBTAB_MODULE_KEYS,
   LOJA_SUBTAB_MODULE_KEYS,
   SECRETARIA_SUBTAB_MODULE_KEYS,
+  FINANCIAL_SUBTAB_MODULE_KEYS,
 } from './lib/umbrella-modules';
 
 // Eager: auth pages (small, needed immediately)
@@ -126,8 +127,12 @@ export default function AdminRoutes() {
           <Route path="eventos"        element={<ModuleGuard moduleKey="events"><LazyPage><EventsPage /></LazyPage></ModuleGuard>} />
           <Route path="depoimentos"   element={<ModuleGuard moduleKey="testimonials"><LazyPage><TestimonialsPage /></LazyPage></ModuleGuard>} />
 
-          {/* Financial (single page with internal tab rail) */}
-          <Route path="financeiro"  element={<ModuleGuard moduleKey="financial"><LazyPage><FinancialPage /></LazyPage></ModuleGuard>} />
+          {/* Financial (single page with internal tab rail).
+              Umbrella: liberado quando o usuário tem `view` em pelo menos uma
+              sub-tab do Financeiro (mesma semântica de /admin/academico,
+              /admin/loja, /admin/secretaria e /admin/configuracoes).
+              A página filtra as próprias tabs internamente. */}
+          <Route path="financeiro"  element={<ModuleGuard anyModuleKeys={FINANCIAL_SUBTAB_MODULE_KEYS}><LazyPage><FinancialPage /></LazyPage></ModuleGuard>} />
 
           {/* Academic (single page with internal tab rail).
               Umbrella: liberado quando o usuário tem `view` em pelo menos uma
