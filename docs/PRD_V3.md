@@ -40,6 +40,7 @@
     - 10.11 F6.4 Documentacao Tecnica (ultima etapa da v1)
     - 10.12 Fase 15 — Achados e Perdidos Digital ✅
     - 10.13 Central de Migracao de Dados — Onboarding
+    - 10.14 Editor Visual de Templates HTML
 11. [Requisitos Nao Funcionais](#11-requisitos-nao-funcionais)
 12. [Apendices](#apendices)
 
@@ -1458,6 +1459,8 @@ Configuravel na aba Aparencia > Home:
 | 126 | `import_batch_logs` | — | OP-1 — Log linha a linha por lote: batch_id FK, row_index, row_data JSONB, rejection_reasons TEXT[] |
 | 127 | `migration_module_status` | — | OP-1 — Estado de migracao por modulo (singleton por modulo): status (available/in_progress/completed/unlocked), last_batch_id FK, completed_at, unlocked_at, unlocked_by FK |
 | 128 | `migration_permissions` | — | OP-1 — Modulo import-manager no grupo operacional, acesso exclusivo super_admin; can_import TRUE so para super_admin |
+| 129 | `document_templates_align` | — | TV-1 — Alinha schema de document_templates com contract_templates: ADD COLUMN style_config JSONB DEFAULT '{}', converte variables TEXT[] para JSONB DEFAULT '[]', adiciona valores 'nfse_recibo' e 'recibo_pagamento' ao CHECK de document_type |
+| 130 | `template_starter_seeds` | — | TV-1 — Seeds de templates iniciais: 1 contrato padrao, 1 recibo padrao, 1 declaracao_matricula padrao (HTML completo com cabecalho, rodape, logo, placeholders pre-populados) |
 
 ### 7.4 RLS Policies
 
@@ -1767,6 +1770,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14.E | Modulo de Fornecedores | ✅ Concluido | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 | OP-1 | Central de Migracao de Dados (Onboarding) | ⏳ Planejado | Alta | Todas as tabelas-alvo existentes |
+| TV-1 | Editor Visual de Templates HTML | ⏳ Planejado | Media | contract_templates + document_templates + generate-document |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
 
@@ -4958,6 +4962,331 @@ Ambos os casos dependem da infraestrutura de agentes da Fase 13 e NAO sao parte 
 | Desbloquear modulo | ✅ | ❌ | ❌ | ❌ |
 
 A rota `/admin/migracao` e seus filhos retornam 403 para qualquer role que nao seja `super_admin`. O item de menu nao e renderizado para outros roles.
+
+---
+
+### 10.14 Editor Visual de Templates HTML
+
+**Codigo**: TV-1 (tooling visual, transversal)
+**Status**: ⏳ Planejado
+**Posicionamento no roadmap**: apos Sprint 10 (Fase 14.S — NFS-e) e antes de Sprint 11 (Fase 13 — IA); nao bloqueia NFS-e mas entrega a estrutura necessaria para o PDF da NFS-e
+
+---
+
+#### TV-1.1 Contexto e Motivacao
+
+A plataforma possui dois sistemas de templates HTML independentes, ambos editados atualmente com um `<textarea>` de texto bruto:
+
+| Sistema | Tabela | Tipos | Editor atual |
+|---------|--------|-------|-------------|
+| Financeiro | `contract_templates` | contract, receipt, boleto, enrollment_form, termination | textarea mono (`FinancialTemplatesPage.tsx`) |
+| Secretaria | `document_templates` | declaracoes, historico escolar, transferencia | textarea mono (dentro de `SecretariaPage`) |
+
+**Problemas do estado atual:**
+1. Requer conhecimento de HTML — inacessivel para usuarios nao-tecnicos
+2. Schemas incompativeis: `contract_templates.variables` e `JSONB[]` mas `document_templates.variables` e `TEXT[]`; `document_templates` nao tem `style_config`
+3. Variaveis sao declaradas manualmente — nao ha extracao automatica dos `{{placeholders}}` do HTML
+4. `style_config JSONB` existe em `contract_templates` (migration 55) mas nunca e lido nem salvo na UI
+5. A Edge Function `generate-document` so processa `document_templates` (academicos) — contratos e recibos nao tem geracao de PDF no backend
+6. Geracao de PDF depende do print do navegador — fragil, sem controle de layout, sem cabecalhos/rodapes programaticos
+7. Sem templates iniciais (gallery) — usuario comeca do zero
+8. Sem historico de versoes — edicoes sao destrutivas
+9. Sprint 10 (NFS-e) vai precisar de um PDF de nota fiscal — nao ha suporte de tipo `nfse_recibo` nos schemas atuais
+
+---
+
+#### TV-1.2 Escopo da Feature
+
+**v1 (Sprint TV-1 — sem novas dependencias npm significativas):**
+- Split-pane editor: codigo HTML (esquerda) + preview em tempo real via `<iframe>` (direita, debounce 400 ms)
+- Barra de variaveis: chips clicaveis que inserem `{{chave}}` na posicao do cursor no editor
+- Extracao automatica de variaveis: ao salvar, o sistema faz `match(/\{\{(\w+)\}\}/g)` no HTML e sincroniza a lista de variaveis declaradas
+- Painel de layout: usa os campos de `style_config` — paper_size (A4/Carta/Legal), margin_top/right/bottom/left (px), font_family, font_size, logo_url + upload para Storage
+- Edicao dual: o componente `HtmlTemplateEditor` e reutilizavel em `FinancialTemplatesPage` e no editor de `document_templates`
+- Tipos novos nos enums: `nfse_recibo` em `document_templates.document_type`; `nfse_recibo` e `recibo_pagamento` em `contract_templates.template_type` (migration 129)
+- Template gallery: 3 starters em SQL seed (migration 130) — 1 contrato padrao, 1 recibo, 1 declaracao_matricula
+- Atualizacao de `generate-document`: suportar `contract_templates` (alem de `document_templates`), ler `style_config` para CSS de impressao, mapear variaveis financeiras
+
+**v2 (pos-v1, backlog):**
+- GrapeJS ou BlockNote para drag-and-drop de blocos
+- Tabela `template_versions` com historico de edicoes e rollback
+- NFS-e PDF integrado via template do tipo `nfse_recibo`
+
+---
+
+#### TV-1.3 Analise de Gaps — Diagnostico Detalhado
+
+##### Gap 1 — Schema incompativel entre as duas tabelas de templates
+
+`document_templates` (migration 82) tem `variables TEXT[]` enquanto `contract_templates` (migration 55) tem `variables JSONB DEFAULT '[]'` no formato `[{"key": "...", "label": "..."}]`. O componente unificado `HtmlTemplateEditor` precisa do formato JSONB.
+
+**Correcao (migration 129):**
+```sql
+-- Converte variables TEXT[] para JSONB com estrutura {key, label}
+ALTER TABLE document_templates
+  ADD COLUMN IF NOT EXISTS style_config JSONB NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS variables_jsonb JSONB NOT NULL DEFAULT '[]';
+
+-- Migra dados existentes
+UPDATE document_templates
+SET variables_jsonb = (
+  SELECT jsonb_agg(jsonb_build_object('key', v, 'label', v))
+  FROM unnest(variables) AS v
+)
+WHERE array_length(variables, 1) > 0;
+
+-- Renomeia colunas
+ALTER TABLE document_templates
+  DROP COLUMN variables,
+  RENAME COLUMN variables_jsonb TO variables;
+
+-- Adiciona novos tipos ao CHECK
+ALTER TABLE document_templates
+  DROP CONSTRAINT IF EXISTS document_templates_document_type_check,
+  ADD CONSTRAINT document_templates_document_type_check
+    CHECK (document_type IN (
+      'declaracao_matricula', 'declaracao_frequencia',
+      'declaracao_conclusao', 'historico_escolar',
+      'declaracao_transferencia', 'recibo_pagamento',
+      'nfse_recibo', 'outro'
+    ));
+```
+
+##### Gap 2 — `generate-document` suporta apenas `document_templates`
+
+A Edge Function atual busca `document_templates` e so constroi variaveis de aluno/turma/escola. Contratos financeiros tem variaveis como `responsavel_nome`, `valor_mensalidade`, `vencimento`, `plano`, `parcelas`.
+
+**Correcao na Edge Function `generate-document`:**
+- Aceitar parametro `template_source: 'document_templates' | 'contract_templates'`
+- Quando `contract_templates`: buscar dados de `financial_receivables` ou `enrollments` via `record_id`
+- Ler `style_config` de qualquer fonte e injetar CSS de impressao:
+
+```html
+<style>
+  @page { size: {{paper_size}}; margin: {{margins}}; }
+  body { font-family: {{font_family}}; font-size: {{font_size}}px; }
+</style>
+```
+
+##### Gap 3 — `style_config` existe mas e ignorado
+
+O campo `style_config JSONB DEFAULT '{}'` foi criado na migration 55 com comentario "margens, fontes, logo_url, etc." mas:
+- `FinancialTemplatesPage.tsx` nunca le nem salva `style_config`
+- `generate-document` nao o consome
+- Nenhum componente de UI expoe esses campos
+
+**Estrutura padrao do `style_config` a implementar:**
+```json
+{
+  "paper_size": "A4",
+  "margin_top": 20,
+  "margin_right": 20,
+  "margin_bottom": 20,
+  "margin_left": 20,
+  "font_family": "Arial, sans-serif",
+  "font_size": 12,
+  "logo_url": null,
+  "logo_width": 120,
+  "show_page_numbers": true,
+  "header_html": "",
+  "footer_html": ""
+}
+```
+
+##### Gap 4 — Sem extracao automatica de variaveis
+
+Usuarios precisam declarar manualmente cada variavel no formulario. Se esquecerem, os `{{placeholders}}` ficam visiveis no documento gerado.
+
+**Solucao:** ao salvar (ou com debounce de 1s), extrair todos os `{{nomes}}` do HTML com regex e comparar com a lista declarada. Mostrar warning para variaveis usadas no HTML mas nao declaradas; mostrar warning para declaradas mas nao usadas.
+
+##### Gap 5 — Sem templates iniciais
+
+Novos clientes precisam construir todos os templates do zero. Isso cria atrito no onboarding e frequentemente resulta em templates mal formatados.
+
+**Solucao (migration 130):** seeds de 3 templates iniciais em SQL — contrato de matricula completo, recibo de pagamento, declaracao de matricula. Usar `ON CONFLICT DO NOTHING` para nao sobrescrever customizacoes do cliente.
+
+##### Gap 6 — Preview fragil com `dangerouslySetInnerHTML`
+
+O preview atual no `FinancialTemplatesPage.tsx` usa `dangerouslySetInnerHTML` dentro de um `<div>` com `prose`. Scripts embutidos sao bloqueados mas CSS inline e externo pode interferir com o design system.
+
+**Solucao:** usar `<iframe srcDoc={renderedHtml}>` com `sandbox="allow-same-origin"` — o conteudo e isolado, sem CSS leaking, e reflete com precisao como o documento sera impresso.
+
+---
+
+#### TV-1.4 Arquitetura do Componente `HtmlTemplateEditor`
+
+```
+HtmlTemplateEditor
+├── props:
+│   ├── value: string                   -- HTML atual
+│   ├── onChange: (html: string) => void
+│   ├── variables: {key, label}[]       -- lista declarada
+│   ├── onVariablesChange: (v[]) => void
+│   ├── styleConfig: StyleConfig
+│   ├── onStyleConfigChange: (s) => void
+│   └── readOnly?: boolean
+│
+├── Layout: grid-cols-2 h-[600px] (colapsavel para uma coluna em telas < md)
+│   ├── Coluna esquerda: painel de codigo
+│   │   ├── Barra de variaveis: chips clicaveis (insere {{key}} no cursor)
+│   │   │   └── Badge de warning para variaveis do HTML nao declaradas
+│   │   ├── <textarea> mono com linha de status (linhas, chars, variaveis detectadas)
+│   │   └── Aba "Layout" (alterna com "Codigo"):
+│   │       ├── Select paper_size
+│   │       ├── Inputs margin (top/right/bottom/left)
+│   │       ├── Select font_family + input font_size
+│   │       └── Upload de logo → Storage bucket 'templates-assets'
+│   └── Coluna direita: painel de preview
+│       ├── Header: "Preview" + toggle "Com variaveis de exemplo"
+│       ├── <iframe srcDoc={rendered} sandbox="allow-same-origin" />
+│       │   (variaveis substituidas por valores de exemplo ou por "{{chave}}" colorido)
+│       └── Botao "Imprimir / Gerar PDF" (chama window.print() no iframe)
+│
+└── Auto-sync de variaveis (debounce 1000ms):
+    - extractVars(html): string[] = html.match(/\{\{(\w+)\}\}/g)
+    - variaveisNoHtml - variaveisDeclaradas → mostra badge "3 variaveis nao declaradas"
+    - variaveisDeclaradas - variaveisNoHtml → mostra badge "2 declaradas mas nao usadas"
+```
+
+**Uso em `FinancialTemplatesPage.tsx`:**
+```tsx
+// Substitui o <DrawerCard title="Conteudo (HTML)"> e <DrawerCard title="Variaveis">
+<HtmlTemplateEditor
+  value={editing.content}
+  onChange={(html) => updateField('content', html)}
+  variables={editing.variables}
+  onVariablesChange={(vars) => updateField('variables', vars)}
+  styleConfig={editing.style_config}
+  onStyleConfigChange={(sc) => updateField('style_config', sc)}
+/>
+```
+
+---
+
+#### TV-1.5 Atualizacao da Edge Function `generate-document`
+
+Parametros aceitos apos a atualizacao:
+
+```typescript
+interface GenerateDocumentPayload {
+  // Modo 1: documento academico (comportamento atual)
+  request_id?: string;
+
+  // Modo 2: renderizacao avulsa (novo — para contrato/recibo)
+  template_source?: 'contract_templates' | 'document_templates';
+  template_id?: string;
+  record_id?: string;       // enrollment_id ou installment_id para buscar variaveis
+  record_type?: 'enrollment' | 'installment' | 'student';
+  extra_vars?: Record<string, string>;  // variaveis adicionais injetadas pelo caller
+}
+```
+
+Variaveis financeiras mapeadas para `contract_templates`:
+
+| Variavel | Fonte |
+|----------|-------|
+| `responsavel_nome` | `guardian_profiles.full_name` via `enrollments.guardian_id` |
+| `responsavel_cpf` | `guardian_profiles.cpf_cnpj` |
+| `aluno_nome` | `students.full_name` |
+| `plano_nome` | `financial_plans.name` |
+| `valor_mensalidade` | `financial_plans.monthly_amount` |
+| `parcelas` | `financial_receivables COUNT` |
+| `vencimento_dia` | `financial_receivables.due_day` |
+| `data_contrato` | now() |
+| `ano_letivo` | `enrollments.school_year` |
+| `escola_nome` | `system_settings['school_name']` |
+| `escola_cnpj` | `system_settings['school_cnpj']` |
+| `escola_endereco` | `system_settings['school_address']` |
+
+---
+
+#### TV-1.6 Migrations
+
+**Migration 129 — `document_templates_align`**
+
+```sql
+-- Alinha document_templates com contract_templates
+-- 1. Adiciona style_config
+ALTER TABLE document_templates
+  ADD COLUMN IF NOT EXISTS style_config JSONB NOT NULL DEFAULT '{}';
+
+-- 2. Converte variables TEXT[] -> JSONB [{key, label}]
+ALTER TABLE document_templates
+  ADD COLUMN IF NOT EXISTS variables_new JSONB NOT NULL DEFAULT '[]';
+
+UPDATE document_templates
+SET variables_new = COALESCE(
+  (SELECT jsonb_agg(jsonb_build_object('key', v, 'label', v))
+   FROM unnest(variables) AS v),
+  '[]'::jsonb
+);
+
+ALTER TABLE document_templates DROP COLUMN variables;
+ALTER TABLE document_templates RENAME COLUMN variables_new TO variables;
+
+-- 3. Novos tipos no enum
+ALTER TABLE document_templates
+  DROP CONSTRAINT IF EXISTS document_templates_document_type_check;
+
+ALTER TABLE document_templates
+  ADD CONSTRAINT document_templates_document_type_check
+  CHECK (document_type IN (
+    'declaracao_matricula', 'declaracao_frequencia',
+    'declaracao_conclusao', 'historico_escolar',
+    'declaracao_transferencia', 'recibo_pagamento',
+    'nfse_recibo', 'outro'
+  ));
+```
+
+**Migration 130 — `template_starter_seeds`**
+
+Seeds de templates iniciais (contrato, recibo, declaracao_matricula). Inseridos com `ON CONFLICT DO NOTHING` para nunca sobrescrever templates ja personalizados pelo cliente. O HTML de cada seed inclui cabecalho com logo placeholder, corpo com todos os `{{placeholders}}` pre-populados, rodape com dados da escola e espaco para assinatura.
+
+---
+
+#### TV-1.7 Arquivos a Criar / Modificar
+
+| Arquivo | Acao | Descricao |
+|---------|------|-----------|
+| `supabase/migrations/00000000000129_document_templates_align.sql` | Criar | Schema alignment conforme TV-1.6 |
+| `supabase/migrations/00000000000130_template_starter_seeds.sql` | Criar | Seeds de 3 templates iniciais |
+| `src/admin/components/HtmlTemplateEditor.tsx` | Criar | Componente split-pane reusavel (ver TV-1.4) |
+| `src/admin/pages/financial/FinancialTemplatesPage.tsx` | Modificar | Substituir drawercards de HTML + variaveis por `<HtmlTemplateEditor>` |
+| `supabase/functions/generate-document/index.ts` | Modificar | Suportar contract_templates + style_config CSS + variaveis financeiras (ver TV-1.5) |
+| `src/admin/types/admin.types.ts` | Modificar | Adicionar `StyleConfig` interface; atualizar `ContractTemplateType` com novos tipos; atualizar `DocumentTemplate.variables` para `TemplateVariable[]` |
+
+---
+
+#### TV-1.8 Dependencias e Integracao com Outros Sprints
+
+| Sprint / Feature | Relacao | Detalhe |
+|-----------------|---------|---------|
+| Sprint 10 — Fase 14.S (NFS-e) | **Downstream** | NFS-e emitidas precisam de PDF; o tipo `nfse_recibo` criado nesta migration pode ser usado para o template do PDF da nota (enviado por WhatsApp ao responsavel) |
+| Sprint 8 — MessageOrchestrator | **Downstream** | Apos geracao do PDF, o link pode ser enviado via MessageOrchestrator — `generate-document` retorna `pdf_url` que o chamador pode passar ao orquestrador |
+| OP-1 — Central de Migracao | **Nenhuma** | Independentes; apenas compartilham o grupo `super_admin`-first |
+| Sprint 11 — Fase 13 (IA) | **Upstream** | IA poderia sugerir variaveis faltantes ou melhorias de template; sem blocagem |
+
+---
+
+#### TV-1.9 Permissoes
+
+Nenhuma nova tabela de `modules` ou `role_permissions` necessaria para v1:
+- `financial-templates` (migration 55) ja cobre `contract_templates` para admin/super_admin
+- `document_templates` ja esta coberto dentro de `secretaria` (coordinators podem visualizar, admins podem editar)
+
+O componente `HtmlTemplateEditor` usa `PermissionGate` com os modulos existentes.
+
+---
+
+#### TV-1.10 Nao-Escopo (v1)
+
+| Item | Justificativa |
+|------|--------------|
+| GrapeJS / drag-and-drop | Dependencia pesada (~500kb); agrega valor mas nao e prerequisito; v2 |
+| Historico de versoes | Requer nova tabela e logica de diff; v2 |
+| Templates compartilhados entre clientes (multi-tenant) | Arquitetura adicional; v2 |
+| Editor de templates WhatsApp | WhatsApp usa texto, nao HTML — TemplatesPage.tsx tem editor proprio adequado |
+| NFS-e PDF integrado | Gerado pela Edge Function `nfse-emitter` do Sprint 10; este sprint entrega apenas o tipo e o esquema |
 
 ---
 
