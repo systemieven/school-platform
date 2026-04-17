@@ -1,12 +1,28 @@
-import { useState } from 'react';
+/**
+ * FinancialPage
+ *
+ * Página-mãe do módulo Financeiro. Cada sub-tab é gateada pela sua
+ * chave granular correspondente (`financial-plans`, `financial-cash`,
+ * `payment-gateways` para o atalho de Configurações, etc.). O usuário
+ * só vê (e só pode acessar via clique) as abas para as quais tem
+ * `canView(moduleKey) === true`. A primeira aba visível é selecionada
+ * automaticamente.
+ *
+ * Observação: as sub-páginas individuais já validam permissão via
+ * `<PermissionGate>` nos botões CRUD; este gating cobre a camada de
+ * navegação (rail) e o atalho cross-module para Configurações, que
+ * antes vazavam todo o conteúdo independentemente da permissão.
+ */
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, FileSignature, Receipt,
   Percent, GraduationCap, FileCode2,
   PanelLeftClose, PanelLeftOpen,
   Vault, TrendingUp, TrendingDown, BarChart3, Building2, Inbox,
-  FileCheck2, Settings,
+  FileCheck2, Settings, Lock,
 } from 'lucide-react';
+import { usePermissions } from '../../contexts/PermissionsContext';
 import FinancialDashboardPage from './FinancialDashboardPage';
 import FinancialPlansPage from './FinancialPlansPage';
 import FinancialContractsPage from './FinancialContractsPage';
@@ -29,6 +45,11 @@ interface TabDef {
   shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
+  /**
+   * Chave de módulo que controla a visibilidade desta aba.
+   * `'financial'` = umbrella (qualquer um que entre na página vê).
+   */
+  moduleKey: string;
 }
 
 const TABS: TabDef[] = [
@@ -38,6 +59,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Dashboard',
     icon: LayoutDashboard,
     description: 'Resumo financeiro da instituição',
+    moduleKey: 'financial',
   },
   {
     key: 'plans',
@@ -45,6 +67,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Planos',
     icon: FileText,
     description: 'Gerencie planos e valores de mensalidade',
+    moduleKey: 'financial-plans',
   },
   {
     key: 'contracts',
@@ -52,6 +75,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Contratos',
     icon: FileSignature,
     description: 'Contratos financeiros por aluno',
+    moduleKey: 'financial-contracts',
   },
   {
     key: 'installments',
@@ -59,6 +83,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Cobranças',
     icon: Receipt,
     description: 'Parcelas, pagamentos e baixas manuais',
+    moduleKey: 'financial-installments',
   },
   {
     key: 'cash',
@@ -66,6 +91,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Caixas',
     icon: Vault,
     description: 'Controle de caixas, abertura/fechamento e movimentações',
+    moduleKey: 'financial-cash',
   },
   {
     key: 'receivables',
@@ -73,6 +99,7 @@ const TABS: TabDef[] = [
     shortLabel: 'A Receber',
     icon: TrendingUp,
     description: 'Contas a receber gerais (taxas, eventos, matrículas)',
+    moduleKey: 'financial-receivables',
   },
   {
     key: 'payables',
@@ -80,6 +107,7 @@ const TABS: TabDef[] = [
     shortLabel: 'A Pagar',
     icon: TrendingDown,
     description: 'Contas a pagar (despesas fixas e variáveis)',
+    moduleKey: 'financial-payables',
   },
   {
     key: 'reports',
@@ -87,6 +115,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Relatórios',
     icon: BarChart3,
     description: 'Fluxo de caixa, DRE, inadimplência e previsão',
+    moduleKey: 'financial-reports',
   },
   {
     key: 'discounts',
@@ -94,6 +123,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Descontos',
     icon: Percent,
     description: 'Descontos globais, por grupo ou por aluno',
+    moduleKey: 'financial-account-categories', // gateado como item de configuração financeira
   },
   {
     key: 'scholarships',
@@ -101,6 +131,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Bolsas',
     icon: GraduationCap,
     description: 'Bolsas de estudo com validade e aprovação',
+    moduleKey: 'financial-account-categories',
   },
   {
     key: 'templates',
@@ -108,6 +139,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Templates',
     icon: FileCode2,
     description: 'Templates de contrato, recibo e boleto',
+    moduleKey: 'financial-account-categories',
   },
   {
     key: 'nfse',
@@ -115,6 +147,7 @@ const TABS: TabDef[] = [
     shortLabel: 'NFS-e',
     icon: FileCheck2,
     description: 'Notas Fiscais de Serviço emitidas e status de emissão',
+    moduleKey: 'nfse-emitidas',
   },
   {
     key: 'nfse-apuracao',
@@ -122,6 +155,7 @@ const TABS: TabDef[] = [
     shortLabel: 'Apuração',
     icon: BarChart3,
     description: 'Resumo mensal de ISS, retenções federais e exportação CSV',
+    moduleKey: 'nfse-apuracao',
   },
   {
     key: 'nfe-entrada',
@@ -129,6 +163,7 @@ const TABS: TabDef[] = [
     shortLabel: 'NF-e Entrada',
     icon: Inbox,
     description: 'Importação de XML de NF-e de entrada e vinculação com fornecedores',
+    moduleKey: 'fornecedores', // sem chave própria; usa fornecedores como proxy
   },
   {
     key: 'fornecedores',
@@ -136,14 +171,68 @@ const TABS: TabDef[] = [
     shortLabel: 'Fornecedores',
     icon: Building2,
     description: 'Cadastro e gestão de fornecedores integrado a NF-e e contas a pagar',
+    moduleKey: 'fornecedores',
   },
 ];
 
 export default function FinancialPage() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { canView } = usePermissions();
   const [tabsCollapsed, setTabsCollapsed] = useState(false);
 
-  const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
+  // Filtra as abas em runtime: o usuário só vê aquilo que pode visualizar.
+  const visibleTabs = useMemo(() => TABS.filter((t) => canView(t.moduleKey)), [canView]);
+
+  // O default é a primeira aba visível (não necessariamente "dashboard"
+  // — o usuário pode ter perdido a permissão umbrella mas mantido p.ex.
+  // só "Relatórios").
+  const [activeTab, setActiveTab] = useState<string>(
+    () => visibleTabs[0]?.key ?? 'dashboard',
+  );
+
+  // Se a permissão muda no meio da sessão (ex.: super_admin alterou perms
+  // do usuário), garante que `activeTab` continua valendo.
+  useEffect(() => {
+    if (!visibleTabs.find((t) => t.key === activeTab)) {
+      setActiveTab(visibleTabs[0]?.key ?? '');
+    }
+  }, [visibleTabs, activeTab]);
+
+  const currentTab = visibleTabs.find((t) => t.key === activeTab) ?? visibleTabs[0];
+
+  // Botão "Configurações" só faz sentido para quem pode entrar lá:
+  // gateamos pela chave umbrella `settings`. O sub-painel "Financeiro"
+  // do SettingsPage tem proteção própria (gating por `payment-gateways`).
+  const canSeeSettingsShortcut = canView('settings');
+
+  // Empty-state: usuário tem `financial.can_view` (passou no ModuleGuard
+  // da rota) mas perdeu todas as sub-permissões — caso raro mas possível.
+  if (!currentTab) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Financeiro</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Gerencie planos, contratos e cobranças da instituição
+            </p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-10 text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-700/40 flex items-center justify-center">
+            <Lock className="w-6 h-6 text-gray-400" />
+          </div>
+          <h2 className="text-base font-semibold text-gray-700 dark:text-gray-200">
+            Nenhuma seção disponível
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5 max-w-md mx-auto">
+            Você tem acesso ao módulo Financeiro mas não a nenhuma sub-seção.
+            Solicite ao administrador o acesso aos itens que você precisa
+            (Planos, Cobranças, Relatórios, etc.).
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -155,13 +244,15 @@ export default function FinancialPage() {
             Gerencie planos, contratos e cobranças da instituição
           </p>
         </div>
-        <Link
-          to="/admin/configuracoes?tab=financial"
-          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
-        >
-          <Settings className="w-4 h-4 text-brand-secondary" />
-          Configurações
-        </Link>
+        {canSeeSettingsShortcut && (
+          <Link
+            to="/admin/configuracoes?tab=financial"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
+          >
+            <Settings className="w-4 h-4 text-brand-secondary" />
+            Configurações
+          </Link>
+        )}
       </div>
 
       {/* Tabs + Content layout */}
@@ -189,9 +280,9 @@ export default function FinancialPage() {
               )}
             </button>
 
-            {/* Tab items */}
+            {/* Tab items — só as visíveis */}
             <div className="p-1.5 space-y-0.5">
-              {TABS.map((tab) => {
+              {visibleTabs.map((tab) => {
                 const TabIcon = tab.icon;
                 const isActive = activeTab === tab.key;
 
