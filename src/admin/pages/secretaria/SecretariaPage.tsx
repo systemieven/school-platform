@@ -10,6 +10,7 @@ import { usePermissions } from '../../contexts/PermissionsContext';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import { SelectDropdown, SearchableSelect } from '../../components/FormField';
+import HtmlTemplateEditor from '../../components/HtmlTemplateEditor';
 import type {
   DocumentTemplate,
   DocumentRequest,
@@ -249,22 +250,33 @@ function TemplateDrawer({
 
       <DrawerCard title="Conteúdo HTML" icon={FileText}>
         <div className="space-y-3">
+          <HtmlTemplateEditor
+            value={htmlContent}
+            onChange={setHtmlContent}
+            variables={[
+              ...variablesRaw
+                .split(',')
+                .map((k) => k.trim())
+                .filter(Boolean)
+                .map((key) => ({ key })),
+              { key: 'nome_completo', label: 'Aluno' },
+              { key: 'matricula', label: 'Matrícula' },
+              { key: 'turma', label: 'Turma' },
+              { key: 'serie', label: 'Série' },
+              { key: 'ano_letivo', label: 'Ano letivo' },
+              { key: 'data_emissao', label: 'Data de emissão' },
+              { key: 'escola', label: 'Escola' },
+            ].filter((v, i, a) => a.findIndex((x) => x.key === v.key) === i)}
+            placeholder="Escreva o conteúdo do documento. Use os chips acima para inserir variáveis."
+            minHeight={320}
+          />
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">HTML do documento</label>
-            <textarea value={htmlContent} onChange={(e) => setHtmlContent(e.target.value)} rows={12}
-              className="w-full px-3 py-2 text-xs font-mono border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 resize-y"
-              placeholder="<html>...</html>" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Variáveis (separadas por vírgula)</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Variáveis adicionais (separadas por vírgula)</label>
             <input value={variablesRaw} onChange={(e) => setVariablesRaw(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
-              placeholder="nome_completo, matricula, turma" />
-            <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
-              Variáveis disponíveis:{' '}
-              {['{{nome_completo}}', '{{matricula}}', '{{turma}}', '{{serie}}', '{{ano_letivo}}', '{{data_emissao}}', '{{escola}}'].map((v) => (
-                <code key={v} className="bg-gray-100 dark:bg-gray-700 rounded px-1 mr-1">{v}</code>
-              ))}
+              placeholder="Ex: numero_protocolo, cidade" />
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              Declare aqui chaves além das padrão (aluno, turma, data_emissão, etc.) — elas aparecem como chips no editor.
             </p>
           </div>
         </div>
