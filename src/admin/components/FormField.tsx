@@ -4,8 +4,8 @@
  * Substitui os `inputCls`/`labelCls` locais duplicados em cada painel com componentes
  * ricos: ícone leading, hint, counter de caracteres, dark mode completo.
  */
-import React, { forwardRef } from 'react';
-import { Plus, Trash2, AlignJustify } from 'lucide-react';
+import React, { forwardRef, useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, AlignJustify, Search, Check } from 'lucide-react';
 
 // ── Constantes CSS canônicas ─────────────────────────────────────────────────
 
@@ -154,6 +154,142 @@ export function SelectDropdown({ label, hint, children, className, ...rest }: Se
         >
           {children}
         </select>
+      </div>
+      {hint && <p className={HINT_CLS}>{hint}</p>}
+    </div>
+  );
+}
+
+// ── SearchableSelect ─────────────────────────────────────────────────────────
+// Dropdown com campo de busca integrado — ideal para listas longas (alunos,
+// responsáveis, turmas, professores). Substitui SelectDropdown quando o array
+// de opções pode ter dezenas ou centenas de itens.
+
+export interface SearchableSelectOption {
+  value: string;
+  label: string;
+}
+
+export interface SearchableSelectProps {
+  label?: string;
+  hint?: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: SearchableSelectOption[];
+  placeholder?: string;
+  disabled?: boolean;
+  required?: boolean;
+  id?: string;
+}
+
+export function SearchableSelect({
+  label,
+  hint,
+  value,
+  onChange,
+  options,
+  placeholder = 'Selecione...',
+  disabled = false,
+  id,
+}: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Fecha ao clicar fora
+  useEffect(() => {
+    if (!open) return;
+    function handleOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [open]);
+
+  // Foca o campo de busca ao abrir
+  useEffect(() => {
+    if (open) setTimeout(() => searchRef.current?.focus(), 0);
+  }, [open]);
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? '';
+  const filtered = search.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
+    : options;
+
+  function toggle() {
+    if (disabled) return;
+    setOpen((v) => !v);
+    setSearch('');
+  }
+
+  function select(val: string) {
+    onChange(val);
+    setOpen(false);
+    setSearch('');
+  }
+
+  return (
+    <div>
+      {label && <label htmlFor={id} className={LABEL_CLS}>{label}</label>}
+      <div ref={containerRef} className="relative">
+        {/* Trigger — visual idêntico ao SelectDropdown */}
+        <button
+          id={id}
+          type="button"
+          disabled={disabled}
+          onClick={toggle}
+          className={`${INPUT_CLS} pl-9 text-left flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          <AlignJustify className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none flex-shrink-0" />
+          <span className={`truncate ${value ? '' : 'text-gray-400 dark:text-gray-500'}`}>
+            {selectedLabel || placeholder}
+          </span>
+        </button>
+
+        {/* Painel de opções */}
+        {open && (
+          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden">
+            {/* Campo de busca */}
+            <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar..."
+                  className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+                />
+              </div>
+            </div>
+
+            {/* Lista filtrada */}
+            <ul className="max-h-52 overflow-y-auto py-1">
+              {filtered.length === 0 ? (
+                <li className="px-3 py-2 text-sm text-gray-400 text-center">Nenhum resultado</li>
+              ) : filtered.map((o) => (
+                <li key={o.value}>
+                  <button
+                    type="button"
+                    onClick={() => select(o.value)}
+                    className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+                      o.value === value
+                        ? 'bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-secondary font-medium'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    <Check className={`w-3.5 h-3.5 flex-shrink-0 transition-opacity ${o.value === value ? 'opacity-100' : 'opacity-0'}`} />
+                    {o.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       {hint && <p className={HINT_CLS}>{hint}</p>}
     </div>
