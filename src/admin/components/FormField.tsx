@@ -5,7 +5,7 @@
  * ricos: ícone leading, hint, counter de caracteres, dark mode completo.
  */
 import React, { forwardRef } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, AlignJustify, ChevronDown } from 'lucide-react';
 
 // ── Constantes CSS canônicas ─────────────────────────────────────────────────
 
@@ -130,6 +130,32 @@ export function SelectField({ label, hint, children, className, ...rest }: Selec
       <select className={`${INPUT_CLS}${className ? ` ${className}` : ''}`} {...rest}>
         {children}
       </select>
+      {hint && <p className={HINT_CLS}>{hint}</p>}
+    </div>
+  );
+}
+
+// ─── SelectDropdown ──────────────────────────────────────────────────────────
+interface SelectDropdownProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  label?: string;
+  hint?: string;
+  children: React.ReactNode;
+}
+
+export function SelectDropdown({ label, hint, children, className, ...rest }: SelectDropdownProps) {
+  return (
+    <div>
+      {label && <label className={LABEL_CLS}>{label}</label>}
+      <div className="relative">
+        <AlignJustify className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        <select
+          className={`${INPUT_CLS} pl-9 pr-8 appearance-none${className ? ` ${className}` : ''}`}
+          {...rest}
+        >
+          {children}
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+      </div>
       {hint && <p className={HINT_CLS}>{hint}</p>}
     </div>
   );

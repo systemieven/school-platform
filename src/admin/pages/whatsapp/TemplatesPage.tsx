@@ -10,7 +10,7 @@ import type {
 } from '../../types/admin.types';
 import {
   MessageCircle, Plus, FilePlus2, Pencil, Trash2,
-  X, Save, Loader2, ChevronDown, Eye, EyeOff,
+  X, Save, Loader2, Eye, EyeOff,
   Zap, Clock, Tag, AlertCircle, FileText,
   Settings2, Check, ChevronRight, Link, Upload,
   Copy, Phone, ExternalLink, Reply, Image, Video,
@@ -19,6 +19,7 @@ import {
 import imageCompression from 'browser-image-compression';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
+import { SelectDropdown } from '../../components/FormField';
 
 const WA_MEDIA_BUCKET = 'whatsapp-media';
 
@@ -788,60 +789,45 @@ function TemplateDrawer({
 
                   {/* Categoria + Tipo */}
                   <div className="grid grid-cols-2 gap-4">
+                    <SelectDropdown
+                      label="Categoria"
+                      value={form.category}
+                      onChange={(e) => {
+                        const newCategory = e.target.value as TemplateCategory;
+                        const newModule = CATEGORY_TO_MODULE[newCategory];
+                        setForm((p) => {
+                          const cond = (p.trigger_conditions || {}) as Record<string, unknown>;
+                          const nextCond: Record<string, unknown> = { ...cond };
+                          if (newModule) {
+                            nextCond.module = newModule;
+                          } else {
+                            delete nextCond.module;
+                          }
+                          delete nextCond.status;
+                          delete nextCond.old_status;
+                          if (newModule !== 'appointment') delete nextCond.visit_reason;
+                          return {
+                            ...p,
+                            category: newCategory,
+                            trigger_conditions: Object.keys(nextCond).length ? nextCond : null,
+                          };
+                        });
+                      }}
+                    >
+                      {categories.map((c) => (
+                        <option key={c.slug} value={c.slug}>{c.label}</option>
+                      ))}
+                    </SelectDropdown>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                        Categoria
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={form.category}
-                          onChange={(e) => {
-                            const newCategory = e.target.value as TemplateCategory;
-                            const newModule = CATEGORY_TO_MODULE[newCategory];
-                            setForm((p) => {
-                              const cond = (p.trigger_conditions || {}) as Record<string, unknown>;
-                              // When switching category, refresh module and clear status values that no longer apply
-                              const nextCond: Record<string, unknown> = { ...cond };
-                              if (newModule) {
-                                nextCond.module = newModule;
-                              } else {
-                                delete nextCond.module;
-                              }
-                              delete nextCond.status;
-                              delete nextCond.old_status;
-                              if (newModule !== 'appointment') delete nextCond.visit_reason;
-                              return {
-                                ...p,
-                                category: newCategory,
-                                trigger_conditions: Object.keys(nextCond).length ? nextCond : null,
-                              };
-                            });
-                          }}
-                          className="w-full appearance-none px-4 py-2.5 pr-9 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 transition-all"
-                        >
-                          {categories.map((c) => (
-                            <option key={c.slug} value={c.slug}>{c.label}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                        Tipo de Mensagem
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={form.message_type}
-                          onChange={(e) => setForm((p) => ({ ...p, message_type: e.target.value as MessageType, content: { ...p.content } }))}
-                          className="w-full appearance-none px-4 py-2.5 pr-9 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm outline-none focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 transition-all"
-                        >
-                          {MESSAGE_TYPES.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      </div>
+                      <SelectDropdown
+                        label="Tipo de Mensagem"
+                        value={form.message_type}
+                        onChange={(e) => setForm((p) => ({ ...p, message_type: e.target.value as MessageType, content: { ...p.content } }))}
+                      >
+                        {MESSAGE_TYPES.map((t) => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </SelectDropdown>
                       <p className="text-[11px] text-gray-400 mt-1">
                         {MESSAGE_TYPES.find((t) => t.value === form.message_type)?.desc}
                       </p>
@@ -1271,19 +1257,15 @@ function TemplateDrawer({
                 <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Evento</label>
-                    <div className="relative">
-                      <select
-                        value={form.trigger_event || ''}
-                        onChange={(e) => setForm((p) => ({ ...p, trigger_event: (e.target.value as WhatsAppTemplate['trigger_event']) || null }))}
-                        className="w-full appearance-none px-3 py-2 pr-8 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400 transition-all"
-                      >
-                        {TRIGGER_EVENTS.map((e) => (
-                          <option key={e.value} value={e.value}>{e.label}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                    </div>
+                    <SelectDropdown
+                      label="Evento"
+                      value={form.trigger_event || ''}
+                      onChange={(e) => setForm((p) => ({ ...p, trigger_event: (e.target.value as WhatsAppTemplate['trigger_event']) || null }))}
+                    >
+                      {TRIGGER_EVENTS.map((e) => (
+                        <option key={e.value} value={e.value}>{e.label}</option>
+                      ))}
+                    </SelectDropdown>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Delay (minutos)</label>
@@ -1311,76 +1293,48 @@ function TemplateDrawer({
                     <div className="mt-3 space-y-2">
                       <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Condições de status</p>
                       <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="block text-[10px] text-gray-400 mb-1">Módulo</label>
-                          <div className="relative">
-                            <select
-                              value={mod}
-                              onChange={(e) => {
-                                const next = { ...cond, module: e.target.value || undefined };
-                                if (!next.module) delete next.module;
-                                const nextAny = next as Record<string, unknown>;
-                                delete nextAny.status; delete nextAny.old_status;
-                                // visit_reason only applies to appointment module
-                                if (next.module !== 'appointment') delete nextAny.visit_reason;
-                                setForm((p) => ({ ...p, trigger_conditions: Object.keys(next).length ? next : null }));
-                              }}
-                              className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
-                            >
-                              {TRIGGER_MODULES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                            </select>
-                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] text-gray-400 mb-1">Status novo</label>
-                          <div className="relative">
-                            <select
-                              value={(cond.status as string) || ''}
-                              onChange={(e) => setCondField('status', e.target.value)}
-                              className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
-                            >
-                              {statusOpts.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                            </select>
-                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] text-gray-400 mb-1">Status anterior</label>
-                          <div className="relative">
-                            <select
-                              value={(cond.old_status as string) || ''}
-                              onChange={(e) => setCondField('old_status', e.target.value)}
-                              className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
-                            >
-                              {statusOpts.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                            </select>
-                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
-                          </div>
-                        </div>
+                        <SelectDropdown
+                          label="Módulo"
+                          value={mod}
+                          onChange={(e) => {
+                            const next = { ...cond, module: e.target.value || undefined };
+                            if (!next.module) delete next.module;
+                            const nextAny = next as Record<string, unknown>;
+                            delete nextAny.status; delete nextAny.old_status;
+                            if (next.module !== 'appointment') delete nextAny.visit_reason;
+                            setForm((p) => ({ ...p, trigger_conditions: Object.keys(next).length ? next : null }));
+                          }}
+                        >
+                          {TRIGGER_MODULES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                        </SelectDropdown>
+                        <SelectDropdown
+                          label="Status novo"
+                          value={(cond.status as string) || ''}
+                          onChange={(e) => setCondField('status', e.target.value)}
+                        >
+                          {statusOpts.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </SelectDropdown>
+                        <SelectDropdown
+                          label="Status anterior"
+                          value={(cond.old_status as string) || ''}
+                          onChange={(e) => setCondField('old_status', e.target.value)}
+                        >
+                          {statusOpts.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </SelectDropdown>
                       </div>
 
                       {/* Visit reason — only for appointment module */}
                       {mod === 'appointment' && (
-                        <div>
-                          <label className="block text-[10px] text-gray-400 mb-1">
-                            Motivo da visita
-                            <span className="text-gray-400 font-normal ml-1">(opcional — deixa em branco para qualquer motivo)</span>
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={(cond.visit_reason as string) || ''}
-                              onChange={(e) => setCondField('visit_reason', e.target.value)}
-                              className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400"
-                            >
-                              <option value="">Qualquer motivo</option>
-                              {visitReasonOptions.map((r) => (
-                                <option key={r.key} value={r.key}>{r.label}</option>
-                              ))}
-                            </select>
-                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
-                          </div>
-                        </div>
+                        <SelectDropdown
+                          label="Motivo da visita (opcional — deixa em branco para qualquer motivo)"
+                          value={(cond.visit_reason as string) || ''}
+                          onChange={(e) => setCondField('visit_reason', e.target.value)}
+                        >
+                          <option value="">Qualquer motivo</option>
+                          {visitReasonOptions.map((r) => (
+                            <option key={r.key} value={r.key}>{r.label}</option>
+                          ))}
+                        </SelectDropdown>
                       )}
                     </div>
                   );
