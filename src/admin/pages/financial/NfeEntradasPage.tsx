@@ -7,7 +7,7 @@ import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Inbox, Upload, Loader2, Check, X, Building2,
   FileText, AlertCircle, Package, ChevronDown, ChevronRight,
-  Search, Trash2, Link2, Link2Off, AlertTriangle,
+  Search, Trash2, Link2, Link2Off, AlertTriangle, Undo2,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -203,6 +203,14 @@ export default function NfeEntradasPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Devolução drawer state
+  const [devoEntry, setDevoEntry] = useState<NfeEntry | null>(null);
+  const [devoMotivo, setDevoMotivo] = useState('');
+  const [devoEmitting, setDevoEmitting] = useState(false);
+  const [devoError, setDevoError] = useState<string | null>(null);
+  const [devoSaved, setDevoSaved] = useState(false);
+  const devoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fornecedor state
   const [fornecedor, setFornecedor] = useState<FornecedorLite | null>(null);
@@ -434,6 +442,54 @@ export default function NfeEntradasPage() {
 
   // ── Delete ────────────────────────────────────────────────────────────────
 
+  function openDevoDrawer(entry: NfeEntry) {
+    setDevoEntry(entry);
+    setDevoMotivo('');
+    setDevoError(null);
+    setDevoSaved(false);
+  }
+
+  function closeDevoDrawer() {
+    setDevoEntry(null);
+    setDevoSaved(false);
+  }
+
+  async function handleEmitDevolucao() {
+    if (!devoEntry || devoEmitting) return;
+    const motivo = devoMotivo.trim();
+    if (motivo.length < 15 || motivo.length > 255) {
+      setDevoError('Motivo deve ter entre 15 e 255 caracteres.');
+      return;
+    }
+    setDevoEmitting(true);
+    setDevoError(null);
+    const { data, error } = await supabase.functions.invoke('nfe-emitter', {
+      body: {
+        nfe_entry_id: devoEntry.id,
+        motivo_devolucao: motivo,
+        initiated_by: profile?.id ?? null,
+      },
+    });
+    setDevoEmitting(false);
+    if (error || (data as { error?: string } | null)?.error) {
+      const msg = (data as { error?: string } | null)?.error ?? error?.message ?? 'Falha ao emitir NF-e';
+      setDevoError(msg);
+      return;
+    }
+    setDevoSaved(true);
+    logAudit({
+      action: 'create',
+      module: 'store-fiscal',
+      recordId: devoEntry.id,
+      description: `NF-e de devolução emitida — origem ${devoEntry.emitente_nome ?? '—'}`,
+    });
+    if (devoTimer.current) clearTimeout(devoTimer.current);
+    devoTimer.current = setTimeout(() => {
+      closeDevoDrawer();
+      load();
+    }, 1200);
+  }
+
   async function handleDelete(id: string) {
     await supabase.from('nfe_entries').delete().eq('id', id);
     logAudit({ action: 'delete', module: 'store-fiscal', recordId: id, description: 'NF-e de entrada excluída' });
@@ -567,13 +623,22 @@ export default function NfeEntradasPage() {
                     <button onClick={() => setDeleteId(null)} className="p-1 text-gray-400"><X className="w-3 h-3" /></button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setDeleteId(entry.id)}
-                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => openDevoDrawer(entry)}
+                      className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded transition-colors"
+                      title="Emitir NF-e de devolução"
+                    >
+                      <Undo2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(entry.id)}
+                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -824,6 +889,98 @@ export default function NfeEntradasPage() {
                   ))}
                 </div>
               )}
+            </DrawerCard>
+          </>
+        )}
+      </Drawer>
+
+      {/* ── Devolução Drawer ───────────────────────────────────────────────── */}
+      <Drawer
+        open={!!devoEntry}
+        onClose={closeDevoDrawer}
+        title="Emitir NF-e de Devolução"
+        icon={Undo2}
+        width="w-[560px]"
+        footer={
+          <div className="flex gap-3">
+            <button
+              onClick={closeDevoDrawer}
+              disabled={devoEmitting}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleEmitDevolucao}
+              disabled={devoEmitting || devoSaved}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                devoSaved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
+              }`}
+            >
+              {devoEmitting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" />Emitindo…</>
+              ) : devoSaved ? (
+                <><Check className="w-4 h-4" />Emitida!</>
+              ) : (
+                <><Undo2 className="w-4 h-4" />Emitir devolução</>
+              )}
+            </button>
+          </div>
+        }
+      >
+        {devoEntry && (
+          <>
+            <DrawerCard title="NF-e de origem" icon={FileText}>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Emitente</p>
+                  <p className="font-medium text-gray-800 dark:text-white">{devoEntry.emitente_nome ?? '—'}</p>
+                  <p className="text-[11px] text-gray-400">
+                    {devoEntry.emitente_cnpj ? fmtCnpj(devoEntry.emitente_cnpj) : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Emissão</p>
+                  <p className="font-medium text-gray-800 dark:text-white">{fmtDate(devoEntry.data_emissao)}</p>
+                  <p className="text-[11px] text-gray-400">{fmtBRL(devoEntry.valor_total)}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Chave de Acesso</p>
+                  <p className="text-[11px] font-mono text-gray-500 dark:text-gray-400 break-all">{devoEntry.chave_acesso ?? '—'}</p>
+                </div>
+              </div>
+              {!devoEntry.fornecedor_id && (
+                <p className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 mt-2">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                  NF-e sem fornecedor vinculado. Vincule antes de emitir a devolução.
+                </p>
+              )}
+            </DrawerCard>
+
+            <DrawerCard title="Motivo da devolução" icon={AlertCircle}>
+              <textarea
+                value={devoMotivo}
+                onChange={(e) => setDevoMotivo(e.target.value)}
+                placeholder="Descreva o motivo da devolução (15 a 255 caracteres)…"
+                rows={4}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none resize-none"
+              />
+              <div className="flex items-center justify-between text-[11px] text-gray-400">
+                <span>Exigência SEFAZ: 15–255 caracteres</span>
+                <span className={devoMotivo.length > 255 ? 'text-red-500' : ''}>
+                  {devoMotivo.length}/255
+                </span>
+              </div>
+              {devoError && (
+                <p className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {devoError}
+                </p>
+              )}
+              <p className="text-[11px] text-gray-400">
+                A emissão usa todos os itens da NF-e de origem e gera uma NF-e modelo 55 com CFOP 5.202/6.202
+                referenciando a chave original.
+              </p>
             </DrawerCard>
           </>
         )}

@@ -36,6 +36,7 @@ import FinancialScholarshipsPage from './FinancialScholarshipsPage';
 import FinancialTemplatesPage from './FinancialTemplatesPage';
 import FornecedoresPage from './FornecedoresPage';
 import NfeEntradasPage from './NfeEntradasPage';
+import NfeEmitidasPage from './NfeEmitidasPage';
 import NfseEmitidas from './NfseEmitidas';
 import NfseApuracaoPage from './NfseApuracaoPage';
 
@@ -164,6 +165,14 @@ const TABS: TabDef[] = [
     icon: Inbox,
     description: 'Importação de XML de NF-e de entrada e vinculação com fornecedores',
     moduleKey: 'fornecedores', // sem chave própria; usa fornecedores como proxy
+  },
+  {
+    key: 'nfe-emitidas',
+    label: 'NF-e Emitidas (Devolução)',
+    shortLabel: 'NF-e Saída',
+    icon: FileSignature,
+    description: 'NF-e modelo 55 de devolução emitidas a fornecedores',
+    moduleKey: 'fornecedores',
   },
   {
     key: 'fornecedores',
@@ -346,6 +355,7 @@ export default function FinancialPage() {
               {activeTab === 'nfse' && <NfseEmitidas />}
               {activeTab === 'nfse-apuracao' && <NfseApuracaoPage />}
               {activeTab === 'nfe-entrada' && <NfeEntradasPage />}
+              {activeTab === 'nfe-emitidas' && <NfeEmitidasPage />}
               {activeTab === 'fornecedores' && <FornecedoresPage />}
             </div>
           </div>
