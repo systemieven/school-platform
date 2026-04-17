@@ -4,6 +4,7 @@ import { logAudit } from '../../../../lib/audit';
 import type { Attendance, AttendanceStatus, SchoolClass } from '../../../types/admin.types';
 import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_COLORS } from '../../../types/admin.types';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
+import { SelectField } from '../../../components/FormField';
 import { Loader2, Save, CalendarCheck, CheckCircle2 } from 'lucide-react';
 
 const STATUSES: AttendanceStatus[] = ['present', 'absent', 'justified', 'late'];
@@ -13,11 +14,27 @@ type DraftRow = { studentId: string; fullName: string; status: AttendanceStatus 
 export default function AttendanceTab({ cls }: { cls: SchoolClass }) {
   const { profile } = useAdminAuth();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [disciplines, setDisciplines] = useState<{ id: string; name: string }[]>([]);
+  const [disciplineId, setDisciplineId] = useState('');
   const [rows, setRows] = useState<DraftRow[]>([]);
   const [_existing, setExisting] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from('class_disciplines')
+      .select('discipline_id, discipline:disciplines(id, name)')
+      .eq('class_id', cls.id)
+      .then(({ data }) => {
+        if (!data) return;
+        const list = (data as { discipline_id: string; discipline: { id: string; name: string } | null }[])
+          .filter((row) => row.discipline !== null)
+          .map((row) => ({ id: row.discipline!.id, name: row.discipline!.name }));
+        setDisciplines(list);
+      });
+  }, [cls.id]);
 
   const load = useCallback(async () => {
     setLoading(true); setSaved(false);
@@ -54,7 +71,7 @@ export default function AttendanceTab({ cls }: { cls: SchoolClass }) {
     setSaving(true);
     const upserts = rows.map((r) => ({
       student_id: r.studentId, class_id: cls.id, created_by: profile!.id,
-      date, status: r.status, updated_at: new Date().toISOString(),
+      date, status: r.status, discipline_id: disciplineId || null, updated_at: new Date().toISOString(),
     }));
     await supabase.from('student_attendance').upsert(upserts, { onConflict: 'student_id,class_id,date' });
     logAudit({ action: 'update', module: 'teacher-area', description: `Chamada registrada para ${date} com ${upserts.length} aluno(s)`, newData: { date, total: upserts.length } });
@@ -71,6 +88,15 @@ export default function AttendanceTab({ cls }: { cls: SchoolClass }) {
       <div className="flex items-center gap-3 flex-wrap">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
           className="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-brand-primary dark:focus:border-brand-secondary" />
+
+        {disciplines.length > 0 && (
+          <SelectField label="Disciplina" value={disciplineId} onChange={(e) => setDisciplineId(e.target.value)} className="min-w-[180px]">
+            <option value="">Todas / Geral</option>
+            {disciplines.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </SelectField>
+        )}
 
         <div className="flex items-center gap-2 ml-auto flex-wrap">
           <span className="text-xs text-gray-500 dark:text-gray-400">{presentCount}/{rows.length} presentes</span>

@@ -1919,10 +1919,13 @@ export interface ClassExam {
   total_score: number | null;
   activity_id: string | null;
   status: ExamStatus;
+  discipline_id: string | null;
+  period: string | null;
   created_at: string;
   updated_at: string;
   class?: { id: string; name: string } | null;
   subject?: { id: string; name: string } | null;
+  discipline?: { id: string; name: string } | null;
   questions?: ExamQuestion[];
 }
 
