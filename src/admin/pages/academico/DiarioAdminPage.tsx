@@ -25,12 +25,9 @@ const ATTENDANCE_CLASSES: Record<string, string> = {
 
 interface SchoolClass { id: string; name: string; }
 interface TeacherOption { id: string; full_name: string; }
-interface SubjectOption { id: string; name: string; }
+interface NamedOption { id: string; name: string; }
 
 interface DiaryEntryRow extends ClassDiaryEntry {
-  class?: { id: string; name: string } | null;
-  subject?: { id: string; name: string } | null;
-  teacher?: { id: string; full_name: string } | null;
   has_attendance?: boolean;
 }
 
@@ -63,6 +60,7 @@ export default function DiarioAdminPage() {
   const [filterClass, setFilterClass] = useState('');
   const [filterTeacher, setFilterTeacher] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
+  const [filterDisciplineId, setFilterDisciplineId] = useState('');
   const [filterType, setFilterType] = useState('');
   const { from: defaultFrom, to: defaultTo } = currentMonthRange();
   const [filterFrom, setFilterFrom] = useState(defaultFrom);
@@ -71,7 +69,8 @@ export default function DiarioAdminPage() {
   // Reference
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
-  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [subjects, setSubjects] = useState<NamedOption[]>([]);
+  const [disciplines, setDisciplines] = useState<NamedOption[]>([]);
 
   // KPIs
   const [kpiTotal, setKpiTotal] = useState(0);
@@ -95,6 +94,9 @@ export default function DiarioAdminPage() {
     supabase.from('school_subjects').select('id, name').order('name').then(({ data }) => {
       if (data) setSubjects(data);
     });
+    supabase.from('disciplines').select('id, name').eq('is_active', true).order('name').then(({ data }) => {
+      if (data) setDisciplines(data);
+    });
     supabase.from('school_classes').select('id', { count: 'exact', head: true }).then(({ count }) => {
       setKpiTotalClasses(count ?? 0);
     });
@@ -106,18 +108,19 @@ export default function DiarioAdminPage() {
     let q = supabase
       .from('class_diary_entries')
       .select(
-        `*, class:school_classes(id,name), subject:school_subjects(id,name), teacher:profiles!teacher_id(id,full_name)`,
+        `*, class:school_classes(id,name), subject:school_subjects(id,name), discipline:disciplines(id,name), teacher:profiles!teacher_id(id,full_name)`,
         { count: 'exact' },
       )
       .order('entry_date', { ascending: false })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
 
-    if (filterClass)   q = q.eq('class_id', filterClass);
-    if (filterTeacher) q = q.eq('teacher_id', filterTeacher);
-    if (filterSubject) q = q.eq('subject_id', filterSubject);
-    if (filterType)    q = q.eq('type', filterType);
-    if (filterFrom)    q = q.gte('entry_date', filterFrom);
-    if (filterTo)      q = q.lte('entry_date', filterTo);
+    if (filterClass)        q = q.eq('class_id', filterClass);
+    if (filterTeacher)      q = q.eq('teacher_id', filterTeacher);
+    if (filterSubject)      q = q.eq('subject_id', filterSubject);
+    if (filterDisciplineId) q = q.eq('discipline_id', filterDisciplineId);
+    if (filterType)         q = q.eq('type', filterType);
+    if (filterFrom)         q = q.gte('entry_date', filterFrom);
+    if (filterTo)           q = q.lte('entry_date', filterTo);
 
     const { data, count } = await q;
     const entries = (data ?? []) as DiaryEntryRow[];
@@ -171,7 +174,7 @@ export default function DiarioAdminPage() {
     }
 
     setLoading(false);
-  }, [page, filterClass, filterTeacher, filterSubject, filterType, filterFrom, filterTo, defaultFrom, defaultTo]);
+  }, [page, filterClass, filterTeacher, filterSubject, filterDisciplineId, filterType, filterFrom, filterTo, defaultFrom, defaultTo]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
@@ -232,7 +235,7 @@ export default function DiarioAdminPage() {
         <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
           <Filter className="w-3.5 h-3.5" /> Filtros
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           <select
             value={filterClass}
             onChange={e => { setFilterClass(e.target.value); setPage(0); }}
@@ -250,11 +253,19 @@ export default function DiarioAdminPage() {
             {teachers.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
           </select>
           <select
+            value={filterDisciplineId}
+            onChange={e => { setFilterDisciplineId(e.target.value); setPage(0); }}
+            className="py-2 px-3 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none"
+          >
+            <option value="">Todas as disciplinas</option>
+            {disciplines.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+          <select
             value={filterSubject}
             onChange={e => { setFilterSubject(e.target.value); setPage(0); }}
             className="py-2 px-3 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none"
           >
-            <option value="">Todas as disciplinas</option>
+            <option value="">Todos os assuntos</option>
             {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           <select
@@ -318,10 +329,10 @@ export default function DiarioAdminPage() {
                       {row.class?.name ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                      {(row as any).teacher?.full_name ?? '—'}
+                      {row.teacher?.full_name ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                      {row.subject?.name ?? '—'}
+                      {row.discipline?.name ?? row.subject?.name ?? '—'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-brand-primary/10 text-brand-primary dark:text-brand-secondary">
@@ -397,8 +408,8 @@ export default function DiarioAdminPage() {
               <div className="space-y-2 text-sm">
                 {[
                   { label: 'Turma',       value: detailItem.class?.name },
-                  { label: 'Professor',   value: (detailItem as any).teacher?.full_name },
-                  { label: 'Disciplina',  value: detailItem.subject?.name },
+                  { label: 'Professor',   value: detailItem.teacher?.full_name },
+                  { label: 'Disciplina',  value: detailItem.discipline?.name ?? detailItem.subject?.name },
                   { label: 'Data',        value: new Date(detailItem.entry_date).toLocaleDateString('pt-BR') },
                   { label: 'Tipo',        value: DIARY_ENTRY_TYPE_LABELS[detailItem.type] },
                 ].map(({ label, value }) => (

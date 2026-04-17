@@ -25,6 +25,8 @@ const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
   late:      'bg-blue-500 text-white',
 };
 
+const DOW_NAMES = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+
 interface StudentAttendance {
   student_id: string;
   full_name: string;
@@ -46,12 +48,15 @@ export default function DiarioEntradaPage() {
   // Form state
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [type, setType]           = useState<DiaryEntryType>('aula');
-  const [subjectId, setSubjectId] = useState('');
+  const [disciplineId, setDisciplineId] = useState('');
   const [content, setContent]     = useState('');
   const [objectives, setObjectives] = useState('');
   const [materials, setMaterials] = useState('');
   const [notes, setNotes]         = useState('');
   const [isLocked, setIsLocked]   = useState(false);
+
+  // Schedule hint
+  const [scheduleHint, setScheduleHint] = useState('');
 
   // Attendance
   const [attendance, setAttendance] = useState<StudentAttendance[]>([]);
@@ -60,6 +65,27 @@ export default function DiarioEntradaPage() {
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [loadingEntry, setLoadingEntry] = useState(!isNew);
 
+  // Disciplines come from context (already loaded via class_disciplines)
+  const disciplines = cls?.disciplines ?? [];
+
+  // ── Schedule prefill ──────────────────────────────────────────────────────────
+  const prefillFromSchedule = useCallback(async (date: string, currentDisciplineId: string) => {
+    if (!classId || !isNew || currentDisciplineId !== '') return;
+    const dow = new Date(date + 'T12:00:00').getDay();
+    const { data: slots } = await supabase
+      .from('class_schedules')
+      .select('discipline_id')
+      .eq('class_id', classId)
+      .eq('day_of_week', dow)
+      .limit(1);
+
+    if (slots && slots.length > 0 && slots[0].discipline_id) {
+      setDisciplineId(slots[0].discipline_id);
+      setScheduleHint(DOW_NAMES[dow]);
+    }
+  }, [classId, isNew]);
+
+  // ── Load students ─────────────────────────────────────────────────────────────
   const loadStudents = useCallback(async () => {
     if (!classId) return;
     const { data } = await supabase
@@ -92,14 +118,19 @@ export default function DiarioEntradaPage() {
     if (entry) {
       setEntryDate(entry.entry_date);
       setType(entry.type);
-      setSubjectId(entry.subject_id ?? '');
       setContent(entry.content ?? '');
       setObjectives(entry.objectives ?? '');
       setMaterials(entry.materials ?? '');
       setNotes(entry.notes ?? '');
       setIsLocked(entry.is_locked ?? false);
 
-      // Load students, then apply existing attendance
+      if (entry.discipline_id) {
+        setDisciplineId(entry.discipline_id);
+      } else if (entry.subject_id) {
+        const matched = cls?.disciplines.find((d) => d.subject_id === entry.subject_id);
+        if (matched) setDisciplineId(matched.discipline_id);
+      }
+
       const { data: students } = await supabase
         .from('students')
         .select('id, full_name, photo_url')
@@ -124,12 +155,21 @@ export default function DiarioEntradaPage() {
       }
     }
     setLoadingEntry(false);
-  }, [entryId, isNew, classId]);
+  }, [entryId, isNew, classId, cls]);
 
   useEffect(() => {
     if (isNew) { loadStudents(); } else { loadEntry(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNew, loadStudents, loadEntry]);
 
+  // Re-run schedule prefill when date changes (only for new entries when no discipline selected)
+  useEffect(() => {
+    if (!isNew) return;
+    prefillFromSchedule(entryDate, disciplineId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryDate]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────────
   function markAll(status: AttendanceStatus) {
     setAttendance((prev) => prev.map((a) => ({ ...a, status })));
   }
@@ -150,11 +190,13 @@ export default function DiarioEntradaPage() {
     if (!professor || !classId) return;
     setSaveState('saving');
 
+    const selectedDiscipline = disciplines.find((d) => d.discipline_id === disciplineId);
     const payload = {
-      class_id:   classId,
-      subject_id: subjectId || null,
-      teacher_id: professor.id,
-      entry_date: entryDate,
+      class_id:      classId,
+      discipline_id: disciplineId || null,
+      subject_id:    selectedDiscipline?.subject_id ?? null,
+      teacher_id:    professor.id,
+      entry_date:    entryDate,
       type,
       content,
       objectives: objectives || null,
@@ -264,20 +306,28 @@ export default function DiarioEntradaPage() {
             </select>
           </div>
         </div>
-        {(cls?.disciplines.length ?? 0) > 0 && (
+        {disciplines.length > 0 && (
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Disciplina</label>
             <select
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
+              value={disciplineId}
+              onChange={(e) => {
+                setDisciplineId(e.target.value);
+                setScheduleHint('');
+              }}
               disabled={isLocked}
               className={inp}
             >
-              <option value="">Selecione uma disciplina</option>
-              {cls!.disciplines.map((d) => (
+              <option value="">Selecione a disciplina...</option>
+              {disciplines.map((d) => (
                 <option key={d.discipline_id} value={d.discipline_id}>{d.discipline_name}</option>
               ))}
             </select>
+            {scheduleHint && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Sugerido pela grade horária de {scheduleHint}
+              </p>
+            )}
           </div>
         )}
       </Section>

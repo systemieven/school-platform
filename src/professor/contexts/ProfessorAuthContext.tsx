@@ -22,6 +22,7 @@ export interface TeacherDiscipline {
   discipline_id: string;
   discipline_name: string;
   discipline_color: string;
+  subject_id: string | null;
 }
 
 export interface TeacherClass {
@@ -72,7 +73,7 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
       .select(`
         class_id,
         discipline_id,
-        disciplines ( id, name, color ),
+        disciplines ( id, name, color, subject_id ),
         school_classes ( id, name, segment_id, year, shift, is_active )
       `)
       .eq('teacher_id', teacherId);
@@ -104,8 +105,8 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
     for (const row of classDisc) {
       const scArr = row.school_classes as unknown as { id: string; name: string; segment_id: string; year: number; shift: string | null; is_active: boolean }[] | null;
       const sc = Array.isArray(scArr) ? scArr[0] : (scArr as unknown as { id: string; name: string; segment_id: string; year: number; shift: string | null; is_active: boolean } | null);
-      const discArr = row.disciplines as unknown as { id: string; name: string; color: string }[] | null;
-      const disc = Array.isArray(discArr) ? discArr[0] : (discArr as unknown as { id: string; name: string; color: string } | null);
+      const discArr = row.disciplines as unknown as { id: string; name: string; color: string; subject_id: string | null }[] | null;
+      const disc = Array.isArray(discArr) ? discArr[0] : (discArr as unknown as { id: string; name: string; color: string; subject_id: string | null } | null);
       if (!sc) continue;
 
       if (!classMap.has(sc.id)) {
@@ -125,6 +126,7 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
           discipline_id: disc.id,
           discipline_name: disc.name,
           discipline_color: disc.color,
+          subject_id: disc.subject_id ?? null,
         });
       }
     }
