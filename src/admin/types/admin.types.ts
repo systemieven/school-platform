@@ -268,6 +268,7 @@ export interface WhatsAppTemplate {
   trigger_conditions:    Record<string, unknown> | null;
   trigger_delay_minutes: number;
   is_active:             boolean;
+  send_push:             boolean;
   created_by:            string | null;
   created_at:            string;
   updated_at:            string;

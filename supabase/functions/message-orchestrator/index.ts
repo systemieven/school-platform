@@ -55,6 +55,18 @@ function authenticate(req: Request): boolean {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface PushBlock {
+  user_ids: string[];
+  notification: {
+    title: string;
+    body: string;
+    url?: string;
+    tag?: string;
+    icon?: string;
+    badge?: string;
+  };
+}
+
 interface SendRequest {
   mode?: "send" | "check";
   module: string;
@@ -67,6 +79,8 @@ interface SendRequest {
   payload?: Record<string, unknown>;
   // check mode
   phones?: string[];
+  // push fan-out (opcional, paralelo ao WhatsApp — dedup independente)
+  push?: PushBlock;
 }
 
 interface SendResult {
@@ -75,6 +89,10 @@ interface SendResult {
   reason?: string;
   wa_message_id?: string;
   error?: string;
+  push_sent?: number;
+  push_failed?: number;
+  push_revoked?: number;
+  push_error?: string;
 }
 
 interface CheckResult {
@@ -152,8 +170,9 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Unauthorized" }, 401);
   }
 
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const service = createClient(
-    Deno.env.get("SUPABASE_URL")!,
+    SUPABASE_URL,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
@@ -265,6 +284,38 @@ Deno.serve(async (req: Request) => {
     });
     result = { sent: false, error: errMsg };
     console.error(`[message-orchestrator] ERROR phone=${phone} module=${mod}:`, fetchErr);
+  }
+
+  // 4. Push fan-out (paralelo, independente do resultado do WhatsApp)
+  if (body.push && body.push.user_ids?.length && body.push.notification?.title) {
+    try {
+      const pushUrl = `${SUPABASE_URL}/functions/v1/push-send`;
+      const pushRes = await fetch(pushUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({
+          user_ids: body.push.user_ids,
+          notification: body.push.notification,
+        }),
+      });
+      const pushData = await pushRes.json().catch(() => ({})) as {
+        sent?: number; failed?: number; revoked?: number; error?: string;
+      };
+      result.push_sent = pushData.sent ?? 0;
+      result.push_failed = pushData.failed ?? 0;
+      result.push_revoked = pushData.revoked ?? 0;
+      if (pushData.error) result.push_error = pushData.error;
+      console.log(
+        `[message-orchestrator] PUSH user_ids=${body.push.user_ids.length} ` +
+          `sent=${result.push_sent} failed=${result.push_failed} revoked=${result.push_revoked}`,
+      );
+    } catch (pushErr) {
+      result.push_error = String(pushErr);
+      console.error(`[message-orchestrator] PUSH error:`, pushErr);
+    }
   }
 
   return json(result);

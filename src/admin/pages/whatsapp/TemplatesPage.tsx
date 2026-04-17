@@ -459,6 +459,7 @@ const EMPTY_TEMPLATE: Omit<WhatsAppTemplate, 'id' | 'created_at' | 'updated_at' 
   trigger_conditions: null,
   trigger_delay_minutes: 0,
   is_active: true,
+  send_push: true,
 };
 
 function TemplateDrawer({
@@ -511,6 +512,7 @@ function TemplateDrawer({
         trigger_conditions:    normalizedCond,
         trigger_delay_minutes: template.trigger_delay_minutes,
         is_active:             template.is_active,
+        send_push:             template.send_push ?? true,
       });
     } else {
       setForm({ ...EMPTY_TEMPLATE, content: { body: '' } });
@@ -1314,6 +1316,20 @@ function TemplateDrawer({
                       className="w-full px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs outline-none focus:border-amber-400 transition-all"
                     />
                   </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/40 rounded-xl px-3 py-2.5">
+                  <div>
+                    <p className="text-xs font-medium text-gray-700 dark:text-gray-200">Enviar push junto com WhatsApp</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                      Notifica usuários com o app instalado e notificações ativas.
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={form.send_push}
+                    onChange={(v) => setForm((p) => ({ ...p, send_push: v }))}
+                    onColor="bg-emerald-500"
+                  />
                 </div>
 
                 {/* Conditions — only for on_status_change */}
