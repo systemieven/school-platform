@@ -1811,7 +1811,8 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14 | Loja, PDV e Estoque | ✅ Concluido (migrations 92–102, 2026-04-16) | Alta | 8.5 + 10 |
 | 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
 | 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ✅ Concluido (migrations 109–113, Sprint 7, 2026-04-16) | Media | 14 |
-| 14.S | Emissao Automatica de NFS-e (Notas Fiscais de Servicos) | ⏳ Planejado | Media-Alta | 14.F + 8.5 + 10 |
+| 14.S | Estrutura NFS-e (tabelas, UI, stub do emitter) | ✅ Concluido (migrations 114–117, NfseEmitidas.tsx, 2026-04-17) | Media-Alta | 14.F + 8.5 + 10 |
+| 14.S.P | Integracao NFS-e com provider municipal (emissao automatica real) | ⏳ Planejado | Media-Alta | 14.S |
 | 14.E | Modulo de Fornecedores | ✅ Concluido (migrations 131–132, Sprint 9, 2026-04-17) | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 | OP-1 | Central de Migracao de Dados (Onboarding) | ⏳ Planejado | Alta | Todas as tabelas-alvo existentes |
@@ -3513,7 +3514,7 @@ nfe_entry_items                  → itens de NF-e de entrada (ja descrito na sp
 
 ### 10.9C Fase 14.S — Emissao Automatica de NFS-e
 
-**Status**: ⏳ Planejado
+**Status**: ✅ Estrutura concluida (migrations 114 `company_nfse_config`, 115 `nfse_category_config`, 117 `nfse_emitidas`; pagina `NfseEmitidas.tsx`; Edge Function `nfse-emitter` como stub). ⏳ **14.S.P — Integracao com provider municipal** pendente: customizacao do `nfse-emitter` para provider real (eNotas / Nuvem Fiscal / prefeitura), trigger automatico em baixas com `gera_nfse=true`, reenvio automatico em rejeicao tratavel, envio do PDF via MessageOrchestrator.
 **Dependencias**:
 - Fase 14.F concluida (`company_fiscal_config` — dados do emitente e padrao de config fiscal estabelecidos)
 - Fase 8.5 concluida (`financial_account_categories`, `financial_receivables`, `financial_installments` — fontes dos pagamentos tributaveis)
@@ -4271,10 +4272,9 @@ Exclusao bloqueada se fornecedor tiver `financial_payables` ou `nfe_entries` vin
 
 | Item | Descricao | Prioridade | Status |
 |------|-----------|------------|--------|
-| **Atendimento como Hub Operacional** | AttendanceQuickActions: acoes contextuais no drawer de atendimento (2a via boleto, ver matricula, gerar declaracao, agendar retorno, enviar WhatsApp) baseadas no `visitor_phone` | Alta | ⏳ Pendente |
-| **MessageOrchestrator** | Servico central de comunicacao WhatsApp com deduplicacao inteligente (nao enviar 2+ mensagens em <30min) e priorizacao entre modulos | Alta | ⏳ Pendente |
-| **Pipeline enrollment→student→contract** | Automacao: enrollment confirmada → cria student → sugere contrato financeiro → gera parcelas → ativa regua | Media | ⏳ Pendente |
-| **Portal do Professor dedicado** | Elevado para **Fase 10.P** (secao 10.5B) — especificacao completa disponivel, dependencias satisfeitas, execucao paralela a Fase 10 | — | → Ver Fase 10.P |
+| **Atendimento como Hub Operacional** | `AttendanceQuickActions` integrado ao `AttendanceDetailsDrawer`: WhatsApp via `message-orchestrator`, agendar retorno, 2a via de boleto, gerar declaracao, ver matricula — correlacionados por `visitor_phone` via `guardian_profiles`/`enrollments`/`financial_installments` | Alta | ✅ Concluido (2026-04-17) |
+| **MessageOrchestrator — expansao** | Evoluir dedup para priorizacao entre modulos + regras por categoria; envios manuais (PDV, pedidos, alertas) ainda usam `uazapi-proxy` direto por design — revisitar se entrarem em loops de campanha | Media | ⏳ Pendente |
+| **Pipeline enrollment→student→contract** | `EnrollmentContractWizard` + RPC `create_student_with_capacity` + `generate_installments_for_contract`. Fluxo guiado (admin confirma plano e ativacao) — nao silencioso por design, para respeitar descontos/bolsas e override de capacidade | Media | ✅ Concluido (2026-04-15) |
 | **2FA real via WhatsApp** | Geracao/verificacao de OTP com time-window; hoje so existe scaffold de categoria | Baixa | ⏳ Pendente |
 | **Relatorios agendados** | Envio periodico por e-mail (mensal/trimestral) | Baixa | ⏳ Pendente |
 | **OAuth para depoimentos** | Google e Facebook providers no Supabase Auth | Baixa | ⏳ Pendente |
@@ -4499,7 +4499,7 @@ VALUES ('lost-found', 'Achados e Perdidos', 'Modulo de objetos encontrados e ges
 
 ### 10.13 Central de Migracao de Dados — Onboarding de Novo Cliente
 
-**Status**: ⏳ Planejado
+**Status**: ⚙️ Engine-base concluida (Sprint 10 pendente para generalizacao). Hoje existe apenas `StudentImportPage` (`src/admin/pages/school/StudentImportPage.tsx`) com wizard 4-step, helpers em `src/admin/lib/import.ts` (`parseSpreadsheet`, `validateStudentRow`, auto-detect de mapeamento) e templates persistidos em `import_templates`. Falta: rota `/admin/migracao`, refator de `StudentImportPage` em `ModuleImportWizard` generico parametrizado, importadores para Turmas, Contatos, Fornecedores, Produtos, Colaboradores, A-Receber, A-Pagar, Agendamentos, Caixa, trava pos-sucesso e desbloqueio com confirmacao de risco.
 **Codigo**: OP-1 (processo operacional, fora do fluxo de fases de produto)
 **Acesso**: `super_admin` exclusivo
 **Momento de uso**: Evento unico no onboarding inicial — nao aparece na navegacao de outros roles
