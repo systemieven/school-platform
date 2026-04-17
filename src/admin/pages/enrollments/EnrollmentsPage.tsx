@@ -892,16 +892,13 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                           ))}
                         </SelectDropdown>
 
-                        <SelectDropdown
+                        <SearchableSelect
                           value={confirmSeriesId}
-                          onChange={(e) => setConfirmSeriesId(e.target.value)}
+                          onChange={(val) => setConfirmSeriesId(val)}
+                          options={filteredSeries.map((s) => ({ value: s.id, label: s.name }))}
+                          placeholder="Série…"
                           disabled={!confirmSegmentId}
-                        >
-                          <option value="">Série…</option>
-                          {filteredSeries.map((s) => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </SelectDropdown>
+                        />
 
                         <SearchableSelect
                           value={confirmClassId}

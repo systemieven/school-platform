@@ -433,17 +433,19 @@ export default function FinancialDiscountsPage() {
                     <option value="">— Qualquer segmento —</option>
                     {segments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </SelectDropdown>
-                  <SelectDropdown
+                  <SearchableSelect
                     label="Série"
                     hint="Mais específico que segmento, menos que turma."
                     value={editing.series_id || ''}
-                    onChange={(e) => updateField('series_id', e.target.value || null)}
-                  >
-                    <option value="">— Qualquer série —</option>
-                    {seriesList
-                      .filter((s) => !editing.segment_id || s.segment_id === editing.segment_id)
-                      .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </SelectDropdown>
+                    onChange={(val) => updateField('series_id', val || null)}
+                    options={[
+                      { value: '', label: '— Qualquer série —' },
+                      ...seriesList
+                        .filter((s) => !editing.segment_id || s.segment_id === editing.segment_id)
+                        .map((s) => ({ value: s.id, label: s.name })),
+                    ]}
+                    placeholder="— Qualquer série —"
+                  />
                   <SearchableSelect
                     label="Turma"
                     value={editing.class_id || ''}

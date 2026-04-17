@@ -737,12 +737,14 @@ export default function CreateStudentDrawer({ onClose, onCreated }: Props) {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </SelectDropdown>
-            <SelectDropdown label="Série" value={seriesId} onChange={(e) => setSeriesId(e.target.value)} disabled={!segmentId}>
-              <option value="">Selecione...</option>
-              {seriesList.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </SelectDropdown>
+            <SearchableSelect
+              label="Série"
+              value={seriesId}
+              onChange={(val) => setSeriesId(val)}
+              options={seriesList.map((s) => ({ value: s.id, label: s.name }))}
+              placeholder="Selecione a série..."
+              disabled={!segmentId}
+            />
             <SearchableSelect
               label={`Turma (${currentSchoolYear})`}
               value={classId}
