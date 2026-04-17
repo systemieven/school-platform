@@ -306,6 +306,14 @@ export interface NavItem {
   path: string;
   roles: Role[];         // legacy fallback — used when permissions haven't loaded yet
   moduleKey?: string;    // maps to modules.key for granular permission check
+  /**
+   * Umbrella entries: visible iff the user has `view` on at least ONE of these
+   * keys. Use for menu items that point to a page composed of several sub-tabs
+   * (Configurações, Gestão, Acadêmico, Loja, Secretaria). When set, takes
+   * precedence over `moduleKey`. The umbrella route should use ModuleGuard's
+   * `anyModuleKeys` prop with the same list.
+   */
+  anyModuleKeys?: readonly string[];
   badge?: number;
 }
 

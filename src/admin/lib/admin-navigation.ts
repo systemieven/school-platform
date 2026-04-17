@@ -1,4 +1,11 @@
 import type { NavGroup } from '../types/admin.types';
+import {
+  SETTINGS_SUBTAB_MODULE_KEYS,
+  GESTAO_SUBTAB_MODULE_KEYS,
+  ACADEMICO_SUBTAB_MODULE_KEYS,
+  LOJA_SUBTAB_MODULE_KEYS,
+  SECRETARIA_SUBTAB_MODULE_KEYS,
+} from './umbrella-modules';
 
 export const ADMIN_NAV: NavGroup[] = [
   {
@@ -23,7 +30,8 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Briefcase',
         path: '/admin/gestao',
         roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'appointments',
+        // Umbrella: visible iff user can view at least one Gestão sub-tab.
+        anyModuleKeys: GESTAO_SUBTAB_MODULE_KEYS,
       },
     ],
   },
@@ -49,7 +57,8 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'BookOpenCheck',
         path: '/admin/academico',
         roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'academico',
+        // Umbrella: visible iff user can view at least one Acadêmico sub-tab.
+        anyModuleKeys: ACADEMICO_SUBTAB_MODULE_KEYS,
       },
     ],
   },
@@ -62,7 +71,8 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Archive',
         path: '/admin/secretaria',
         roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'secretaria-declaracoes',
+        // Umbrella: visible iff user can view at least one Secretaria sub-tab.
+        anyModuleKeys: SECRETARIA_SUBTAB_MODULE_KEYS,
       },
       {
         key: 'portaria',
@@ -157,7 +167,8 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'ShoppingBag',
         path: '/admin/loja',
         roles: ['super_admin', 'admin', 'coordinator', 'user'],
-        moduleKey: 'store-products',
+        // Umbrella: visible iff user can view at least one Loja sub-tab.
+        anyModuleKeys: LOJA_SUBTAB_MODULE_KEYS,
       },
       {
         key: 'loja-pdv',
@@ -178,7 +189,8 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Settings',
         path: '/admin/configuracoes',
         roles: ['super_admin', 'admin'],
-        moduleKey: 'settings',
+        // Umbrella: visible iff user can view at least one Configurações sub-tab.
+        anyModuleKeys: SETTINGS_SUBTAB_MODULE_KEYS,
       },
     ],
   },
