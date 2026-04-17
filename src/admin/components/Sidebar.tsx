@@ -133,8 +133,16 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
         {ADMIN_NAV.map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (!profile) return false;
-            // Use granular permissions if loaded; fall back to legacy roles array
-            if (!permsLoading && item.moduleKey) return canView(item.moduleKey);
+            // Granular permissions take precedence once loaded.
+            if (!permsLoading) {
+              // Umbrella entries: visible iff ANY sub-tab is accessible.
+              if (item.anyModuleKeys && item.anyModuleKeys.length > 0) {
+                return item.anyModuleKeys.some((k) => canView(k));
+              }
+              if (item.moduleKey) return canView(item.moduleKey);
+            }
+            // Legacy fallback while permissions hydrate (or for items without
+            // any module mapping at all).
             return item.roles.includes(profile.role);
           });
           if (visibleItems.length === 0) return null;

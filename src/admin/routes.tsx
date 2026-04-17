@@ -5,6 +5,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ModuleGuard from './components/ModuleGuard';
 import AdminLayout from './AdminLayout';
 import { Loader2 } from 'lucide-react';
+import {
+  SETTINGS_SUBTAB_MODULE_KEYS,
+  GESTAO_SUBTAB_MODULE_KEYS,
+  ACADEMICO_SUBTAB_MODULE_KEYS,
+  LOJA_SUBTAB_MODULE_KEYS,
+  SECRETARIA_SUBTAB_MODULE_KEYS,
+} from './lib/umbrella-modules';
 
 // Eager: auth pages (small, needed immediately)
 import LoginPage from './pages/login/LoginPage';
@@ -94,8 +101,10 @@ export default function AdminRoutes() {
         >
           <Route index element={<ModuleGuard moduleKey="dashboard"><LazyPage><DashboardRouter /></LazyPage></ModuleGuard>} />
 
-          {/* Gestão (tab rail: Agendamentos, Atendimentos, Contatos, Matrícula) */}
-          <Route path="gestao" element={<ModuleGuard moduleKey="appointments"><LazyPage><GestaoPage /></LazyPage></ModuleGuard>} />
+          {/* Gestão (tab rail: Agendamentos, Atendimentos, Contatos, Matrícula).
+              Umbrella: liberado quando o usuário tem `view` em pelo menos uma
+              sub-tab. As próprias tabs filtram-se internamente em GestaoPage. */}
+          <Route path="gestao" element={<ModuleGuard anyModuleKeys={GESTAO_SUBTAB_MODULE_KEYS}><LazyPage><GestaoPage /></LazyPage></ModuleGuard>} />
           {/* Redirects de rotas legadas → /admin/gestao */}
           <Route path="agendamentos"           element={<Navigate to="/admin/gestao" replace />} />
           <Route path="matriculas"             element={<Navigate to="/admin/gestao?tab=matriculas" replace />} />
@@ -120,8 +129,11 @@ export default function AdminRoutes() {
           {/* Financial (single page with internal tab rail) */}
           <Route path="financeiro"  element={<ModuleGuard moduleKey="financial"><LazyPage><FinancialPage /></LazyPage></ModuleGuard>} />
 
-          {/* Academic (single page with internal tab rail) */}
-          <Route path="academico"   element={<ModuleGuard moduleKey="academico"><LazyPage><AcademicoPage /></LazyPage></ModuleGuard>} />
+          {/* Academic (single page with internal tab rail).
+              Umbrella: liberado quando o usuário tem `view` em pelo menos uma
+              sub-tab (academico, students, segments, absence-communications,
+              exit-authorizations). AcademicoPage filtra suas próprias tabs. */}
+          <Route path="academico"   element={<ModuleGuard anyModuleKeys={ACADEMICO_SUBTAB_MODULE_KEYS}><LazyPage><AcademicoPage /></LazyPage></ModuleGuard>} />
 
           {/* Fase 10 — Portal do Responsavel */}
           <Route path="ocorrencias"   element={<ModuleGuard moduleKey="occurrences"><LazyPage><OcorrenciasPage /></LazyPage></ModuleGuard>} />
@@ -135,8 +147,10 @@ export default function AdminRoutes() {
           <Route path="diario"   element={<ModuleGuard moduleKey="teacher-diary"><LazyPage><DiarioAdminPage /></LazyPage></ModuleGuard>} />
           <Route path="provas"   element={<ModuleGuard moduleKey="teacher-exams"><LazyPage><ProvasAdminPage /></LazyPage></ModuleGuard>} />
 
-          {/* Fase 11 — Secretaria Digital */}
-          <Route path="secretaria" element={<ModuleGuard moduleKey="secretaria-declaracoes"><LazyPage><SecretariaPage /></LazyPage></ModuleGuard>} />
+          {/* Fase 11 — Secretaria Digital.
+              Umbrella: liberado quando o usuário tem `view` em pelo menos uma
+              sub-tab (declarações, saúde, rematrícula, transferências). */}
+          <Route path="secretaria" element={<ModuleGuard anyModuleKeys={SECRETARIA_SUBTAB_MODULE_KEYS}><LazyPage><SecretariaPage /></LazyPage></ModuleGuard>} />
 
           {/* Fase 11.B — Portaria, Comunicação de Faltas e Autorizações de Saída */}
           <Route path="faltas" element={<ModuleGuard moduleKey="absence-communications"><LazyPage><FaltasComunicacoesPage /></LazyPage></ModuleGuard>} />
@@ -146,13 +160,18 @@ export default function AdminRoutes() {
           {/* Fase 15 — Achados e Perdidos Digital */}
           <Route path="achados-perdidos" element={<ModuleGuard moduleKey="lost-found"><LazyPage><AchadosPerdidosPage /></LazyPage></ModuleGuard>} />
 
-          {/* Fase 14 — Loja, PDV e Estoque */}
-          <Route path="loja"                element={<ModuleGuard moduleKey="store-products"><LazyPage><LojaPage /></LazyPage></ModuleGuard>} />
+          {/* Fase 14 — Loja, PDV e Estoque.
+              Umbrella: liberado quando o usuário tem `view` em pelo menos uma
+              sub-tab da loja (loja, store-products, store-orders, store-pdv,
+              store-reports). LojaPage filtra suas próprias tabs. */}
+          <Route path="loja"                element={<ModuleGuard anyModuleKeys={LOJA_SUBTAB_MODULE_KEYS}><LazyPage><LojaPage /></LazyPage></ModuleGuard>} />
           <Route path="loja/pdv"            element={<ModuleGuard moduleKey="store-pdv"><LazyPage><PDVPage /></LazyPage></ModuleGuard>} />
           <Route path="loja/pedidos/:orderId" element={<ModuleGuard moduleKey="store-orders"><LazyPage><OrderDetailPage /></LazyPage></ModuleGuard>} />
 
-          {/* System */}
-          <Route path="configuracoes"  element={<ModuleGuard moduleKey="settings"><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />
+          {/* System — Configurações.
+              Umbrella: liberado quando o usuário tem `view` em pelo menos uma
+              sub-tab. SettingsPage filtra suas próprias tabs por permissão. */}
+          <Route path="configuracoes"  element={<ModuleGuard anyModuleKeys={SETTINGS_SUBTAB_MODULE_KEYS}><LazyPage><SettingsPage /></LazyPage></ModuleGuard>} />
         </Route>
       </Routes>
     </AdminAuthProvider>
