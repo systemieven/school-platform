@@ -300,9 +300,15 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Sync <meta theme-color> + <link rel="manifest"> with current branding.
+  // Sync <meta theme-color> + <meta apple-mobile-web-app-title> +
+  // <link rel="manifest"> with current branding.
   useEffect(() => {
     injectThemeColor(colors.primary);
+    const iosTitle = document.querySelector(
+      'meta[name="apple-mobile-web-app-title"]',
+    ) as HTMLMetaElement | null;
+    const shortName = identity.school_short_name || identity.school_name;
+    if (iosTitle && iosTitle.content !== shortName) iosTitle.content = shortName;
     injectManifest({
       name: identity.school_name,
       short_name: identity.school_short_name || identity.school_name,
