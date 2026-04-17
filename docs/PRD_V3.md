@@ -1815,7 +1815,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14.S.P | Integracao NFS-e com provider municipal (emissao automatica real) | ⏳ Planejado | Media-Alta | 14.S |
 | 14.E | Modulo de Fornecedores | ✅ Concluido (migrations 131–132, Sprint 9, 2026-04-17) | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
-| OP-1 | Central de Migracao de Dados (Onboarding) | ⏳ Planejado | Alta | Todas as tabelas-alvo existentes |
+| OP-1 | Central de Migracao de Dados (Onboarding) | ⚙️ Em andamento — PR1 concluido (migration 150, hub `/admin/migracao`, lock por modulo, Alunos linkado, 2026-04-17). Sprint 10.PR2+ cobre refator em `ModuleImportWizard` generico e importadores dos demais modulos. | Alta | Todas as tabelas-alvo existentes |
 | TV-1 | Editor Visual de Templates HTML | ⏳ Planejado | Media | contract_templates + document_templates + generate-document |
 | DASH-1 | Dashboards por Permissao (1 dashboard compartilhado, blocos auto-filtrantes) | ✅ Concluido (2026-04-17) | Media-Alta | Permissoes granulares (migration 143) |
 
