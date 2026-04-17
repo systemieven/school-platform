@@ -3,7 +3,7 @@ import {
   LayoutDashboard, FileText, FileSignature, Receipt,
   Percent, GraduationCap, FileCode2,
   PanelLeftClose, PanelLeftOpen,
-  Vault, TrendingUp, TrendingDown, BarChart3,
+  Vault, TrendingUp, TrendingDown, BarChart3, Building2,
 } from 'lucide-react';
 import FinancialDashboardPage from './FinancialDashboardPage';
 import FinancialPlansPage from './FinancialPlansPage';
@@ -16,6 +16,7 @@ import FinancialReportsPage from './FinancialReportsPage';
 import FinancialDiscountsPage from './FinancialDiscountsPage';
 import FinancialScholarshipsPage from './FinancialScholarshipsPage';
 import FinancialTemplatesPage from './FinancialTemplatesPage';
+import FornecedoresPage from './FornecedoresPage';
 
 interface TabDef {
   key: string;
@@ -102,6 +103,13 @@ const TABS: TabDef[] = [
     shortLabel: 'Templates',
     icon: FileCode2,
     description: 'Templates de contrato, recibo e boleto',
+  },
+  {
+    key: 'fornecedores',
+    label: 'Fornecedores',
+    shortLabel: 'Fornecedores',
+    icon: Building2,
+    description: 'Cadastro e gestão de fornecedores integrado a NF-e e contas a pagar',
   },
 ];
 
@@ -206,6 +214,7 @@ export default function FinancialPage() {
               {activeTab === 'discounts' && <FinancialDiscountsPage />}
               {activeTab === 'scholarships' && <FinancialScholarshipsPage />}
               {activeTab === 'templates' && <FinancialTemplatesPage />}
+              {activeTab === 'fornecedores' && <FornecedoresPage />}
             </div>
           </div>
         </div>
