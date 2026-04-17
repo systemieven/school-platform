@@ -1,8 +1,14 @@
 /**
  * FinancialCashPage — Controle de Caixas (Fase 8.5)
  *
- * Lista de caixas com abertura/fechamento, sangria, suprimento e
- * lançamentos avulsos (inflow/outflow). Histórico de movimentações por caixa.
+ * Fluxo de sessão:
+ *  1. "Novo Caixa" — cria e já abre o caixa; saldo inicial é
+ *     automaticamente preenchido com o saldo do último caixa fechado.
+ *  2. "Abrir" em caixa existente — exibe drawer de confirmação mostrando
+ *     o saldo inicial (carry-forward da última sessão).
+ *  3. "Fechar" — exibe drawer com resumo e toggle "Manter saldo para o
+ *     próximo caixa" (padrão: ativado).
+ *  4. Sangrias e suprimentos múltiplos enquanto o caixa está aberto.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
@@ -17,12 +23,13 @@ import { CASH_MOVEMENT_TYPE_LABELS, CASH_MOVEMENT_SUB_TYPE_LABELS } from '../../
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import PermissionGate from '../../components/PermissionGate';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { Toggle } from '../../components/Toggle';
+import { SelectDropdown } from '../../components/FormField';
 import {
   Loader2, Plus, Vault, Check, DollarSign,
   TrendingUp, TrendingDown, ArrowDownLeft, ArrowUpRight,
-  ChevronUp, History, Pencil,
+  ChevronUp, History, Pencil, Lock, LockOpen, Info,
 } from 'lucide-react';
-import { SelectDropdown } from '../../components/FormField';
 
 function fmt(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -37,13 +44,13 @@ const INFLOW_SUB_TYPES: CashMovementSubType[] = [
 const OUTFLOW_SUB_TYPES: CashMovementSubType[] = ['despesa_operacional'];
 
 const PAYMENT_METHODS = [
-  { value: 'cash',      label: 'Dinheiro' },
-  { value: 'pix',       label: 'PIX' },
+  { value: 'cash',        label: 'Dinheiro' },
+  { value: 'pix',         label: 'PIX' },
   { value: 'credit_card', label: 'Cartão de Crédito' },
   { value: 'debit_card',  label: 'Cartão de Débito' },
-  { value: 'transfer',  label: 'Transferência' },
-  { value: 'boleto',    label: 'Boleto' },
-  { value: 'other',     label: 'Outro' },
+  { value: 'transfer',    label: 'Transferência' },
+  { value: 'boleto',      label: 'Boleto' },
+  { value: 'other',       label: 'Outro' },
 ];
 
 export default function FinancialCashPage() {
@@ -56,14 +63,30 @@ export default function FinancialCashPage() {
   const [movements, setMovements] = useState<Record<string, FinancialCashMovement[]>>({});
   const [movLoading, setMovLoading] = useState(false);
 
-  // Register drawer (create)
+  // ── "Novo Caixa" drawer ──────────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [regName, setRegName] = useState('');
   const [regDesc, setRegDesc] = useState('');
+  const [regOpeningBalance, setRegOpeningBalance] = useState(0);
+  const [regOpeningSource, setRegOpeningSource] = useState<string | null>(null);
+  const [regBalanceLoading, setRegBalanceLoading] = useState(false);
   const [regSaving, setRegSaving] = useState(false);
   const [regSaved, setRegSaved] = useState(false);
 
-  // Movement drawer
+  // ── "Abrir" confirmation drawer ──────────────────────────────────────────
+  const [openingDrawerOpen, setOpeningDrawerOpen] = useState(false);
+  const [openingReg, setOpeningReg] = useState<FinancialCashRegister | null>(null);
+  const [openingSaving, setOpeningSaving] = useState(false);
+  const [openingSaved, setOpeningSaved] = useState(false);
+
+  // ── "Fechar" drawer ──────────────────────────────────────────────────────
+  const [closingDrawerOpen, setClosingDrawerOpen] = useState(false);
+  const [closingReg, setClosingReg] = useState<FinancialCashRegister | null>(null);
+  const [closingCarryForward, setClosingCarryForward] = useState(true);
+  const [closingSaving, setClosingSaving] = useState(false);
+  const [closingSaved, setClosingSaved] = useState(false);
+
+  // ── Movement drawer ──────────────────────────────────────────────────────
   const [movDrawerOpen, setMovDrawerOpen] = useState(false);
   const [movRegister, setMovRegister] = useState<FinancialCashRegister | null>(null);
   const [movType, setMovType] = useState<CashMovementType>('inflow');
@@ -74,7 +97,10 @@ export default function FinancialCashPage() {
   const [movMethod, setMovMethod] = useState('cash');
   const [movSaving, setMovSaving] = useState(false);
   const [movSaved, setMovSaved] = useState(false);
+
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Load ─────────────────────────────────────────────────────────────────
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -109,14 +135,67 @@ export default function FinancialCashPage() {
     }
   }
 
-  // ── Register create ──
+  // ── Fetch last closed register balance (for saldo inicial automático) ────
+
+  async function fetchLastClosedBalance(): Promise<{ balance: number; source: string | null }> {
+    const { data } = await supabase
+      .from('financial_cash_registers')
+      .select('name, current_balance')
+      .eq('status', 'closed')
+      .gt('current_balance', 0)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      return { balance: Number(data.current_balance), source: data.name as string };
+    }
+    return { balance: 0, source: null };
+  }
+
+  // ── "Novo Caixa" ──────────────────────────────────────────────────────────
+
+  async function openNewCaixaDrawer() {
+    setRegName('');
+    setRegDesc('');
+    setRegOpeningBalance(0);
+    setRegOpeningSource(null);
+    setDrawerOpen(true);
+    setRegBalanceLoading(true);
+    const { balance, source } = await fetchLastClosedBalance();
+    setRegOpeningBalance(balance);
+    setRegOpeningSource(source);
+    setRegBalanceLoading(false);
+  }
+
   async function saveRegister() {
     if (!regName.trim()) return;
     setRegSaving(true);
-    await supabase.from('financial_cash_registers').insert({
-      name: regName.trim(),
-      description: regDesc.trim() || null,
-    });
+
+    const { data: newReg } = await supabase
+      .from('financial_cash_registers')
+      .insert({
+        name: regName.trim(),
+        description: regDesc.trim() || null,
+        status: 'open',
+        current_balance: regOpeningBalance,
+        opening_balance: regOpeningBalance,
+      })
+      .select('id')
+      .single();
+
+    if (newReg) {
+      await supabase.from('financial_cash_movements').insert({
+        cash_register_id: (newReg as { id: string }).id,
+        type: 'opening',
+        amount: Math.max(regOpeningBalance, 0.01),
+        balance_after: regOpeningBalance,
+        description: regOpeningSource
+          ? `Saldo transferido de "${regOpeningSource}"`
+          : 'Abertura de caixa',
+        recorded_by: profile?.id ?? null,
+      });
+    }
+
     logAudit({ action: 'create', module: 'financial-cash', description: `Caixa criado: ${regName}` });
     setRegSaving(false);
     setRegSaved(true);
@@ -124,41 +203,112 @@ export default function FinancialCashPage() {
     savedTimer.current = setTimeout(() => {
       setRegSaved(false);
       setDrawerOpen(false);
-      setRegName('');
-      setRegDesc('');
       load();
     }, 900);
   }
 
-  // ── Open / Close register ──
-  async function toggleRegisterStatus(reg: FinancialCashRegister) {
-    const isOpening = reg.status === 'closed';
-    const newStatus = isOpening ? 'open' : 'closed';
-    await supabase.from('financial_cash_registers').update({
-      status: newStatus,
-      updated_at: new Date().toISOString(),
-    }).eq('id', reg.id);
+  // ── Abrir caixa existente ─────────────────────────────────────────────────
 
-    // Register opening/closing movement
-    const currentBalance = Number(reg.current_balance);
-    await supabase.from('financial_cash_movements').insert({
-      cash_register_id: reg.id,
-      type: isOpening ? 'opening' : 'closing',
-      amount: Math.max(currentBalance, 0.01),
-      balance_after: currentBalance,
-      description: isOpening ? 'Abertura de caixa' : 'Fechamento de caixa',
-      recorded_by: profile?.id ?? null,
-    });
-    logAudit({
-      action: 'update',
-      module: 'financial-cash',
-      description: `Caixa ${isOpening ? 'aberto' : 'fechado'}: ${reg.name}`,
-    });
-    load();
-    if (expandedId === reg.id) loadMovements(reg.id);
+  function openOpeningDrawer(reg: FinancialCashRegister) {
+    setOpeningReg(reg);
+    setOpeningSaving(false);
+    setOpeningSaved(false);
+    setOpeningDrawerOpen(true);
   }
 
-  // ── Movement create ──
+  async function confirmOpen() {
+    if (!openingReg) return;
+    setOpeningSaving(true);
+
+    const balance = Number(openingReg.current_balance);
+    await supabase.from('financial_cash_registers').update({
+      status: 'open',
+      opening_balance: balance,
+      updated_at: new Date().toISOString(),
+    }).eq('id', openingReg.id);
+
+    await supabase.from('financial_cash_movements').insert({
+      cash_register_id: openingReg.id,
+      type: 'opening',
+      amount: Math.max(balance, 0.01),
+      balance_after: balance,
+      description: balance > 0 ? 'Abertura com saldo do período anterior' : 'Abertura de caixa',
+      recorded_by: profile?.id ?? null,
+    });
+
+    logAudit({ action: 'update', module: 'financial-cash', description: `Caixa aberto: ${openingReg.name}` });
+    setOpeningSaving(false);
+    setOpeningSaved(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => {
+      setOpeningSaved(false);
+      setOpeningDrawerOpen(false);
+      setOpeningReg(null);
+      load();
+    }, 900);
+  }
+
+  // ── Fechar caixa ──────────────────────────────────────────────────────────
+
+  function openClosingDrawer(reg: FinancialCashRegister) {
+    setClosingReg(reg);
+    setClosingCarryForward(true);
+    setClosingSaving(false);
+    setClosingSaved(false);
+    setClosingDrawerOpen(true);
+  }
+
+  async function confirmClose() {
+    if (!closingReg) return;
+    setClosingSaving(true);
+
+    const balance = Number(closingReg.current_balance);
+    const finalBalance = closingCarryForward ? balance : 0;
+
+    // If not carrying forward, register a sangria for the full amount first
+    if (!closingCarryForward && balance > 0) {
+      await supabase.from('financial_cash_movements').insert({
+        cash_register_id: closingReg.id,
+        type: 'sangria',
+        amount: balance,
+        balance_after: 0,
+        description: 'Retirada total no fechamento',
+        recorded_by: profile?.id ?? null,
+      });
+    }
+
+    await supabase.from('financial_cash_registers').update({
+      status: 'closed',
+      current_balance: finalBalance,
+      updated_at: new Date().toISOString(),
+    }).eq('id', closingReg.id);
+
+    await supabase.from('financial_cash_movements').insert({
+      cash_register_id: closingReg.id,
+      type: 'closing',
+      amount: Math.max(balance, 0.01),
+      balance_after: finalBalance,
+      description: closingCarryForward
+        ? 'Fechamento — saldo mantido para próximo período'
+        : 'Fechamento — saldo zerado',
+      recorded_by: profile?.id ?? null,
+    });
+
+    logAudit({ action: 'update', module: 'financial-cash', description: `Caixa fechado: ${closingReg.name}` });
+    setClosingSaving(false);
+    setClosingSaved(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => {
+      setClosingSaved(false);
+      setClosingDrawerOpen(false);
+      setClosingReg(null);
+      load();
+      if (expandedId === closingReg?.id) loadMovements(closingReg.id);
+    }, 900);
+  }
+
+  // ── Movimentação ──────────────────────────────────────────────────────────
+
   function openMovDrawer(reg: FinancialCashRegister, type: CashMovementType) {
     setMovRegister(reg);
     setMovType(type);
@@ -213,6 +363,8 @@ export default function FinancialCashPage() {
     }, 900);
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -234,7 +386,7 @@ export default function FinancialCashPage() {
             </p>
           </div>
           <button
-            onClick={() => setDrawerOpen(true)}
+            onClick={openNewCaixaDrawer}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-primary text-white rounded-lg hover:bg-brand-primary-dark transition-colors font-medium"
           >
             <Plus className="w-3 h-3" /> Novo Caixa
@@ -320,13 +472,14 @@ export default function FinancialCashPage() {
                         </>
                       )}
                       <button
-                        onClick={() => toggleRegisterStatus(reg)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                        onClick={() => isOpen ? openClosingDrawer(reg) : openOpeningDrawer(reg)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
                           isOpen
                             ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100'
                             : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100'
                         }`}
                       >
+                        {isOpen ? <Lock className="w-3 h-3" /> : <LockOpen className="w-3 h-3" />}
                         {isOpen ? 'Fechar' : 'Abrir'}
                       </button>
                       <button
@@ -391,7 +544,7 @@ export default function FinancialCashPage() {
         )}
       </div>
 
-      {/* ── Drawer: Novo Caixa ── */}
+      {/* ── Drawer: Novo Caixa ─────────────────────────────────────────────── */}
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -408,13 +561,13 @@ export default function FinancialCashPage() {
             </button>
             <button
               onClick={saveRegister}
-              disabled={!regName.trim() || regSaving}
+              disabled={!regName.trim() || regSaving || regBalanceLoading}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
                 regSaved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
               }`}
             >
               {regSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : regSaved ? <Check className="w-4 h-4" /> : <Vault className="w-4 h-4" />}
-              {regSaving ? 'Salvando…' : regSaved ? 'Salvo!' : 'Criar Caixa'}
+              {regSaving ? 'Abrindo…' : regSaved ? 'Aberto!' : 'Criar e Abrir Caixa'}
             </button>
           </div>
         }
@@ -439,9 +592,161 @@ export default function FinancialCashPage() {
             />
           </div>
         </DrawerCard>
+
+        <DrawerCard title="Saldo Inicial" icon={DollarSign}>
+          {regBalanceLoading ? (
+            <div className="flex items-center gap-2 py-2 text-sm text-gray-400">
+              <Loader2 className="w-4 h-4 animate-spin" /> Verificando caixa anterior…
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Saldo inicial</p>
+                  <p className="text-lg font-bold text-gray-800 dark:text-white">{fmt(regOpeningBalance)}</p>
+                </div>
+                {regOpeningBalance > 0 && (
+                  <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                    Automático
+                  </span>
+                )}
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-400 dark:text-gray-500">
+                <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                {regOpeningSource
+                  ? <span>Transferido automaticamente do caixa <strong className="text-gray-600 dark:text-gray-400">"{regOpeningSource}"</strong>.</span>
+                  : <span>Nenhum saldo disponível em caixas anteriores. O caixa iniciará com saldo zero.</span>
+                }
+              </div>
+            </>
+          )}
+        </DrawerCard>
       </Drawer>
 
-      {/* ── Drawer: Movimentação ── */}
+      {/* ── Drawer: Abrir Caixa ───────────────────────────────────────────── */}
+      <Drawer
+        open={openingDrawerOpen}
+        onClose={() => setOpeningDrawerOpen(false)}
+        title={openingReg ? `Abrir Caixa — ${openingReg.name}` : 'Abrir Caixa'}
+        icon={LockOpen}
+        footer={
+          <div className="flex gap-3">
+            <button
+              onClick={() => setOpeningDrawerOpen(false)}
+              disabled={openingSaving}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmOpen}
+              disabled={openingSaving}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                openingSaved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
+              }`}
+            >
+              {openingSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : openingSaved ? <Check className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />}
+              {openingSaving ? 'Abrindo…' : openingSaved ? 'Aberto!' : 'Confirmar Abertura'}
+            </button>
+          </div>
+        }
+      >
+        {openingReg && (
+          <DrawerCard title="Saldo Inicial" icon={DollarSign}>
+            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Saldo inicial</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">{fmt(openingReg.current_balance)}</p>
+              </div>
+              {openingReg.current_balance > 0 && (
+                <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                  Período anterior
+                </span>
+              )}
+            </div>
+            <div className="flex items-start gap-2 text-xs text-gray-400 dark:text-gray-500">
+              <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              {openingReg.current_balance > 0
+                ? <span>Este saldo foi mantido no fechamento do período anterior e será o ponto de partida desta sessão.</span>
+                : <span>Nenhum saldo do período anterior. O caixa iniciará com saldo zero.</span>
+              }
+            </div>
+          </DrawerCard>
+        )}
+      </Drawer>
+
+      {/* ── Drawer: Fechar Caixa ──────────────────────────────────────────── */}
+      <Drawer
+        open={closingDrawerOpen}
+        onClose={() => setClosingDrawerOpen(false)}
+        title={closingReg ? `Fechar Caixa — ${closingReg.name}` : 'Fechar Caixa'}
+        icon={Lock}
+        footer={
+          <div className="flex gap-3">
+            <button
+              onClick={() => setClosingDrawerOpen(false)}
+              disabled={closingSaving}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmClose}
+              disabled={closingSaving}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                closingSaved ? 'bg-emerald-500 text-white' : 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50'
+              }`}
+            >
+              {closingSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : closingSaved ? <Check className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+              {closingSaving ? 'Fechando…' : closingSaved ? 'Fechado!' : 'Confirmar Fechamento'}
+            </button>
+          </div>
+        }
+      >
+        {closingReg && (
+          <>
+            <DrawerCard title="Resumo do Caixa" icon={Vault}>
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Saldo atual</p>
+                  <p className="text-lg font-bold text-gray-800 dark:text-white">{fmt(closingReg.current_balance)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Saldo inicial</p>
+                  <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{fmt(closingReg.opening_balance ?? 0)}</p>
+                </div>
+              </div>
+            </DrawerCard>
+
+            <DrawerCard title="Próximo Período" icon={DollarSign}>
+              <div className="flex items-center justify-between py-1">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Manter saldo para o próximo caixa</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {closingCarryForward
+                      ? `O saldo de ${fmt(closingReg.current_balance)} será o saldo inicial da próxima abertura.`
+                      : 'O caixa será fechado com saldo zerado (sangria automática registrada).'}
+                  </p>
+                </div>
+                <Toggle
+                  checked={closingCarryForward}
+                  onChange={setClosingCarryForward}
+                  onColor="bg-emerald-500"
+                />
+              </div>
+
+              {!closingCarryForward && closingReg.current_balance > 0 && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 text-xs text-amber-700 dark:text-amber-400">
+                  <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                  <span>Uma sangria de <strong>{fmt(closingReg.current_balance)}</strong> será registrada automaticamente antes do fechamento.</span>
+                </div>
+              )}
+            </DrawerCard>
+          </>
+        )}
+      </Drawer>
+
+      {/* ── Drawer: Movimentação ──────────────────────────────────────────── */}
       <Drawer
         open={movDrawerOpen}
         onClose={() => setMovDrawerOpen(false)}

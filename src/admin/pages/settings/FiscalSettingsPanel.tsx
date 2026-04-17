@@ -11,6 +11,7 @@ import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import { Toggle } from '../../components/Toggle';
+import { SelectDropdown } from '../../components/FormField';
 import {
   Building2,
   FileText,
@@ -18,6 +19,7 @@ import {
   Layers,
   Loader2,
   Check,
+  Save,
   Trash2,
   Plus,
   Eye,
@@ -177,18 +179,13 @@ function IntegrationBadge({ status }: { status: NfeIntegrationStatus }) {
 export default function FiscalSettingsPanel() {
   // ── Company config ─────────────────────────────────────────────────────────
   const [config, setConfig] = useState<CompanyFiscalConfig>(EMPTY_CONFIG);
+  const [origConfig, setOrigConfig] = useState<CompanyFiscalConfig>(EMPTY_CONFIG);
   const [configId, setConfigId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Section save states (each SettingsCard has its own)
-  const [emitenteSaving, setEmitenteSaving] = useState(false);
-  const [emitenteSaved, setEmitenteSaved] = useState(false);
-
-  const [emissaoSaving, setEmissaoSaving] = useState(false);
-  const [emissaoSaved, setEmissaoSaved] = useState(false);
-
-  const [integSaving, setIntegSaving] = useState(false);
-  const [integSaved, setIntegSaved] = useState(false);
+  // Single floating save state
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   // API token UI state — never send the real token back after it's been saved
   const [showToken, setShowToken] = useState(false);
@@ -218,7 +215,7 @@ export default function FiscalSettingsPanel() {
     if (cfgRes.data) {
       const row = cfgRes.data as CompanyFiscalConfig & { id: string };
       setConfigId(row.id);
-      setConfig({
+      const loaded: CompanyFiscalConfig = {
         razao_social: row.razao_social ?? '',
         nome_fantasia: row.nome_fantasia ?? '',
         cnpj: row.cnpj ?? '',
@@ -245,7 +242,9 @@ export default function FiscalSettingsPanel() {
         nfe_api_token: '',
         nfe_webhook_url: row.nfe_webhook_url ?? '',
         nfe_integration_status: row.nfe_integration_status ?? 'none',
-      });
+      };
+      setConfig(loaded);
+      setOrigConfig(loaded);
     }
 
     setProfiles((profRes.data ?? []) as FiscalProfile[]);
@@ -272,36 +271,19 @@ export default function FiscalSettingsPanel() {
     }
   }
 
-  // ── Save: Emitente ─────────────────────────────────────────────────────────
+  // ── hasChanges ────────────────────────────────────────────────────────────
 
-  async function saveEmitente() {
-    setEmitenteSaving(true);
-    await persistConfig({
+  const hasChanges = JSON.stringify(config) !== JSON.stringify(origConfig) || tokenDirty;
+
+  // ── Save: all sections ────────────────────────────────────────────────────
+
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    const partial: Partial<CompanyFiscalConfig> = {
       razao_social: config.razao_social,
-      nome_fantasia: config.nome_fantasia,
-      cnpj: config.cnpj,
       ie: config.ie,
-      im: config.im,
-      logradouro: config.logradouro,
-      numero: config.numero,
-      complemento: config.complemento,
-      bairro: config.bairro,
-      cep: config.cep,
-      municipio: config.municipio,
-      uf: config.uf,
       regime_tributario: config.regime_tributario,
-    });
-    logAudit({ action: 'update', module: 'settings', description: 'Dados do emitente fiscal atualizados' });
-    setEmitenteSaving(false);
-    setEmitenteSaved(true);
-    setTimeout(() => setEmitenteSaved(false), 900);
-  }
-
-  // ── Save: Emissão ──────────────────────────────────────────────────────────
-
-  async function saveEmissao() {
-    setEmissaoSaving(true);
-    await persistConfig({
       ambiente: config.ambiente,
       serie_nfe: config.serie_nfe,
       proximo_numero_nfe: config.proximo_numero_nfe,
@@ -310,33 +292,21 @@ export default function FiscalSettingsPanel() {
       cfop_devolucao: config.cfop_devolucao,
       aliq_pis_padrao: config.aliq_pis_padrao,
       aliq_cofins_padrao: config.aliq_cofins_padrao,
-    });
-    logAudit({ action: 'update', module: 'settings', description: 'Configurações de emissão NF-e atualizadas' });
-    setEmissaoSaving(false);
-    setEmissaoSaved(true);
-    setTimeout(() => setEmissaoSaved(false), 900);
-  }
-
-  // ── Save: Integração ───────────────────────────────────────────────────────
-
-  async function saveIntegracao() {
-    setIntegSaving(true);
-    const partial: Partial<CompanyFiscalConfig> = {
       nfe_provider: config.nfe_provider,
       nfe_webhook_url: config.nfe_webhook_url,
     };
-    // Only send token if the user actually typed a new one
     if (tokenDirty && tokenInput.trim() !== '') {
       partial.nfe_api_token = tokenInput.trim();
     }
     await persistConfig(partial);
-    logAudit({ action: 'update', module: 'settings', description: 'Integração com emissor externo NF-e atualizada' });
+    logAudit({ action: 'update', module: 'settings', description: 'Configurações fiscais (NF-e) atualizadas' });
     setTokenDirty(false);
     setTokenInput('');
     setShowToken(false);
-    setIntegSaving(false);
-    setIntegSaved(true);
-    setTimeout(() => setIntegSaved(false), 900);
+    setOrigConfig({ ...config });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 900);
   }
 
   // ── Fiscal Profiles CRUD ───────────────────────────────────────────────────
@@ -421,48 +391,41 @@ export default function FiscalSettingsPanel() {
       {/* ── 1. Dados do Emitente ── */}
       <SettingsCard
         title="Dados do Emitente"
-        description="Razão social, CNPJ, endereço e regime tributário da empresa emissora de NF-e"
+        description="Informações fiscais específicas da empresa emissora de NF-e"
         icon={Building2}
         collapseId="fiscal.emitente"
       >
         <div className="space-y-4">
 
-          {/* Razão Social + Nome Fantasia */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL}>Razão Social</label>
-              <input
-                type="text"
-                value={config.razao_social}
-                onChange={(e) => setField('razao_social', e.target.value)}
-                placeholder="Razão Social Ltda"
-                className={INPUT}
-              />
-            </div>
-            <div>
-              <label className={LABEL}>Nome Fantasia</label>
-              <input
-                type="text"
-                value={config.nome_fantasia}
-                onChange={(e) => setField('nome_fantasia', e.target.value)}
-                placeholder="Nome Fantasia"
-                className={INPUT}
-              />
-            </div>
+          {/* Info banner */}
+          <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 text-sm text-blue-700 dark:text-blue-300">
+            <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+            </svg>
+            <span>
+              CNPJ, nome fantasia, endereço e demais dados cadastrais são gerenciados em{' '}
+              <a href="/admin/configuracoes?tab=institutional" className="font-semibold underline hover:opacity-80">
+                Configurações › Institucional
+              </a>
+              .
+            </span>
           </div>
 
-          {/* CNPJ + IE + IM */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className={LABEL}>CNPJ</label>
-              <input
-                type="text"
-                value={config.cnpj}
-                onChange={(e) => setField('cnpj', e.target.value)}
-                placeholder="00.000.000/0001-00"
-                className={INPUT}
-              />
-            </div>
+          {/* Razão Social */}
+          <div>
+            <label className={LABEL}>Razão Social</label>
+            <input
+              type="text"
+              value={config.razao_social}
+              onChange={(e) => setField('razao_social', e.target.value)}
+              placeholder="Razão Social Ltda"
+              className={INPUT}
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Nome jurídico exato conforme registro — pode diferir do nome fantasia.</p>
+          </div>
+
+          {/* IE + Regime Tributário */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={LABEL}>Inscrição Estadual (IE)</label>
               <input
@@ -473,131 +436,17 @@ export default function FiscalSettingsPanel() {
                 className={INPUT}
               />
             </div>
-            <div>
-              <label className={LABEL}>Inscrição Municipal (IM)</label>
-              <input
-                type="text"
-                value={config.im}
-                onChange={(e) => setField('im', e.target.value)}
-                placeholder="000000"
-                className={INPUT}
-              />
-            </div>
-          </div>
-
-          {/* Logradouro + Número + Complemento */}
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-4">
-            <div>
-              <label className={LABEL}>Logradouro</label>
-              <input
-                type="text"
-                value={config.logradouro}
-                onChange={(e) => setField('logradouro', e.target.value)}
-                placeholder="Rua, Av., etc."
-                className={INPUT}
-              />
-            </div>
-            <div className="sm:w-24">
-              <label className={LABEL}>Número</label>
-              <input
-                type="text"
-                value={config.numero}
-                onChange={(e) => setField('numero', e.target.value)}
-                placeholder="100"
-                className={INPUT}
-              />
-            </div>
-            <div className="sm:w-36">
-              <label className={LABEL}>Complemento</label>
-              <input
-                type="text"
-                value={config.complemento}
-                onChange={(e) => setField('complemento', e.target.value)}
-                placeholder="Sala 1"
-                className={INPUT}
-              />
-            </div>
-          </div>
-
-          {/* Bairro + CEP + UF + Município */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div>
-              <label className={LABEL}>Bairro</label>
-              <input
-                type="text"
-                value={config.bairro}
-                onChange={(e) => setField('bairro', e.target.value)}
-                placeholder="Centro"
-                className={INPUT}
-              />
-            </div>
-            <div>
-              <label className={LABEL}>CEP</label>
-              <input
-                type="text"
-                value={config.cep}
-                onChange={(e) => setField('cep', e.target.value)}
-                placeholder="55000-000"
-                className={INPUT}
-              />
-            </div>
-            <div>
-              <label className={LABEL}>UF</label>
-              <input
-                type="text"
-                maxLength={2}
-                value={config.uf}
-                onChange={(e) => setField('uf', e.target.value.toUpperCase())}
-                placeholder="PE"
-                className={INPUT}
-              />
-            </div>
-            <div>
-              <label className={LABEL}>Município</label>
-              <input
-                type="text"
-                value={config.municipio}
-                onChange={(e) => setField('municipio', e.target.value)}
-                placeholder="Caruaru"
-                className={INPUT}
-              />
-            </div>
-          </div>
-
-          {/* Regime Tributário */}
-          <div className="sm:max-w-xs">
-            <label className={LABEL}>Regime Tributário</label>
-            <select
+            <SelectDropdown
+              label="Regime Tributário"
               value={config.regime_tributario}
               onChange={(e) => setField('regime_tributario', e.target.value as RegimeTributario)}
-              className={INPUT}
             >
               <option value="simples_nacional">Simples Nacional</option>
               <option value="lucro_presumido">Lucro Presumido</option>
               <option value="lucro_real">Lucro Real</option>
-            </select>
+            </SelectDropdown>
           </div>
 
-          {/* Save */}
-          <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-gray-700">
-            <button
-              onClick={saveEmitente}
-              disabled={emitenteSaving}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                emitenteSaved
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
-              }`}
-            >
-              {emitenteSaving ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
-              ) : emitenteSaved ? (
-                <><Check className="w-4 h-4" /> Salvo!</>
-              ) : (
-                <><Building2 className="w-4 h-4" /> Salvar emitente</>
-              )}
-            </button>
-          </div>
         </div>
       </SettingsCard>
 
@@ -612,17 +461,14 @@ export default function FiscalSettingsPanel() {
 
           {/* Ambiente + Série + Próximo número */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className={LABEL}>Ambiente</label>
-              <select
-                value={config.ambiente}
-                onChange={(e) => setField('ambiente', e.target.value as Ambiente)}
-                className={INPUT}
-              >
-                <option value="homologacao">Homologação</option>
-                <option value="producao">Produção</option>
-              </select>
-            </div>
+            <SelectDropdown
+              label="Ambiente"
+              value={config.ambiente}
+              onChange={(e) => setField('ambiente', e.target.value as Ambiente)}
+            >
+              <option value="homologacao">Homologação</option>
+              <option value="producao">Produção</option>
+            </SelectDropdown>
             <div>
               <label className={LABEL}>Série NF-e</label>
               <input
@@ -705,26 +551,6 @@ export default function FiscalSettingsPanel() {
             </div>
           </div>
 
-          {/* Save */}
-          <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-gray-700">
-            <button
-              onClick={saveEmissao}
-              disabled={emissaoSaving}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                emissaoSaved
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
-              }`}
-            >
-              {emissaoSaving ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
-              ) : emissaoSaved ? (
-                <><Check className="w-4 h-4" /> Salvo!</>
-              ) : (
-                <><FileText className="w-4 h-4" /> Salvar emissão</>
-              )}
-            </button>
-          </div>
         </div>
       </SettingsCard>
 
@@ -747,18 +573,17 @@ export default function FiscalSettingsPanel() {
 
           {/* Provider */}
           <div className="sm:max-w-xs">
-            <label className={LABEL}>Provedor NF-e</label>
-            <select
+            <SelectDropdown
+              label="Provedor NF-e"
               value={config.nfe_provider}
               onChange={(e) => setField('nfe_provider', e.target.value as NfeProvider)}
-              className={INPUT}
             >
               <option value="">— Não configurado —</option>
               <option value="focus">Focus NF-e</option>
               <option value="enotas">eNotas</option>
               <option value="nuvem_fiscal">Nuvem Fiscal</option>
               <option value="outro">Outro</option>
-            </select>
+            </SelectDropdown>
           </div>
 
           {/* API Token */}
@@ -805,26 +630,6 @@ export default function FiscalSettingsPanel() {
             <IntegrationBadge status={config.nfe_integration_status} />
           </div>
 
-          {/* Save */}
-          <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-gray-700">
-            <button
-              onClick={saveIntegracao}
-              disabled={integSaving}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                integSaved
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
-              }`}
-            >
-              {integSaving ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
-              ) : integSaved ? (
-                <><Check className="w-4 h-4" /> Salvo!</>
-              ) : (
-                <><Plug className="w-4 h-4" /> Salvar integração</>
-              )}
-            </button>
-          </div>
         </div>
       </SettingsCard>
 
@@ -1017,11 +822,10 @@ export default function FiscalSettingsPanel() {
                 </div>
               </div>
               <div className="sm:max-w-[200px]">
-                <label className={LABEL}>Origem da Mercadoria</label>
-                <select
+                <SelectDropdown
+                  label="Origem da Mercadoria"
                   value={editingProfile.origem ?? 0}
                   onChange={(e) => setProfileField('origem', Number(e.target.value))}
-                  className={INPUT}
                 >
                   <option value={0}>0 — Nacional</option>
                   <option value={1}>1 — Estrangeira (importação direta)</option>
@@ -1032,7 +836,7 @@ export default function FiscalSettingsPanel() {
                   <option value={6}>6 — Estrangeira (importação direta, sem similar)</option>
                   <option value={7}>7 — Estrangeira (adquirida internamente, sem similar)</option>
                   <option value={8}>8 — Nacional, conteúdo de importação &gt; 70%</option>
-                </select>
+                </SelectDropdown>
               </div>
             </DrawerCard>
 
@@ -1061,17 +865,16 @@ export default function FiscalSettingsPanel() {
                 </div>
               </div>
               <div className="sm:max-w-[220px]">
-                <label className={LABEL}>Modalidade Base de Cálculo</label>
-                <select
+                <SelectDropdown
+                  label="Modalidade Base de Cálculo"
                   value={editingProfile.mod_bc_icms ?? 0}
                   onChange={(e) => setProfileField('mod_bc_icms', Number(e.target.value))}
-                  className={INPUT}
                 >
                   <option value={0}>0 — Margem de Valor Agregado</option>
                   <option value={1}>1 — Pauta (Valor)</option>
                   <option value={2}>2 — Preço Tabelado</option>
                   <option value={3}>3 — Valor da Operação</option>
-                </select>
+                </SelectDropdown>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
@@ -1209,6 +1012,24 @@ export default function FiscalSettingsPanel() {
           </>
         )}
       </Drawer>
+
+      {/* ── Floating Save ── */}
+      <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
+        hasChanges || saving || saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
+      }`}>
+        <button
+          onClick={handleSave}
+          disabled={!hasChanges || saving}
+          className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
+            saved
+              ? 'bg-emerald-500 text-white shadow-emerald-500/25'
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
+          }`}
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
+        </button>
+      </div>
     </div>
   );
 }

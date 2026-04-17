@@ -18,6 +18,7 @@ import type {
   HealthRecordUpdateRequest,
   HealthUpdateRequestStatus,
   MedicationEntry,
+  EmergencyContact,
   BloodType,
   ReenrollmentCampaign,
   ReenrollmentCampaignStatus,
@@ -449,7 +450,7 @@ function SecretariaDeclaracoesTab() {
         </div>
         <button onClick={() => setTemplateDrawer({ open: true, editing: null })}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors">
-          <FileText className="w-4 h-4" /> + Novo Template
+          <FileText className="w-4 h-4" /> Novo Template
         </button>
       </div>
 
@@ -570,9 +571,7 @@ function HealthDrawer({
   const [allergyNotes, setAllergyNotes] = useState('');
   const [usesMedication, setUsesMedication] = useState(false);
   const [medications, setMedications] = useState<MedicationEntry[]>([]);
-  const [emergencyName, setEmergencyName] = useState('');
-  const [emergencyPhone, setEmergencyPhone] = useState('');
-  const [emergencyRel, setEmergencyRel] = useState('');
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([{ name: '', phone: '', rel: '' }]);
   const [authorizedPhoto, setAuthorizedPhoto] = useState(false);
   const [authorizedFirstAid, setAuthorizedFirstAid] = useState(false);
   const [authorizedEvacuation, setAuthorizedEvacuation] = useState(false);
@@ -589,9 +588,15 @@ function HealthDrawer({
         setAllergyNotes(record.allergy_notes ?? '');
         setUsesMedication(record.uses_medication);
         setMedications(record.medications ?? []);
-        setEmergencyName(record.emergency_contact_name ?? '');
-        setEmergencyPhone(record.emergency_contact_phone ?? '');
-        setEmergencyRel(record.emergency_contact_rel ?? '');
+        if (record.emergency_contacts && record.emergency_contacts.length > 0) {
+          setEmergencyContacts(record.emergency_contacts);
+        } else {
+          setEmergencyContacts([{
+            name:  record.emergency_contact_name  ?? '',
+            phone: record.emergency_contact_phone ?? '',
+            rel:   record.emergency_contact_rel   ?? '',
+          }]);
+        }
         setAuthorizedPhoto(record.authorized_photo);
         setAuthorizedFirstAid(record.authorized_first_aid);
         setAuthorizedEvacuation(record.authorized_evacuation);
@@ -605,9 +610,7 @@ function HealthDrawer({
         setAllergyNotes('');
         setUsesMedication(false);
         setMedications([]);
-        setEmergencyName('');
-        setEmergencyPhone('');
-        setEmergencyRel('');
+        setEmergencyContacts([{ name: '', phone: '', rel: '' }]);
         setAuthorizedPhoto(false);
         setAuthorizedFirstAid(false);
         setAuthorizedEvacuation(false);
@@ -629,6 +632,16 @@ function HealthDrawer({
     setMedications((prev) => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
   }
 
+  function addEmergencyContact() {
+    setEmergencyContacts((prev) => [...prev, { name: '', phone: '', rel: '' }]);
+  }
+  function removeEmergencyContact(idx: number) {
+    setEmergencyContacts((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function updateEmergencyContact(idx: number, field: keyof EmergencyContact, value: string) {
+    setEmergencyContacts((prev) => prev.map((c, i) => i === idx ? { ...c, [field]: value } : c));
+  }
+
   async function handleSave() {
     const studentId = record?.student_id ?? selectedStudentId;
     if (!studentId) { setError('Selecione um aluno'); return; }
@@ -644,9 +657,11 @@ function HealthDrawer({
         allergy_notes: hasAllergies ? allergyNotes.trim() || null : null,
         uses_medication: usesMedication,
         medications: usesMedication ? medications : null,
-        emergency_contact_name: emergencyName.trim() || null,
-        emergency_contact_phone: emergencyPhone.trim() || null,
-        emergency_contact_rel: emergencyRel.trim() || null,
+        // Guarda array completo + mantém campos legados com o primeiro contato
+        emergency_contacts: emergencyContacts.filter(c => c.name || c.phone),
+        emergency_contact_name:  emergencyContacts[0]?.name.trim()  || null,
+        emergency_contact_phone: emergencyContacts[0]?.phone.trim() || null,
+        emergency_contact_rel:   emergencyContacts[0]?.rel.trim()   || null,
         authorized_photo: authorizedPhoto,
         authorized_first_aid: authorizedFirstAid,
         authorized_evacuation: authorizedEvacuation,
@@ -824,26 +839,72 @@ function HealthDrawer({
 
       <DrawerCard title="Contato de Emergência e Autorizações" icon={ShieldCheck}>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Nome do Contato</label>
-              <input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
-                placeholder="Nome completo" />
+
+          {/* Lista de contatos de emergência */}
+          {emergencyContacts.map((contact, idx) => (
+            <div key={idx} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 overflow-hidden">
+              {/* Header do contato */}
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-brand-primary/10 text-brand-primary text-[10px] font-bold flex-shrink-0">
+                  {idx + 1}
+                </span>
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 flex-1">
+                  {idx === 0 ? 'Contato Principal' : `Contato ${idx + 1}`}
+                </span>
+                {emergencyContacts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeEmergencyContact(idx)}
+                    className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    title="Remover contato"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              {/* Campos */}
+              <div className="p-3 grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Nome do Contato</label>
+                  <input
+                    value={contact.name}
+                    onChange={(e) => updateEmergencyContact(idx, 'name', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                    placeholder="Nome completo"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Telefone</label>
+                  <input
+                    value={contact.phone}
+                    onChange={(e) => updateEmergencyContact(idx, 'phone', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                    placeholder="(81) 99999-9999"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Parentesco</label>
+                  <input
+                    value={contact.rel}
+                    onChange={(e) => updateEmergencyContact(idx, 'rel', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                    placeholder="Mãe, Pai, Avó…"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Telefone</label>
-              <input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
-                placeholder="(81) 99999-9999" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Parentesco</label>
-              <input value={emergencyRel} onChange={(e) => setEmergencyRel(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
-                placeholder="Mãe, Pai, Avó…" />
-            </div>
-          </div>
+          ))}
+
+          {/* Botão adicionar */}
+          <button
+            type="button"
+            onClick={addEmergencyContact}
+            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-primary border border-dashed border-gray-300 dark:border-gray-600 hover:border-brand-primary/40 rounded-xl px-3 py-2 transition-colors w-full justify-center"
+          >
+            <Plus className="w-4 h-4" />
+            Adicionar contato de emergência
+          </button>
+
           <div className="space-y-2 pt-1">
             {(
               [
@@ -938,6 +999,11 @@ function SecretariaFichasSaudeTab() {
   const [sortAZ, setSortAZ] = useState(false);
   const [segments, setSegments] = useState<{ id: string; name: string }[]>([]);
   const [classes, setClasses] = useState<{ id: string; name: string; segment_id: string }[]>([]);
+
+  // Filtros para sub-aba Atestados
+  const [certSearch, setCertSearch] = useState('');
+  const [certStatusFilter, setCertStatusFilter] = useState<'all' | 'valid' | 'expiring_soon' | 'expired'>('all');
+  const [certSortAZ, setCertSortAZ] = useState(false);
 
   // New state for expanded sections
   const [activeSubTab, setActiveSubTab] = useState<'fichas' | 'atestados' | 'pendentes'>('fichas');
@@ -1045,6 +1111,21 @@ function SecretariaFichasSaudeTab() {
     .sort((a, b) => {
       if (!sortAZ) return 0;
       return (a.student?.full_name ?? '').localeCompare(b.student?.full_name ?? '', 'pt-BR');
+    });
+
+  const filteredCerts = certs
+    .filter((c) => {
+      const name = (c as unknown as { student?: { full_name?: string } }).student?.full_name?.toLowerCase() ?? '';
+      const doctor = c.doctor_name?.toLowerCase() ?? '';
+      if (certSearch && !name.includes(certSearch.toLowerCase()) && !doctor.includes(certSearch.toLowerCase())) return false;
+      if (certStatusFilter !== 'all' && certStatus(c.valid_until) !== certStatusFilter) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (!certSortAZ) return 0;
+      const na = (a as unknown as { student?: { full_name?: string } }).student?.full_name ?? '';
+      const nb = (b as unknown as { student?: { full_name?: string } }).student?.full_name ?? '';
+      return na.localeCompare(nb, 'pt-BR');
     });
 
   const kpi = {
@@ -1187,7 +1268,7 @@ function SecretariaFichasSaudeTab() {
             {/* Nova Ficha */}
             <button onClick={() => { setSelectedRecord(null); setDrawerOpen(true); }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors whitespace-nowrap">
-              <Heart className="w-4 h-4" /> + Nova Ficha
+              <Heart className="w-4 h-4" /> Nova Ficha
             </button>
           </div>
 
@@ -1239,12 +1320,58 @@ function SecretariaFichasSaudeTab() {
 
       {/* Sub-tab: Atestados */}
       {activeSubTab === 'atestados' && (
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {/* Barra de filtros */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 flex flex-wrap gap-2 items-center">
+            {/* Busca */}
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                value={certSearch}
+                onChange={(e) => setCertSearch(e.target.value)}
+                placeholder="Buscar por aluno ou médico…"
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+              />
+            </div>
+            {/* Status */}
+            <div className="relative">
+              <select
+                value={certStatusFilter}
+                onChange={(e) => setCertStatusFilter(e.target.value as typeof certStatusFilter)}
+                className="pl-3 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none"
+              >
+                <option value="all">Todos os status</option>
+                <option value="valid">Válidos</option>
+                <option value="expiring_soon">Vence em breve</option>
+                <option value="expired">Vencidos</option>
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+            {/* A-Z */}
+            <button
+              onClick={() => setCertSortAZ((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-colors ${
+                certSortAZ
+                  ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary dark:text-brand-secondary'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:border-brand-primary/30 hover:text-brand-primary'
+              }`}
+            >
+              A–Z
+            </button>
+            {/* Contagem */}
+            <span className="text-xs text-gray-400 ml-auto whitespace-nowrap">
+              {filteredCerts.length} {filteredCerts.length === 1 ? 'atestado' : 'atestados'}
+            </span>
+          </div>
+
+          {/* Lista */}
           {loading ? (
             <p className="text-sm text-gray-400 text-center py-8">Carregando…</p>
-          ) : certs.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">Nenhum atestado registrado.</p>
-          ) : certs.map((cert) => {
+          ) : filteredCerts.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">
+              {certs.length === 0 ? 'Nenhum atestado registrado.' : 'Nenhum atestado encontrado para os filtros aplicados.'}
+            </p>
+          ) : filteredCerts.map((cert) => {
             const status = certStatus(cert.valid_until);
             const statusColors: Record<string, string> = {
               valid: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -1685,7 +1812,7 @@ function SecretariaRematriculaTab() {
           <div className="flex justify-end">
             <button onClick={() => { setEditingCampaign(null); setCampaignDrawerOpen(true); }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors">
-              <RefreshCw className="w-4 h-4" /> + Nova Campanha
+              <RefreshCw className="w-4 h-4" /> Nova Campanha
             </button>
           </div>
           <div className="overflow-x-auto rounded-2xl border border-gray-100 dark:border-gray-700">
@@ -2068,8 +2195,10 @@ const TRANSFER_STATUS_COLOR: Record<StudentTransferStatus, string> = {
 function SecretariaTransferenciasTab() {
   const [transfers, setTransfers] = useState<TransferWithJoins[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<StudentTransferType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<StudentTransferStatus | 'all'>('all');
+  const [sortAZ, setSortAZ] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [studentOptions, setStudentOptions] = useState<StudentSimple[]>([]);
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
@@ -2103,11 +2232,18 @@ function SecretariaTransferenciasTab() {
 
   useEffect(() => { fetchTransfers(); fetchOptions(); }, [fetchTransfers, fetchOptions]);
 
-  const filtered = transfers.filter((t) => {
-    const typeMatch = typeFilter === 'all' || t.type === typeFilter;
-    const statusMatch = statusFilter === 'all' || t.status === statusFilter;
-    return typeMatch && statusMatch;
-  });
+  const filtered = transfers
+    .filter((t) => {
+      const name = t.student?.full_name?.toLowerCase() ?? '';
+      if (searchQuery && !name.includes(searchQuery.toLowerCase())) return false;
+      if (typeFilter !== 'all' && t.type !== typeFilter) return false;
+      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (!sortAZ) return 0;
+      return (a.student?.full_name ?? '').localeCompare(b.student?.full_name ?? '', 'pt-BR');
+    });
 
   const kpi = {
     total: transfers.length,
@@ -2128,32 +2264,58 @@ function SecretariaTransferenciasTab() {
         <KpiCard label="Cancelamentos / Trancamentos" value={kpi.cancellations} />
       </div>
 
-      <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex gap-2 flex-wrap">
-          <div className="relative">
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as StudentTransferType | 'all')}
-              className="pl-3 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none">
-              <option value="all">Todos os tipos</option>
-              {(Object.keys(STUDENT_TRANSFER_TYPE_LABELS) as StudentTransferType[]).map((t) => (
-                <option key={t} value={t}>{STUDENT_TRANSFER_TYPE_LABELS[t]}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-          <div className="relative">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StudentTransferStatus | 'all')}
-              className="pl-3 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none">
-              <option value="all">Todos os status</option>
-              {(Object.keys(STUDENT_TRANSFER_STATUS_LABELS) as StudentTransferStatus[]).map((s) => (
-                <option key={s} value={s}>{STUDENT_TRANSFER_STATUS_LABELS[s]}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 flex flex-wrap gap-2 items-center">
+        {/* Busca */}
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por aluno…"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+          />
         </div>
+        {/* Tipo */}
+        <div className="relative">
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as StudentTransferType | 'all')}
+            className="pl-3 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none">
+            <option value="all">Todos os tipos</option>
+            {(Object.keys(STUDENT_TRANSFER_TYPE_LABELS) as StudentTransferType[]).map((t) => (
+              <option key={t} value={t}>{STUDENT_TRANSFER_TYPE_LABELS[t]}</option>
+            ))}
+          </select>
+          <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+        {/* Status */}
+        <div className="relative">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StudentTransferStatus | 'all')}
+            className="pl-3 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none">
+            <option value="all">Todos os status</option>
+            {(Object.keys(STUDENT_TRANSFER_STATUS_LABELS) as StudentTransferStatus[]).map((s) => (
+              <option key={s} value={s}>{STUDENT_TRANSFER_STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+          <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+        {/* A-Z */}
+        <button
+          onClick={() => setSortAZ((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-colors ${
+            sortAZ
+              ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary dark:text-brand-secondary'
+              : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:border-brand-primary/30 hover:text-brand-primary'
+          }`}
+        >
+          A–Z
+        </button>
+        {/* Contagem */}
+        <span className="text-xs text-gray-400 whitespace-nowrap">
+          {filtered.length} {filtered.length === 1 ? 'registro' : 'registros'}
+        </span>
+        {/* Nova movimentação */}
         <button onClick={() => setDrawerOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors">
-          <ArrowRightLeft className="w-4 h-4" /> + Nova Movimentação
+          className="ml-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors">
+          <ArrowRightLeft className="w-4 h-4" /> Nova Movimentação
         </button>
       </div>
 

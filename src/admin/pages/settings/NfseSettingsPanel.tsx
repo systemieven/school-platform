@@ -9,9 +9,10 @@ import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
+import { SelectDropdown } from '../../components/FormField';
 import {
   Building2, FileText, DollarSign, Plug, Activity,
-  Loader2, Check, Eye, EyeOff, Zap,
+  Loader2, Check, Save, Eye, EyeOff, Zap,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -125,6 +126,7 @@ const INPUT_CLS = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:bor
 
 export default function NfseSettingsPanel() {
   const [form, setForm] = useState<NfseConfig>(EMPTY);
+  const [origForm, setOrigForm] = useState<NfseConfig>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
@@ -145,7 +147,9 @@ export default function NfseSettingsPanel() {
       .from('company_nfse_config')
       .select('*')
       .maybeSingle();
-    setForm(data ? (data as unknown as NfseConfig) : EMPTY);
+    const loaded = data ? (data as unknown as NfseConfig) : EMPTY;
+    setForm(loaded);
+    setOrigForm(loaded);
     setLoading(false);
   }, []);
 
@@ -156,6 +160,10 @@ export default function NfseSettingsPanel() {
   function set<K extends keyof NfseConfig>(key: K, value: NfseConfig[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  // ── hasChanges ────────────────────────────────────────────────────────────
+
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(origForm);
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
@@ -197,9 +205,10 @@ export default function NfseSettingsPanel() {
       description: 'Configurações NFS-e salvas',
     });
 
+    setOrigForm({ ...form });
     setSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
-    savedTimer.current = setTimeout(() => setSaved(false), 2000);
+    savedTimer.current = setTimeout(() => setSaved(false), 900);
   }
 
   // ── Test connection ───────────────────────────────────────────────────────
@@ -240,7 +249,7 @@ export default function NfseSettingsPanel() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="p-6 space-y-4">
       {/* ── 1. Emitente NFS-e ────────────────────────────────────────────── */}
       <SettingsCard
         title="Emitente NFS-e"
@@ -297,17 +306,14 @@ export default function NfseSettingsPanel() {
         collapseId="nfse.emissao"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={LABEL_CLS}>Ambiente</label>
-            <select
-              value={form.ambiente}
-              onChange={(e) => set('ambiente', e.target.value as Ambiente)}
-              className={INPUT_CLS}
-            >
-              <option value="homologacao">Homologação (testes)</option>
-              <option value="producao">Produção</option>
-            </select>
-          </div>
+          <SelectDropdown
+            label="Ambiente"
+            value={form.ambiente}
+            onChange={(e) => set('ambiente', e.target.value as Ambiente)}
+          >
+            <option value="homologacao">Homologação (testes)</option>
+            <option value="producao">Produção</option>
+          </SelectDropdown>
           <div>
             <label className={LABEL_CLS}>Série</label>
             <input
@@ -391,11 +397,10 @@ export default function NfseSettingsPanel() {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
-            <label className={LABEL_CLS}>Provider</label>
-            <select
+            <SelectDropdown
+              label="Provider"
               value={form.provider}
               onChange={(e) => set('provider', e.target.value as Provider)}
-              className={INPUT_CLS}
             >
               <option value="">Selecionar provider…</option>
               <option value="focus">Focus NFe</option>
@@ -403,7 +408,7 @@ export default function NfseSettingsPanel() {
               <option value="nuvem_fiscal">Nuvem Fiscal</option>
               <option value="nfse_io">NFS-e.io</option>
               <option value="outro">Outro</option>
-            </select>
+            </SelectDropdown>
           </div>
 
           <div className="sm:col-span-2">
@@ -507,24 +512,21 @@ export default function NfseSettingsPanel() {
         )}
       </SettingsCard>
 
-      {/* ── Save button ──────────────────────────────────────────────────── */}
-      <div className="flex justify-end pt-2">
+      {/* ── Floating Save ────────────────────────────────────────────────── */}
+      <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
+        hasChanges || saving || saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
+      }`}>
         <button
           onClick={handleSave}
-          disabled={saving}
-          className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all ${
+          disabled={!hasChanges || saving}
+          className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
             saved
-              ? 'bg-emerald-500 text-white'
-              : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
+              ? 'bg-emerald-500 text-white shadow-emerald-500/25'
+              : 'bg-brand-primary text-white hover:bg-brand-primary-dark shadow-brand-primary/25 disabled:opacity-50'
           }`}
         >
-          {saving ? (
-            <><Loader2 className="w-4 h-4 animate-spin" />Salvando…</>
-          ) : saved ? (
-            <><Check className="w-4 h-4" />Salvo!</>
-          ) : (
-            <><FileText className="w-4 h-4" />Salvar Configurações</>
-          )}
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar'}
         </button>
       </div>
     </div>

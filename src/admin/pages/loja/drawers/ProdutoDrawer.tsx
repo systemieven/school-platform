@@ -2,12 +2,41 @@ import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Check, Trash2, ShoppingBag, Plus, X, Receipt } from 'lucide-react';
 import { SelectDropdown } from '../../../components/FormField';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
-import { SelectDropdown } from '../../../components/FormField';
 import { Toggle } from '../../../components/Toggle';
 import { supabase } from '../../../../lib/supabase';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
 import type { StoreProduct, StoreCategory, StoreProductStatus } from '../../../types/admin.types';
 import { PRODUCT_STATUS_LABELS } from '../../../types/admin.types';
+
+// ── Helpers de hierarquia de categorias ──────────────────────────────────────
+
+interface CategoryNode extends Omit<StoreCategory, 'children'> {
+  children: CategoryNode[];
+}
+
+function buildCategoryTree(cats: StoreCategory[]): CategoryNode[] {
+  const map = new Map<string, CategoryNode>();
+  cats.forEach((c) => map.set(c.id, { ...c, children: [] }));
+  const roots: CategoryNode[] = [];
+  map.forEach((node) => {
+    if (node.parent_id && map.has(node.parent_id)) {
+      map.get(node.parent_id)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  roots.sort((a, b) => a.position - b.position);
+  return roots;
+}
+
+function flattenCategories(nodes: CategoryNode[], depth = 0): { depth: number; cat: StoreCategory }[] {
+  const result: { depth: number; cat: StoreCategory }[] = [];
+  for (const node of nodes) {
+    result.push({ depth, cat: node });
+    result.push(...flattenCategories(node.children, depth + 1));
+  }
+  return result;
+}
 
 interface Props {
   open: boolean;
@@ -350,6 +379,7 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
       onClose={onClose}
       title={product ? 'Editar Produto' : 'Novo Produto'}
       icon={ShoppingBag}
+      width="w-[640px]"
       footer={footer}
       headerExtra={
         <div className="flex items-center gap-3">
@@ -378,7 +408,11 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
           <div className="grid grid-cols-2 gap-3">
             <SelectDropdown label="Categoria" value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
               <option value="">Sem categoria</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {flattenCategories(buildCategoryTree(categories)).map(({ depth, cat }) => (
+                <option key={cat.id} value={cat.id}>
+                  {depth > 0 ? '\u00a0\u00a0'.repeat(depth) + '└ ' : ''}{cat.name}
+                </option>
+              ))}
             </SelectDropdown>
             <SelectDropdown label="Status" value={form.status} onChange={(e) => set('status', e.target.value as StoreProductStatus)}>
               {(Object.entries(PRODUCT_STATUS_LABELS) as [StoreProductStatus, string][]).map(([k, v]) => (
@@ -481,21 +515,28 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
       <DrawerCard title="Fiscal" icon={Receipt}>
         <div className="p-4 space-y-4">
           {/* Profile selector */}
-          {fiscalProfiles.length > 0 && (
-            <div>
-              <SelectDropdown
-                label="Perfil Fiscal (preenchimento automático)"
-                value={fiscal.fiscal_profile_id}
-                onChange={(e) => applyProfile(e.target.value)}
-              >
-                <option value="">— Selecionar perfil —</option>
-                {fiscalProfiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </SelectDropdown>
-              {fiscal.fiscal_profile_id && (
-                <p className="text-xs text-gray-400 mt-1">Campos preenchidos pelo perfil. Você pode sobrescrever individualmente.</p>
-              )}
-            </div>
-          )}
+          <div>
+            <SelectDropdown
+              label="Perfil Fiscal (preenchimento automático)"
+              value={fiscal.fiscal_profile_id}
+              onChange={(e) => applyProfile(e.target.value)}
+              disabled={fiscalProfiles.length === 0}
+            >
+              {fiscalProfiles.length === 0
+                ? <option value="">— Nenhum perfil cadastrado —</option>
+                : <>
+                    <option value="">— Selecionar perfil —</option>
+                    {fiscalProfiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </>
+              }
+            </SelectDropdown>
+            {fiscalProfiles.length === 0
+              ? <p className="text-xs text-amber-500 mt-1">Crie perfis fiscais em <strong>Configurações › Fiscal</strong> para usar o preenchimento automático.</p>
+              : fiscal.fiscal_profile_id
+                ? <p className="text-xs text-gray-400 mt-1">Campos preenchidos pelo perfil. Você pode sobrescrever individualmente.</p>
+                : null
+            }
+          </div>
 
           {/* Classificação Fiscal */}
           <div>

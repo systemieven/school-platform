@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { useNotifications } from '../hooks/useNotifications';
 import { useWhatsAppStatus } from '../contexts/WhatsAppStatusContext';
@@ -194,30 +194,151 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
 // ── Breadcrumb (uses useLocation for reactivity) ─────────────────────────────
 function Breadcrumb() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+
   const segments = location.pathname
-    .replace('/admin', '')
+    .replace(/^\/admin/, '')
     .split('/')
     .filter(Boolean);
 
-  const LABELS: Record<string, string> = {
-    agendamentos: 'Agendamentos',
-    matriculas:   'Pré-Matrículas',
-    contatos:     'Contatos',
-    usuarios:     'Usuários',
-    configuracoes:'Configurações',
+  // Nomes canônicos para cada segmento de rota
+  const PATH_LABELS: Record<string, string> = {
+    // Gestão
+    gestao:                   'Gestão',
+    'historico-atendimentos': 'Histórico de Atendimentos',
+    // Financeiro
+    financeiro:               'Financeiro',
+    // Acadêmico
+    academico:                'Acadêmico',
+    // Escola
+    alunos:                   'Alunos',
+    importar:                 'Importar',
+    responsaveis:             'Responsáveis',
+    ocorrencias:              'Ocorrências',
+    autorizacoes:             'Autorizações',
+    'autorizacoes-saida':     'Autorizações de Saída',
+    faltas:                   'Comunicação de Faltas',
+    portaria:                 'Portaria',
+    'achados-perdidos':       'Achados e Perdidos',
+    // Professor
+    'area-professor':         'Área do Professor',
+    diario:                   'Diário',
+    provas:                   'Provas',
+    // Biblioteca & Comunicação
+    biblioteca:               'Biblioteca Virtual',
+    comunicados:              'Comunicados',
+    eventos:                  'Eventos',
+    depoimentos:              'Depoimentos',
+    // Ferramentas
+    relatorios:               'Relatórios',
+    leads:                    'Leads',
+    kanban:                   'Kanban de Leads',
+    // Loja
+    loja:                     'Loja',
+    pdv:                      'PDV',
+    pedidos:                  'Pedidos',
+    // Secretaria
+    secretaria:               'Secretaria Digital',
+    // Sistema
+    configuracoes:            'Configurações',
+    // Legados / aliases
+    agendamentos:             'Agendamentos',
+    atendimentos:             'Atendimentos',
+    matriculas:               'Pré-Matrículas',
+    contatos:                 'Contatos',
+    usuarios:                 'Usuários',
+    segmentos:                'Segmentos',
   };
+
+  // Nomes de sub-abas para páginas com ?tab=
+  const SUB_TAB_LABELS: Record<string, Record<string, string>> = {
+    configuracoes: {
+      institutional: 'Institucional',
+      academico:     'Acadêmico',
+      visits:        'Agendamentos',
+      attendance:    'Atendimentos',
+      ferramentas:   'Ferramentas',
+      fiscal:        'Fiscal (NF-e)',
+      nfse:          'Fiscal (NFS-e)',
+      audit:         'Auditoria',
+      contact:       'Contatos',
+      financial:     'Financeiro',
+      enrollment:    'Matrícula',
+      notifications: 'Notificações',
+      permissions:   'Permissões',
+      security:      'Segurança',
+      site:          'Site',
+      users:         'Usuários',
+      whatsapp:      'WhatsApp',
+    },
+    gestao: {
+      agendamentos: 'Agendamentos',
+      atendimentos: 'Atendimentos',
+      contatos:     'Contatos',
+      matriculas:   'Matrícula',
+      historico:    'Histórico',
+    },
+    financeiro: {
+      dashboard:    'Visão Geral',
+      plans:        'Planos',
+      contracts:    'Contratos',
+      installments: 'Cobranças',
+      cash:         'Caixas',
+      receivables:  'A Receber',
+      payables:     'A Pagar',
+      reports:      'Relatórios',
+      discounts:    'Descontos',
+      scholarships: 'Bolsas',
+      templates:    'Templates',
+      fornecedores: 'Fornecedores',
+      nfse:         'NFS-e',
+    },
+    academico: {
+      dashboard:      'Dashboard',
+      alunos:         'Alunos',
+      segmentos:      'Segmentos',
+      disciplinas:    'Disciplinas',
+      'grade-horaria':'Grade Horária',
+      calendario:     'Calendário',
+      boletim:        'Boletim',
+      'resultado-final': 'Resultado Final',
+      alertas:        'Alertas de Frequência',
+      historico:      'Histórico Escolar',
+      'ano-letivo':   'Ano Letivo',
+      bncc:           'BNCC',
+    },
+  };
+
+  // Fallback: converte slug para título (ex: "area-professor" → "Area Professor")
+  function toTitle(slug: string) {
+    return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  const lastSegment = segments[segments.length - 1] ?? '';
+  const activeTab   = searchParams.get('tab');
+  const subLabel    = activeTab ? SUB_TAB_LABELS[lastSegment]?.[activeTab] : undefined;
 
   return (
     <nav className="flex items-center gap-2 text-sm">
       <span className="text-gray-400">Admin</span>
-      {segments.map((seg, i) => (
-        <span key={seg} className="flex items-center gap-2">
-          <span className="text-gray-300 dark:text-gray-600">/</span>
-          <span className={i === segments.length - 1 ? 'text-brand-primary dark:text-brand-secondary font-medium' : 'text-gray-400'}>
-            {LABELS[seg] || seg}
+      {segments.map((seg, i) => {
+        const isLast = i === segments.length - 1;
+        const label  = PATH_LABELS[seg] ?? toTitle(seg);
+        return (
+          <span key={`${seg}-${i}`} className="flex items-center gap-2">
+            <span className="text-gray-300 dark:text-gray-600">/</span>
+            <span className={isLast && !subLabel ? 'text-brand-primary dark:text-brand-secondary font-medium' : 'text-gray-400'}>
+              {label}
+            </span>
           </span>
+        );
+      })}
+      {subLabel && (
+        <span className="flex items-center gap-2">
+          <span className="text-gray-300 dark:text-gray-600">/</span>
+          <span className="text-brand-primary dark:text-brand-secondary font-medium">{subLabel}</span>
         </span>
-      ))}
+      )}
     </nav>
   );
 }

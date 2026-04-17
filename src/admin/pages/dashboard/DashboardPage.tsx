@@ -109,7 +109,7 @@ function BarChart({ items, title, emptyLabel, linkTo }: {
 }) {
   const max = Math.max(...items.map((i) => i.value), 1);
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display text-sm font-bold text-brand-primary dark:text-white">{title}</h3>
         <Link to={linkTo} className="text-xs text-brand-primary dark:text-brand-secondary hover:underline flex items-center gap-1">
@@ -146,7 +146,7 @@ function StatCard({ label, value, prev, icon: Icon, colorClass, iconBg, linkTo }
 }) {
   const change = pct(value, prev);
   return (
-    <Link to={linkTo} className="block bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow group">
+    <Link to={linkTo} className="block bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 group">
       <div className="flex items-center justify-between mb-3">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg}`}>
           <Icon className={`w-5 h-5 ${colorClass}`} />
@@ -176,7 +176,7 @@ function WaStatsWidget({ stats }: { stats: WaStats }) {
     { label: 'Falhas',     value: stats.failed,    icon: AlertCircle,  color: 'text-red-500',     bg: 'bg-red-50 dark:bg-red-900/20' },
   ];
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display text-sm font-bold text-brand-primary dark:text-white">Mensagens WhatsApp</h3>
         <Link to="/admin/configuracoes" className="text-xs text-brand-primary dark:text-brand-secondary hover:underline flex items-center gap-1">
@@ -208,7 +208,7 @@ function OverdueContactsWidget({ contacts }: { contacts: OverdueContact[] }) {
     return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
   }
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <h3 className="font-display text-sm font-bold text-brand-primary dark:text-white">Contatos pendentes</h3>
@@ -442,7 +442,7 @@ export default function DashboardPage() {
               icon={MessageSquare} colorClass="text-purple-600" iconBg="bg-purple-100 dark:bg-purple-900/30"
               linkTo="/admin/contatos"
             />
-            <Link to="/admin/agendamentos" className="block bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow group">
+            <Link to="/admin/agendamentos" className="block bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 group">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
                   <Clock className="w-5 h-5 text-amber-600" />
@@ -498,7 +498,7 @@ export default function DashboardPage() {
           {/* Upcoming appointments — full width */}
           <div className="mt-4">
             {/* Upcoming appointments */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display text-sm font-bold text-brand-primary dark:text-white">Próximas visitas (7 dias)</h3>
                 <Link to="/admin/agendamentos" className="text-xs text-brand-primary dark:text-brand-secondary hover:underline flex items-center gap-1">

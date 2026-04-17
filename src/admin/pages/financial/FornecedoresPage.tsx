@@ -17,6 +17,7 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import { SelectDropdown } from '../../components/FormField';
+import { Toggle } from '../../components/Toggle';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -711,7 +712,20 @@ export default function FornecedoresPage() {
                     {[{ value: 'juridica', label: 'Jurídica' }, { value: 'fisica', label: 'Física' }].map((opt) => (
                       <button
                         key={opt.value}
-                        onClick={() => setForm((f) => ({ ...f, tipo_pessoa: opt.value }))}
+                        onClick={() => setForm((f) => ({
+                          ...f,
+                          tipo_pessoa: opt.value,
+                          ...(opt.value === 'fisica' ? {
+                            nome_fantasia: '',
+                            ie: '',
+                            im: '',
+                            suframa: '',
+                            optante_simples: false,
+                            regime_tributario: '',
+                            cnae_principal: '',
+                            contribuinte_icms: '',
+                          } : {}),
+                        }))}
                         className={`flex-1 py-2 text-sm font-medium transition-colors ${
                           form.tipo_pessoa === opt.value
                             ? 'bg-brand-primary text-white'
@@ -766,26 +780,22 @@ export default function FornecedoresPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                {field('Razão Social / Nome Completo', 'razao_social', { required: true })}
-                {field('Nome Fantasia', 'nome_fantasia')}
-              </div>
+              {(() => { const isPJ = form.tipo_pessoa === 'juridica'; return (
+              <>
+                <div className={`grid mt-3 gap-3 ${isPJ ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {field(isPJ ? 'Razão Social' : 'Nome Completo', 'razao_social', { required: true })}
+                  {isPJ && field('Nome Fantasia', 'nome_fantasia')}
+                </div>
 
-              <div className="grid grid-cols-3 gap-3 mt-3">
-                {field('Inscrição Estadual', 'ie')}
-                {field('Inscrição Municipal', 'im')}
-                {field('SUFRAMA', 'suframa')}
-              </div>
-
-              <div className="flex items-center gap-2 mt-3">
-                <button
-                  onClick={() => setForm((f) => ({ ...f, optante_simples: !f.optante_simples }))}
-                  className={`w-10 h-5 rounded-full transition-colors relative ${form.optante_simples ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-600'}`}
-                >
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.optante_simples ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </button>
-                <span className="text-sm text-gray-600 dark:text-gray-300">Optante pelo Simples Nacional</span>
-              </div>
+                {isPJ && (
+                  <div className="grid grid-cols-3 gap-3 mt-3">
+                    {field('Inscrição Estadual', 'ie')}
+                    {field('Inscrição Municipal', 'im')}
+                    {field('SUFRAMA', 'suframa')}
+                  </div>
+                )}
+              </>
+              ); })()}
             </DrawerCard>
 
             {/* Contato */}
@@ -834,14 +844,24 @@ export default function FornecedoresPage() {
               </div>
             </DrawerCard>
 
-            {/* Dados Fiscais */}
-            <DrawerCard title="Dados Fiscais" icon={CreditCard}>
-              <div className="grid grid-cols-3 gap-3">
-                {select('Regime Tributário', 'regime_tributario', REGIMES)}
-                {field('CNAE Principal', 'cnae_principal', { placeholder: '8599604' })}
-                {select('Contribuinte ICMS', 'contribuinte_icms', CONTRIBUINTE_OPTIONS)}
-              </div>
-            </DrawerCard>
+            {/* Dados Fiscais — PJ only */}
+            {form.tipo_pessoa === 'juridica' && (
+              <DrawerCard title="Dados Fiscais" icon={CreditCard}>
+                <div className="grid grid-cols-3 gap-3">
+                  {select('Regime Tributário', 'regime_tributario', REGIMES)}
+                  {field('CNAE Principal', 'cnae_principal', { placeholder: '8599604' })}
+                  {select('Contribuinte ICMS', 'contribuinte_icms', CONTRIBUINTE_OPTIONS)}
+                </div>
+                <div className="mt-3">
+                  <Toggle
+                    checked={form.optante_simples}
+                    onChange={(v) => setForm((f) => ({ ...f, optante_simples: v }))}
+                    label="Optante pelo Simples Nacional"
+                    onColor="bg-emerald-500"
+                  />
+                </div>
+              </DrawerCard>
+            )}
 
             {/* Condições Comerciais */}
             <DrawerCard title="Condições Comerciais" icon={TrendingDown}>

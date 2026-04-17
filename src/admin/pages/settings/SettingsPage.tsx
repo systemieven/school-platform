@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AttendanceSettingsPanel from './AttendanceSettingsPanel';
 import GeolocationField from '../../components/GeolocationField';
 import { SettingsCard } from '../../components/SettingsCard';
@@ -232,12 +233,16 @@ const TABS_STORAGE_KEY = 'settings_tabs_collapsed';
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
+  const [searchParams] = useSearchParams();
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState(TABS[0].key);
+  const initialTab = TABS.some((t) => t.key === searchParams.get('tab'))
+    ? searchParams.get('tab')!
+    : TABS[0].key;
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [siteSubTab, setSiteSubTab] = useState<SiteTab>('appearance');
   const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfse'>('nfe');
   const [tabsCollapsed, setTabsCollapsed] = useState(() => {

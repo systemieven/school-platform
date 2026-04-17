@@ -98,7 +98,7 @@ export default function LojaDashboardTab() {
         {kpis.map((k) => {
           const Icon = k.icon;
           return (
-            <div key={k.label} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+            <div key={k.label} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200">
               <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${k.color}`}>
                 <Icon className="w-4 h-4" />
               </div>
@@ -114,7 +114,7 @@ export default function LojaDashboardTab() {
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Pipeline de Pedidos</h3>
         <div className="space-y-2">
           {statusCounts.map(({ status, count }) => (
-            <div key={status} className="flex items-center justify-between py-2.5 px-3 bg-gray-50 dark:bg-gray-700/40 rounded-xl">
+            <div key={status} className="flex items-center justify-between py-2.5 px-3 bg-gray-50 dark:bg-gray-700/40 rounded-xl hover:shadow-md transition-shadow duration-200">
               <OrderStatusBadge status={status} />
               <span className="text-sm font-semibold text-gray-800 dark:text-white">
                 {count} {count === 1 ? 'pedido' : 'pedidos'}

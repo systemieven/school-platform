@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import {
-  CalendarCheck, Ticket, MessageSquare, GraduationCap,
-  PanelLeftClose, PanelLeftOpen,
+  CalendarCheck, Ticket, MessageSquare, GraduationCap, History,
+  PanelLeftClose, PanelLeftOpen, Settings,
 } from 'lucide-react';
-import AppointmentsPage from '../appointments/AppointmentsPage';
-import AttendancePage   from '../attendance/AttendancePage';
-import ContactsPage     from '../contacts/ContactsPage';
-import EnrollmentsPage  from '../enrollments/EnrollmentsPage';
+import AppointmentsPage      from '../appointments/AppointmentsPage';
+import AttendancePage        from '../attendance/AttendancePage';
+import AttendanceHistoryPage from '../attendance/AttendanceHistoryPage';
+import ContactsPage          from '../contacts/ContactsPage';
+import EnrollmentsPage       from '../enrollments/EnrollmentsPage';
 
 interface TabDef {
   key: string;
@@ -46,7 +47,23 @@ const TABS: TabDef[] = [
     icon: GraduationCap,
     description: 'Pré-matrículas, fichas e documentação',
   },
+  {
+    key: 'historico',
+    label: 'Histórico de Atendimentos',
+    shortLabel: 'Histórico',
+    icon: History,
+    description: 'Tickets finalizados, abandonados e faltas',
+  },
 ];
+
+/** Mapeamento tab → aba de Configurações (/admin/configuracoes?tab=X) */
+const TAB_SETTINGS: Record<string, string> = {
+  agendamentos: 'visits',
+  atendimentos: 'attendance',
+  contatos:     'contact',
+  matriculas:   'enrollment',
+  historico:    'attendance',
+};
 
 export default function GestaoPage() {
   const [searchParams] = useSearchParams();
@@ -61,11 +78,22 @@ export default function GestaoPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Gestão</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Agendamentos, atendimentos, contatos e matrículas
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Gestão</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Agendamentos, atendimentos, contatos e matrículas
+          </p>
+        </div>
+        {TAB_SETTINGS[activeTab] && (
+          <Link
+            to={`/admin/configuracoes?tab=${TAB_SETTINGS[activeTab]}`}
+            className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors"
+          >
+            <Settings className="w-4 h-4 text-brand-secondary" />
+            Configurações
+          </Link>
+        )}
       </div>
 
       {/* Tabs + Content layout */}
@@ -146,6 +174,7 @@ export default function GestaoPage() {
               {activeTab === 'atendimentos' && <AttendancePage />}
               {activeTab === 'contatos'     && <ContactsPage />}
               {activeTab === 'matriculas'   && <EnrollmentsPage />}
+              {activeTab === 'historico'    && <AttendanceHistoryPage />}
             </div>
           </div>
         </div>
