@@ -8,7 +8,7 @@ import PermissionGate from '../../components/PermissionGate';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Loader2, Search, ChevronDown, Receipt, Calendar, DollarSign,
-  Check, Save, AlertTriangle, CreditCard, User, FileText,
+  Check, Save, AlertTriangle, CreditCard, User, FileText, FileCheck2,
 } from 'lucide-react';
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -21,12 +21,30 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   other: 'Outro',
 };
 
+// NFS-e status per installment_id
+type NfseStatus = 'pendente' | 'autorizada' | 'cancelada' | 'substituida' | 'rejeitada';
+const NFSE_STATUS_COLORS: Record<NfseStatus, string> = {
+  pendente:    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  autorizada:  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  cancelada:   'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+  substituida: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  rejeitada:   'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+};
+const NFSE_STATUS_LABELS: Record<NfseStatus, string> = {
+  pendente: 'NFS-e Pendente', autorizada: 'NFS-e Autorizada',
+  cancelada: 'NFS-e Cancelada', substituida: 'NFS-e Substituída', rejeitada: 'NFS-e Rejeitada',
+};
+
 export default function FinancialInstallmentsPage() {
   const { profile } = useAdminAuth();
   const [installments, setInstallments] = useState<FinancialInstallment[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FinancialInstallmentStatus | 'all'>('all');
+
+  // NFS-e per installment
+  const [nfseByInstallment, setNfseByInstallment] = useState<Record<string, { id: string; status: NfseStatus; numero?: number }>>({});
+  const [emittingNfse, setEmittingNfse] = useState<string | null>(null);
 
   // Payment drawer
   const [payingInst, setPayingInst] = useState<FinancialInstallment | null>(null);
@@ -43,7 +61,25 @@ export default function FinancialInstallmentsPage() {
       .from('financial_installments')
       .select('*, student:students(full_name, enrollment_number), contract:financial_contracts(school_year, plan:financial_plans(name))')
       .order('due_date', { ascending: true });
-    setInstallments((data ?? []) as unknown as FinancialInstallment[]);
+    const list = (data ?? []) as unknown as FinancialInstallment[];
+    setInstallments(list);
+
+    // Load NFS-e status for all installments
+    if (list.length > 0) {
+      const ids = list.map((i) => i.id);
+      const { data: nfseRows } = await supabase
+        .from('nfse_emitidas')
+        .select('id, installment_id, status, numero')
+        .in('installment_id', ids)
+        .neq('status', 'cancelada');
+      if (nfseRows) {
+        const map: Record<string, { id: string; status: NfseStatus; numero?: number }> = {};
+        for (const n of nfseRows) {
+          if (n.installment_id) map[n.installment_id] = { id: n.id, status: n.status as NfseStatus, numero: n.numero };
+        }
+        setNfseByInstallment(map);
+      }
+    }
     setLoading(false);
   }, []);
 
@@ -117,6 +153,26 @@ export default function FinancialInstallmentsPage() {
       }, 1200);
     }
     setSaving(false);
+  }
+
+  async function handleEmitNfse(inst: FinancialInstallment) {
+    if (!profile) return;
+    setEmittingNfse(inst.id);
+    try {
+      const { error } = await supabase.functions.invoke('nfse-emitter', {
+        body: {
+          source: 'installment',
+          source_id: inst.id,
+          guardian_id: (inst as any).contract?.guardian_id ?? null,
+          valor_servico: Number(inst.amount),
+          discriminacao: `Mensalidade ${inst.reference_month} - Parcela ${inst.installment_number}`,
+          initiated_by: profile.id,
+        },
+      });
+      if (!error) await load();
+    } finally {
+      setEmittingNfse(null);
+    }
   }
 
   if (loading) {
@@ -194,6 +250,7 @@ export default function FinancialInstallmentsPage() {
                   <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Valor</th>
                   <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pago</th>
+                  <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">NFS-e</th>
                   <th className="px-5 py-3"></th>
                 </tr>
               </thead>
@@ -216,6 +273,25 @@ export default function FinancialInstallmentsPage() {
                     </td>
                     <td className="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
                       {inst.paid_amount ? fmt(Number(inst.paid_amount)) : '—'}
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      {nfseByInstallment[inst.id] ? (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${NFSE_STATUS_COLORS[nfseByInstallment[inst.id].status]}`}>
+                          {nfseByInstallment[inst.id].numero ? `NFS-e ${nfseByInstallment[inst.id].numero}` : NFSE_STATUS_LABELS[nfseByInstallment[inst.id].status]}
+                        </span>
+                      ) : inst.status === 'paid' ? (
+                        <PermissionGate moduleKey="nfse-emitidas" action="create">
+                          <button
+                            onClick={() => handleEmitNfse(inst)}
+                            disabled={emittingNfse === inst.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-secondary rounded-lg hover:bg-brand-primary/20 transition-colors font-semibold disabled:opacity-50"
+                            title="Emitir NFS-e"
+                          >
+                            {emittingNfse === inst.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileCheck2 className="w-3 h-3" />}
+                            {emittingNfse === inst.id ? '…' : 'Emitir'}
+                          </button>
+                        </PermissionGate>
+                      ) : '—'}
                     </td>
                     <td className="px-5 py-3 text-right">
                       {(inst.status === 'pending' || inst.status === 'overdue') && (

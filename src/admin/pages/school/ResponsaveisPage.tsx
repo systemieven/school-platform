@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   UserCheck, Search, ChevronLeft, ChevronRight, Loader2, Check,
-  KeyRound, Filter, Mail,
+  KeyRound, Filter, Mail, Receipt, AlertCircle,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
@@ -48,6 +48,16 @@ export default function ResponsaveisPage() {
   const [cpfNotFound, setCpfNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Fiscal drawer
+  const [fiscalTarget, setFiscalTarget] = useState<GuardianRow | null>(null);
+  const [fiscalForm, setFiscalForm] = useState({
+    cpf_cnpj: '', tipo_pessoa: 'fisica' as 'fisica' | 'juridica',
+    logradouro_fiscal: '', numero_fiscal: '', complemento_fiscal: '',
+    bairro_fiscal: '', cep_fiscal: '', municipio_fiscal: '', uf_fiscal: '', email_fiscal: '',
+  });
+  const [fiscalSaving, setFiscalSaving] = useState(false);
+  const [fiscalSaved, setFiscalSaved] = useState(false);
 
   // Toggle active drawer
   const [toggleTarget, setToggleTarget] = useState<GuardianRow | null>(null);
@@ -181,6 +191,36 @@ export default function ResponsaveisPage() {
     setTimeout(() => setResetDone(false), 3000);
   }
 
+  function openFiscalDrawer(row: GuardianRow) {
+    setFiscalForm({
+      cpf_cnpj:          (row as any).cpf_cnpj ?? '',
+      tipo_pessoa:       (row as any).tipo_pessoa ?? 'fisica',
+      logradouro_fiscal: (row as any).logradouro_fiscal ?? '',
+      numero_fiscal:     (row as any).numero_fiscal ?? '',
+      complemento_fiscal:(row as any).complemento_fiscal ?? '',
+      bairro_fiscal:     (row as any).bairro_fiscal ?? '',
+      cep_fiscal:        (row as any).cep_fiscal ?? '',
+      municipio_fiscal:  (row as any).municipio_fiscal ?? '',
+      uf_fiscal:         (row as any).uf_fiscal ?? '',
+      email_fiscal:      (row as any).email_fiscal ?? '',
+    });
+    setFiscalTarget(row);
+    setFiscalSaved(false);
+  }
+
+  async function handleFiscalSave() {
+    if (!fiscalTarget) return;
+    setFiscalSaving(true);
+    await supabase.from('guardian_profiles').update(fiscalForm).eq('id', fiscalTarget.id);
+    setFiscalSaving(false);
+    setFiscalSaved(true);
+    setTimeout(() => {
+      setFiscalSaved(false);
+      setFiscalTarget(null);
+      fetchRows();
+    }, 900);
+  }
+
   function openCreateDrawer() {
     setForm(EMPTY_FORM);
     setLinkedStudents([]);
@@ -291,6 +331,16 @@ export default function ResponsaveisPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openFiscalDrawer(row)}
+                          className="p-1.5 rounded-lg transition-colors"
+                          title="Dados Fiscais"
+                          style={{ color: (row as any).fiscal_data_complete ? '#10b981' : '#f59e0b' }}
+                        >
+                          {(row as any).fiscal_data_complete
+                            ? <Receipt className="w-4 h-4" />
+                            : <AlertCircle className="w-4 h-4" />}
+                        </button>
                         {row.email && (
                           <button
                             onClick={() => { setResetEmail(row.email!); setResetDone(false); }}
@@ -475,6 +525,114 @@ export default function ResponsaveisPage() {
           </div>
         </>
       )}
+
+      {/* ── Fiscal data Drawer ── */}
+      <Drawer
+        open={!!fiscalTarget}
+        onClose={() => setFiscalTarget(null)}
+        title="Dados Fiscais"
+        icon={Receipt}
+        badge={fiscalTarget && (
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+            (fiscalTarget as any).fiscal_data_complete
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-amber-100 text-amber-700'
+          }`}>
+            {(fiscalTarget as any).fiscal_data_complete ? 'Completo' : 'Incompleto'}
+          </span>
+        )}
+        width="w-[460px]"
+        footer={
+          <div className="flex gap-3">
+            <button onClick={() => setFiscalTarget(null)} disabled={fiscalSaving}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">
+              Cancelar
+            </button>
+            <button onClick={handleFiscalSave} disabled={fiscalSaving}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${fiscalSaved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
+              {fiscalSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : fiscalSaved ? <Check className="w-4 h-4" /> : <Receipt className="w-4 h-4" />}
+              {fiscalSaving ? 'Salvando…' : fiscalSaved ? 'Salvo!' : 'Salvar Dados Fiscais'}
+            </button>
+          </div>
+        }
+      >
+        {fiscalTarget && (
+          <>
+            <DrawerCard title="Identificação Fiscal" icon={Receipt}>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">CPF / CNPJ *</label>
+                  <input value={fiscalForm.cpf_cnpj} onChange={e => setFiscalForm(f => ({ ...f, cpf_cnpj: e.target.value }))}
+                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tipo de Pessoa</label>
+                  <select value={fiscalForm.tipo_pessoa} onChange={e => setFiscalForm(f => ({ ...f, tipo_pessoa: e.target.value as 'fisica' | 'juridica' }))}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none">
+                    <option value="fisica">Pessoa Física</option>
+                    <option value="juridica">Pessoa Jurídica</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">E-mail Fiscal</label>
+                  <input type="email" value={fiscalForm.email_fiscal} onChange={e => setFiscalForm(f => ({ ...f, email_fiscal: e.target.value }))}
+                    placeholder="fiscal@empresa.com.br"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
+                </div>
+              </div>
+            </DrawerCard>
+
+            <DrawerCard title="Endereço Fiscal" icon={Receipt}>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Logradouro *</label>
+                  <input value={fiscalForm.logradouro_fiscal} onChange={e => setFiscalForm(f => ({ ...f, logradouro_fiscal: e.target.value }))}
+                    placeholder="Rua, Avenida…"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Número</label>
+                  <input value={fiscalForm.numero_fiscal} onChange={e => setFiscalForm(f => ({ ...f, numero_fiscal: e.target.value }))}
+                    placeholder="123"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Complemento</label>
+                  <input value={fiscalForm.complemento_fiscal} onChange={e => setFiscalForm(f => ({ ...f, complemento_fiscal: e.target.value }))}
+                    placeholder="Apto, Sala…"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Bairro</label>
+                  <input value={fiscalForm.bairro_fiscal} onChange={e => setFiscalForm(f => ({ ...f, bairro_fiscal: e.target.value }))}
+                    placeholder="Centro"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">CEP</label>
+                  <input value={fiscalForm.cep_fiscal} onChange={e => setFiscalForm(f => ({ ...f, cep_fiscal: e.target.value }))}
+                    placeholder="00000-000"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Município *</label>
+                  <input value={fiscalForm.municipio_fiscal} onChange={e => setFiscalForm(f => ({ ...f, municipio_fiscal: e.target.value }))}
+                    placeholder="São Paulo"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">UF *</label>
+                  <input value={fiscalForm.uf_fiscal} onChange={e => setFiscalForm(f => ({ ...f, uf_fiscal: e.target.value.toUpperCase().slice(0, 2) }))}
+                    placeholder="PE"
+                    maxLength={2}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none uppercase" />
+                </div>
+              </div>
+            </DrawerCard>
+          </>
+        )}
+      </Drawer>
 
       {/* ── Reset password inline panel ── */}
       {resetEmail && (
