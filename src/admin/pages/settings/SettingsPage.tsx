@@ -30,6 +30,7 @@ import FinancialSettingsPanel from './FinancialSettingsPanel';
 import AcademicoSettingsPanel from './AcademicoSettingsPanel';
 import LostFoundSettingsPanel from './LostFoundSettingsPanel';
 import FiscalSettingsPanel from './FiscalSettingsPanel';
+import NfseSettingsPanel from './NfseSettingsPanel';
 import SiteSettingsPanel, { type SiteTab, SITE_SUB_TABS } from './SiteSettingsPanel';
 import AuditLogsPage from '../audit/AuditLogsPage';
 import PermissionsPage from '../permissions/PermissionsPage';
@@ -238,6 +239,7 @@ export default function SettingsPage() {
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState(TABS[0].key);
   const [siteSubTab, setSiteSubTab] = useState<SiteTab>('appearance');
+  const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfse'>('nfe');
   const [tabsCollapsed, setTabsCollapsed] = useState(() => {
     try { return localStorage.getItem(TABS_STORAGE_KEY) === 'true'; } catch { return false; }
   });
@@ -584,6 +586,29 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {/* Fiscal sub-tabs */}
+              {activeTab === 'fiscal' && (
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {([
+                    { key: 'nfe', label: 'NF-e (Produtos)' },
+                    { key: 'nfse', label: 'NFS-e (Serviços)' },
+                  ] as { key: 'nfe' | 'nfse'; label: string }[]).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setFiscalSubTab(key)}
+                      className={[
+                        'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
+                        fiscalSubTab === key
+                          ? 'bg-brand-primary text-brand-secondary shadow-md shadow-brand-primary/20'
+                          : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
+                      ].join(' ')}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Site sub-tabs + preset buttons */}
               {activeTab === 'site' && (
                 <div className="flex items-center gap-3 flex-shrink-0">
@@ -632,7 +657,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit', 'financial', 'ferramentas', 'fiscal'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit', 'financial', 'ferramentas', 'fiscal', 'nfse-config'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel />
               ) : activeTab === 'visits' ? (
@@ -658,7 +683,7 @@ export default function SettingsPage() {
               ) : activeTab === 'ferramentas' ? (
                 <LostFoundSettingsPanel />
               ) : activeTab === 'fiscal' ? (
-                <FiscalSettingsPanel />
+                fiscalSubTab === 'nfse' ? <NfseSettingsPanel /> : <FiscalSettingsPanel />
               ) : activeTab === 'academico' ? (
                 <AcademicoSettingsPanel />
               ) : activeTab === 'institutional' ? (

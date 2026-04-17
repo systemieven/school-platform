@@ -4,6 +4,7 @@ import {
   Percent, GraduationCap, FileCode2,
   PanelLeftClose, PanelLeftOpen,
   Vault, TrendingUp, TrendingDown, BarChart3, Building2, Inbox,
+  FileCheck2,
 } from 'lucide-react';
 import FinancialDashboardPage from './FinancialDashboardPage';
 import FinancialPlansPage from './FinancialPlansPage';
@@ -18,6 +19,8 @@ import FinancialScholarshipsPage from './FinancialScholarshipsPage';
 import FinancialTemplatesPage from './FinancialTemplatesPage';
 import FornecedoresPage from './FornecedoresPage';
 import NfeEntradasPage from './NfeEntradasPage';
+import NfseEmitidas from './NfseEmitidas';
+import NfseApuracaoPage from './NfseApuracaoPage';
 
 interface TabDef {
   key: string;
@@ -104,6 +107,20 @@ const TABS: TabDef[] = [
     shortLabel: 'Templates',
     icon: FileCode2,
     description: 'Templates de contrato, recibo e boleto',
+  },
+  {
+    key: 'nfse',
+    label: 'NFS-e Emitidas',
+    shortLabel: 'NFS-e',
+    icon: FileCheck2,
+    description: 'Notas Fiscais de Serviço emitidas e status de emissão',
+  },
+  {
+    key: 'nfse-apuracao',
+    label: 'Apuração NFS-e',
+    shortLabel: 'Apuração',
+    icon: BarChart3,
+    description: 'Resumo mensal de ISS, retenções federais e exportação CSV',
   },
   {
     key: 'nfe-entrada',
@@ -222,6 +239,8 @@ export default function FinancialPage() {
               {activeTab === 'discounts' && <FinancialDiscountsPage />}
               {activeTab === 'scholarships' && <FinancialScholarshipsPage />}
               {activeTab === 'templates' && <FinancialTemplatesPage />}
+              {activeTab === 'nfse' && <NfseEmitidas />}
+              {activeTab === 'nfse-apuracao' && <NfseApuracaoPage />}
               {activeTab === 'nfe-entrada' && <NfeEntradasPage />}
               {activeTab === 'fornecedores' && <FornecedoresPage />}
             </div>
