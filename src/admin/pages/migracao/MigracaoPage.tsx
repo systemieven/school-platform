@@ -82,8 +82,8 @@ const MODULES: ModuleDef[] = [
 
   // Grupo B
   { key: 'students',              label: 'Alunos',              description: 'Cadastro de alunos ativos',  icon: UserCheck,     group: 'B', importPath: '/admin/alunos/importar' },
-  { key: 'financial-receivables', label: 'Contas a Receber',    description: 'A-Receber em aberto',        icon: TrendingUp,    group: 'B', importPath: null },
-  { key: 'financial-payables',    label: 'Contas a Pagar',      description: 'A-Pagar em aberto',          icon: TrendingDown,  group: 'B', importPath: null },
+  { key: 'financial-receivables', label: 'Contas a Receber',    description: 'A-Receber em aberto (taxas, eventos, manual)', icon: TrendingUp,    group: 'B', importPath: '/admin/migracao/receber' },
+  { key: 'financial-payables',    label: 'Contas a Pagar',      description: 'A-Pagar em aberto (despesas fixas e variáveis)', icon: TrendingDown,  group: 'B', importPath: '/admin/migracao/pagar' },
 
   // Grupo C
   { key: 'appointments',          label: 'Agendamentos',        description: 'Agenda histórica',           icon: CalendarCheck, group: 'C', importPath: null },
