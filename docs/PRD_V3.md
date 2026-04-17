@@ -39,6 +39,7 @@
     - 10.10 Melhorias Transversais
     - 10.11 F6.4 Documentacao Tecnica (ultima etapa da v1)
     - 10.12 Fase 15 — Achados e Perdidos Digital ✅
+    - 10.13 Central de Migracao de Dados — Onboarding
 11. [Requisitos Nao Funcionais](#11-requisitos-nao-funcionais)
 12. [Apendices](#apendices)
 
@@ -1453,6 +1454,10 @@ Configuravel na aba Aparencia > Home:
 | 122 | `fornecedor_contas_bancarias` | — | Fase 14.E — Contas bancarias por fornecedor: banco, agencia, conta, tipo_conta, tipo_chave_pix, chave_pix, favorecido, is_default |
 | 123 | `fornecedores_fk_updates` | — | Fase 14.E — ADD COLUMN fornecedor_id em financial_payables e nfe_entries; atualiza RPC generate_payable_installments para propagar fornecedor_id; indices de busca por cnpj_cpf |
 | 124 | `fornecedores_permissions` | — | Fase 14.E — Modulo fornecedores no grupo financeiro + role_permissions |
+| 125 | `import_batches` | — | OP-1 — Lotes de importacao: module_key, file_name, template_id FK, status, records_total/imported/skipped/rejected, created_by, timestamps |
+| 126 | `import_batch_logs` | — | OP-1 — Log linha a linha por lote: batch_id FK, row_index, row_data JSONB, rejection_reasons TEXT[] |
+| 127 | `migration_module_status` | — | OP-1 — Estado de migracao por modulo (singleton por modulo): status (available/in_progress/completed/unlocked), last_batch_id FK, completed_at, unlocked_at, unlocked_by FK |
+| 128 | `migration_permissions` | — | OP-1 — Modulo import-manager no grupo operacional, acesso exclusivo super_admin; can_import TRUE so para super_admin |
 
 ### 7.4 RLS Policies
 
@@ -1761,6 +1766,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14.S | Emissao Automatica de NFS-e (Notas Fiscais de Servicos) | ⏳ Planejado | Media-Alta | 14.F + 8.5 + 10 |
 | 14.E | Modulo de Fornecedores | ✅ Concluido | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
+| OP-1 | Central de Migracao de Dados (Onboarding) | ⏳ Planejado | Alta | Todas as tabelas-alvo existentes |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
 
@@ -4433,6 +4439,525 @@ VALUES ('lost-found', 'Achados e Perdidos', 'Modulo de objetos encontrados e ges
 | 103 | `lost_found_items` — tabela principal com campos de status, reivindicacao e entrega |
 | 104 | `lost_found_events` — tabela de timeline por objeto; FK para `lost_found_items` |
 | 105 | `modules` INSERT para `lost-found`; `system_settings` INSERTs para as 5 configuracoes do modulo |
+
+---
+
+### 10.13 Central de Migracao de Dados — Onboarding de Novo Cliente
+
+**Status**: ⏳ Planejado
+**Codigo**: OP-1 (processo operacional, fora do fluxo de fases de produto)
+**Acesso**: `super_admin` exclusivo
+**Momento de uso**: Evento unico no onboarding inicial — nao aparece na navegacao de outros roles
+**Dependencias**: Tabelas-alvo de todos os modulos existentes (todas ja criadas nas Fases 1–15)
+
+> A Central de Migracao centraliza a transferencia de dados de sistemas anteriores para a plataforma. E um processo isolado de onboarding — nao e uma funcionalidade operacional continua. Cada modulo e importado uma unica vez, trava apos o sucesso, e so pode ser reaberto por solicitacao explicita do super_admin com confirmacao de riscos. Nao ha integracao com IA nesta versao — o modulo de agente de mapeamento sera adicionado apos a conclusao da Fase 13 (Agentes de IA).
+
+---
+
+#### OP-1.1 Arquitetura da Feature
+
+A Central de Migracao e um **processo separado dos modulos operacionais**. Ela nao e acessivel pelas paginas de modulo (ex: nao ha botao "Importar" dentro de Alunos ou Financeiro). O acesso e exclusivo via rota dedicada, visivel apenas para `super_admin`.
+
+**Principios de design:**
+
+| Principio | Racional |
+|-----------|----------|
+| Super_admin only | Impacto estrutural nos dados do cliente — risco de duplicidade e irreversibilidade exigem o nivel maximo de privilegio |
+| Processo sequencial por modulo | Cada modulo tem seu proprio arquivo-fonte e fluxo de mapeamento. Importar alunos e fornecedores em paralelo seria confuso e propenso a erro |
+| Trava apos sucesso | Previne reimportacao acidental que geraria duplicidade. O dado importado passa a pertencer ao operacional |
+| Desbloqueio controlado | Correcoes inevitaveis (arquivo errado, dados corrigidos) sao possiveis, mas exigem decisao consciente com visibilidade dos riscos |
+| Engine reutilizada | O wizard ja existente (`StudentImportPage`) e refatorado em um componente generico (`ModuleImportWizard`) parametrizado por modulo — sem reescrita |
+| IA deferida | O botao "Mapear com IA" e exibido como indisponivel com mensagem "Disponivel apos configurar Agentes (Fase 13)" |
+
+---
+
+#### OP-1.2 Rota e Navegacao
+
+```
+/admin/migracao                   Central de Migracao (dashboard de modulos)
+/admin/migracao/:moduleKey        Wizard de importacao do modulo especifico
+```
+
+O item de menu **Central de Migracao** aparece no sidebar **somente para `super_admin`**, no grupo **Administracao** (junto com Permissoes, Configuracoes, Auditoria).
+
+---
+
+#### OP-1.3 Dashboard da Central de Migracao
+
+A pagina principal exibe cards para cada modulo importavel, agrupados por dependencia:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Central de Migracao de Dados                                   │
+│  Transfira os dados do sistema anterior para a plataforma.      │
+│  Cada modulo e importado uma vez e travado apos o sucesso.      │
+│                                                                  │
+│  Progresso: 3 / 10 modulos concluidos  ████░░░░░░  30%         │
+├─────────────────────────────────────────────────────────────────┤
+│  GRUPO A — Sem dependencias (importe primeiro)                  │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐            │
+│  │ Turmas       │ │ Contatos     │ │ Fornecedores │            │
+│  │ ✅ Concluido │ │ ✅ Concluido │ │ ○ Disponivel │            │
+│  │ 12 registros │ │ 340 registros│ │              │            │
+│  └──────────────┘ └──────────────┘ └──────────────┘            │
+│  ┌──────────────┐ ┌──────────────┐                             │
+│  │ Produtos     │ │ Colaboradores│                             │
+│  │ ○ Disponivel │ │ ○ Disponivel │                             │
+│  └──────────────┘ └──────────────┘                             │
+│                                                                  │
+│  GRUPO B — Recomendado apos Grupo A                             │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐            │
+│  │ Alunos       │ │ A. Receber   │ │ A. Pagar     │            │
+│  │ ✅ Concluido │ │ ○ Disponivel │ │ ○ Disponivel │            │
+│  │ 487 registros│ │              │ │              │            │
+│  └──────────────┘ └──────────────┘ └──────────────┘            │
+│                                                                  │
+│  GRUPO C — Recomendado apos Grupo B                             │
+│  ┌──────────────┐ ┌──────────────┐                             │
+│  │ Agendamentos │ │ Lanc. de Caixa│                            │
+│  │ ○ Disponivel │ │ ⚠ Requer caixa│                           │
+│  └──────────────┘ └──────────────┘                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Estados possiveis de cada card:**
+
+| Status | Visual | Acao disponivel |
+|--------|--------|-----------------|
+| `available` | Badge cinza "Disponivel" | Botao "Iniciar importacao" |
+| `in_progress` | Spinner + "Em andamento" | Nenhuma (wizard aberto) |
+| `completed` | Badge verde "Concluido" + contador de registros | Botao "Desbloquear" (com icone cadeado) |
+| `unlocked` | Badge laranja "Desbloqueado" + banner de aviso | Botao "Reimportar" — com aviso visivel |
+| `blocked` | Badge cinza + tooltip "Aguarda: {dependencia}" | Nenhuma |
+
+**Dependencias hard (importacao bloqueada):**
+
+| Modulo | Dependencia obrigatoria |
+|--------|-------------------------|
+| Alunos e Responsaveis | Turmas e Segmentos concluido |
+| Lancamentos de Caixa | Pelo menos 1 caixa configurado em Config > Caixas |
+
+**Dependencias soft (aviso mas nao bloqueado):**
+- Contas a Receber sem Alunos importados: aviso "Os lancamentos nao terao vinculo estrutural com alunos — vinculos precisarao ser feitos manualmente depois."
+- Contas a Pagar sem Fornecedores importados: aviso analogo.
+- Agendamentos sem Contatos importados: aviso analogo.
+
+---
+
+#### OP-1.4 Fluxo do Wizard de Importacao
+
+O wizard e identico para todos os modulos — apenas os campos e validacoes variam. E o mesmo fluxo ja implementado para Alunos, agora parametrizado:
+
+```
+Etapa 1: Upload
+  → Aceita .xlsx e .csv
+  → Detecta encoding automaticamente (UTF-8 e ISO-8859-1)
+  → Para .xlsx com multiplas abas: exibe seletor de aba
+  → Exibe: nome do arquivo, numero de linhas, numero de colunas
+
+Etapa 2: Mapeamento
+  → Auto-detecção por alias de nome + padrão de dados (dois passos)
+  → Exibe score de confianca por campo: Alta (verde) / Baixa (amarelo) / Nao detectado (vermelho)
+  → Seletor manual por coluna para campos nao detectados
+  → Botao "Mapear com IA" — desabilitado, tooltip "Disponivel apos Fase 13"
+  → Templates salvos: carregar/salvar/deletar por modulo (reusa import_templates)
+
+Etapa 3: Configuracoes do Modulo
+  → Opcoes especificas por modulo (ver OP-1.5)
+  → Comportamento para duplicatas
+  → Campo "ID de origem" (external_id) — coluna opcional para mapeamento de id do sistema anterior
+
+Etapa 4: Previa e Validacao
+  → Tabela linha a linha com status: valido / aviso / rejeitado
+  → Toggle individual por linha (incluir/excluir)
+  → Contador: X validos, Y avisos, Z rejeitados
+  → Para modulos financeiros: resumo de impacto (total a receber + total a pagar)
+  → Botao "Prosseguir" bloqueado se 0 linhas incluidas
+
+Etapa 5: Confirmacao
+  → Para todos os modulos: modal confirmando "X registros serao importados"
+  → Para modulos financeiros (A/P, A/R, Lancamentos): modal adicional destacando:
+    - Volume total em R$
+    - Aviso sobre irreversibilidade sem desbloqueio
+    - Checkbox "Entendo que esta operacao impactara os relatorios financeiros"
+  → Campo "ID de origem" mapeado: aviso "Registros com ID de origem ja existente serao [ignorados/atualizados] conforme configurado"
+
+Etapa 6: Importacao e Resultado
+  → Processamento em batches de 50 (mantém comportamento atual)
+  → Barra de progresso com contador em tempo real
+  → Ao concluir: relatorio final (importados / ignorados / rejeitados)
+  → Log de rejeitados disponivel para download (.csv)
+  → Botao "Concluir" → marca modulo como completed + locked → retorna ao dashboard
+```
+
+---
+
+#### OP-1.5 Configuracoes Especificas por Modulo (Etapa 3)
+
+**Turmas e Segmentos**
+
+| Opcao | Valores |
+|-------|---------|
+| Duplicata por nome + ano letivo | Ignorar / Atualizar |
+| Ano letivo padrao (para registros sem ano mapeado) | Seletor do ano letivo ativo |
+
+**Alunos e Responsaveis**
+
+| Opcao | Valores |
+|-------|---------|
+| Vincular responsavel por CPF | Sim / Nao |
+| Turma nao encontrada | Deixar sem turma / Bloquear linha |
+| Duplicata (CPF do aluno) | Ignorar / Atualizar / Criar novo |
+| Duplicata (sem CPF: nome + data nasc.) | Ignorar / Criar novo |
+
+**Contatos e Leads**
+
+| Opcao | Valores |
+|-------|---------|
+| Duplicata (por telefone ou e-mail) | Ignorar / Atualizar / Criar novo |
+| Status padrao para registros sem status mapeado | lead / contato / matriculado |
+| Origem padrao | Seletor livre |
+
+**Fornecedores**
+
+| Opcao | Valores |
+|-------|---------|
+| Duplicata (por CNPJ/CPF) | Ignorar / Atualizar |
+| Status padrao | Ativo / Inativo |
+
+**Colaboradores**
+
+| Opcao | Valores |
+|-------|---------|
+| Duplicata (por e-mail) | Ignorar / Atualizar |
+| Criar conta de acesso automaticamente | Sim (envia convite por e-mail) / Nao (perfil sem login) |
+| Role padrao para contas criadas | user / coordinator |
+
+**Contas a Receber**
+
+| Opcao | Valores |
+|-------|---------|
+| Status padrao (sem status mapeado) | pendente / pago / vencido |
+| Categoria financeira padrao | Seletor das categorias de receita existentes |
+| Vincular devedor existente por CPF/nome | Sim (busca em students + guardian_profiles) / Nao |
+| Se vinculo nao encontrado | Manter como texto / Bloquear linha |
+
+**Contas a Pagar**
+
+| Opcao | Valores |
+|-------|---------|
+| Status padrao | pendente / pago / vencido |
+| Categoria financeira padrao | Seletor das categorias de despesa existentes |
+| Vincular fornecedor existente por CNPJ/nome | Sim / Nao |
+| Se vinculo nao encontrado | Manter como texto / Bloquear linha |
+
+**Lancamentos de Caixa**
+
+| Opcao | Valores |
+|-------|---------|
+| Caixa destino | Seletor dos caixas cadastrados (obrigatorio) |
+| Forma de pagamento padrao | Seletor |
+| Categoria padrao | Seletor |
+
+**Produtos e Estoque**
+
+| Opcao | Valores |
+|-------|---------|
+| Categoria nao encontrada | Criar automaticamente / Deixar sem categoria |
+| Duplicata (por SKU) | Ignorar / Atualizar preco e estoque |
+| Registrar estoque como | Entrada de estoque manual no historico / Apenas ajuste de saldo |
+
+**Agendamentos**
+
+| Opcao | Valores |
+|-------|---------|
+| Contato nao encontrado | Ignorar linha / Criar contato automaticamente |
+| Status padrao | Seletor |
+
+---
+
+#### OP-1.6 Campo `external_id` — Identificador do Sistema de Origem
+
+Cada tabela importavel recebe uma coluna `external_id TEXT` (nullable, indexada). O mapeamento desta coluna e opcional na Etapa 2.
+
+**Utilidade:**
+- Permite reimportacoes incrementais: na segunda importacao, registros com `external_id` ja existente seguem o comportamento de "duplicata" configurado (ignorar ou atualizar) — sem criar novo registro
+- Permite reconciliacao pos-migracao entre o sistema novo e o anterior
+- E util para correcoes: se o lote inicial tinha dados errados, o desbloqueio + reimportacao com `external_id` mapeado atualiza somente os campos, sem duplicar
+
+O `external_id` nao e exibido nas listagens operacionais — e um campo de infraestrutura de migracao.
+
+**Tabelas que recebem `external_id`** (via migrations auxiliares no momento da implementacao):
+`students`, `guardian_profiles`, `contacts`, `leads`, `profiles`, `fornecedores`, `financial_receivables`, `financial_payables`, `cash_movements`, `store_products`, `appointments`, `school_classes`
+
+---
+
+#### OP-1.7 Sistema de Bloqueio e Desbloqueio
+
+**Maquina de estados por modulo:**
+
+```
+available
+    │ usuario inicia importacao
+    ▼
+in_progress
+    │ importacao conclui com ≥1 registro importado
+    ├──────────────────────────────────────────┐
+    ▼                                          │ importacao falha ou cancela
+completed (locked)                         available (volta)
+    │
+    │ super_admin solicita desbloqueio
+    │ + confirma riscos
+    ▼
+unlocked
+    │ usuario inicia reimportacao
+    ▼
+in_progress → completed (locked) novamente
+```
+
+**Fluxo de desbloqueio:**
+
+1. Super_admin clica em "Desbloquear" no card do modulo
+2. Modal de aviso exibe:
+   - Numero de registros importados no lote original
+   - Dependencias ativas: "X contas a receber estao vinculadas a alunos importados neste lote"
+   - Aviso: "Reimportar NAO remove os registros existentes — adiciona novos registros. Duplicidades precisam ser tratadas manualmente ou via external_id."
+   - Campo de confirmacao: digitar o nome do modulo (ex: `alunos`) para habilitar o botao
+3. Ao confirmar: status vai para `unlocked`, evento registrado em `audit_logs`
+4. Card exibe banner laranja persistente: "Este modulo foi desbloqueado por [usuario] em [data]. Reimportacao em andamento pode gerar duplicidades se o external_id nao estiver mapeado."
+
+---
+
+#### OP-1.8 Rastreabilidade dos Lotes
+
+Todo lote de importacao gera um registro em `import_batches`:
+
+```
+import_batches
+├── id, module_key, file_name, template_id
+├── status: in_progress | completed | failed
+├── records_total, records_imported, records_skipped, records_rejected
+├── created_by (FK profiles), created_at, completed_at
+└── import_batch_logs (1:N) — linha a linha dos rejeitados
+    └── row_index, row_data JSONB, rejection_reasons TEXT[]
+```
+
+Os registros importados carregam `import_batch_id` (FK nullable) nas suas respectivas tabelas — permitindo identificar a origem de qualquer registro e exibir no detalhe do registro (badge "Importado via migracao em DD/MM/AAAA").
+
+O historico de lotes e acessivel no proprio dashboard da Central de Migracao — lista expansivel abaixo de cada card com os lotes anteriores do modulo.
+
+---
+
+#### OP-1.9 Engine de Importacao — Refatoracao de `import.ts`
+
+A engine existente (`src/admin/lib/import.ts`) e refatorada para um **registro de modulos** (sem reescrita da logica core):
+
+```
+src/admin/lib/
+├── import.ts                    ← engine generica (parseSpreadsheet, autoDetectMapping,
+│                                   downloadTemplate — SEM referencias a students)
+├── importRegistry.ts            ← ModuleImportConfig registry; registra todos os modulos
+└── importConfigs/
+    ├── students.ts              ← STUDENT_IMPORT_FIELDS + validateStudentRow (extraido de import.ts)
+    ├── contacts.ts
+    ├── payables.ts
+    ├── receivables.ts
+    ├── cashMovements.ts
+    ├── products.ts
+    ├── suppliers.ts             ← fornecedores
+    ├── appointments.ts
+    ├── classes.ts               ← turmas e segmentos
+    └── users.ts                 ← colaboradores
+```
+
+Cada `importConfig` exporta:
+
+```ts
+interface ModuleImportConfig {
+  moduleKey: string;
+  label: string;                           // "Alunos e Responsaveis"
+  fields: ImportFieldDef[];                // campos mapeaveis
+  aliasDict: Record<string, string[]>;     // aliases por campo para auto-deteccao
+  requiredFields: string[];                // campos obrigatorios
+  validate: (row, mapping, context) => ValidationResult;
+  getContext: () => Promise<ImportContext>;  // lookup data (turmas, categorias, etc.)
+  insert: (rows, batchId, options) => Promise<InsertResult>;
+  duplicateKey?: (row) => string | null;   // chave de deduplicacao
+  SpecificOptions?: React.FC<OptionsProps>; // componente React para Etapa 3
+  financialImpact?: (rows) => { label: string; value: number }[]; // para modal de confirmacao
+}
+```
+
+`StudentImportPage.tsx` e refatorado para usar `ModuleImportWizard` com `studentsConfig` — sem perda de funcionalidade.
+
+---
+
+#### OP-1.10 Tratamento de Encoding e Multi-planilha
+
+**Encoding (CSV):**
+Antes do parse, o sistema detecta o encoding do arquivo:
+- Tenta UTF-8 primeiro
+- Se houver caracteres invalidos (mojibake), reprocessa com ISO-8859-1 (latin1) — padrao de ERPs brasileiros (Totvs, Sankhya, Senior)
+- Exibe na etapa 1: "Codificacao detectada: UTF-8 / ISO-8859-1"
+
+**Multi-planilha (Excel):**
+Se o workbook tem mais de uma aba, a etapa 1 exibe um seletor de aba antes de prosseguir. O default e a primeira aba que contiver dados (ignora abas vazias e abas cujo nome sugere capa — "Cover", "Indice", "README").
+
+---
+
+#### OP-1.11 Schema do Banco de Dados
+
+```
+import_batches                         (migration 125)
+└── id UUID PK
+    module_key TEXT NOT NULL
+    file_name TEXT
+    template_id UUID REFERENCES import_templates(id) ON DELETE SET NULL
+    status TEXT CHECK IN ('in_progress','completed','failed') DEFAULT 'in_progress'
+    records_total INT NOT NULL DEFAULT 0
+    records_imported INT NOT NULL DEFAULT 0
+    records_skipped INT NOT NULL DEFAULT 0
+    records_rejected INT NOT NULL DEFAULT 0
+    import_options JSONB                -- opcoes da etapa 3 (snapshot)
+    created_by UUID REFERENCES profiles(id) ON DELETE SET NULL
+    created_at TIMESTAMPTZ DEFAULT now()
+    completed_at TIMESTAMPTZ
+
+import_batch_logs                      (migration 126)
+└── id UUID PK
+    batch_id UUID NOT NULL REFERENCES import_batches(id) ON DELETE CASCADE
+    row_index INT NOT NULL
+    row_data JSONB NOT NULL
+    rejection_reasons TEXT[] NOT NULL DEFAULT '{}'
+    created_at TIMESTAMPTZ DEFAULT now()
+INDEX: idx_batch_logs_batch ON import_batch_logs(batch_id)
+
+migration_module_status                (migration 127)
+└── id UUID PK
+    module_key TEXT NOT NULL UNIQUE    -- uma linha por modulo
+    status TEXT NOT NULL DEFAULT 'available'
+        CHECK IN ('available','in_progress','completed','unlocked')
+    last_batch_id UUID REFERENCES import_batches(id) ON DELETE SET NULL
+    records_imported INT              -- snapshot do ultimo batch concluido
+    completed_at TIMESTAMPTZ
+    completed_by UUID REFERENCES profiles(id) ON DELETE SET NULL
+    unlocked_at TIMESTAMPTZ
+    unlocked_by UUID REFERENCES profiles(id) ON DELETE SET NULL
+    unlock_reason TEXT                -- texto livre registrado no desbloqueio
+    updated_at TIMESTAMPTZ DEFAULT now()
+
+-- Colunas external_id adicionadas nas tabelas-alvo (migration 127, parte 2):
+ALTER TABLE students                ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE guardian_profiles       ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE contacts                ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE leads                   ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE profiles                ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE fornecedores            ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE financial_receivables   ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE financial_payables      ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE cash_movements          ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE store_products          ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE appointments            ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE school_classes          ADD COLUMN IF NOT EXISTS external_id TEXT;
+-- Coluna import_batch_id adicionada nas mesmas tabelas (nullable, ON DELETE SET NULL)
+
+-- Indices de busca por external_id:
+CREATE UNIQUE INDEX idx_students_ext_id     ON students(external_id) WHERE external_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_contacts_ext_id     ON contacts(external_id) WHERE external_id IS NOT NULL;
+-- (idem para as demais tabelas)
+
+-- Permissoes (migration 128):
+INSERT INTO modules (key, label, group, icon, position)
+VALUES ('import-manager', 'Central de Migracao', 'administracao', 'DatabaseZap', 5);
+
+INSERT INTO role_permissions (role, module_key, can_view, can_create, can_edit, can_delete, can_import)
+VALUES ('super_admin', 'import-manager', TRUE, TRUE, TRUE, TRUE, TRUE);
+-- Todos os outros roles: sem acesso (nao inserido = sem permissao)
+```
+
+---
+
+#### OP-1.12 Arquivos a Criar / Modificar
+
+**Novos:**
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/admin/pages/migration/MigrationCenterPage.tsx` | Dashboard com cards por modulo, progresso geral, historico de lotes |
+| `src/admin/pages/migration/ModuleImportWizard.tsx` | Wizard parametrizado (6 etapas) reutilizando a logica de `StudentImportPage` |
+| `src/admin/pages/migration/UnlockConfirmModal.tsx` | Modal de desbloqueio com campo de confirmacao e lista de dependencias ativas |
+| `src/admin/lib/importRegistry.ts` | Registro central de `ModuleImportConfig` por moduleKey |
+| `src/admin/lib/importConfigs/students.ts` | Config extraida de `import.ts` (sem alteracao de logica) |
+| `src/admin/lib/importConfigs/contacts.ts` | Campos, aliases, validacao e insert para Contatos e Leads |
+| `src/admin/lib/importConfigs/payables.ts` | Contas a Pagar |
+| `src/admin/lib/importConfigs/receivables.ts` | Contas a Receber |
+| `src/admin/lib/importConfigs/cashMovements.ts` | Lancamentos de Caixa |
+| `src/admin/lib/importConfigs/products.ts` | Produtos e Estoque |
+| `src/admin/lib/importConfigs/suppliers.ts` | Fornecedores |
+| `src/admin/lib/importConfigs/appointments.ts` | Agendamentos |
+| `src/admin/lib/importConfigs/classes.ts` | Turmas e Segmentos |
+| `src/admin/lib/importConfigs/users.ts` | Colaboradores |
+| `supabase/migrations/00000000000125_import_batches.sql` | — |
+| `supabase/migrations/00000000000126_import_batch_logs.sql` | — |
+| `supabase/migrations/00000000000127_migration_module_status.sql` | — |
+| `supabase/migrations/00000000000128_migration_permissions.sql` | — |
+
+**Modificados:**
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/admin/lib/import.ts` | Remove referencias a students; exporta funcoes genericas puras; mantém `FIELD_ALIASES` e `autoDetectMapping` |
+| `src/admin/pages/school/StudentImportPage.tsx` | Passa a usar `ModuleImportWizard` com `studentsConfig` — funcionalidade identica, sem regressao |
+| `src/router/` (arquivo de rotas) | Adiciona `/admin/migracao` e `/admin/migracao/:moduleKey` com guard `super_admin` |
+| `src/admin/layout/Sidebar.tsx` | Adiciona item "Central de Migracao" no grupo Administracao, visivel apenas para `super_admin` |
+
+---
+
+#### OP-1.13 Modulos e Campos Importaveis — Referencia Rapida
+
+| Modulo | `moduleKey` | Campos obrigatorios | Chave de duplicidade |
+|--------|-------------|---------------------|----------------------|
+| Turmas e Segmentos | `classes` | nome | nome + ano_letivo |
+| Alunos e Responsaveis | `students` | nome_aluno, nome_responsavel, telefone_responsavel | CPF aluno (se presente); nome + data_nasc |
+| Contatos e Leads | `contacts` | nome | telefone ou e-mail |
+| Colaboradores | `users` | nome, e-mail | e-mail |
+| Fornecedores | `suppliers` | razao_social, cnpj_cpf | cnpj_cpf |
+| Contas a Receber | `receivables` | devedor, valor, vencimento | external_id (se mapeado) |
+| Contas a Pagar | `payables` | credor, valor, vencimento | external_id (se mapeado) |
+| Lancamentos de Caixa | `cash_movements` | data, tipo, valor | external_id (se mapeado) |
+| Produtos e Estoque | `products` | nome, sku | sku |
+| Agendamentos | `appointments` | contato_nome, data, hora | external_id (se mapeado) |
+
+---
+
+#### OP-1.14 Integracao Futura com Agente de IA (Fase 13)
+
+O botao "Mapear com IA" ja existe na UI atual (`StudentImportPage`) como scaffold desabilitado. Apos a Fase 13 (Agentes de IA), dois casos de uso serao habilitados:
+
+**Caso A — Sugestao de mapeamento** (baixo risco, sem PII):
+- Envia apenas os headers da planilha + 5 linhas de amostra anonimizadas
+- IA retorna sugestao de mapeamento campo a campo com justificativa
+- Usuario revisa e confirma — nao substitui o fluxo manual
+
+**Caso B — Normalizacao de arquivo irregular** (modo avancado):
+- Acionado apenas para arquivos com estrutura nao-tabular (cabecalhos em multiplas linhas, blocos misturados, celulas mescladas)
+- Exige consentimento explicito do usuario dado que dados reais sao enviados
+- Retorna arquivo normalizado para revisao antes de prosseguir com o fluxo padrao
+
+Ambos os casos dependem da infraestrutura de agentes da Fase 13 e NAO sao parte do escopo desta implementacao.
+
+---
+
+#### OP-1.15 Permissoes
+
+| Acao | super_admin | admin | coordinator | user |
+|------|:-----------:|:-----:|:-----------:|:----:|
+| Acessar Central de Migracao | ✅ | ❌ | ❌ | ❌ |
+| Iniciar importacao | ✅ | ❌ | ❌ | ❌ |
+| Ver historico de lotes | ✅ | ❌ | ❌ | ❌ |
+| Desbloquear modulo | ✅ | ❌ | ❌ | ❌ |
+
+A rota `/admin/migracao` e seus filhos retornam 403 para qualquer role que nao seja `super_admin`. O item de menu nao e renderizado para outros roles.
 
 ---
 
