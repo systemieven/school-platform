@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  LayoutDashboard, ShoppingBag, ClipboardList, Monitor, BarChart3,
+  LayoutDashboard, ShoppingBag, ClipboardList, Monitor, BarChart3, Receipt,
   PanelLeftClose, PanelLeftOpen, ShieldOff,
 } from 'lucide-react';
 import LojaDashboardTab   from './tabs/LojaDashboardTab';
@@ -9,6 +9,7 @@ import ProdutosTab        from './tabs/ProdutosTab';
 import PedidosTab         from './tabs/PedidosTab';
 import PDVTab             from './tabs/PDVTab';
 import RelatoriosLojaTab  from './tabs/RelatoriosLojaTab';
+import NfceEmitidasTab    from './tabs/NfceEmitidasTab';
 import { usePermissions } from '../../contexts/PermissionsContext';
 
 interface TabDef {
@@ -27,6 +28,7 @@ const TABS: TabDef[] = [
   { key: 'pedidos',    label: 'Pedidos',          shortLabel: 'Pedidos',    icon: ClipboardList,   description: 'Pipeline de pedidos e status de entrega',  moduleKey: 'store-orders' },
   { key: 'pdv',        label: 'PDV',              shortLabel: 'PDV',        icon: Monitor,         description: 'Ponto de venda e caixa',                    moduleKey: 'store-pdv' },
   { key: 'relatorios', label: 'Relatórios',       shortLabel: 'Relatórios', icon: BarChart3,       description: 'Relatórios e análises da loja',             moduleKey: 'store-reports' },
+  { key: 'nfce',       label: 'NFC-e Emitidas',   shortLabel: 'NFC-e',      icon: Receipt,         description: 'Notas Fiscais ao Consumidor emitidas no PDV', moduleKey: 'store-orders' },
 ];
 
 export default function LojaPage() {
@@ -146,6 +148,7 @@ export default function LojaPage() {
               {activeTab === 'pedidos'    && <PedidosTab />}
               {activeTab === 'pdv'        && <PDVTab />}
               {activeTab === 'relatorios' && <RelatoriosLojaTab />}
+              {activeTab === 'nfce'       && <NfceEmitidasTab />}
             </div>
           </div>
         </div>
