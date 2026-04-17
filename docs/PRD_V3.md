@@ -1759,7 +1759,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14+ | Checkout proprio `/pagar/:token` | ✅ Concluido (migration 102 checkout_sessions, 2026-04-16) | Alta | 14 |
 | 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ✅ Concluido (migrations 109–113, Sprint 7, 2026-04-16) | Media | 14 |
 | 14.S | Emissao Automatica de NFS-e (Notas Fiscais de Servicos) | ⏳ Planejado | Media-Alta | 14.F + 8.5 + 10 |
-| 14.E | Modulo de Fornecedores | ⏳ Planejado | Media | 14.F + 8.5 |
+| 14.E | Modulo de Fornecedores | ✅ Concluido | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
@@ -3889,7 +3889,7 @@ nfse_emission_log                   (migration 118 — imutavel: sem UPDATE, sem
 
 ### 10.9D Fase 14.E — Modulo de Fornecedores
 
-**Status**: ⏳ Planejado
+**Status**: ✅ Concluido (Sprint 9)
 **Dependencias**:
 - Fase 14.F concluida (`nfe_entries` + `nfe_entry_items` — XML de NF-e de entrada ja importado; emitente armazenado como TEXT)
 - Fase 8.5 concluida (`financial_payables` — A/P criado com `creditor_name` TEXT, sem FK a fornecedor)
@@ -4221,7 +4221,7 @@ Exclusao bloqueada se fornecedor tiver `financial_payables` ou `nfe_entries` vin
 | **Biblioteca Virtual publica** | Rota `/biblioteca-virtual` no site — decidir se migra para /portal/biblioteca | Baixa | ⏳ Pendente |
 | **PWA / Mobile-First** | Layout responsivo mobile-first, manifest, service worker, push notifications. Concern transversal — ver `docs/PRD_PWA_MOBILE_FIRST.md` para detalhamento completo. Nao e uma fase isolada; cada fase deve entregar componentes mobile-ready | Media | ⏳ Pendente |
 | **WebAuthn / Biometria no Portal do Responsavel** | Registro e uso de credencial de plataforma (`TouchID`, `FaceID`, `Windows Hello`) para re-autenticacao no fluxo de autorizacao de saida excepcional; fallback para senha ja entregue em Fase 11.B. Migration 108 + Edge Function `webauthn` + hook `useWebAuthn` + componente `BiometricAuth` reutilizavel. | Alta | ✅ Concluido (Sprint 6, 2026-04-16) |
-| **MessageOrchestrator — tabela base** | `whatsapp_send_log` criada (migration 106) para deduplicacao cross-modulo; Edge Function message-orchestrator e integracao nos modulos pendentes | Alta | 🔄 Parcial (tabela criada, function pendente) |
+| **MessageOrchestrator — tabela base** | `whatsapp_send_log` (migration 106) + Edge Function `message-orchestrator` (dedup mode=send/check) deployada; `auto-notify` e `financial-notify` integrados; envios manuais (PDV, pedidos, alertas) continuam em `uazapi-proxy` direto por design | Alta | ✅ Concluido (Sprint 8, 2026-04-16) |
 
 ---
 

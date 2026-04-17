@@ -23,8 +23,19 @@ import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Loader2, Plus, TrendingDown, Check, Search,
   Pencil, Trash2, X, DollarSign, User, Calendar,
-  ToggleLeft, ToggleRight, AlertTriangle,
+  ToggleLeft, ToggleRight, AlertTriangle, Building2,
 } from 'lucide-react';
+
+// ── Fornecedor types (lightweight for search) ─────────────────────────────────
+interface FornecedorLite {
+  id: string;
+  razao_social: string;
+  nome_fantasia: string | null;
+  cnpj_cpf: string;
+  prazo_pagamento_dias: number | null;
+  forma_pagamento_preferencial: string | null;
+  contas_bancarias: { banco_nome: string; tipo_chave_pix: string; chave_pix: string; is_default: boolean }[];
+}
 
 const PAYMENT_METHODS = [
   { value: '',             label: 'Não definida' },
@@ -48,6 +59,7 @@ interface DrawerState {
   id?: string;
   creditor_name: string;
   creditor_type: string;
+  fornecedor_id: string | null;
   amount: string;
   account_category_id: string;
   category_type: string;
@@ -65,6 +77,7 @@ interface DrawerState {
 const emptyDrawer = (): DrawerState => ({
   creditor_name: '',
   creditor_type: 'supplier',
+  fornecedor_id: null,
   amount: '',
   account_category_id: '',
   category_type: 'variable',
@@ -95,6 +108,14 @@ export default function FinancialPayablesPage() {
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Fornecedor search state
+  const [fornSearch, setFornSearch] = useState('');
+  const [fornResults, setFornResults] = useState<FornecedorLite[]>([]);
+  const [fornLoading, setFornLoading] = useState(false);
+  const [fornDropOpen, setFornDropOpen] = useState(false);
+  const [selectedFornecedor, setSelectedFornecedor] = useState<FornecedorLite | null>(null);
+  const fornTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [payItem, setPayItem] = useState<FinancialPayable | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('transfer');
@@ -108,7 +129,7 @@ export default function FinancialPayablesPage() {
     const [itemsRes, catRes] = await Promise.all([
       supabase
         .from('financial_payables')
-        .select('*, account_category:financial_account_categories(name, type)')
+        .select('*, account_category:financial_account_categories(name, type), fornecedor:fornecedores(razao_social,nome_fantasia)')
         .is('parent_id', null)
         .order('due_date', { ascending: true }),
       supabase
@@ -146,12 +167,73 @@ export default function FinancialPayablesPage() {
     return daysUntil >= 0 && daysUntil <= i.alert_days_before;
   }).length;
 
-  function openNew() { setForm(emptyDrawer()); setIsNew(true); setDrawerOpen(true); }
+  // Fornecedor lookup with debounce
+  async function searchFornecedores(q: string) {
+    if (!q.trim()) { setFornResults([]); setFornDropOpen(false); return; }
+    setFornLoading(true);
+    const { data } = await supabase
+      .from('fornecedores')
+      .select('id, razao_social, nome_fantasia, cnpj_cpf, prazo_pagamento_dias, forma_pagamento_preferencial, fornecedor_contas_bancarias(banco_nome,tipo_chave_pix,chave_pix,is_default)')
+      .or(`razao_social.ilike.%${q}%,nome_fantasia.ilike.%${q}%,cnpj_cpf.ilike.%${q}%`)
+      .eq('status', 'ativo')
+      .limit(6);
+    setFornResults((data ?? []).map((d: Record<string, unknown>) => ({
+      ...(d as Omit<FornecedorLite, 'contas_bancarias'>),
+      contas_bancarias: (d.fornecedor_contas_bancarias as FornecedorLite['contas_bancarias']) ?? [],
+    })));
+    setFornDropOpen(true);
+    setFornLoading(false);
+  }
+
+  function onFornSearchChange(v: string) {
+    setFornSearch(v);
+    if (fornTimer.current) clearTimeout(fornTimer.current);
+    fornTimer.current = setTimeout(() => searchFornecedores(v), 400);
+  }
+
+  function selectFornecedor(f: FornecedorLite) {
+    setSelectedFornecedor(f);
+    setFornSearch('');
+    setFornDropOpen(false);
+    // Apply supplier defaults
+    const defaultConta = f.contas_bancarias.find((c) => c.is_default) ?? f.contas_bancarias[0];
+    const pmMap: Record<string, string> = {
+      pix: 'pix', boleto: 'boleto', transferencia: 'transfer', cartao: 'credit_card',
+    };
+    const pm = f.forma_pagamento_preferencial ? (pmMap[f.forma_pagamento_preferencial] ?? '') : (defaultConta?.tipo_chave_pix ? 'pix' : '');
+    const dueDate = f.prazo_pagamento_dias
+      ? new Date(Date.now() + f.prazo_pagamento_dias * 86400000).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    setForm((prev) => ({
+      ...prev,
+      fornecedor_id: f.id,
+      creditor_name: f.nome_fantasia ?? f.razao_social,
+      creditor_type: 'supplier',
+      payment_method: pm,
+      due_date: dueDate,
+    }));
+  }
+
+  function clearFornecedor() {
+    setSelectedFornecedor(null);
+    setForm((prev) => ({ ...prev, fornecedor_id: null }));
+  }
+
+  function openNew() {
+    setForm(emptyDrawer());
+    setIsNew(true);
+    setSelectedFornecedor(null);
+    setFornSearch('');
+    setFornDropOpen(false);
+    setDrawerOpen(true);
+  }
+
   function openEdit(item: FinancialPayable) {
     setForm({
       id: item.id,
       creditor_name: item.creditor_name,
       creditor_type: item.creditor_type,
+      fornecedor_id: (item as FinancialPayable & { fornecedor_id?: string | null }).fornecedor_id ?? null,
       amount: String(item.amount),
       account_category_id: item.account_category_id ?? '',
       category_type: item.category_type,
@@ -166,6 +248,9 @@ export default function FinancialPayablesPage() {
       notes: item.notes ?? '',
     });
     setIsNew(false);
+    setSelectedFornecedor(null);
+    setFornSearch('');
+    setFornDropOpen(false);
     setDrawerOpen(true);
   }
 
@@ -175,6 +260,7 @@ export default function FinancialPayablesPage() {
     const payload = {
       creditor_name: form.creditor_name.trim(),
       creditor_type: form.creditor_type,
+      fornecedor_id: form.fornecedor_id ?? null,
       amount: Number(form.amount),
       account_category_id: form.account_category_id || null,
       category_type: form.category_type,
@@ -323,6 +409,12 @@ export default function FinancialPayablesPage() {
                       {item.creditor_name} ({PAYABLE_CREDITOR_TYPE_LABELS[item.creditor_type]})
                       {' · Venc. '}{fmtDate(item.due_date)}
                       {isNearDue && <span className="ml-1 text-amber-600 font-semibold">· vence em {daysUntil}d</span>}
+                      {(item as FinancialPayable & { fornecedor?: { razao_social: string; nome_fantasia: string | null } | null }).fornecedor && (
+                        <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-[10px] font-medium">
+                          <Building2 className="w-2.5 h-2.5" />
+                          {(item as FinancialPayable & { fornecedor?: { razao_social: string; nome_fantasia: string | null } }).fornecedor?.nome_fantasia ?? (item as FinancialPayable & { fornecedor?: { razao_social: string; nome_fantasia: string | null } }).fornecedor?.razao_social}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -383,6 +475,56 @@ export default function FinancialPayablesPage() {
         }
       >
         <DrawerCard title="Credor" icon={User}>
+          {/* Fornecedor search */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Fornecedor Cadastrado</label>
+            {selectedFornecedor ? (
+              <div className="flex items-center gap-2 px-3 py-2 bg-brand-primary/5 border border-brand-primary/20 rounded-xl">
+                <Building2 className="w-4 h-4 text-brand-primary flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-brand-primary truncate">{selectedFornecedor.razao_social}</p>
+                  <p className="text-[10px] text-gray-400">{selectedFornecedor.cnpj_cpf}</p>
+                </div>
+                <button type="button" onClick={clearFornecedor} className="p-1 text-gray-400 hover:text-red-500 transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                {fornLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 animate-spin" />}
+                <input
+                  value={fornSearch}
+                  onChange={(e) => onFornSearchChange(e.target.value)}
+                  onFocus={() => fornSearch && setFornDropOpen(true)}
+                  placeholder="Buscar por nome ou CNPJ…"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none"
+                />
+                {fornDropOpen && fornResults.length > 0 && (
+                  <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg overflow-hidden">
+                    {fornResults.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => selectFornecedor(f)}
+                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-left transition-colors"
+                      >
+                        <Building2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">
+                            {f.nome_fantasia ?? f.razao_social}
+                          </p>
+                          <p className="text-[10px] text-gray-400 truncate">{f.cnpj_cpf}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <p className="text-[10px] text-gray-400 mt-1">Opcional — vincula o lançamento ao cadastro de fornecedor.</p>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Nome do Credor *</label>
             <input value={form.creditor_name} onChange={(e) => setForm({ ...form, creditor_name: e.target.value })} placeholder="Nome do fornecedor ou credor"

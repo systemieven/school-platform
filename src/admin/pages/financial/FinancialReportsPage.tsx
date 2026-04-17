@@ -13,7 +13,7 @@ import {
   BarChart3, TrendingUp, TrendingDown, AlertTriangle,
   CalendarRange, Download, Loader2, RefreshCcw,
   ArrowUpRight, ArrowDownLeft, Minus, ChevronDown, ChevronRight,
-  CircleDollarSign, Activity,
+  CircleDollarSign, Activity, Building2,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import PermissionGate from '../../components/PermissionGate';
@@ -100,11 +100,12 @@ function exportCSV(filename: string, rows: Record<string, unknown>[]) {
 // ── Sub-tab definitions ───────────────────────────────────────────────────────
 
 const SUBTABS = [
-  { key: 'cashflow',     label: 'Fluxo de Caixa',    shortLabel: 'Fluxo',     icon: Activity },
-  { key: 'dre',         label: 'DRE Simplificado',   shortLabel: 'DRE',       icon: BarChart3 },
-  { key: 'delinquency', label: 'Inadimplência',       shortLabel: 'Inadimp.',  icon: AlertTriangle },
-  { key: 'forecast',    label: 'Previsão Financeira', shortLabel: 'Previsão',  icon: CalendarRange },
-  { key: 'extract',     label: 'Extrato',             shortLabel: 'Extrato',   icon: CircleDollarSign },
+  { key: 'cashflow',      label: 'Fluxo de Caixa',    shortLabel: 'Fluxo',     icon: Activity },
+  { key: 'dre',          label: 'DRE Simplificado',   shortLabel: 'DRE',       icon: BarChart3 },
+  { key: 'delinquency',  label: 'Inadimplência',       shortLabel: 'Inadimp.',  icon: AlertTriangle },
+  { key: 'forecast',     label: 'Previsão Financeira', shortLabel: 'Previsão',  icon: CalendarRange },
+  { key: 'extract',      label: 'Extrato',             shortLabel: 'Extrato',   icon: CircleDollarSign },
+  { key: 'fornecedores', label: 'Fornecedores',        shortLabel: 'Fornec.',   icon: Building2 },
 ] as const;
 
 type SubTabKey = typeof SUBTABS[number]['key'];
@@ -126,6 +127,16 @@ export default function FinancialReportsPage() {
   const [dreRows, setDreRows] = useState<DreRow[]>([]);
   const [delinquency, setDelinquency] = useState<DelinquencyEntry[]>([]);
   const [forecast, setForecast] = useState<ForecastMonth[]>([]);
+
+  // Fornecedores report state
+  interface FornVolumeRow { fornecedor_id: string; razao_social: string; nome_fantasia: string | null; total: number; count: number; }
+  interface FornPayableRow { id: string; description: string; amount: number; amount_paid: number; due_date: string; status: string; creditor_name: string; fornecedor_id: string; razao_social: string; nome_fantasia: string | null; }
+  interface FornNfeRow { id: string; chave_acesso: string; data_emissao: string; valor_total: number; fornecedor_id: string; razao_social: string; nome_fantasia: string | null; }
+  const [fornVolume, setFornVolume] = useState<FornVolumeRow[]>([]);
+  const [fornPayables, setFornPayables] = useState<FornPayableRow[]>([]);
+  const [fornNfe, setFornNfe] = useState<FornNfeRow[]>([]);
+  const [fornInactive, setFornInactive] = useState<{ id: string; razao_social: string; nome_fantasia: string | null; cnpj_cpf: string }[]>([]);
+  const [fornReportLoading, setFornReportLoading] = useState(false);
 
   // Filters
   const [cfDirection, setCfDirection] = useState<'all' | 'entrada' | 'saida'>('all');
@@ -313,6 +324,92 @@ export default function FinancialReportsPage() {
     setForecast(result);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const loadFornecedoresReport = useCallback(async () => {
+    setFornReportLoading(true);
+    // 1. Volume por fornecedor (A/P pago no período)
+    const { data: payData } = await supabase
+      .from('financial_payables')
+      .select('fornecedor_id, amount_paid, description, amount, due_date, status, creditor_name, fornecedor:fornecedores(razao_social,nome_fantasia)')
+      .not('fornecedor_id', 'is', null)
+      .gte('due_date', startDate)
+      .lte('due_date', endDate)
+      .is('parent_id', null);
+
+    type PayRaw = { fornecedor_id: string; amount_paid: number | null; description: string; amount: number; due_date: string; status: string; creditor_name: string; fornecedor: { razao_social: string; nome_fantasia: string | null } | null };
+    const rows = (payData ?? []) as PayRaw[];
+
+    // Aggregate volume
+    const volMap = new Map<string, { razao_social: string; nome_fantasia: string | null; total: number; count: number }>();
+    for (const r of rows) {
+      if (!r.fornecedor_id || !r.fornecedor) continue;
+      const cur = volMap.get(r.fornecedor_id) ?? { razao_social: r.fornecedor.razao_social, nome_fantasia: r.fornecedor.nome_fantasia, total: 0, count: 0 };
+      cur.total += Number(r.amount_paid ?? r.amount);
+      cur.count += 1;
+      volMap.set(r.fornecedor_id, cur);
+    }
+    setFornVolume(Array.from(volMap.entries())
+      .map(([id, v]) => ({ fornecedor_id: id, ...v }))
+      .sort((a, b) => b.total - a.total));
+
+    // All payables (for per-supplier A/P report)
+    setFornPayables(rows.map((r) => ({
+      id: r.fornecedor_id,
+      description: r.description,
+      amount: r.amount,
+      amount_paid: r.amount_paid ?? 0,
+      due_date: r.due_date,
+      status: r.status,
+      creditor_name: r.creditor_name,
+      fornecedor_id: r.fornecedor_id,
+      razao_social: r.fornecedor?.razao_social ?? '',
+      nome_fantasia: r.fornecedor?.nome_fantasia ?? null,
+    })));
+
+    // NF-e por fornecedor
+    const { data: nfeData } = await supabase
+      .from('nfe_entries')
+      .select('id, chave_acesso, data_emissao, valor_total, fornecedor_id, fornecedor:fornecedores(razao_social,nome_fantasia)')
+      .not('fornecedor_id', 'is', null)
+      .gte('data_emissao', startDate)
+      .lte('data_emissao', endDate);
+
+    type NfeRaw = { id: string; chave_acesso: string; data_emissao: string; valor_total: number; fornecedor_id: string; fornecedor: { razao_social: string; nome_fantasia: string | null } | null };
+    setFornNfe(((nfeData ?? []) as NfeRaw[]).map((r) => ({
+      id: r.id,
+      chave_acesso: r.chave_acesso,
+      data_emissao: r.data_emissao,
+      valor_total: r.valor_total,
+      fornecedor_id: r.fornecedor_id,
+      razao_social: r.fornecedor?.razao_social ?? '',
+      nome_fantasia: r.fornecedor?.nome_fantasia ?? null,
+    })));
+
+    // Fornecedores sem movimentação (últimos 90 dias)
+    const cutoff = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+    const { data: allForn } = await supabase
+      .from('fornecedores')
+      .select('id, razao_social, nome_fantasia, cnpj_cpf')
+      .eq('status', 'ativo');
+    const { data: activePayForn } = await supabase
+      .from('financial_payables')
+      .select('fornecedor_id')
+      .not('fornecedor_id', 'is', null)
+      .gte('due_date', cutoff);
+    const { data: activeNfeForn } = await supabase
+      .from('nfe_entries')
+      .select('fornecedor_id')
+      .not('fornecedor_id', 'is', null)
+      .gte('data_emissao', cutoff);
+    const activeIds = new Set([
+      ...((activePayForn ?? []) as { fornecedor_id: string }[]).map((r) => r.fornecedor_id),
+      ...((activeNfeForn ?? []) as { fornecedor_id: string }[]).map((r) => r.fornecedor_id),
+    ]);
+    setFornInactive(((allForn ?? []) as { id: string; razao_social: string; nome_fantasia: string | null; cnpj_cpf: string }[])
+      .filter((f) => !activeIds.has(f.id)));
+
+    setFornReportLoading(false);
+  }, [startDate, endDate]);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([loadCashFlow(), loadDre(), loadDelinquency(), loadForecast()]);
@@ -320,6 +417,7 @@ export default function FinancialReportsPage() {
   }, [loadCashFlow, loadDre, loadDelinquency, loadForecast]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { if (activeTab === 'fornecedores') loadFornecedoresReport(); }, [activeTab, loadFornecedoresReport]);
 
   // ── Computed values ────────────────────────────────────────────────────────
 
@@ -901,6 +999,204 @@ export default function FinancialReportsPage() {
     );
   }
 
+  // ── Fornecedores tab ───────────────────────────────────────────────────────
+
+  function FornecedoresTab() {
+    const [subReport, setSubReport] = useState<'volume' | 'payables' | 'nfe' | 'inactive'>('volume');
+
+    if (fornReportLoading) {
+      return (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Sub-report selector */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {([
+            { key: 'volume',   label: 'Ranking por Volume' },
+            { key: 'payables', label: 'A/P por Fornecedor' },
+            { key: 'nfe',      label: 'NF-e por Fornecedor' },
+            { key: 'inactive', label: 'Sem Movimentação (90d)' },
+          ] as const).map((r) => (
+            <button
+              key={r.key}
+              onClick={() => setSubReport(r.key)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                subReport === r.key
+                  ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                  : 'border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Ranking por Volume */}
+        {subReport === 'volume' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-500">Top fornecedores por valor total de compras no período selecionado.</p>
+              <button
+                onClick={() => exportCSV('fornecedores-volume.csv', fornVolume.map((r, i) => ({
+                  Posição: i + 1,
+                  Fornecedor: r.nome_fantasia ?? r.razao_social,
+                  'Total (R$)': r.total.toFixed(2),
+                  Lançamentos: r.count,
+                })))}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <Download className="w-3 h-3" /> Exportar CSV
+              </button>
+            </div>
+            {fornVolume.length === 0 ? (
+              <p className="text-center py-10 text-sm text-gray-400">Nenhum dado no período.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700">
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">#</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Fornecedor</th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-600 dark:text-gray-400">Lançamentos</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600 dark:text-gray-400">Total</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600 dark:text-gray-400">Ticket Médio</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                    {fornVolume.map((r, i) => (
+                      <tr key={r.fornecedor_id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
+                        <td className="px-4 py-3 text-gray-400 font-mono">{i + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                            <span className="font-medium text-gray-800 dark:text-gray-200">{r.nome_fantasia ?? r.razao_social}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{r.count}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-800 dark:text-gray-200">{fmt(r.total)}</td>
+                        <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{fmt(r.count > 0 ? r.total / r.count : 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* A/P por Fornecedor */}
+        {subReport === 'payables' && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">Contas a pagar vinculadas a fornecedores no período.</p>
+            {fornPayables.length === 0 ? (
+              <p className="text-center py-10 text-sm text-gray-400">Nenhum dado no período.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700">
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Fornecedor</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Descrição</th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-600 dark:text-gray-400">Vencimento</th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-600 dark:text-gray-400">Status</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600 dark:text-gray-400">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                    {fornPayables.map((r, idx) => (
+                      <tr key={`${r.fornecedor_id}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
+                        <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{r.nome_fantasia ?? r.razao_social}</td>
+                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 truncate max-w-[180px]">{r.description}</td>
+                        <td className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{fmtDate(r.due_date)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            r.status === 'paid' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            r.status === 'overdue' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          }`}>
+                            {r.status === 'paid' ? 'Pago' : r.status === 'overdue' ? 'Vencido' : 'Pendente'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-800 dark:text-gray-200">{fmt(r.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* NF-e por Fornecedor */}
+        {subReport === 'nfe' && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">Notas fiscais de entrada vinculadas a fornecedores no período.</p>
+            {fornNfe.length === 0 ? (
+              <p className="text-center py-10 text-sm text-gray-400">Nenhum dado no período.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700">
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Fornecedor</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Chave (truncada)</th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-600 dark:text-gray-400">Emissão</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600 dark:text-gray-400">Valor Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                    {fornNfe.map((r) => (
+                      <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
+                        <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{r.nome_fantasia ?? r.razao_social}</td>
+                        <td className="px-4 py-3 text-gray-400 font-mono truncate max-w-[140px]">{r.chave_acesso?.slice(-8) ?? '—'}</td>
+                        <td className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{fmtDate(r.data_emissao)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-800 dark:text-gray-200">{fmt(r.valor_total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sem movimentação */}
+        {subReport === 'inactive' && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">Fornecedores ativos sem A/P nem NF-e vinculadas nos últimos 90 dias.</p>
+            {fornInactive.length === 0 ? (
+              <p className="text-center py-10 text-sm text-emerald-600 font-medium">Todos os fornecedores ativos têm movimentação recente.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700">
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Fornecedor</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">CNPJ/CPF</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                    {fornInactive.map((f) => (
+                      <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
+                        <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{f.nome_fantasia ?? f.razao_social}</td>
+                        <td className="px-4 py-3 text-gray-400 font-mono">{f.cnpj_cpf}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ── Main render ────────────────────────────────────────────────────────────
 
   return (
@@ -942,11 +1238,12 @@ export default function FinancialReportsPage() {
 
         {/* Tab content */}
         <div>
-          {activeTab === 'cashflow'     && <CashFlowTab />}
-          {activeTab === 'dre'          && <DreTab />}
-          {activeTab === 'delinquency'  && <DelinquencyTab />}
-          {activeTab === 'forecast'     && <ForecastTab />}
-          {activeTab === 'extract'      && <ExtractTab />}
+          {activeTab === 'cashflow'      && <CashFlowTab />}
+          {activeTab === 'dre'           && <DreTab />}
+          {activeTab === 'delinquency'   && <DelinquencyTab />}
+          {activeTab === 'forecast'      && <ForecastTab />}
+          {activeTab === 'extract'       && <ExtractTab />}
+          {activeTab === 'fornecedores'  && <FornecedoresTab />}
         </div>
       </div>
     </PermissionGate>
