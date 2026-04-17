@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Target, Check, Loader2, Search } from 'lucide-react';
+import { SelectDropdown } from '../../components/FormField';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
@@ -405,57 +406,42 @@ export default function ObjetivosPage() {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                  Segmento
-                </label>
-                <select
-                  value={segmentId}
-                  onChange={(e) => { setSegmentId(e.target.value); setSchoolYear(''); }}
-                  className={inp}
-                >
-                  <option value="">Selecione...</option>
-                  {segments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                  Disciplina
-                </label>
-                <select
-                  value={subjectId}
-                  onChange={(e) => setSubjectId(e.target.value)}
-                  className={inp}
-                >
-                  <option value="">Selecione...</option>
-                  {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                Ano/Série
-              </label>
-              <select
-                value={schoolYear}
-                onChange={(e) => setSchoolYear(e.target.value)}
-                disabled={!segmentId || series.length === 0}
-                className={`${inp} disabled:opacity-50`}
+              <SelectDropdown
+                label="Segmento"
+                value={segmentId}
+                onChange={(e) => { setSegmentId(e.target.value); setSchoolYear(''); }}
               >
-                <option value="">
-                  {!segmentId
-                    ? 'Selecione um segmento primeiro'
-                    : series.length === 0
-                    ? 'Nenhuma série cadastrada'
-                    : 'Selecione...'}
-                </option>
-                {series.map((sr) => (
-                  <option key={sr.id} value={String(sr.order_index)}>
-                    {sr.name}
-                  </option>
-                ))}
-              </select>
+                <option value="">Selecione...</option>
+                {segments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </SelectDropdown>
+              <SelectDropdown
+                label="Disciplina"
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+              >
+                <option value="">Selecione...</option>
+                {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </SelectDropdown>
             </div>
+            <SelectDropdown
+              label="Ano/Série"
+              value={schoolYear}
+              onChange={(e) => setSchoolYear(e.target.value)}
+              disabled={!segmentId || series.length === 0}
+            >
+              <option value="">
+                {!segmentId
+                  ? 'Selecione um segmento primeiro'
+                  : series.length === 0
+                  ? 'Nenhuma série cadastrada'
+                  : 'Selecione...'}
+              </option>
+              {series.map((sr) => (
+                <option key={sr.id} value={String(sr.order_index)}>
+                  {sr.name}
+                </option>
+              ))}
+            </SelectDropdown>
           </div>
         </DrawerCard>
       </Drawer>

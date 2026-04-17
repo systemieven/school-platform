@@ -7,6 +7,7 @@ import {
   List, Loader2, Pencil, Plus, Trash2,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { SelectDropdown } from '../../components/FormField';
 
 // ── School event (from /admin/eventos) ──────────────────────────────────────
 interface SchoolEventRow {
@@ -565,16 +566,16 @@ export default function CalendarioPage() {
             placeholder="Nome do evento"
           />
 
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo</label>
-          <select
+          <SelectDropdown
+            label="Tipo"
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value as CalendarEventType })}
-            className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 mb-3"
+            wrapperClassName="mb-3"
           >
             {EVENT_TYPES.map((t) => (
               <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
             ))}
-          </select>
+          </SelectDropdown>
 
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Descrição</label>
           <textarea
@@ -606,20 +607,18 @@ export default function CalendarioPage() {
             </div>
           </div>
 
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-            Período (Bimestre)
-          </label>
-          <select
+          <SelectDropdown
+            label="Período (Bimestre)"
             value={form.period_number}
             onChange={(e) => setForm({ ...form, period_number: e.target.value })}
-            className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 mb-3"
+            wrapperClassName="mb-3"
           >
             <option value="">Nenhum</option>
             <option value="1">1o Bimestre</option>
             <option value="2">2o Bimestre</option>
             <option value="3">3o Bimestre</option>
             <option value="4">4o Bimestre</option>
-          </select>
+          </SelectDropdown>
         </DrawerCard>
 
         <DrawerCard title="Segmentos" icon={Calendar}>
