@@ -5,7 +5,7 @@
  * ricos: ícone leading, hint, counter de caracteres, dark mode completo.
  */
 import React, { forwardRef } from 'react';
-import { AlignJustify, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, AlignJustify, ChevronDown } from 'lucide-react';
 
 // ── Constantes CSS canônicas ─────────────────────────────────────────────────
 
@@ -135,18 +135,16 @@ export function SelectField({ label, hint, children, className, ...rest }: Selec
   );
 }
 
-// ─── SelectDropdown ──────────────────────────────────────────────────────────
-interface SelectDropdownProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+// ── SelectDropdown ───────────────────────────────────────────────────────────
+export interface SelectDropdownProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   hint?: string;
-  /** Extra classes applied to the outer wrapper <div> (e.g. "mb-3"). */
-  wrapperClassName?: string;
   children: React.ReactNode;
 }
 
-export function SelectDropdown({ label, hint, children, className, wrapperClassName, ...rest }: SelectDropdownProps) {
+export function SelectDropdown({ label, hint, children, className, ...rest }: SelectDropdownProps) {
   return (
-    <div className={wrapperClassName}>
+    <div>
       {label && <label className={LABEL_CLS}>{label}</label>}
       <div className="relative">
         <AlignJustify className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
