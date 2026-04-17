@@ -33,6 +33,7 @@ import AcademicoSettingsPanel from './AcademicoSettingsPanel';
 import LostFoundSettingsPanel from './LostFoundSettingsPanel';
 import FiscalSettingsPanel from './FiscalSettingsPanel';
 import NfseSettingsPanel from './NfseSettingsPanel';
+import NfceSettingsPanel from './NfceSettingsPanel';
 import SiteSettingsPanel, { type SiteTab, SITE_SUB_TABS } from './SiteSettingsPanel';
 import AuditLogsPage from '../audit/AuditLogsPage';
 import PermissionsPage from '../permissions/PermissionsPage';
@@ -276,7 +277,7 @@ export default function SettingsPage() {
       : firstAllowedKey;
   const [activeTab, setActiveTab] = useState(initialTab);
   const [siteSubTab, setSiteSubTab] = useState<SiteTab>('appearance');
-  const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfse'>('nfe');
+  const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfse' | 'nfce'>('nfe');
   const [tabsCollapsed, setTabsCollapsed] = useState(() => {
     try { return localStorage.getItem(TABS_STORAGE_KEY) === 'true'; } catch { return false; }
   });
@@ -668,7 +669,8 @@ export default function SettingsPage() {
                   {([
                     { key: 'nfe', label: 'NF-e (Produtos)' },
                     { key: 'nfse', label: 'NFS-e (Serviços)' },
-                  ] as { key: 'nfe' | 'nfse'; label: string }[]).map(({ key, label }) => (
+                    { key: 'nfce', label: 'NFC-e (Consumidor)' },
+                  ] as { key: 'nfe' | 'nfse' | 'nfce'; label: string }[]).map(({ key, label }) => (
                     <button
                       key={key}
                       onClick={() => setFiscalSubTab(key)}
@@ -759,7 +761,8 @@ export default function SettingsPage() {
               ) : activeTab === 'ferramentas' ? (
                 <LostFoundSettingsPanel />
               ) : activeTab === 'fiscal' ? (
-                fiscalSubTab === 'nfse' ? <NfseSettingsPanel /> : <FiscalSettingsPanel />
+                fiscalSubTab === 'nfse' ? <NfseSettingsPanel /> :
+                fiscalSubTab === 'nfce' ? <NfceSettingsPanel /> : <FiscalSettingsPanel />
               ) : activeTab === 'academico' ? (
                 <AcademicoSettingsPanel />
               ) : activeTab === 'institutional' ? (
