@@ -22,11 +22,12 @@ import {
   ArrowLeft, Camera, Printer, Loader2, GraduationCap, Users, Phone,
   Mail, Calendar, MapPin, FileText, BookOpen, BarChart2, DollarSign,
   Paperclip, MessageSquare, AlertCircle, CheckCircle, Clock, XCircle, Check,
-  HeartPulse, Plus, Pencil, X, ChevronDown, ShieldCheck, Heart, Stethoscope,
+  HeartPulse, Plus, Pencil, X, ShieldCheck, Heart, Stethoscope,
   ShoppingBag, TrendingUp,
 } from 'lucide-react';
 import ImageCropModal from '../../components/ImageCropModal';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { SelectDropdown } from '../../components/FormField';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -347,15 +348,9 @@ function HealthRecordDrawer({
     <Drawer open={open} onClose={onClose} title="Ficha de Saúde" icon={HeartPulse} width="w-[520px]" footer={footer}>
       <DrawerCard title="Dados Básicos" icon={Heart}>
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Tipo Sanguíneo</label>
-            <div className="relative">
-              <select value={bloodType} onChange={(e) => setBloodType(e.target.value as BloodType | '')} className={`${inputCls} appearance-none pr-8`}>
-                {BLOOD_TYPES.map((bt) => <option key={bt} value={bt}>{bt || '— Não informado —'}</option>)}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
+          <SelectDropdown label="Tipo Sanguíneo" value={bloodType} onChange={(e) => setBloodType(e.target.value as BloodType | '')}>
+            {BLOOD_TYPES.map((bt) => <option key={bt} value={bt}>{bt || '— Não informado —'}</option>)}
+          </SelectDropdown>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Plano de Saúde</label>

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Check, Trash2, ShoppingBag, Plus, X, Receipt } from 'lucide-react';
+import { SelectDropdown } from '../../../components/FormField';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
+import { SelectDropdown } from '../../../components/FormField';
 import { Toggle } from '../../../components/Toggle';
 import { supabase } from '../../../../lib/supabase';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
@@ -374,23 +376,15 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
               className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Categoria</label>
-              <select value={form.category_id} onChange={(e) => set('category_id', e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white">
-                <option value="">Sem categoria</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Status</label>
-              <select value={form.status} onChange={(e) => set('status', e.target.value as StoreProductStatus)}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white">
-                {(Object.entries(PRODUCT_STATUS_LABELS) as [StoreProductStatus, string][]).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
+            <SelectDropdown label="Categoria" value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
+              <option value="">Sem categoria</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </SelectDropdown>
+            <SelectDropdown label="Status" value={form.status} onChange={(e) => set('status', e.target.value as StoreProductStatus)}>
+              {(Object.entries(PRODUCT_STATUS_LABELS) as [StoreProductStatus, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </SelectDropdown>
           </div>
         </div>
       </DrawerCard>
@@ -489,17 +483,14 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
           {/* Profile selector */}
           {fiscalProfiles.length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Perfil Fiscal (preenchimento automático)
-              </label>
-              <select
+              <SelectDropdown
+                label="Perfil Fiscal (preenchimento automático)"
                 value={fiscal.fiscal_profile_id}
                 onChange={(e) => applyProfile(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white"
               >
                 <option value="">— Selecionar perfil —</option>
                 {fiscalProfiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              </SelectDropdown>
               {fiscal.fiscal_profile_id && (
                 <p className="text-xs text-gray-400 mt-1">Campos preenchidos pelo perfil. Você pode sobrescrever individualmente.</p>
               )}
@@ -534,21 +525,17 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
                   placeholder="7891234567890" />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Origem</label>
-                <select value={fiscal.origem} onChange={(e) => setFiscal(f => ({...f, origem: e.target.value}))}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white">
-                  <option value="0">0 — Nacional</option>
-                  <option value="1">1 — Estrangeira (importação direta)</option>
-                  <option value="2">2 — Estrangeira (mercado interno)</option>
-                  <option value="3">3 — Nacional (CI 40%–70%)</option>
-                  <option value="4">4 — Nacional (PPB)</option>
-                  <option value="5">5 — Nacional (CI ≤ 40%)</option>
-                  <option value="6">6 — Estrangeira (sem similar, importação direta)</option>
-                  <option value="7">7 — Estrangeira (sem similar, mercado interno)</option>
-                  <option value="8">8 — Nacional (CI &gt; 70%)</option>
-                </select>
-              </div>
+              <SelectDropdown label="Origem" value={fiscal.origem} onChange={(e) => setFiscal(f => ({...f, origem: e.target.value}))}>
+                <option value="0">0 — Nacional</option>
+                <option value="1">1 — Estrangeira (importação direta)</option>
+                <option value="2">2 — Estrangeira (mercado interno)</option>
+                <option value="3">3 — Nacional (CI 40%–70%)</option>
+                <option value="4">4 — Nacional (PPB)</option>
+                <option value="5">5 — Nacional (CI ≤ 40%)</option>
+                <option value="6">6 — Estrangeira (sem similar, importação direta)</option>
+                <option value="7">7 — Estrangeira (sem similar, mercado interno)</option>
+                <option value="8">8 — Nacional (CI &gt; 70%)</option>
+              </SelectDropdown>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Unidade Tributável</label>
                 <input value={fiscal.unidade_trib} onChange={(e) => setFiscal(f => ({...f, unidade_trib: e.target.value}))} maxLength={6}
@@ -574,16 +561,12 @@ export default function ProdutoDrawer({ open, product, categories, onClose, onSa
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
                   placeholder="400" />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Modalidade BC</label>
-                <select value={fiscal.mod_bc_icms} onChange={(e) => setFiscal(f => ({...f, mod_bc_icms: e.target.value}))}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white">
-                  <option value="0">0 — MVA (%)</option>
-                  <option value="1">1 — Pauta (valor)</option>
-                  <option value="2">2 — Preço tabelado</option>
-                  <option value="3">3 — Valor da operação</option>
-                </select>
-              </div>
+              <SelectDropdown label="Modalidade BC" value={fiscal.mod_bc_icms} onChange={(e) => setFiscal(f => ({...f, mod_bc_icms: e.target.value}))}>
+                <option value="0">0 — MVA (%)</option>
+                <option value="1">1 — Pauta (valor)</option>
+                <option value="2">2 — Preço tabelado</option>
+                <option value="3">3 — Valor da operação</option>
+              </SelectDropdown>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alíquota ICMS (%)</label>
                 <input type="number" step="0.01" min="0" max="100" value={fiscal.aliq_icms} onChange={(e) => setFiscal(f => ({...f, aliq_icms: e.target.value}))}

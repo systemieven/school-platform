@@ -7,10 +7,11 @@ import type { ContactRequest, ContactStatus } from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
   MessageSquare, Search, X, ChevronRight, Loader2, RefreshCw,
-  Phone, Mail, Clock, Star, ChevronDown, MessageCircle,
+  Phone, Mail, Clock, Star, MessageCircle,
   History, GraduationCap, CalendarPlus, Filter, AlertTriangle,
 } from 'lucide-react';
 import { useBranding } from '../../../contexts/BrandingContext';
+import { SelectDropdown } from '../../components/FormField';
 
 // ── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<ContactStatus, { label: string; color: string; dot: string }> = {
@@ -369,19 +370,16 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
               </div>
 
               {/* Assigned to */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Responsável</label>
-                <div className="relative">
-                  <select value={assignedTo} onChange={(e) => saveAssignedTo(e.target.value)}
-                    className="w-full px-3 py-2 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none appearance-none">
-                    <option value="">Ninguém atribuído</option>
-                    {adminProfiles.map((p) => (
-                      <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
+              <SelectDropdown
+                label="Responsável"
+                value={assignedTo}
+                onChange={(e) => saveAssignedTo(e.target.value)}
+              >
+                <option value="">Ninguém atribuído</option>
+                {adminProfiles.map((p) => (
+                  <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
+                ))}
+              </SelectDropdown>
 
               {/* Internal notes */}
               <div>
@@ -400,15 +398,16 @@ function ContactDrawer({ contact, onClose, onUpdate, onRefresh: _onRefresh }: Dr
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Alterar status</label>
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as ContactStatus)}
-                      className="w-full px-3 py-2.5 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none appearance-none">
+                  <div className="flex-1">
+                    <SelectDropdown
+                      value={newStatus}
+                      onChange={(e) => setNewStatus(e.target.value as ContactStatus)}
+                    >
                       <option value="">Selecionar status...</option>
                       {(Object.entries(STATUS_CONFIG) as [ContactStatus, typeof STATUS_CONFIG[ContactStatus]][])
                         .filter(([k]) => k !== contact.status)
                         .map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </SelectDropdown>
                   </div>
                   <button onClick={changeStatus} disabled={!newStatus || saving}
                     className="px-4 py-2 bg-brand-primary text-white rounded-xl text-sm disabled:opacity-40 hover:bg-brand-primary-dark transition-colors">

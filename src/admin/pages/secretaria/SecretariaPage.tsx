@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { SelectDropdown } from '../../components/FormField';
 import type {
   DocumentTemplate,
   DocumentRequest,
@@ -215,18 +216,11 @@ function TemplateDrawer({
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
               placeholder="Ex: Declaração de Matrícula" />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Tipo de Documento</label>
-            <div className="relative">
-              <select value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentType)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none pr-8">
-                {(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((k) => (
-                  <option key={k} value={k}>{DOCUMENT_TYPE_LABELS[k]}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
+          <SelectDropdown label="Tipo de Documento" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentType)}>
+            {(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((k) => (
+              <option key={k} value={k}>{DOCUMENT_TYPE_LABELS[k]}</option>
+            ))}
+          </SelectDropdown>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Descrição</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
@@ -731,32 +725,18 @@ function HealthDrawer({
 
       {!isEdit && (
         <DrawerCard title="Aluno" icon={Search}>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Selecione o aluno *</label>
-            <div className="relative">
-              <select value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none pr-8">
-                <option value="">— Selecionar aluno —</option>
-                {studentOptions.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
+          <SelectDropdown label="Selecione o aluno *" value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)}>
+            <option value="">— Selecionar aluno —</option>
+            {studentOptions.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+          </SelectDropdown>
         </DrawerCard>
       )}
 
       <DrawerCard title="Dados Básicos" icon={Heart}>
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Tipo Sanguíneo</label>
-            <div className="relative">
-              <select value={bloodType} onChange={(e) => setBloodType(e.target.value as BloodType | '')}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none pr-8">
-                {bloodTypes.map((bt) => <option key={bt} value={bt}>{bt || '— Não informado —'}</option>)}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
+          <SelectDropdown label="Tipo Sanguíneo" value={bloodType} onChange={(e) => setBloodType(e.target.value as BloodType | '')}>
+            {bloodTypes.map((bt) => <option key={bt} value={bt}>{bt || '— Não informado —'}</option>)}
+          </SelectDropdown>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Plano de Saúde</label>
             <input value={healthPlan} onChange={(e) => setHealthPlan(e.target.value)}
@@ -1540,18 +1520,11 @@ function CampaignDrawer({
               <input type="number" value={schoolYear} onChange={(e) => setSchoolYear(Number(e.target.value))}
                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30" />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-              <div className="relative">
-                <select value={status} onChange={(e) => setStatus(e.target.value as ReenrollmentCampaignStatus)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none pr-8">
-                  {(Object.keys(REENROLLMENT_CAMPAIGN_STATUS_LABELS) as ReenrollmentCampaignStatus[]).map((s) => (
-                    <option key={s} value={s}>{REENROLLMENT_CAMPAIGN_STATUS_LABELS[s]}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
+            <SelectDropdown label="Status" value={status} onChange={(e) => setStatus(e.target.value as ReenrollmentCampaignStatus)}>
+              {(Object.keys(REENROLLMENT_CAMPAIGN_STATUS_LABELS) as ReenrollmentCampaignStatus[]).map((s) => (
+                <option key={s} value={s}>{REENROLLMENT_CAMPAIGN_STATUS_LABELS[s]}</option>
+              ))}
+            </SelectDropdown>
           </div>
         </div>
       </DrawerCard>
@@ -1994,29 +1967,15 @@ function TransferDrawer({
       title="Nova Movimentação" icon={ArrowRightLeft} footer={footer}>
       <DrawerCard title="Aluno e Tipo" icon={ArrowRightLeft}>
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Aluno *</label>
-            <div className="relative">
-              <select value={studentId} onChange={(e) => setStudentId(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none pr-8">
-                <option value="">— Selecionar aluno —</option>
-                {studentOptions.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Tipo de Movimentação *</label>
-            <div className="relative">
-              <select value={type} onChange={(e) => setType(e.target.value as StudentTransferType)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none pr-8">
-                {(Object.keys(STUDENT_TRANSFER_TYPE_LABELS) as StudentTransferType[]).map((t) => (
-                  <option key={t} value={t}>{STUDENT_TRANSFER_TYPE_LABELS[t]}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
+          <SelectDropdown label="Aluno *" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
+            <option value="">— Selecionar aluno —</option>
+            {studentOptions.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+          </SelectDropdown>
+          <SelectDropdown label="Tipo de Movimentação *" value={type} onChange={(e) => setType(e.target.value as StudentTransferType)}>
+            {(Object.keys(STUDENT_TRANSFER_TYPE_LABELS) as StudentTransferType[]).map((t) => (
+              <option key={t} value={t}>{STUDENT_TRANSFER_TYPE_LABELS[t]}</option>
+            ))}
+          </SelectDropdown>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Data Efetiva *</label>
             <input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)}
@@ -2034,17 +1993,10 @@ function TransferDrawer({
               placeholder="Descreva o motivo da movimentação" />
           </div>
           {type === 'internal' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Turma de Destino</label>
-              <div className="relative">
-                <select value={toClassId} onChange={(e) => setToClassId(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none pr-8">
-                  <option value="">— Selecionar turma —</option>
-                  {classOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
+            <SelectDropdown label="Turma de Destino" value={toClassId} onChange={(e) => setToClassId(e.target.value)}>
+              <option value="">— Selecionar turma —</option>
+              {classOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </SelectDropdown>
           )}
           {type === 'transfer_out' && (
             <div>

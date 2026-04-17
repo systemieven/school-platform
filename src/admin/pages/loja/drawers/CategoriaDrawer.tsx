@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Check, Trash2, FolderOpen } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
+import { SelectDropdown } from '../../../components/FormField';
 import { Toggle } from '../../../components/Toggle';
 import { supabase } from '../../../../lib/supabase';
 import type { StoreCategory } from '../../../types/admin.types';
@@ -195,18 +196,14 @@ export default function CategoriaDrawer({ open, category, categories, onClose, o
               className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white font-mono"
               placeholder="ex: uniformes" />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Categoria Pai</label>
-            <select value={form.parent_id} onChange={(e) => set('parent_id', e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white">
-              <option value="">Nenhuma (raiz)</option>
-              {flattenForSelect(buildTree(otherCategories)).map(({ depth, cat }) => (
-                <option key={cat.id} value={cat.id}>
-                  {depth > 0 ? '\u00a0\u00a0'.repeat(depth) + '└ ' : ''}{cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectDropdown label="Categoria Pai" value={form.parent_id} onChange={(e) => set('parent_id', e.target.value)}>
+            <option value="">Nenhuma (raiz)</option>
+            {flattenForSelect(buildTree(otherCategories)).map(({ depth, cat }) => (
+              <option key={cat.id} value={cat.id}>
+                {depth > 0 ? '\u00a0\u00a0'.repeat(depth) + '└ ' : ''}{cat.name}
+              </option>
+            ))}
+          </SelectDropdown>
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Posição</label>
             <input type="number" value={form.position} onChange={(e) => set('position', Number(e.target.value))}

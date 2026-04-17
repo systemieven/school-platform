@@ -6,7 +6,7 @@ import { useRealtimeRows } from '../../hooks/useRealtimeRows';
 import type { VisitAppointment, AppointmentStatus } from '../../types/admin.types';
 import SendWhatsAppModal from '../../components/SendWhatsAppModal';
 import {
-  CalendarCheck, Search, X, ChevronRight, ChevronDown, Loader2,
+  CalendarCheck, Search, X, ChevronRight, Loader2,
   User, Phone, Clock, MapPin, Check, Ban, CheckCircle2,
   AlertCircle, RefreshCw, MessageCircle,
   History, Filter, Square, CheckSquare,
@@ -14,6 +14,7 @@ import {
   StickyNote, Send,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
+import { SelectDropdown } from '../../components/FormField';
 import { useBranding } from '../../../contexts/BrandingContext';
 
 // ── Status config ────────────────────────────────────────────────────────────
@@ -188,17 +189,11 @@ function CreateAppointmentModal({ onClose, onCreated, reasonLabels }: { onClose:
           </SettingsCard>
 
           <SettingsCard title="Visita">
-            <div>
-              <label className={labelClass}>Motivo</label>
-              <div className="relative">
-                <select value={form.visit_reason} onChange={(e) => set('visit_reason', e.target.value)} className={`${fieldClass} appearance-none pr-9`}>
-                  {Object.entries(reasonLabels).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
+            <SelectDropdown label="Motivo" value={form.visit_reason} onChange={(e) => set('visit_reason', e.target.value)}>
+              {Object.entries(reasonLabels).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </SelectDropdown>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Data *</label>

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { SelectDropdown } from '../../components/FormField';
 import type {
   StudentOccurrence, OccurrenceType, OccurrenceSeverity, OccurrenceStatus,
 } from '../../types/admin.types';
@@ -507,30 +508,16 @@ export default function OcorrenciasPage() {
         <DrawerCard title="Ocorrência" icon={AlertTriangle}>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500 dark:text-gray-400">Tipo *</label>
-                <select
-                  value={form.type}
-                  onChange={e => setForm(f => ({ ...f, type: e.target.value as OccurrenceType }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none"
-                >
-                  {(Object.keys(OCCURRENCE_TYPE_LABELS) as OccurrenceType[]).map(k => (
-                    <option key={k} value={k}>{OCCURRENCE_TYPE_LABELS[k]}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500 dark:text-gray-400">Severidade *</label>
-                <select
-                  value={form.severity}
-                  onChange={e => setForm(f => ({ ...f, severity: e.target.value as OccurrenceSeverity }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none"
-                >
-                  {(Object.keys(OCCURRENCE_SEVERITY_LABELS) as OccurrenceSeverity[]).map(k => (
-                    <option key={k} value={k}>{OCCURRENCE_SEVERITY_LABELS[k]}</option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown label="Tipo *" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as OccurrenceType }))}>
+                {(Object.keys(OCCURRENCE_TYPE_LABELS) as OccurrenceType[]).map(k => (
+                  <option key={k} value={k}>{OCCURRENCE_TYPE_LABELS[k]}</option>
+                ))}
+              </SelectDropdown>
+              <SelectDropdown label="Severidade *" value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value as OccurrenceSeverity }))}>
+                {(Object.keys(OCCURRENCE_SEVERITY_LABELS) as OccurrenceSeverity[]).map(k => (
+                  <option key={k} value={k}>{OCCURRENCE_SEVERITY_LABELS[k]}</option>
+                ))}
+              </SelectDropdown>
             </div>
             <div className="space-y-1">
               <label className="text-xs text-gray-500 dark:text-gray-400">Título *</label>
@@ -578,18 +565,11 @@ export default function OcorrenciasPage() {
             </label>
 
             {editing && (
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500 dark:text-gray-400">Status</label>
-                <select
-                  value={form.status}
-                  onChange={e => setForm(f => ({ ...f, status: e.target.value as OccurrenceStatus }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none"
-                >
-                  {(Object.keys(OCCURRENCE_STATUS_LABELS) as OccurrenceStatus[]).map(k => (
-                    <option key={k} value={k}>{OCCURRENCE_STATUS_LABELS[k]}</option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown label="Status" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as OccurrenceStatus }))}>
+                {(Object.keys(OCCURRENCE_STATUS_LABELS) as OccurrenceStatus[]).map(k => (
+                  <option key={k} value={k}>{OCCURRENCE_STATUS_LABELS[k]}</option>
+                ))}
+              </SelectDropdown>
             )}
           </div>
         </DrawerCard>

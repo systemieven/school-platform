@@ -14,8 +14,9 @@ import PermissionGate from '../../components/PermissionGate';
 import {
   Building2, Plus, Search, Loader2, Check, Pencil, Trash2,
   AlertTriangle, Phone, MapPin, CreditCard, X,
-  TrendingDown, ChevronDown,
+  TrendingDown,
 } from 'lucide-react';
+import { SelectDropdown } from '../../components/FormField';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -511,19 +512,13 @@ export default function FornecedoresPage() {
   );
 
   const select = (label: string, key: keyof DrawerForm, options: { value: string; label: string }[]) => (
-    <div>
-      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
-      <div className="relative">
-        <select
-          value={String(form[key] ?? '')}
-          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 appearance-none pr-8"
-        >
-          {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-      </div>
-    </div>
+    <SelectDropdown
+      label={label}
+      value={String(form[key] ?? '')}
+      onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+    >
+      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </SelectDropdown>
   );
 
   return (

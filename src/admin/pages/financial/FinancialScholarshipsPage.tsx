@@ -20,6 +20,7 @@ import {
   GraduationCap, Loader2, Pencil, Trash2, X, Save, Check,
   Tag, Calendar, FileText, User as UserIcon, ThumbsUp, ThumbsDown,
 } from 'lucide-react';
+import { SelectDropdown } from '../../components/FormField';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -303,23 +304,15 @@ export default function FinancialScholarshipsPage() {
                 <input value={editing.name} onChange={(e) => updateField('name', e.target.value)} placeholder="Ex: Bolsa Mérito 2026"
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none text-sm" />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Aluno *</label>
-                <select value={editing.student_id} onChange={(e) => updateField('student_id', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                  <option value="">— Selecione —</option>
-                  {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Categoria *</label>
-                <select value={editing.category} onChange={(e) => updateField('category', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                  {Object.entries(SCHOLARSHIP_CATEGORY_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown label="Aluno *" value={editing.student_id} onChange={(e) => updateField('student_id', e.target.value)}>
+                <option value="">— Selecione —</option>
+                {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+              </SelectDropdown>
+              <SelectDropdown label="Categoria *" value={editing.category} onChange={(e) => updateField('category', e.target.value)}>
+                {Object.entries(SCHOLARSHIP_CATEGORY_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </SelectDropdown>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Descrição</label>
                 <textarea value={editing.description || ''} onChange={(e) => updateField('description', e.target.value || null)} rows={2}
@@ -329,15 +322,11 @@ export default function FinancialScholarshipsPage() {
 
             <DrawerCard title="Valor e Vigência" icon={Calendar}>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tipo *</label>
-                  <select value={editing.scholarship_type} onChange={(e) => updateField('scholarship_type', e.target.value as ScholarshipType)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                    {Object.entries(SCHOLARSHIP_TYPE_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                <SelectDropdown label="Tipo *" value={editing.scholarship_type} onChange={(e) => updateField('scholarship_type', e.target.value as ScholarshipType)}>
+                  {Object.entries(SCHOLARSHIP_TYPE_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </SelectDropdown>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Valor</label>
                   <input type="number" step="0.01" min="0" disabled={editing.scholarship_type === 'full'}
@@ -385,15 +374,11 @@ export default function FinancialScholarshipsPage() {
                   placeholder="https://..."
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none text-sm" />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Status</label>
-                <select value={editing.status} onChange={(e) => updateField('status', e.target.value as ScholarshipStatus)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                  {Object.entries(SCHOLARSHIP_STATUS_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown label="Status" value={editing.status} onChange={(e) => updateField('status', e.target.value as ScholarshipStatus)}>
+                {Object.entries(SCHOLARSHIP_STATUS_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </SelectDropdown>
             </DrawerCard>
           </>
         )}

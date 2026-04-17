@@ -17,6 +17,7 @@ import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { SelectDropdown } from '../../components/FormField';
 import CapacityOverrideModal, { parseCapacityError } from '../../components/CapacityOverrideModal';
 import { maskCPF, maskPhone, maskCEP, isValidCPF, isValidEmail } from '../../lib/masks';
 import type { Student, SchoolSegment, SchoolSeries, SchoolClass } from '../../types/admin.types';
@@ -730,47 +731,24 @@ export default function CreateStudentDrawer({ onClose, onCreated }: Props) {
         {/* ── 3. Segmento, Série e Turma ── */}
         <DrawerCard title="Segmento, Série e Turma" icon={Layers}>
           <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={LABEL}>Segmento</label>
-              <select
-                className={INPUT}
-                value={segmentId}
-                onChange={(e) => setSegmentId(e.target.value)}
-              >
-                <option value="">Selecione...</option>
-                {segments.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={LABEL}>Série</label>
-              <select
-                className={INPUT}
-                value={seriesId}
-                onChange={(e) => setSeriesId(e.target.value)}
-                disabled={!segmentId}
-              >
-                <option value="">Selecione...</option>
-                {seriesList.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={LABEL}>Turma ({currentSchoolYear})</label>
-              <select
-                className={INPUT}
-                value={classId}
-                onChange={(e) => setClassId(e.target.value)}
-                disabled={!seriesId}
-              >
-                <option value="">Selecione...</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+            <SelectDropdown label="Segmento" value={segmentId} onChange={(e) => setSegmentId(e.target.value)}>
+              <option value="">Selecione...</option>
+              {segments.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </SelectDropdown>
+            <SelectDropdown label="Série" value={seriesId} onChange={(e) => setSeriesId(e.target.value)} disabled={!segmentId}>
+              <option value="">Selecione...</option>
+              {seriesList.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </SelectDropdown>
+            <SelectDropdown label={`Turma (${currentSchoolYear})`} value={classId} onChange={(e) => setClassId(e.target.value)} disabled={!seriesId}>
+              <option value="">Selecione...</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </SelectDropdown>
           </div>
           {seriesId && classes.length === 0 && (
             <p className="text-xs text-amber-600 dark:text-amber-400">

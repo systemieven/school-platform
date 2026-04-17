@@ -18,6 +18,7 @@ import {
 import type { PrivacySettings, WhatsAppProvider } from '../lib/whatsapp-api';
 import { useWhatsAppStatus } from '../contexts/WhatsAppStatusContext';
 import ImageCropModal from './ImageCropModal';
+import { SelectDropdown } from './FormField';
 import {
   X, Save, Loader2, Check, KeyRound, Globe, ShieldCheck,
   Eye, EyeOff, Smartphone, CheckCircle2, WifiOff, RefreshCw,
@@ -29,7 +30,6 @@ import {
 // ── Shared style helpers ──────────────────────────────────────────────────────
 
 const inputCls = 'w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all';
-const selectCls = `${inputCls} appearance-none`;
 const cardCls  = 'rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700/60';
 const cardHead = 'bg-gray-50 dark:bg-gray-700/30 px-5 py-3.5 flex items-center gap-2';
 const cardBody = 'bg-white dark:bg-gray-800 px-5 py-4';
@@ -177,6 +177,7 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
     ? `${WEBHOOK_FUNCTION_BASE}?secret=${encodeURIComponent(webhookSecret)}`
     : WEBHOOK_FUNCTION_BASE;
   const isRegistered = webhookUrlInDb === webhookUrl && webhookSecret !== '';
+  const selectedProfile = WHATSAPP_API_PROFILES.find(p => p.id === profileId);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -424,21 +425,16 @@ export default function WhatsAppProviderDrawer({ provider, onClose, onSaved }: P
                   </button>
                 </div>
               </div>
-              <div>
-                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                  <Shuffle className="w-3.5 h-3.5" /> Perfil da API
-                </label>
-                <select value={profileId} onChange={e => setProfileId(e.target.value)} className={selectCls}>
-                  {WHATSAPP_API_PROFILES.map(p => (
-                    <option key={p.id} value={p.id}>{p.label}</option>
-                  ))}
-                </select>
-                {WHATSAPP_API_PROFILES.find(p => p.id === profileId) && (
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    {WHATSAPP_API_PROFILES.find(p => p.id === profileId)!.description}
-                  </p>
-                )}
-              </div>
+              <SelectDropdown label="Perfil da API" value={profileId} onChange={e => setProfileId(e.target.value)}>
+                {WHATSAPP_API_PROFILES.map(p => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </SelectDropdown>
+              {selectedProfile?.description && (
+                <p className="text-[11px] text-gray-400 mt-1">
+                  {selectedProfile.description}
+                </p>
+              )}
               {credError && (
                 <p className="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400">
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />{credError}
@@ -1009,13 +1005,10 @@ function WaPrivacySection() {
         <>
           <div className="grid grid-cols-2 gap-3">
             {PRIVACY_FIELDS.map(({ key, label, options }) => (
-              <div key={key}>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{label}</label>
-                <select value={(privacy[key] as string) || ''} onChange={e => handleChange(key, e.target.value)} className={selectCls}>
-                  {!privacy[key] && <option value="" disabled>— Carregando —</option>}
-                  {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                </select>
-              </div>
+              <SelectDropdown key={key} label={label} value={(privacy[key] as string) || ''} onChange={e => handleChange(key, e.target.value)}>
+                {!privacy[key] && <option value="" disabled>— Carregando —</option>}
+                {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </SelectDropdown>
             ))}
           </div>
           {result && (

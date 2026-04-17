@@ -5,6 +5,7 @@ import type { Activity, ActivityType, ActivityStatus, SchoolClass } from '../../
 import { ACTIVITY_TYPE_LABELS, ACTIVITY_STATUS_LABELS } from '../../../types/admin.types';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
 import { Loader2, Pencil, Trash2, ClipboardList, X, Save, Calendar } from 'lucide-react';
+import { SelectDropdown } from '../../../components/FormField';
 
 const TYPES: ActivityType[]   = ['homework', 'test', 'project', 'quiz', 'other'];
 const STATUSES: ActivityStatus[] = ['draft', 'published', 'closed'];
@@ -84,32 +85,23 @@ function ActivityDrawer({
             <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Ex: Prova de Matemática" className={cls} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo</label>
-              <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as ActivityType }))} className={cls}>
-                {TYPES.map((t) => <option key={t} value={t}>{ACTIVITY_TYPE_LABELS[t]}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Status</label>
-              <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as ActivityStatus }))} className={cls}>
-                {STATUSES.map((s) => <option key={s} value={s}>{ACTIVITY_STATUS_LABELS[s]}</option>)}
-              </select>
-            </div>
+            <SelectDropdown label="Tipo" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as ActivityType }))}>
+              {TYPES.map((t) => <option key={t} value={t}>{ACTIVITY_TYPE_LABELS[t]}</option>)}
+            </SelectDropdown>
+            <SelectDropdown label="Status" value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as ActivityStatus }))}>
+              {STATUSES.map((s) => <option key={s} value={s}>{ACTIVITY_STATUS_LABELS[s]}</option>)}
+            </SelectDropdown>
           </div>
           {classDisciplines.length > 0 && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Disciplina</label>
-              <select value={form.discipline_id} onChange={(e) => {
-                const disc = classDisciplines.find((cd) => cd.discipline_id === e.target.value);
-                setForm((p) => ({ ...p, discipline_id: e.target.value, subject: disc?.discipline?.name ?? p.subject }));
-              }} className={cls}>
-                <option value="">Selecione</option>
-                {classDisciplines.map((cd) => (
-                  <option key={cd.discipline_id} value={cd.discipline_id}>{cd.discipline?.name ?? cd.discipline_id}</option>
-                ))}
-              </select>
-            </div>
+            <SelectDropdown label="Disciplina" value={form.discipline_id} onChange={(e) => {
+              const disc = classDisciplines.find((cd) => cd.discipline_id === e.target.value);
+              setForm((p) => ({ ...p, discipline_id: e.target.value, subject: disc?.discipline?.name ?? p.subject }));
+            }}>
+              <option value="">Selecione</option>
+              {classDisciplines.map((cd) => (
+                <option key={cd.discipline_id} value={cd.discipline_id}>{cd.discipline?.name ?? cd.discipline_id}</option>
+              ))}
+            </SelectDropdown>
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>

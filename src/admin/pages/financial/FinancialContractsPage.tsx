@@ -11,6 +11,7 @@ import {
   Save, Check, FileSignature, User, Calendar, Tag, Pencil,
   Upload, FileText, ExternalLink, Link as LinkIcon, Download, Trash2,
 } from 'lucide-react';
+import { SelectDropdown } from '../../components/FormField';
 
 const STORAGE_BUCKET = 'financial-contracts';
 const ALLOWED_MIME = [
@@ -419,22 +420,14 @@ export default function FinancialContractsPage() {
         }
       >
         <DrawerCard title="Aluno e Plano" icon={User}>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Aluno *</label>
-            <select value={form.student_id} onChange={(e) => setForm((p) => ({ ...p, student_id: e.target.value }))}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
-              <option value="">Selecione o aluno</option>
-              {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.enrollment_number})</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Plano *</label>
-            <select value={form.plan_id} onChange={(e) => setForm((p) => ({ ...p, plan_id: e.target.value }))}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none">
-              <option value="">Selecione o plano</option>
-              {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {fmt(p.amount)}</option>)}
-            </select>
-          </div>
+          <SelectDropdown label="Aluno *" value={form.student_id} onChange={(e) => setForm((p) => ({ ...p, student_id: e.target.value }))}>
+            <option value="">Selecione o aluno</option>
+            {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.enrollment_number})</option>)}
+          </SelectDropdown>
+          <SelectDropdown label="Plano *" value={form.plan_id} onChange={(e) => setForm((p) => ({ ...p, plan_id: e.target.value }))}>
+            <option value="">Selecione o plano</option>
+            {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {fmt(p.amount)}</option>)}
+          </SelectDropdown>
         </DrawerCard>
 
         <DrawerCard title="Contrato Assinado" icon={FileText}>

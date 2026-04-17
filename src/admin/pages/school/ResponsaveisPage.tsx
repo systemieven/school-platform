@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { SelectDropdown } from '../../components/FormField';
 import type { GuardianProfile } from '../../types/admin.types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -567,12 +568,10 @@ export default function ResponsaveisPage() {
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none" />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tipo de Pessoa</label>
-                  <select value={fiscalForm.tipo_pessoa} onChange={e => setFiscalForm(f => ({ ...f, tipo_pessoa: e.target.value as 'fisica' | 'juridica' }))}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none">
+                  <SelectDropdown label="Tipo de Pessoa" value={fiscalForm.tipo_pessoa} onChange={e => setFiscalForm(f => ({ ...f, tipo_pessoa: e.target.value as 'fisica' | 'juridica' }))}>
                     <option value="fisica">Pessoa Física</option>
                     <option value="juridica">Pessoa Jurídica</option>
-                  </select>
+                  </SelectDropdown>
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">E-mail Fiscal</label>

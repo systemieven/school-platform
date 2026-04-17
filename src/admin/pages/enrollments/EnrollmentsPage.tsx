@@ -12,12 +12,13 @@ import CapacityOverrideModal, { parseCapacityError } from '../../components/Capa
 import {
   GraduationCap, Search, X, ChevronRight, Loader2, RefreshCw,
   User, Phone, MapPin, FileText, CheckCircle2,
-  Clock, ChevronDown, MessageCircle, Plus,
+  Clock, MessageCircle, Plus,
   History, ClipboardCheck, CalendarPlus, Edit3, Save,
   Check, XCircle, Filter,
 } from 'lucide-react';
 import { SettingsCard } from '../../components/SettingsCard';
 import { Toggle } from '../../components/Toggle';
+import { SelectDropdown } from '../../components/FormField';
 import { useBranding } from '../../../contexts/BrandingContext';
 
 // ── Pipeline config ──────────────────────────────────────────────────────────
@@ -849,19 +850,15 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
               {/* Status change */}
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Alterar status</label>
-                <div className="relative">
-                  <select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value as EnrollmentStatus)}
-                    className="w-full px-3 py-2.5 pr-9 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none appearance-none"
-                  >
-                    <option value="">Selecione o novo status...</option>
-                    {PIPELINE.filter((p) => p.key !== enr.status).map((p) => (
-                      <option key={p.key} value={p.key}>{p.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
+                <SelectDropdown
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value as EnrollmentStatus)}
+                >
+                  <option value="">Selecione o novo status...</option>
+                  {PIPELINE.filter((p) => p.key !== enr.status).map((p) => (
+                    <option key={p.key} value={p.key}>{p.label}</option>
+                  ))}
+                </SelectDropdown>
 
                 {newStatus === 'archived' && (
                   <textarea
@@ -885,52 +882,40 @@ function EnrollmentDrawer({ enrollment: enr, onClose, onUpdate }: DrawerProps) {
                       </div>
                     ) : (
                       <>
-                        <div className="relative">
-                          <select
-                            value={confirmSegmentId}
-                            onChange={(e) => setConfirmSegmentId(e.target.value)}
-                            className="w-full px-3 py-2 pr-9 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500 appearance-none"
-                          >
-                            <option value="">Segmento…</option>
-                            {confirmSegments.map((s) => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        </div>
+                        <SelectDropdown
+                          value={confirmSegmentId}
+                          onChange={(e) => setConfirmSegmentId(e.target.value)}
+                        >
+                          <option value="">Segmento…</option>
+                          {confirmSegments.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </SelectDropdown>
 
-                        <div className="relative">
-                          <select
-                            value={confirmSeriesId}
-                            onChange={(e) => setConfirmSeriesId(e.target.value)}
-                            disabled={!confirmSegmentId}
-                            className="w-full px-3 py-2 pr-9 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500 appearance-none disabled:opacity-50"
-                          >
-                            <option value="">Série…</option>
-                            {filteredSeries.map((s) => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        </div>
+                        <SelectDropdown
+                          value={confirmSeriesId}
+                          onChange={(e) => setConfirmSeriesId(e.target.value)}
+                          disabled={!confirmSegmentId}
+                        >
+                          <option value="">Série…</option>
+                          {filteredSeries.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </SelectDropdown>
 
-                        <div className="relative">
-                          <select
-                            value={confirmClassId}
-                            onChange={(e) => setConfirmClassId(e.target.value)}
-                            disabled={!confirmSeriesId}
-                            className="w-full px-3 py-2 pr-9 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-emerald-500 appearance-none disabled:opacity-50"
-                          >
-                            <option value="">Turma…</option>
-                            {filteredClasses.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name} · {c.school_year}
-                                {c.max_students ? ` · max ${c.max_students}` : ''}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                        </div>
+                        <SelectDropdown
+                          value={confirmClassId}
+                          onChange={(e) => setConfirmClassId(e.target.value)}
+                          disabled={!confirmSeriesId}
+                        >
+                          <option value="">Turma…</option>
+                          {filteredClasses.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} · {c.school_year}
+                              {c.max_students ? ` · max ${c.max_students}` : ''}
+                            </option>
+                          ))}
+                        </SelectDropdown>
                       </>
                     )}
                   </div>
@@ -1230,24 +1215,18 @@ function CreateEnrollmentModal({ onClose, onCreated }: CreateModalProps) {
           {/* ── Origem ── */}
           <SettingsCard title="Origem" description="Canal de entrada da pré-matrícula">
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass}>Origem</label>
-                <select value={form.origin} onChange={(e) => set('origin', e.target.value)} className={fieldClass()}>
-                  <option value="in_person">Presencial</option>
-                  <option value="phone">Telefone</option>
-                  <option value="referral">Indicação</option>
-                  <option value="website">Site</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Segmento</label>
-                <select value={form.segment} onChange={(e) => set('segment', e.target.value)} className={fieldClass()}>
-                  <option value="">Selecione...</option>
-                  {SEGMENT_OPTIONS.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown label="Origem" value={form.origin} onChange={(e) => set('origin', e.target.value)}>
+                <option value="in_person">Presencial</option>
+                <option value="phone">Telefone</option>
+                <option value="referral">Indicação</option>
+                <option value="website">Site</option>
+              </SelectDropdown>
+              <SelectDropdown label="Segmento" value={form.segment} onChange={(e) => set('segment', e.target.value)}>
+                <option value="">Selecione...</option>
+                {SEGMENT_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </SelectDropdown>
             </div>
           </SettingsCard>
 

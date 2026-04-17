@@ -22,6 +22,7 @@ import {
   TrendingUp, TrendingDown, ArrowDownLeft, ArrowUpRight,
   ChevronUp, History, Pencil,
 } from 'lucide-react';
+import { SelectDropdown } from '../../components/FormField';
 
 function fmt(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -473,18 +474,15 @@ export default function FinancialCashPage() {
             <DrawerCard title="Detalhes" icon={DollarSign}>
               {/* Sub-tipo */}
               {(movType === 'inflow' || movType === 'outflow') && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tipo de Lançamento</label>
-                  <select
-                    value={movSubType}
-                    onChange={(e) => setMovSubType(e.target.value as CashMovementSubType)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none"
-                  >
-                    {(movType === 'inflow' ? INFLOW_SUB_TYPES : OUTFLOW_SUB_TYPES).map((st) => (
-                      <option key={st} value={st}>{CASH_MOVEMENT_SUB_TYPE_LABELS[st]}</option>
-                    ))}
-                  </select>
-                </div>
+                <SelectDropdown
+                  label="Tipo de Lançamento"
+                  value={movSubType}
+                  onChange={(e) => setMovSubType(e.target.value as CashMovementSubType)}
+                >
+                  {(movType === 'inflow' ? INFLOW_SUB_TYPES : OUTFLOW_SUB_TYPES).map((st) => (
+                    <option key={st} value={st}>{CASH_MOVEMENT_SUB_TYPE_LABELS[st]}</option>
+                  ))}
+                </SelectDropdown>
               )}
 
               {/* Valor */}
@@ -526,18 +524,15 @@ export default function FinancialCashPage() {
               )}
 
               {/* Forma de pagamento */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Forma de Pagamento</label>
-                <select
-                  value={movMethod}
-                  onChange={(e) => setMovMethod(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none"
-                >
-                  {PAYMENT_METHODS.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown
+                label="Forma de Pagamento"
+                value={movMethod}
+                onChange={(e) => setMovMethod(e.target.value)}
+              >
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </SelectDropdown>
             </DrawerCard>
 
             {/* Resumo */}

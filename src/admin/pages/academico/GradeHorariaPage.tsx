@@ -6,6 +6,7 @@ import {
   CalendarClock, Check, Clock, AlertTriangle, Loader2, Save, Trash2,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../components/Drawer';
+import { SelectDropdown } from '../../components/FormField';
 
 // ── Time slots ───────────────────────────────────────────────────────────────
 
@@ -411,10 +412,8 @@ export default function GradeHorariaPage() {
             {drawerSlot ? `${DAY_OF_WEEK_SHORT[drawerDay]} — ${drawerSlot.label}` : ''}
           </p>
 
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-            Disciplina
-          </label>
-          <select
+          <SelectDropdown
+            label="Disciplina"
             value={formDisciplineId}
             onChange={(e) => {
               setFormDisciplineId(e.target.value);
@@ -422,7 +421,7 @@ export default function GradeHorariaPage() {
               const cd = classDisciplines.find((x) => x.discipline_id === e.target.value);
               if (cd) setFormTeacherId(cd.teacher_id);
             }}
-            className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 mb-3"
+            wrapperClassName="mb-3"
           >
             <option value="">Selecione</option>
             {disciplines.map((d) => (
@@ -430,15 +429,12 @@ export default function GradeHorariaPage() {
                 {d.name} ({d.code})
               </option>
             ))}
-          </select>
+          </SelectDropdown>
 
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-            Professor
-          </label>
-          <select
+          <SelectDropdown
+            label="Professor"
             value={formTeacherId}
             onChange={(e) => setFormTeacherId(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200"
           >
             <option value="">Selecione</option>
             {teachers.map((t) => (
@@ -446,7 +442,7 @@ export default function GradeHorariaPage() {
                 {t.full_name}
               </option>
             ))}
-          </select>
+          </SelectDropdown>
         </DrawerCard>
 
         {editingSchedule && (

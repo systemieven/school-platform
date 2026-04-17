@@ -11,6 +11,7 @@ import {
   FileText, Loader2, Pencil, Trash2, X, Save, Check,
   Tag, Code2, Star, Eye,
 } from 'lucide-react';
+import { SelectDropdown } from '../../components/FormField';
 
 const TYPE_ICON_COLOR: Record<ContractTemplateType, string> = {
   contract: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
@@ -264,15 +265,11 @@ export default function FinancialTemplatesPage() {
                 <input value={editing.name} onChange={(e) => updateField('name', e.target.value)} placeholder="Ex: Contrato Ensino Fundamental 2026"
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none text-sm" />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tipo *</label>
-                <select value={editing.template_type} onChange={(e) => updateField('template_type', e.target.value as ContractTemplateType)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-brand-primary outline-none text-sm">
-                  {Object.entries(CONTRACT_TEMPLATE_TYPE_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown label="Tipo *" value={editing.template_type} onChange={(e) => updateField('template_type', e.target.value as ContractTemplateType)}>
+                {Object.entries(CONTRACT_TEMPLATE_TYPE_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </SelectDropdown>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Descrição</label>
                 <textarea value={editing.description || ''} onChange={(e) => updateField('description', e.target.value || null)} rows={2}
