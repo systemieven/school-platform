@@ -26,6 +26,9 @@ import {
   ArrowRightLeft,
   ThumbsUp,
   ThumbsDown,
+  Sparkles,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<AttendanceTicketStatus, { label: string; color: string; dot: string }> = {
@@ -169,6 +172,18 @@ interface Props {
   onClose: () => void;
 }
 
+interface AiTriage {
+  categoria_sugerida: string;
+  prioridade: 'baixa' | 'media' | 'alta';
+  acoes_rapidas: string[];
+}
+
+const PRIORIDADE_COLOR: Record<AiTriage['prioridade'], string> = {
+  baixa: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400',
+  media: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
+  alta:  'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
+};
+
 export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [feedback, setFeedback] = useState<AttendanceFeedback | null>(null);
@@ -177,12 +192,20 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
   const [transferHistory, setTransferHistory] = useState<AttendanceTransferHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const [appointment, setAppointment] = useState<{ visit_reason: string | null; notes: string | null } | null>(null);
+  const [triage, setTriage] = useState<AiTriage | null>(null);
+  const [triageBusy, setTriageBusy] = useState(false);
+  const [triageError, setTriageError] = useState('');
+
   useEffect(() => {
     if (!ticket) return;
     setLoading(true);
 
+    setTriage(null);
+    setTriageError('');
+
     const load = async () => {
-      const [attHistRes, apptHistRes, fbRes, visitorRes, transferRes] = await Promise.all([
+      const [attHistRes, apptHistRes, fbRes, visitorRes, transferRes, apptRes] = await Promise.all([
         supabase
           .from('attendance_history')
           .select('id, event_type, description, created_at')
@@ -212,6 +235,11 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
           .select('*')
           .eq('ticket_id', ticket.id)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('visit_appointments')
+          .select('visit_reason, notes')
+          .eq('id', ticket.appointment_id)
+          .maybeSingle(),
       ]);
 
       const att: TimelineEvent[] = ((attHistRes.data as AppointmentHistoryRow[]) || []).map((r) => ({
@@ -235,6 +263,7 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
       setFeedback(fb);
       setVisitorHistory((visitorRes.data as VisitorTicketSummary[]) || []);
       setTransferHistory((transferRes.data as AttendanceTransferHistoryEntry[]) || []);
+      setAppointment((apptRes.data as { visit_reason: string | null; notes: string | null } | null) ?? null);
 
       // Load feedback question definitions when there are custom answers
       if (fb && fb.answers && Object.keys(fb.answers).length > 0) {
@@ -260,6 +289,41 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
     () => (ticket ? STATUS_CONFIG[ticket.status] : null),
     [ticket],
   );
+
+  async function handleTriage() {
+    if (!ticket || triageBusy) return;
+    setTriageBusy(true);
+    setTriageError('');
+    try {
+      const historySummary = visitorHistory
+        .slice(0, 5)
+        .map((v) => `${v.sector_label} — ${v.status} (${new Date(v.issued_at).toLocaleDateString('pt-BR')})`)
+        .join('; ');
+      const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
+        body: {
+          agent_slug: 'attendance_triage',
+          context: {
+            visit_reason: appointment?.visit_reason ?? ticket.sector_label,
+            description: appointment?.notes ?? ticket.notes ?? '(sem descricao)',
+            history: historySummary || '(sem historico)',
+          },
+        },
+      });
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error((data as { error?: string } | null)?.error ?? error?.message ?? 'Falha na chamada');
+      }
+      const raw = (data as { text?: string }).text ?? '';
+      const jsonStart = raw.indexOf('{');
+      const jsonEnd = raw.lastIndexOf('}');
+      if (jsonStart < 0 || jsonEnd < 0) throw new Error('Resposta sem JSON.');
+      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as AiTriage;
+      setTriage(parsed);
+    } catch (e) {
+      setTriageError(e instanceof Error ? e.message : 'Erro ao chamar o agente');
+    } finally {
+      setTriageBusy(false);
+    }
+  }
 
   if (!ticket) return null;
 
@@ -305,6 +369,56 @@ export default function AttendanceDetailsDrawer({ ticket, onClose }: Props) {
             <LayoutGrid className="w-3 h-3" />
             Setor: <span className="font-medium text-gray-700 dark:text-gray-200">{ticket.sector_label}</span>
           </div>
+        </div>
+      </DrawerCard>
+
+      {/* AI triage suggestion */}
+      <DrawerCard title="Sugestão IA" icon={Sparkles}>
+        <div className="space-y-3">
+          {!triage && !triageError && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Classificação automática com base no motivo da visita, descrição do agendamento e histórico do visitante.
+            </p>
+          )}
+
+          {triageError && (
+            <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+              {triageError}
+            </div>
+          )}
+
+          {triage && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Categoria</span>
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{triage.categoria_sugerida}</span>
+                <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md ${PRIORIDADE_COLOR[triage.prioridade] ?? ''}`}>
+                  {triage.prioridade}
+                </span>
+              </div>
+              {triage.acoes_rapidas?.length > 0 && (
+                <ul className="space-y-1">
+                  {triage.acoes_rapidas.map((a, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary dark:text-brand-secondary flex-shrink-0 mt-0.5" />
+                      <span>{a}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={handleTriage}
+            disabled={triageBusy || loading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          >
+            {triageBusy
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Analisando…</>
+              : <><Sparkles className="w-3.5 h-3.5" />{triage ? 'Reanalisar' : 'Analisar com IA'}</>}
+          </button>
         </div>
       </DrawerCard>
 
