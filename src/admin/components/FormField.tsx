@@ -5,7 +5,7 @@
  * ricos: ícone leading, hint, counter de caracteres, dark mode completo.
  */
 import React, { forwardRef, useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, AlignJustify, Search, Check } from 'lucide-react';
+import { Plus, Trash2, AlignJustify, Search, Check, ChevronDown } from 'lucide-react';
 
 // ── Constantes CSS canônicas ─────────────────────────────────────────────────
 
@@ -150,11 +150,12 @@ export function SelectDropdown({ label, hint, children, className, wrapperClassN
       <div className="relative">
         <AlignJustify className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         <select
-          className={`${INPUT_CLS} pl-9 appearance-none${className ? ` ${className}` : ''}`}
+          className={`${INPUT_CLS} pl-9 pr-8 appearance-none${className ? ` ${className}` : ''}`}
           {...rest}
         >
           {children}
         </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
       </div>
       {hint && <p className={HINT_CLS}>{hint}</p>}
     </div>
