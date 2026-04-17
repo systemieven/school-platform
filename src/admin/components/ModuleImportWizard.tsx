@@ -132,6 +132,10 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
 
   const [dragging, setDragging] = useState(false);
 
+  // IA mapping suggestion (op1_mapping agent)
+  const [aiMapping, setAiMapping] = useState(false);
+  const [aiMappingError, setAiMappingError] = useState('');
+
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   const loadTemplates = useCallback(async () => {
@@ -221,6 +225,56 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
     }
     setExtraMapping(initExtras);
   }, [config, headers, rows]);
+
+  const handleAiMap = useCallback(async () => {
+    if (aiMapping || headers.length === 0) return;
+    setAiMapping(true);
+    setAiMappingError('');
+    try {
+      const sample = rows.slice(0, 3);
+      const targetFields = config.fields.map((f) => ({
+        key: f.key,
+        label: f.label,
+        required: !!f.required,
+      }));
+      const { data, error } = await supabase.functions.invoke('ai-orchestrator', {
+        body: {
+          agent_slug: 'op1_mapping',
+          context: {
+            headers: headers.join(', '),
+            sample_rows: JSON.stringify(sample),
+            target_fields: JSON.stringify(targetFields),
+          },
+        },
+      });
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error((data as { error?: string } | null)?.error ?? error?.message ?? 'Falha na chamada');
+      }
+      const raw = (data as { text?: string }).text ?? '';
+      const jsonStart = raw.indexOf('{');
+      const jsonEnd = raw.lastIndexOf('}');
+      if (jsonStart < 0 || jsonEnd < 0) throw new Error('Resposta do agente sem JSON.');
+      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as {
+        mapping: Record<string, string | null>;
+      };
+      const validFieldKeys = new Set(config.fields.map((f) => f.key));
+      const newMap: Record<string, string> = {};
+      config.fields.forEach((f) => { newMap[f.key] = ''; });
+      const conf: Record<string, MappingConfidence> = {};
+      for (const [column, field] of Object.entries(parsed.mapping ?? {})) {
+        if (!field || !validFieldKeys.has(field)) continue;
+        if (!headers.includes(column)) continue;
+        newMap[field] = column;
+        conf[field] = 'high';
+      }
+      setMapping(newMap);
+      setAutoConfidence(conf);
+    } catch (e) {
+      setAiMappingError(e instanceof Error ? e.message : 'Erro ao chamar o agente');
+    } finally {
+      setAiMapping(false);
+    }
+  }, [aiMapping, headers, rows, config.fields]);
 
   const applyTemplate = useCallback((templateId: string) => {
     setSelectedTemplateId(templateId);
@@ -609,15 +663,23 @@ export default function ModuleImportWizard<Ctx extends ImportContext = ImportCon
                 Detectar Automaticamente
               </button>
               <button
-                disabled
-                title="Disponível após configurar um Agente de IA em Config → Agentes"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-50 dark:bg-purple-900/10 text-purple-400 dark:text-purple-600 cursor-not-allowed opacity-60"
+                onClick={handleAiMap}
+                disabled={aiMapping}
+                title="Sugerir mapeamento via agente op1_mapping"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                Mapear com IA
+                {aiMapping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {aiMapping ? 'Consultando IA…' : 'Mapear com IA'}
               </button>
             </div>
           </div>
+
+          {aiMappingError && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-xs text-red-700 dark:text-red-400">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Falha na sugestão da IA: {aiMappingError}</span>
+            </div>
+          )}
 
           {Object.keys(autoConfidence).length > 0 && (() => {
             const high = Object.values(autoConfidence).filter((c) => c === 'high').length;
