@@ -150,14 +150,17 @@ export default function Sidebar({ collapsed, onToggle: _onToggle }: Props) {
         {!permsLoading && ADMIN_NAV.map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (!profile) return false;
+            // super_admin enxerga tudo (mesmo bypass do backend).
+            if (profile.role === 'super_admin') return true;
             // Umbrella entries: visible iff ANY sub-tab is accessible.
             if (item.anyModuleKeys && item.anyModuleKeys.length > 0) {
               return item.anyModuleKeys.some((k) => canView(k));
             }
             if (item.moduleKey) return canView(item.moduleKey);
-            // Itens sem mapeamento de módulo (raros — restrito a fluxos
-            // administrativos sem feature flag granular) seguem role legado.
-            return item.roles.includes(profile.role);
+            // Itens sem chave granular: invisíveis. Toda navegação passa
+            // obrigatoriamente por permissão granular (role-based fallback
+            // foi removido — abria brecha para overrides de deny).
+            return false;
           });
           if (visibleItems.length === 0) return null;
 
