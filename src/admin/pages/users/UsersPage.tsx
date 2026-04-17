@@ -350,12 +350,15 @@ function CreateUserDrawer({ callerRole, sectors, onClose, onCreated }: CreateMod
       } else {
         try {
           const systemUrl = window.location.origin + '/admin/login';
-          const { data: tpl } = await supabase
+          // Aceita o nome canônico OU a versão renomeada no admin UI —
+          // o template é identificado pela combinação de variantes conhecidas.
+          const { data: tplRows } = await supabase
             .from('whatsapp_templates')
             .select('id, message_type, content, variables')
-            .eq('name', 'senha_temporaria')
+            .in('name', ['senha_temporaria', 'Senha temporária'])
             .eq('is_active', true)
-            .maybeSingle();
+            .limit(1);
+          const tpl = tplRows?.[0];
 
           const templateVars = {
             user_name:    profile.full_name ?? 'usuário',
@@ -748,12 +751,15 @@ function EditUserDrawer({ user, callerRole, currentUserId, sectors, onClose, onU
       } else {
         try {
           const systemUrl = window.location.origin + '/admin/login';
-          const { data: tpl } = await supabase
+          // Aceita o nome canônico OU a versão renomeada no admin UI —
+          // o template é identificado pela combinação de variantes conhecidas.
+          const { data: tplRows } = await supabase
             .from('whatsapp_templates')
             .select('id, message_type, content, variables')
-            .eq('name', 'redefinicao_senha')
+            .in('name', ['redefinicao_senha', 'Redefinição de senha'])
             .eq('is_active', true)
-            .maybeSingle();
+            .limit(1);
+          const tpl = tplRows?.[0];
 
           const templateVars = {
             user_name:    profile.full_name ?? 'usuário',
