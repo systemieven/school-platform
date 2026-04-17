@@ -103,6 +103,15 @@ interface OrchestratorResult {
   reason?: string;
   wa_message_id?: string;
   error?: string;
+  push_sent?: number;
+  push_failed?: number;
+  push_revoked?: number;
+  push_error?: string;
+}
+
+interface PushBlock {
+  user_ids: string[];
+  notification: { title: string; body: string; url?: string; tag?: string };
 }
 
 async function sendViaOrchestrator(params: {
@@ -112,6 +121,7 @@ async function sendViaOrchestrator(params: {
   phone: string;
   endpoint: string;
   payload: Record<string, unknown>;
+  push?: PushBlock;
 }): Promise<OrchestratorResult> {
   try {
     const orchUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/message-orchestrator`;
@@ -399,6 +409,25 @@ Deno.serve(async (req: Request) => {
     const results = [];
     const phone = normalizePhone(recipientPhone);
 
+    // Resolve destinatarios de push a partir do telefone (guardian_profiles).
+    // Tentativa exata, depois so digitos (caso haja mascaras salvas no DB).
+    const phoneDigits = recipientPhone.replace(/\D/g, "");
+    const pushUserIds: string[] = [];
+    try {
+      const { data: gpRows } = await service
+        .from("guardian_profiles")
+        .select("id, phone")
+        .or(`phone.eq.${recipientPhone},phone.eq.${phoneDigits}`);
+      for (const row of gpRows ?? []) {
+        const digits = String((row as { phone?: string }).phone ?? "").replace(/\D/g, "");
+        if (digits && (digits === phoneDigits || digits.endsWith(phoneDigits) || phoneDigits.endsWith(digits))) {
+          pushUserIds.push((row as { id: string }).id);
+        }
+      }
+    } catch (e) {
+      console.log(`[auto-notify] push user_id resolution failed: ${String(e)}`);
+    }
+
     for (const tmpl of matchingTemplates) {
       const content = (tmpl.content || {}) as Record<string, unknown>;
       const body = (content.body as string) || "";
@@ -473,6 +502,22 @@ Deno.serve(async (req: Request) => {
         };
       }
 
+      // Push fan-out (opcional, quando o template tem send_push=true
+      // e conseguimos resolver pelo menos um user_id a partir do telefone).
+      const sendPush = (tmpl.send_push as boolean | null) !== false;
+      const push: PushBlock | undefined =
+        sendPush && pushUserIds.length > 0
+          ? {
+              user_ids: pushUserIds,
+              notification: {
+                title: (general.school_short_name || general.school_name || "Aviso"),
+                body: rendered.slice(0, 200),
+                url: "/",
+                tag: `auto-notify-${mod}-${tmpl.id}`,
+              },
+            }
+          : undefined;
+
       // ── Dispatch via MessageOrchestrator ──────────────────────────────────
       const orchResult = await sendViaOrchestrator({
         module: `auto-notify/${mod}`,
@@ -481,6 +526,7 @@ Deno.serve(async (req: Request) => {
         phone,
         endpoint,
         payload: sendPayload,
+        push,
       });
 
       if (orchResult.sent) {
