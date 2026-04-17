@@ -13,6 +13,7 @@ import { SelectDropdown } from '../../components/FormField';
 import {
   Building2, FileText, DollarSign, Plug, Activity,
   Loader2, Check, Save, Eye, EyeOff, Zap,
+  ShieldCheck, Upload, Trash2, AlertTriangle,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -136,6 +137,24 @@ export default function NfseSettingsPanel() {
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
 
+  // Certificado digital (Nuvem Fiscal)
+  interface CertStatus {
+    installed: boolean;
+    not_valid_before?: string;
+    not_valid_after?: string;
+    issuer_name?: string;
+    subject_name?: string;
+    serial_number?: string;
+    thumbprint?: string;
+  }
+  const [certStatus, setCertStatus] = useState<CertStatus | null>(null);
+  const [certLoading, setCertLoading] = useState(false);
+  const [certPassword, setCertPassword] = useState('');
+  const [showCertPassword, setShowCertPassword] = useState(false);
+  const [certFile, setCertFile] = useState<File | null>(null);
+  const [certUploading, setCertUploading] = useState(false);
+  const [certError, setCertError] = useState<string | null>(null);
+
   // Webhook URL from env (edge function public URL)
   const webhookFnUrl = `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/nfse-webhook`;
 
@@ -236,6 +255,98 @@ export default function NfseSettingsPanel() {
       setTestResult(`Erro inesperado: ${e instanceof Error ? e.message : String(e)}`);
     }
     setTestLoading(false);
+  }
+
+  // ── Certificado Digital ───────────────────────────────────────────────────
+
+  const loadCertStatus = useCallback(async () => {
+    if (form.provider !== 'nuvem_fiscal') return;
+    setCertLoading(true);
+    setCertError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('nfse-certificado', {
+        body: { action: 'status' },
+      });
+      if (error) {
+        setCertError(error.message);
+      } else if (data?.installed) {
+        setCertStatus({ installed: true, ...(data.data as object) });
+      } else {
+        setCertStatus({ installed: false });
+      }
+    } catch (e) {
+      setCertError(e instanceof Error ? e.message : String(e));
+    }
+    setCertLoading(false);
+  }, [form.provider]);
+
+  useEffect(() => { loadCertStatus(); }, [loadCertStatus]);
+
+  async function fileToBase64(file: File): Promise<string> {
+    const buf = await file.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
+  async function handleCertUpload() {
+    if (!certFile || !certPassword) {
+      setCertError('Selecione o arquivo .pfx e informe a senha');
+      return;
+    }
+    setCertUploading(true);
+    setCertError(null);
+    try {
+      const base64 = await fileToBase64(certFile);
+      const { data, error } = await supabase.functions.invoke('nfse-certificado', {
+        body: { action: 'upload', certificado: base64, password: certPassword },
+      });
+      if (error) {
+        setCertError(error.message);
+      } else if (!data?.ok) {
+        const detail = data?.detail;
+        const msg =
+          typeof detail === 'object' && detail !== null
+            ? JSON.stringify(detail)
+            : String(detail ?? 'erro desconhecido');
+        setCertError(msg);
+      } else {
+        setCertFile(null);
+        setCertPassword('');
+        await loadCertStatus();
+        logAudit({
+          action: 'update',
+          module: 'nfse-settings',
+          description: 'Certificado digital NFS-e enviado',
+        });
+      }
+    } catch (e) {
+      setCertError(e instanceof Error ? e.message : String(e));
+    }
+    setCertUploading(false);
+  }
+
+  async function handleCertDelete() {
+    if (!confirm('Remover o certificado atual da Nuvem Fiscal?')) return;
+    setCertLoading(true);
+    setCertError(null);
+    try {
+      const { error } = await supabase.functions.invoke('nfse-certificado', {
+        body: { action: 'delete' },
+      });
+      if (error) setCertError(error.message);
+      await loadCertStatus();
+    } catch (e) {
+      setCertError(e instanceof Error ? e.message : String(e));
+    }
+    setCertLoading(false);
+  }
+
+  function daysUntil(iso?: string): number | null {
+    if (!iso) return null;
+    const diff = new Date(iso).getTime() - Date.now();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -467,7 +578,147 @@ export default function NfseSettingsPanel() {
         </div>
       </SettingsCard>
 
-      {/* ── 5. Status da Integração ──────────────────────────────────────── */}
+      {/* ── 5. Certificado Digital (Nuvem Fiscal) ────────────────────────── */}
+      {form.provider === 'nuvem_fiscal' && (
+        <SettingsCard
+          title="Certificado Digital A1"
+          description="Certificado ICP-Brasil usado pela Nuvem Fiscal para assinar as NFS-e em seu nome"
+          icon={ShieldCheck}
+          collapseId="nfse.certificado"
+        >
+          {certLoading && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" /> Consultando status…
+            </div>
+          )}
+
+          {!certLoading && certStatus?.installed && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className={LABEL_CLS}>Titular</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 break-all">
+                    {certStatus.subject_name ?? '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className={LABEL_CLS}>Emissor</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 break-all">
+                    {certStatus.issuer_name ?? '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className={LABEL_CLS}>Válido a partir de</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {fmtDatetime(certStatus.not_valid_before ?? null)}
+                  </p>
+                </div>
+                <div>
+                  <p className={LABEL_CLS}>Válido até</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {fmtDatetime(certStatus.not_valid_after ?? null)}
+                    {(() => {
+                      const d = daysUntil(certStatus.not_valid_after);
+                      if (d === null) return null;
+                      if (d < 0) return (
+                        <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                          <AlertTriangle className="w-3 h-3" /> Expirado
+                        </span>
+                      );
+                      if (d <= 30) return (
+                        <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                          <AlertTriangle className="w-3 h-3" /> Expira em {d} dia{d === 1 ? '' : 's'}
+                        </span>
+                      );
+                      return (
+                        <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                          <Check className="w-3 h-3" /> {d} dias
+                        </span>
+                      );
+                    })()}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCertDelete}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" /> Remover certificado
+              </button>
+            </div>
+          )}
+
+          {!certLoading && !certStatus?.installed && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-xs">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <p>
+                  Nenhum certificado enviado. A emissão de NFS-e só funciona após o upload do certificado
+                  digital A1 (arquivo <code className="font-mono">.pfx</code>) do emitente para a Nuvem Fiscal.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className={LABEL_CLS}>Arquivo .pfx / .p12</label>
+                  <input
+                    type="file"
+                    accept=".pfx,.p12,application/x-pkcs12"
+                    onChange={(e) => setCertFile(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-brand-primary/10 file:text-brand-primary hover:file:bg-brand-primary/20"
+                  />
+                  {certFile && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {certFile.name} — {(certFile.size / 1024).toFixed(1)} KB
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className={LABEL_CLS}>Senha do certificado</label>
+                  <div className="relative">
+                    <input
+                      type={showCertPassword ? 'text' : 'password'}
+                      value={certPassword}
+                      onChange={(e) => setCertPassword(e.target.value)}
+                      placeholder="Senha do arquivo .pfx"
+                      className={`${INPUT_CLS} pr-11`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCertPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showCertPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCertUpload}
+                disabled={certUploading || !certFile || !certPassword}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary-dark disabled:opacity-50 transition-colors"
+              >
+                {certUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {certUploading ? 'Enviando…' : 'Enviar certificado'}
+              </button>
+            </div>
+          )}
+
+          {certError && (
+            <div className="mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs font-mono whitespace-pre-wrap">
+              {certError}
+            </div>
+          )}
+        </SettingsCard>
+      )}
+
+      {/* ── 6. Status da Integração ──────────────────────────────────────── */}
       <SettingsCard
         title="Status da Integração"
         description="Situação atual da conexão com o provider e histórico de testes"
