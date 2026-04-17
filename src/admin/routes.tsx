@@ -35,6 +35,8 @@ const StoreProductsImportPage   = lazy(() => import('./pages/migracao/StoreProdu
 const SegmentsImportPage        = lazy(() => import('./pages/migracao/SegmentsImportPage'));
 const SchoolSeriesImportPage    = lazy(() => import('./pages/migracao/SchoolSeriesImportPage'));
 const SchoolClassesImportPage   = lazy(() => import('./pages/migracao/SchoolClassesImportPage'));
+const FinancialReceivablesImportPage = lazy(() => import('./pages/migracao/FinancialReceivablesImportPage'));
+const FinancialPayablesImportPage    = lazy(() => import('./pages/migracao/FinancialPayablesImportPage'));
 const StudentDetailPage    = lazy(() => import('./pages/school/StudentDetailPage'));
 const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'));
 const LibraryPage          = lazy(() => import('./pages/library/LibraryPage'));
@@ -195,6 +197,8 @@ export default function AdminRoutes() {
           <Route path="migracao/segmentos"     element={<ModuleGuard moduleKey="data-migration"><LazyPage><SegmentsImportPage /></LazyPage></ModuleGuard>} />
           <Route path="migracao/series"        element={<ModuleGuard moduleKey="data-migration"><LazyPage><SchoolSeriesImportPage /></LazyPage></ModuleGuard>} />
           <Route path="migracao/turmas"        element={<ModuleGuard moduleKey="data-migration"><LazyPage><SchoolClassesImportPage /></LazyPage></ModuleGuard>} />
+          <Route path="migracao/receber"       element={<ModuleGuard moduleKey="data-migration"><LazyPage><FinancialReceivablesImportPage /></LazyPage></ModuleGuard>} />
+          <Route path="migracao/pagar"         element={<ModuleGuard moduleKey="data-migration"><LazyPage><FinancialPayablesImportPage /></LazyPage></ModuleGuard>} />
         </Route>
       </Routes>
     </AdminAuthProvider>
