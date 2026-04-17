@@ -9,7 +9,7 @@ import {
   Percent, DollarSign, Wifi, WifiOff, Copy, ExternalLink,
   MessageCircle,
 } from 'lucide-react';
-import type { StoreProduct, StoreProductVariant, PDVCartItem, StorePaymentSurcharge } from '../../types/admin.types';
+import type { StoreProduct, StoreProductVariant, PDVCartItem, StorePaymentSurcharge, FinancialCashRegister } from '../../types/admin.types';
 import { computeSurcharge } from '../../../lib/paymentSurcharge';
 
 // ── Mapa value→ícone para formas de pagamento manuais ────────────────────────
@@ -296,14 +296,39 @@ export default function PDVPage() {
         ),
         // Caixa: somente modo manual (pagamento confirmado imediatamente)
         payMode === 'manual' ? (async () => {
-          try {
-            await supabase.from('financial_cash_movements').insert({
-              type: 'inflow', sub_type: 'recebimento', amount: finalTotal,
-              description: `Venda PDV ${orderNumber}`, payment_method: paymentMethod,
-              reference_type: 'order', reference_id: orderId,
-              created_by: user?.id ?? null, created_at: new Date().toISOString(),
-            });
-          } catch { /* ignore */ }
+          const { data: reg } = await supabase
+            .from('financial_cash_registers')
+            .select('id, current_balance')
+            .eq('status', 'open')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (reg) {
+            const { id: regId, current_balance } = reg as FinancialCashRegister;
+            const newBalance = current_balance + finalTotal;
+            await Promise.all([
+              supabase.from('financial_cash_movements').insert({
+                cash_register_id: regId,
+                type: 'inflow',
+                sub_type: 'recebimento',
+                amount: finalTotal,
+                balance_after: newBalance,
+                description: `Venda PDV #${orderNumber}`,
+                payment_method: paymentMethod,
+                reference_type: 'order',
+                reference_id: orderId,
+                recorded_by: user?.id ?? null,
+                movement_date: new Date().toISOString(),
+              }),
+              supabase
+                .from('financial_cash_registers')
+                .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
+                .eq('id', regId),
+            ]);
+          } else {
+            console.warn('PDV: nenhum caixa aberto — movimento financeiro não registrado');
+          }
         })() : Promise.resolve(),
       ]);
 

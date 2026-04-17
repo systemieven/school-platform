@@ -145,6 +145,37 @@ export default function FinancialInstallmentsPage() {
         description: 'Pagamento registrado',
         newData: { id: payingInst.id, paid_amount: payAmount, payment_method: payMethod },
       });
+
+      // Registrar movimento no caixa aberto do dia (melhor-esforço)
+      const { data: reg } = await supabase
+        .from('financial_cash_registers')
+        .select('id, current_balance')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (reg) {
+        const newBalance = reg.current_balance + payAmount;
+        await Promise.all([
+          supabase.from('financial_cash_movements').insert({
+            cash_register_id: reg.id,
+            type: 'inflow',
+            sub_type: 'recebimento',
+            amount: payAmount,
+            balance_after: newBalance,
+            description: `Mensalidade ${payingInst.installment_number}: ${payingInst.student?.full_name ?? ''}`,
+            payment_method: payMethod,
+            reference_type: 'installment',
+            reference_id: payingInst.id,
+            recorded_by: profile.id,
+          }),
+          supabase
+            .from('financial_cash_registers')
+            .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
+            .eq('id', reg.id),
+        ]);
+      }
+
       setSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => {
