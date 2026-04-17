@@ -13,7 +13,7 @@ import { SelectDropdown } from '../../components/FormField';
 import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Bot, Loader2, Check, Save, Sparkles, Play, Activity, AlertCircle,
-  Pencil, Zap, ZapOff, Brain,
+  Pencil, Zap, ZapOff, Brain, Key, Eye, EyeOff,
 } from 'lucide-react';
 
 type Provider = 'anthropic' | 'openai';
@@ -67,10 +67,22 @@ function extractVars(template: string): string[] {
   return [...out];
 }
 
+interface AiConfig {
+  anthropic_api_key: string | null;
+  openai_api_key: string | null;
+}
+
 export default function AiAgentsPanel() {
   const [agents, setAgents] = useState<AiAgent[]>([]);
   const [usage, setUsage] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [cfg, setCfg] = useState<AiConfig>({ anthropic_api_key: '', openai_api_key: '' });
+  const [showAnthropic, setShowAnthropic] = useState(false);
+  const [showOpenai, setShowOpenai] = useState(false);
+  const [savingCfg, setSavingCfg] = useState(false);
+  const [savedCfg, setSavedCfg] = useState(false);
+  const savedCfgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editing, setEditing] = useState<AiAgent | null>(null);
   const [form, setForm] = useState<AiAgent | null>(null);
   const [saving, setSaving] = useState(false);
@@ -84,16 +96,44 @@ export default function AiAgentsPanel() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: agentsData }, { data: usageData }] = await Promise.all([
+    const [{ data: agentsData }, { data: usageData }, { data: cfgData }] = await Promise.all([
       supabase.from('ai_agents').select('*').order('slug'),
       supabase.from('ai_usage_log').select('*').order('created_at', { ascending: false }).limit(20),
+      supabase.from('company_ai_config').select('anthropic_api_key, openai_api_key').limit(1).maybeSingle(),
     ]);
     setAgents((agentsData ?? []) as AiAgent[]);
     setUsage((usageData ?? []) as UsageRow[]);
+    setCfg({
+      anthropic_api_key: cfgData?.anthropic_api_key ?? '',
+      openai_api_key: cfgData?.openai_api_key ?? '',
+    });
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleSaveCfg() {
+    if (savingCfg) return;
+    setSavingCfg(true);
+    const { data: existing } = await supabase
+      .from('company_ai_config')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+    const payload = {
+      anthropic_api_key: cfg.anthropic_api_key || null,
+      openai_api_key: cfg.openai_api_key || null,
+    };
+    const { error } = existing
+      ? await supabase.from('company_ai_config').update(payload).eq('id', existing.id)
+      : await supabase.from('company_ai_config').insert(payload);
+    setSavingCfg(false);
+    if (error) return;
+    setSavedCfg(true);
+    logAudit({ action: 'update', module: 'ai', description: 'Chaves de API de IA atualizadas' });
+    if (savedCfgTimer.current) clearTimeout(savedCfgTimer.current);
+    savedCfgTimer.current = setTimeout(() => setSavedCfg(false), 1200);
+  }
 
   async function toggleEnabled(agent: AiAgent) {
     const next = !agent.enabled;
@@ -184,6 +224,72 @@ export default function AiAgentsPanel() {
 
   return (
     <div className="space-y-6">
+      <SettingsCard
+        title="Chaves de API"
+        icon={Key}
+        description="Configure as credenciais dos providers. As chaves são usadas pelo orquestrador em cada chamada dos agentes."
+      >
+        <div className="space-y-3">
+          <div>
+            <label className={LABEL_CLS}>Anthropic API Key</label>
+            <div className="relative">
+              <input
+                type={showAnthropic ? 'text' : 'password'}
+                value={cfg.anthropic_api_key ?? ''}
+                onChange={(e) => setCfg({ ...cfg, anthropic_api_key: e.target.value })}
+                placeholder="sk-ant-..."
+                className={`${INPUT_CLS} pr-10 font-mono`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowAnthropic((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
+                title={showAnthropic ? 'Ocultar' : 'Mostrar'}
+              >
+                {showAnthropic ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className={LABEL_CLS}>OpenAI API Key</label>
+            <div className="relative">
+              <input
+                type={showOpenai ? 'text' : 'password'}
+                value={cfg.openai_api_key ?? ''}
+                onChange={(e) => setCfg({ ...cfg, openai_api_key: e.target.value })}
+                placeholder="sk-..."
+                className={`${INPUT_CLS} pr-10 font-mono`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowOpenai((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand-primary"
+                title={showOpenai ? 'Ocultar' : 'Mostrar'}
+              >
+                {showOpenai ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={handleSaveCfg}
+              disabled={savingCfg || savedCfg}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                savedCfg ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'
+              }`}
+            >
+              {savingCfg ? (
+                <><Loader2 className="w-4 h-4 animate-spin" />Salvando…</>
+              ) : savedCfg ? (
+                <><Check className="w-4 h-4" />Salvo!</>
+              ) : (
+                <><Save className="w-4 h-4" />Salvar chaves</>
+              )}
+            </button>
+          </div>
+        </div>
+      </SettingsCard>
+
       <SettingsCard title="Agentes de IA" icon={Brain} description="Cada agente encapsula um prompt + provider. Admins podem trocar entre Anthropic e OpenAI por agente.">
         {agents.length === 0 ? (
           <p className="text-sm text-gray-400">Nenhum agente cadastrado.</p>

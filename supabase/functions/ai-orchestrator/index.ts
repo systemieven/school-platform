@@ -88,6 +88,20 @@ Deno.serve(async (req: Request) => {
   const agent = agentRow as Agent;
   if (!agent.enabled) return json({ error: "Agente desabilitado" }, 422);
 
+  const { data: cfgRow } = await service
+    .from("company_ai_config")
+    .select("anthropic_api_key, openai_api_key")
+    .limit(1)
+    .maybeSingle();
+  const apiKey = agent.provider === "anthropic"
+    ? cfgRow?.anthropic_api_key
+    : cfgRow?.openai_api_key;
+  if (!apiKey) {
+    return json({
+      error: `Chave de API (${agent.provider}) nao configurada. Acesse /admin/configuracoes?tab=ia para cadastrar.`,
+    }, 422);
+  }
+
   const user = renderTemplate(agent.user_prompt_template, context);
   const ctxHash = await hashContext(context);
 
@@ -118,6 +132,7 @@ Deno.serve(async (req: Request) => {
         user,
         temperature: Number(agent.temperature),
         max_tokens: agent.max_tokens,
+        api_key: apiKey,
       }),
     });
   } catch (e) {
