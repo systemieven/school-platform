@@ -67,13 +67,10 @@ const MESSAGE_TYPES: { value: MessageType; label: string; desc: string }[] = [
   { value: 'list',    label: 'Lista',    desc: 'Menu interativo com seções e opções selecionáveis' },
 ];
 
-// Nota: 'copy' (copy-to-clipboard) não é suportado pelo uazapi (WhatsApp Web).
-// Esse recurso requer a API oficial da Meta (Cloud API). Botões do tipo copy
-// são enviados como reply neutro — a senha/código já aparece no corpo da mensagem.
-const BUTTON_TYPES: { value: TemplateButtonType; label: string; icon: typeof Reply; placeholder: string; disabled?: boolean; disabledReason?: string }[] = [
+const BUTTON_TYPES: { value: TemplateButtonType; label: string; icon: typeof Reply; placeholder: string }[] = [
   { value: 'reply', label: 'Resposta',  icon: Reply,        placeholder: 'ID do payload (ex: confirmar)' },
   { value: 'url',   label: 'Link',      icon: ExternalLink, placeholder: 'https://exemplo.com' },
-  { value: 'copy',  label: 'Copiar',    icon: Copy,         placeholder: 'Texto a copiar (ex: CUPOM20)', disabled: true, disabledReason: 'Não suportado pelo uazapi — requer API oficial Meta' },
+  { value: 'copy',  label: 'Copiar',    icon: Copy,         placeholder: 'Texto a copiar (ex: CUPOM20)' },
   { value: 'call',  label: 'Ligar',     icon: Phone,        placeholder: '+5511999999999' },
 ];
 
@@ -1033,15 +1030,11 @@ function TemplateDrawer({
                                   <button
                                     key={bt.value}
                                     type="button"
-                                    disabled={bt.disabled}
-                                    title={bt.disabled ? bt.disabledReason : undefined}
-                                    onClick={() => !bt.disabled && updateBtn({ type: bt.value, value: '' })}
+                                    onClick={() => updateBtn({ type: bt.value, value: '' })}
                                     className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
-                                      bt.disabled
-                                        ? 'bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-600 border border-gray-100 dark:border-gray-700 cursor-not-allowed'
-                                        : active
-                                          ? 'bg-brand-primary text-white'
-                                          : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-brand-primary/40'
+                                      active
+                                        ? 'bg-brand-primary text-white'
+                                        : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-brand-primary/40'
                                     }`}
                                   >
                                     <Icon className="w-3 h-3" />

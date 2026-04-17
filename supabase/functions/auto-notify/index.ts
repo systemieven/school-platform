@@ -47,8 +47,7 @@ function buttonsToChoices(
       case "url":
         return `${text}|${value.startsWith("http") ? value : `https://${value}`}`;
       case "copy":
-        // uazapi (WhatsApp Web) não suporta copy-to-clipboard; fallback para reply neutro
-        return `${text}|ok`;
+        return `${text}|copy:${value}`;
       case "call":
         return `${text}|call:${value.startsWith("+") ? value : `+${value}`}`;
       case "reply":

@@ -523,10 +523,7 @@ export interface SendMenuOptions {
  *  Renders {{variables}} in text and value fields.
  *  reply:  "text|id"
  *  url:    "text|https://..."
- *  copy:   falls back to reply — uazapi (WhatsApp Web layer) does not support
- *          clipboard copy buttons; those require the official Meta Cloud API.
- *          The value is intentionally NOT echoed as the reply payload to avoid
- *          leaking sensitive data (e.g. passwords) in chat replies.
+ *  copy:   "text|copy:value"
  *  call:   "text|call:+number"
  */
 export function buttonsToChoices(buttons: TemplateButton[], vars?: Record<string, string>): string[] {
@@ -536,7 +533,7 @@ export function buttonsToChoices(buttons: TemplateButton[], vars?: Record<string
     const value = r(b.value);
     switch (b.type) {
       case 'url':  return `${text}|${value.startsWith('http') ? value : `https://${value}`}`;
-      case 'copy': return `${text}|ok`;   // uazapi não suporta copy-to-clipboard
+      case 'copy': return `${text}|copy:${value}`;
       case 'call': return `${text}|call:${value.startsWith('+') ? value : `+${value}`}`;
       case 'reply':
       default:     return `${text}|${value || r(b.id)}`;
