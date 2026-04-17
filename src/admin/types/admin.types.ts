@@ -1267,6 +1267,7 @@ export interface Discipline {
   weekly_hours: number;
   color: string;
   segment_ids: string[];
+  subject_id?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -1816,6 +1817,7 @@ export interface ClassDiaryEntry {
   id: string;
   class_id: string;
   subject_id: string | null;
+  discipline_id: string | null;
   teacher_id: string;
   entry_date: string;
   type: DiaryEntryType;
@@ -1832,6 +1834,8 @@ export interface ClassDiaryEntry {
   // Joins opcionais
   class?: { id: string; name: string } | null;
   subject?: { id: string; name: string } | null;
+  discipline?: { id: string; name: string } | null;
+  teacher?: { id: string; full_name: string } | null;
   attendance?: DiaryAttendance[];
 }
 

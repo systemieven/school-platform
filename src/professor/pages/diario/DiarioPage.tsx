@@ -60,7 +60,7 @@ export default function DiarioPage() {
 
     let query = supabase
       .from('class_diary_entries')
-      .select('*, diary_attendance(id)')
+      .select('*, diary_attendance(id), discipline:disciplines(id,name)')
       .eq('class_id', classId)
       .eq('teacher_id', professor.id)
       .gte('entry_date', startDate)
@@ -68,18 +68,22 @@ export default function DiarioPage() {
       .order('entry_date', { ascending: false });
 
     if (discFilter) {
-      query = query.eq('subject_id', discFilter);
+      query = query.eq('discipline_id', discFilter);
     }
 
     const { data } = await query;
 
     if (data) {
       const mapped: EntryWithMeta[] = data.map((e) => {
-        const disc = cls?.disciplines.find((d) => d.discipline_id === e.subject_id);
+        const joinedDisc = e.discipline as { id: string; name: string } | null;
+        // Fallback for legacy rows where discipline_id is null: match by subject_id
+        const ctxDisc = !joinedDisc && e.subject_id
+          ? cls?.disciplines.find((d) => d.subject_id === e.subject_id)
+          : undefined;
         return {
           ...e,
           hasAttendance: Array.isArray(e.diary_attendance) && e.diary_attendance.length > 0,
-          disciplineName: disc?.discipline_name ?? null,
+          disciplineName: joinedDisc?.name ?? ctxDisc?.discipline_name ?? null,
         };
       });
       setEntries(mapped);
