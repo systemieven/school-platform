@@ -334,7 +334,7 @@ function SecretariaDeclaracoesTab() {
     try {
       const { data, error } = await supabase
         .from('document_requests')
-        .select('*, template:document_templates(name, document_type), student:students(full_name, enrollment_code)')
+        .select('*, template:document_templates(name, document_type), student:students(full_name, enrollment_number)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       setRequests((data ?? []) as unknown as DocumentRequest[]);
@@ -477,7 +477,7 @@ function SecretariaDeclaracoesTab() {
               <tr key={req.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
                 <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-400">{fmtDate(req.created_at)}</td>
                 <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{req.student?.full_name ?? '—'}</td>
-                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{req.student?.enrollment_code ?? '—'}</td>
+                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{req.student?.enrollment_number ?? '—'}</td>
                 <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{req.template?.name ?? '—'}</td>
                 <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                   {req.template?.document_type ? DOCUMENT_TYPE_LABELS[req.template.document_type] : '—'}
@@ -536,7 +536,14 @@ type HealthRecordWithStudent = StudentHealthRecord & {
     id: string;
     full_name: string;
     class_id?: string | null;
-    school_classes?: { name: string } | null;
+    school_classes?: {
+      id: string;
+      name: string;
+      segment_id: string;
+      series_id: string;
+      segment?: { id: string; name: string } | null;
+      series?: { id: string; name: string } | null;
+    } | null;
   } | null;
 };
 
@@ -941,6 +948,14 @@ function SecretariaFichasSaudeTab() {
   const [selectedRecord, setSelectedRecord] = useState<HealthRecordWithStudent | null>(null);
   const [fetchError, setFetchError] = useState('');
 
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [segmentFilter, setSegmentFilter] = useState('');
+  const [classFilter, setClassFilter] = useState('');
+  const [sortAZ, setSortAZ] = useState(false);
+  const [segments, setSegments] = useState<{ id: string; name: string }[]>([]);
+  const [classes, setClasses] = useState<{ id: string; name: string; segment_id: string }[]>([]);
+
   // New state for expanded sections
   const [activeSubTab, setActiveSubTab] = useState<'fichas' | 'atestados' | 'pendentes'>('fichas');
   const [certs, setCerts] = useState<StudentMedicalCertificate[]>([]);
@@ -957,7 +972,7 @@ function SecretariaFichasSaudeTab() {
       const [healthRes, certsRes, reqRes] = await Promise.all([
         supabase
           .from('student_health_records')
-          .select('*, student:students(id, full_name, class_id, school_classes(name))')
+          .select('*, student:students(id, full_name, class_id, school_classes(id, name, segment_id, series_id, segment:school_segments(id, name), series:school_series(id, name)))')
           .order('created_at', { ascending: false }),
         supabase
           .from('student_medical_certificates')
@@ -994,7 +1009,16 @@ function SecretariaFichasSaudeTab() {
     setStudentOptions((data ?? []) as StudentOption[]);
   }, []);
 
-  useEffect(() => { fetchRecords(); fetchStudentOptions(); }, [fetchRecords, fetchStudentOptions]);
+  const fetchFilterData = useCallback(async () => {
+    const [segRes, clsRes] = await Promise.all([
+      supabase.from('school_segments').select('id, name').order('name'),
+      supabase.from('school_classes').select('id, name, segment_id').eq('is_active', true).order('name'),
+    ]);
+    setSegments((segRes.data ?? []) as { id: string; name: string }[]);
+    setClasses((clsRes.data ?? []) as { id: string; name: string; segment_id: string }[]);
+  }, []);
+
+  useEffect(() => { fetchRecords(); fetchStudentOptions(); fetchFilterData(); }, [fetchRecords, fetchStudentOptions, fetchFilterData]);
 
   async function confirmRequest(id: string) {
     const { error } = await supabase
@@ -1021,6 +1045,24 @@ function SecretariaFichasSaudeTab() {
       fetchRecords();
     }
   }
+
+  // Filtered + sorted records
+  const filteredClasses = segmentFilter
+    ? classes.filter((c) => c.segment_id === segmentFilter)
+    : classes;
+
+  const filteredRecords = records
+    .filter((r) => {
+      const name = r.student?.full_name?.toLowerCase() ?? '';
+      if (searchQuery && !name.includes(searchQuery.toLowerCase())) return false;
+      if (segmentFilter && r.student?.school_classes?.segment_id !== segmentFilter) return false;
+      if (classFilter && r.student?.class_id !== classFilter) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (!sortAZ) return 0;
+      return (a.student?.full_name ?? '').localeCompare(b.student?.full_name ?? '', 'pt-BR');
+    });
 
   const kpi = {
     total: records.length,
@@ -1092,29 +1134,107 @@ function SecretariaFichasSaudeTab() {
       {/* Sub-tab: Fichas */}
       {activeSubTab === 'fichas' && (
         <>
-          <div className="flex justify-end">
+          {/* Search + filters bar */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nome do aluno…"
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+              />
+            </div>
+
+            {/* Segmento */}
+            <div className="relative">
+              <select
+                value={segmentFilter}
+                onChange={(e) => { setSegmentFilter(e.target.value); setClassFilter(''); }}
+                className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 min-w-[150px]"
+              >
+                <option value="">Todos os segmentos</option>
+                {segments.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* Série/Turma */}
+            <div className="relative">
+              <select
+                value={classFilter}
+                onChange={(e) => setClassFilter(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 min-w-[160px]"
+              >
+                <option value="">Todas as turmas</option>
+                {filteredClasses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* Sort A-Z toggle */}
+            <button
+              onClick={() => setSortAZ((v) => !v)}
+              title={sortAZ ? 'Ordenação A-Z ativa — clique para desativar' : 'Ordenar por nome A-Z'}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-colors whitespace-nowrap ${
+                sortAZ
+                  ? 'border-brand-primary bg-brand-primary/10 text-brand-primary dark:text-brand-secondary'
+                  : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
+              }`}
+            >
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${sortAZ ? 'rotate-180' : ''}`} />
+              A–Z
+            </button>
+
+            {/* Clear filters */}
+            {(searchQuery || segmentFilter || classFilter) && (
+              <button
+                onClick={() => { setSearchQuery(''); setSegmentFilter(''); setClassFilter(''); }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors whitespace-nowrap"
+              >
+                <X className="w-3.5 h-3.5" /> Limpar
+              </button>
+            )}
+
+            {/* Nova Ficha */}
             <button onClick={() => { setSelectedRecord(null); setDrawerOpen(true); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors">
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium transition-colors whitespace-nowrap">
               <Heart className="w-4 h-4" /> + Nova Ficha
             </button>
           </div>
+
+          {/* Result count */}
+          {(searchQuery || segmentFilter || classFilter) && !loading && (
+            <p className="text-xs text-gray-400">
+              {filteredRecords.length} resultado{filteredRecords.length !== 1 ? 's' : ''} encontrado{filteredRecords.length !== 1 ? 's' : ''}
+            </p>
+          )}
+
           <div className="overflow-x-auto rounded-2xl border border-gray-100 dark:border-gray-700">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                 <tr>
-                  {['Aluno', 'Turma', 'Tipo Sanguíneo', 'Alergias', 'Medicamentos', 'NE', 'Ações'].map((h) => (
+                  {['Aluno', 'Segmento', 'Turma', 'Tipo Sanguíneo', 'Alergias', 'Medicamentos', 'NE', 'Ações'].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800 bg-white dark:bg-gray-900">
                 {loading ? (
-                  <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">Carregando…</td></tr>
-                ) : records.length === 0 ? (
-                  <tr><td colSpan={7} className="py-12 text-center text-gray-400 text-sm">Nenhuma ficha cadastrada</td></tr>
-                ) : records.map((r) => (
+                  <tr><td colSpan={8} className="py-12 text-center text-gray-400 text-sm">Carregando…</td></tr>
+                ) : filteredRecords.length === 0 ? (
+                  <tr><td colSpan={8} className="py-12 text-center text-gray-400 text-sm">
+                    {records.length === 0 ? 'Nenhuma ficha cadastrada' : 'Nenhuma ficha corresponde aos filtros aplicados'}
+                  </td></tr>
+                ) : filteredRecords.map((r) => (
                   <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{r.student?.full_name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{r.student?.school_classes?.segment?.name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{r.student?.school_classes?.name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.blood_type ?? '—'}</td>
                     <td className="px-4 py-3"><StatusBadge label={r.has_allergies ? 'Sim' : 'Não'} color={r.has_allergies ? 'red' : 'gray'} /></td>

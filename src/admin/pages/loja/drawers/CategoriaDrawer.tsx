@@ -5,6 +5,34 @@ import { Toggle } from '../../../components/Toggle';
 import { supabase } from '../../../../lib/supabase';
 import type { StoreCategory } from '../../../types/admin.types';
 
+interface CategoryNode extends Omit<StoreCategory, 'children'> {
+  children: CategoryNode[];
+}
+
+function buildTree(cats: StoreCategory[]): CategoryNode[] {
+  const map = new Map<string, CategoryNode>();
+  cats.forEach((c) => map.set(c.id, { ...c, children: [] }));
+  const roots: CategoryNode[] = [];
+  map.forEach((node) => {
+    if (node.parent_id && map.has(node.parent_id)) {
+      map.get(node.parent_id)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  roots.sort((a, b) => a.position - b.position);
+  return roots;
+}
+
+function flattenForSelect(nodes: CategoryNode[], depth = 0): { depth: number; cat: StoreCategory }[] {
+  const result: { depth: number; cat: StoreCategory }[] = [];
+  for (const node of nodes) {
+    result.push({ depth, cat: node });
+    result.push(...flattenForSelect(node.children, depth + 1));
+  }
+  return result;
+}
+
 interface Props {
   open: boolean;
   category: StoreCategory | null;
@@ -89,7 +117,16 @@ export default function CategoriaDrawer({ open, category, categories, onClose, o
   };
 
   const canSave = form.name.trim().length > 0;
-  const otherCategories = categories.filter((c) => c.id !== category?.id);
+  // Exclude self + all descendants to prevent circular parenthood
+  const selfAndDescendants = new Set<string>();
+  if (category) {
+    const collect = (id: string) => {
+      selfAndDescendants.add(id);
+      categories.filter((c) => c.parent_id === id).forEach((c) => collect(c.id));
+    };
+    collect(category.id);
+  }
+  const otherCategories = categories.filter((c) => !selfAndDescendants.has(c.id));
 
   const footer = category ? (
     <div className="flex items-center gap-2">
@@ -163,8 +200,10 @@ export default function CategoriaDrawer({ open, category, categories, onClose, o
             <select value={form.parent_id} onChange={(e) => set('parent_id', e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white">
               <option value="">Nenhuma (raiz)</option>
-              {otherCategories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              {flattenForSelect(buildTree(otherCategories)).map(({ depth, cat }) => (
+                <option key={cat.id} value={cat.id}>
+                  {depth > 0 ? '\u00a0\u00a0'.repeat(depth) + '└ ' : ''}{cat.name}
+                </option>
               ))}
             </select>
           </div>
