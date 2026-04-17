@@ -2,7 +2,7 @@
 
 > **Versao**: 3.5
 > **Data**: 17 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, migrations 153-156) + roadmap ate v1
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, Sprint 14.S.P-bis PR1 concluido, migrations 153-158) + roadmap ate v1
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -1510,6 +1510,8 @@ Configuravel na aba Aparencia > Home:
 | 154 | `whatsapp_templates_send_push` | 17/04 | ✅ **Sprint 13.N.3** — flag `whatsapp_templates.send_push BOOLEAN DEFAULT true` habilita fan-out de push via `message-orchestrator` quando `auto-notify` dispara templates. |
 | 155 | `increment_nfse_numero_rpc` | 17/04 | ✅ **Sprint 14.S.P.1** — RPC `increment_nfse_numero()` SECURITY DEFINER: reserva atomicamente o próximo número da NFS-e (UPDATE ... RETURNING) evitando race em emissões simultâneas. Executada pelo `nfse-emitter` antes de inserir em `nfse_emitidas`. |
 | 156 | `nfse_auto_emit_on_payment` | 17/04 | ✅ **Sprint 14.S.P.2** — `company_nfse_config.auto_emit_on_payment BOOLEAN DEFAULT false` (disparo automático de NFS-e em baixa de parcela, via client-side em `handlePay`) + `nfse_emitidas.motivo_cancelamento TEXT` (gravado pela Edge Function `nfse-cancel`). |
+| 157 | `company_nfce_config` | 17/04 | ✅ **Sprint 14.S.P-bis PR1** — Tabela singleton `company_nfce_config` para NFC-e (modelo 65): `ambiente`, `serie`, `proximo_numero`, `csc`, `id_csc`, `provider` ('nuvem_fiscal'\|'outro'), `api_token_enc`, `api_base_url`, `webhook_url`, `webhook_secret`, `integration_status`, `auto_emit_on_payment`. RLS admin/super_admin ALL + coordinator SELECT. Trigger `set_nfce_config_updated_at`. RPC atômica `increment_nfce_numero()` SECURITY DEFINER. Separada de `company_nfse_config` porque SEFAZ estadual ≠ prefeitura (ambientes/séries/credenciais independentes). |
+| 158 | `nfce_emitidas` | 17/04 | ✅ **Sprint 14.S.P-bis PR1** — `nfce_emitidas` com FK `order_id` → `store_orders` (SET NULL), `chave_nfce`, `protocolo`, `emitente`/`consumidor`/`itens` JSONB, valores, `qrcode_url`, `link_danfe`, status (pendente/autorizada/cancelada/rejeitada/denegada/inutilizada), `motivo_rejeicao`, `motivo_cancelamento`. `nfce_emission_log` análogo ao NFS-e. RLS admin ALL + coordinator SELECT. Também adiciona `store_orders.consumer_cpf_cnpj` + `consumer_name` (opcionais — CPF padrão vem de `students.guardian_id` → `guardian_profiles.cpf`). |
 
 ### 7.4 RLS Policies
 
@@ -1822,7 +1824,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | 14.F | Estrutura Fiscal de Produtos (NF-e prep) | ✅ Concluido (migrations 109–113, Sprint 7, 2026-04-16) | Media | 14 |
 | 14.S | Estrutura NFS-e (tabelas, UI, stub do emitter) | ✅ Concluido (migrations 114–117, NfseEmitidas.tsx, 2026-04-17) | Media-Alta | 14.F + 8.5 + 10 |
 | 14.S.P | Integracao NFS-e com provider real (Nuvem Fiscal) | ✅ Concluido (2026-04-17) — PR1: migration 155 `increment_nfse_numero()` RPC atomica; `nfse-emitter` com dispatcher por `cfg.provider` e cliente Nuvem Fiscal (`POST /nfse/dps`, payload DPS NFS-e Nacional LC 214/2024); `nfse-webhook` com parser dedicado. PR1.5: Edge Function `nfse-certificado` (proxy upload/consulta/remocao do A1 na Nuvem Fiscal) + card "Certificado Digital A1" no `NfseSettingsPanel`. PR2: migration 156 `auto_emit_on_payment` + `motivo_cancelamento`; toggle de auto-emissao em `NfseSettingsPanel`; auto-trigger best-effort em `handlePay` apos baixa; Edge Function `nfse-cancel`; drawer de `NfseEmitidas` com acoes condicionais (Reenviar PDF, Cancelar, Emitir novamente). | Media-Alta | 14.S |
-| 14.S.P-bis | NFC-e via Nuvem Fiscal (PDV/Loja) | ⏳ Planejado — apos NFS-e em producao. Migration nova `nfce_emitidas` + `store_fiscal_config` (CSC, serie PDV). Integracao com `store_orders`. Painel de settings + listagem. | Media | 14.S.P + 14 |
+| 14.S.P-bis | NFC-e via Nuvem Fiscal (PDV/Loja) | ⚙️ **PR1 concluido (2026-04-17)** — migrations 157 (`company_nfce_config` singleton com CSC+idCSC, serie, `auto_emit_on_payment`, RPC `increment_nfce_numero()`) + 158 (`nfce_emitidas` FK `store_orders`, `nfce_emission_log`, `store_orders.consumer_cpf_cnpj/consumer_name`). Painel `NfceSettingsPanel` (cards Emissao / CSC / Provider / Status) exposto como sub-tab "NFC-e (Consumidor)" em Fiscal. Sem certificado proprio: Nuvem Fiscal reusa o A1 ja enviado pela NFS-e (mesmo CNPJ). ⏳ **PR2** (Edge Functions `nfce-emitter`/`nfce-webhook`/`nfce-cancel`, auto-trigger em `store_orders.status='payment_confirmed'`, CPF via `student→guardian`) e **PR3** (`NfceEmitidas.tsx` + acoes) pendentes. | Media | 14.S.P + 14 |
 | 14.S.P-ter | NF-e via Nuvem Fiscal (antes da v1) | ⏳ Planejado | Media | 14.S.P + 14.F |
 | 14.E | Modulo de Fornecedores | ✅ Concluido (migrations 131–132, Sprint 9, 2026-04-17) | Media | 14.F + 8.5 |
 | 15 | Achados e Perdidos Digital | ✅ Concluido (migrations 103–105, 2026-04-16) | Media | 6 + 9 + 10 |
