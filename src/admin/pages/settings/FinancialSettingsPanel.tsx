@@ -13,7 +13,7 @@ import { Drawer, DrawerCard } from '../../components/Drawer';
 import { Toggle } from '../../components/Toggle';
 import type {
   PaymentGateway, GatewayProvider, GatewayEnvironment, InstallmentConfig,
-  FinancialAccountCategory, AccountCategoryType,
+  FinancialAccountCategory, AccountCategoryType, StorePaymentSurcharge,
 } from '../../types/admin.types';
 import { GATEWAY_PROVIDER_LABELS } from '../../types/admin.types';
 import {
@@ -21,7 +21,7 @@ import {
   X, ToggleLeft, ToggleRight, Zap, QrCode,
   Shield, Tag, Settings, Star, Wifi, WifiOff,
   Webhook, Copy, RefreshCcw, ExternalLink, Layers, Plus,
-  BookOpen, Wallet, ChevronRight, ChevronDown, GripVertical,
+  BookOpen, Wallet, ChevronRight, ChevronDown, GripVertical, Percent,
 } from 'lucide-react';
 
 // ── Default payment methods ───────────────────────────────────────────────────
@@ -318,6 +318,13 @@ export default function FinancialSettingsPanel() {
   const [newPmValue, setNewPmValue] = useState('');
   const [newPmLabel, setNewPmLabel] = useState('');
 
+  // ── Payment surcharges ─────────────────────────────────────────────────────
+  const [surcharges, setSurcharges] = useState<StorePaymentSurcharge[]>([]);
+  const [surNew, setSurNew] = useState<Partial<StorePaymentSurcharge>>({});
+  const [surEditing, setSurEditing] = useState<string | null>(null);
+  const [surSaving, setSurSaving] = useState(false);
+  const [surSaved, setSurSaved] = useState(false);
+
   // Gateways
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [gwLoading, setGwLoading] = useState(true);
@@ -367,7 +374,7 @@ export default function FinancialSettingsPanel() {
   const load = useCallback(async () => {
     setGwLoading(true);
 
-    const [gwRes, settingsRes, tplRes, catRes] = await Promise.all([
+    const [gwRes, settingsRes, tplRes, catRes, surRes] = await Promise.all([
       supabase.from('payment_gateways').select('*').order('created_at'),
       supabase.from('system_settings').select('*').eq('category', 'financial'),
       supabase.from('whatsapp_templates')
@@ -378,10 +385,12 @@ export default function FinancialSettingsPanel() {
         .select('*')
         .order('position')
         .order('name'),
+      supabase.from('store_payment_surcharges').select('*').order('label'),
     ]);
 
     setCategories((catRes.data ?? []) as FinancialAccountCategory[]);
     setGateways((gwRes.data ?? []) as PaymentGateway[]);
+    setSurcharges((surRes.data ?? []) as StorePaymentSurcharge[]);
 
     // Filter templates by financeiro category
     const allTemplates = (tplRes.data ?? []) as { id: string; name: string }[];
@@ -498,6 +507,50 @@ export default function FinancialSettingsPanel() {
     setPmSaving(false);
     setPmSaved(true);
     setTimeout(() => setPmSaved(false), 2500);
+  }
+
+  // ── Payment surcharge CRUD ─────────────────────────────────────────────────
+
+  async function saveSurcharges() {
+    setSurSaving(true);
+    try {
+      const { error } = await supabase
+        .from('store_payment_surcharges')
+        .upsert(surcharges.map((s) => ({
+          id: s.id,
+          payment_method: s.payment_method,
+          label: s.label,
+          surcharge_pct: s.surcharge_pct,
+          applies_to: s.applies_to,
+          is_active: s.is_active,
+        })), { onConflict: 'id' });
+      if (error) throw error;
+      setSurSaved(true);
+      setTimeout(() => setSurSaved(false), 900);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSurSaving(false);
+    }
+  }
+
+  async function addSurcharge() {
+    if (!surNew.payment_method || !surNew.label) return;
+    const { data, error } = await supabase
+      .from('store_payment_surcharges')
+      .insert({
+        payment_method: surNew.payment_method,
+        label: surNew.label,
+        surcharge_pct: surNew.surcharge_pct ?? 0,
+        applies_to: surNew.applies_to ?? 'all',
+        is_active: true,
+      })
+      .select()
+      .single();
+    if (!error && data) {
+      setSurcharges((prev) => [...prev, data as StorePaymentSurcharge]);
+      setSurNew({});
+    }
   }
 
   // ── Gateway CRUD ───────────────────────────────────────────────────────────
@@ -873,6 +926,164 @@ export default function FinancialSettingsPanel() {
                   <><Check className="w-3.5 h-3.5" /> Salvo!</>
                 ) : (
                   <><Wallet className="w-3.5 h-3.5" /> Salvar formas de pagamento</>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </SettingsCard>
+
+      {/* ── 2. Acréscimos por Forma de Pagamento ── */}
+      <SettingsCard
+        title="Acréscimos por Forma de Pagamento"
+        description="Configure percentuais de acréscimo aplicados automaticamente em pagamentos por determinada forma"
+        icon={Percent}
+        collapseId="financial.payment-surcharges"
+      >
+        <div className="space-y-2">
+          {surcharges.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              Nenhum acréscimo configurado.
+            </p>
+          ) : surcharges.map((s) => (
+            <div key={s.id} className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700">
+              <Toggle
+                checked={s.is_active}
+                onChange={() =>
+                  setSurcharges(surcharges.map((x) =>
+                    x.id === s.id ? { ...x, is_active: !x.is_active } : x))
+                }
+              />
+              <div className="flex-1 min-w-0">
+                {surEditing === s.id ? (
+                  <input
+                    value={s.label}
+                    onChange={(e) =>
+                      setSurcharges(surcharges.map((x) =>
+                        x.id === s.id ? { ...x, label: e.target.value } : x))
+                    }
+                    onBlur={() => setSurEditing(null)}
+                    autoFocus
+                    className="w-full px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600
+                               bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                               focus:border-brand-primary outline-none"
+                  />
+                ) : (
+                  <p
+                    className={`text-sm font-medium cursor-pointer ${s.is_active ? 'text-gray-800 dark:text-white' : 'text-gray-400'}`}
+                    onClick={() => setSurEditing(s.id)}
+                  >
+                    {s.label}
+                  </p>
+                )}
+                <p className="text-[10px] text-gray-400 font-mono">{s.payment_method}</p>
+              </div>
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                s.applies_to === 'all'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                  : s.applies_to === 'pdv'
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                    : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+              }`}>
+                {s.applies_to === 'all' ? 'Todos' : s.applies_to === 'pdv' ? 'PDV' : 'Loja'}
+              </span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  value={s.surcharge_pct}
+                  onChange={(e) =>
+                    setSurcharges(surcharges.map((x) =>
+                      x.id === s.id ? { ...x, surcharge_pct: parseFloat(e.target.value) || 0 } : x))
+                  }
+                  className="w-16 px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600
+                             bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                             focus:border-brand-primary outline-none text-center"
+                />
+                <span className="text-[10px] text-gray-400">%</span>
+              </div>
+              <button
+                onClick={() => setSurcharges(surcharges.filter((x) => x.id !== s.id))}
+                className="p-1.5 text-gray-300 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <input
+              type="text"
+              value={surNew.label ?? ''}
+              onChange={(e) => setSurNew({ ...surNew, label: e.target.value })}
+              placeholder="Rótulo (ex: Cartão de Crédito)"
+              className="flex-1 min-w-[140px] px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600
+                         bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                         placeholder:text-gray-400 focus:border-brand-primary outline-none"
+            />
+            <input
+              type="text"
+              value={surNew.payment_method ?? ''}
+              onChange={(e) => setSurNew({ ...surNew, payment_method: e.target.value })}
+              placeholder="Chave (ex: credit_card)"
+              className="w-36 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600
+                         bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                         placeholder:text-gray-400 focus:border-brand-primary outline-none"
+            />
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={surNew.surcharge_pct ?? ''}
+                onChange={(e) => setSurNew({ ...surNew, surcharge_pct: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+                className="w-16 px-2 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600
+                           bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+                           placeholder:text-gray-400 focus:border-brand-primary outline-none text-center"
+              />
+              <span className="text-[10px] text-gray-400">%</span>
+            </div>
+            <select
+              value={surNew.applies_to ?? 'all'}
+              onChange={(e) => setSurNew({ ...surNew, applies_to: e.target.value as 'all' | 'pdv' | 'store' })}
+              className="w-24 px-2 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600
+                         bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300
+                         focus:border-brand-primary outline-none"
+            >
+              <option value="all">Todos</option>
+              <option value="pdv">PDV</option>
+              <option value="store">Loja</option>
+            </select>
+            <button
+              onClick={addSurcharge}
+              disabled={!surNew.payment_method || !surNew.label}
+              className="px-3 py-1.5 text-xs font-medium bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {surcharges.length > 0 && (
+            <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-gray-700 mt-2">
+              <button
+                onClick={saveSurcharges}
+                disabled={surSaving}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl transition-all ${
+                  surSaved
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-brand-primary text-white hover:bg-brand-primary-dark'
+                }`}
+              >
+                {surSaving ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando…</>
+                ) : surSaved ? (
+                  <><Check className="w-3.5 h-3.5" /> Salvo!</>
+                ) : (
+                  <><Percent className="w-3.5 h-3.5" /> Salvar acréscimos</>
                 )}
               </button>
             </div>

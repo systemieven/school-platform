@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useCart } from '../../hooks/useCart';
 import { useGuardian } from '../../responsavel/contexts/GuardianAuthContext';
 import { Loader2, ShoppingBag, QrCode, Banknote, CreditCard } from 'lucide-react';
+import { computeSurcharge } from '../../lib/paymentSurcharge';
+import type { StorePaymentSurcharge } from '../../admin/types/admin.types';
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -26,6 +28,20 @@ export default function CheckoutPage() {
   const [billingType, setBillingType] = useState<BillingType | ''>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [surcharges, setSurcharges] = useState<StorePaymentSurcharge[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('store_payment_surcharges')
+      .select('*')
+      .eq('is_active', true)
+      .then(({ data }) => { if (data) setSurcharges(data); });
+  }, []);
+
+  const { pct: surchargePct, amount: surchargeAmount } = useMemo(
+    () => computeSurcharge(total, billingType, surcharges, 'store'),
+    [billingType, total, surcharges]
+  );
 
   if (!guardian) {
     navigate('/responsavel/login');
@@ -36,6 +52,8 @@ export default function CheckoutPage() {
     navigate('/loja/carrinho');
     return null;
   }
+
+  const finalTotal = total + surchargeAmount;
 
   const handleConfirm = async () => {
     if (!billingType) { setError('Selecione a forma de pagamento.'); return; }
@@ -58,7 +76,9 @@ export default function CheckoutPage() {
           status: 'pending_payment',
           subtotal: total,
           discount_amount: 0,
-          total_amount: total,
+          surcharge_pct: surchargePct,
+          surcharge_amount: surchargeAmount,
+          total_amount: finalTotal,
           installments: 1,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -87,7 +107,7 @@ export default function CheckoutPage() {
 
       // 4. Create checkout session via edge function (handles gateway charge + session)
       const { data: sessionData, error: sessionErr } = await supabase.functions.invoke('checkout-proxy', {
-        body: { action: 'createSession', order_id: orderId, billing_type: billingType },
+        body: { action: 'createSession', order_id: orderId, billing_type: billingType, amount: finalTotal },
       });
 
       if (sessionErr) throw new Error(sessionErr.message || 'Erro ao criar sessão de pagamento.');
@@ -122,9 +142,15 @@ export default function CheckoutPage() {
               <span className="font-medium text-gray-800">{formatCurrency(item.unitPrice * item.quantity)}</span>
             </div>
           ))}
+          {surchargeAmount > 0 && (
+            <div className="flex justify-between text-sm text-orange-600">
+              <span>Acréscimo ({surchargePct}%)</span>
+              <span>+ {formatCurrency(surchargeAmount)}</span>
+            </div>
+          )}
           <div className="border-t border-gray-100 pt-2 flex justify-between font-bold text-gray-800">
             <span>Total</span>
-            <span>{formatCurrency(total)}</span>
+            <span>{formatCurrency(finalTotal)}</span>
           </div>
         </div>
 

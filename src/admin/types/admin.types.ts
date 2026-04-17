@@ -2494,6 +2494,8 @@ export interface StoreOrder {
   status: StoreOrderStatus;
   subtotal: number;
   discount_amount: number;
+  surcharge_pct: number;
+  surcharge_amount: number;
   total_amount: number;
   payment_method: string | null;
   installments: number;
@@ -2522,6 +2524,15 @@ export interface StorePickupProtocol {
   protocol_url: string | null;
   protocol_path: string | null;
   created_at: string;
+}
+
+export interface StorePaymentSurcharge {
+  id: string;
+  payment_method: string;
+  label: string;
+  surcharge_pct: number;
+  applies_to: 'all' | 'pdv' | 'store';
+  is_active: boolean;
 }
 
 export const ORDER_STATUS_LABELS: Record<StoreOrderStatus, string> = {
