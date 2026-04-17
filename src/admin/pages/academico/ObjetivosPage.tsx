@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Target, Check, Loader2, Search } from 'lucide-react';
-import { SelectDropdown } from '../../components/FormField';
+import { SelectDropdown, SearchableSelect } from '../../components/FormField';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
@@ -423,25 +423,20 @@ export default function ObjetivosPage() {
                 {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </SelectDropdown>
             </div>
-            <SelectDropdown
+            <SearchableSelect
               label="Ano/Série"
               value={schoolYear}
-              onChange={(e) => setSchoolYear(e.target.value)}
-              disabled={!segmentId || series.length === 0}
-            >
-              <option value="">
-                {!segmentId
+              onChange={(val) => setSchoolYear(val)}
+              options={series.map((sr) => ({ value: String(sr.order_index), label: sr.name }))}
+              placeholder={
+                !segmentId
                   ? 'Selecione um segmento primeiro'
                   : series.length === 0
                   ? 'Nenhuma série cadastrada'
-                  : 'Selecione...'}
-              </option>
-              {series.map((sr) => (
-                <option key={sr.id} value={String(sr.order_index)}>
-                  {sr.name}
-                </option>
-              ))}
-            </SelectDropdown>
+                  : 'Selecione a série...'
+              }
+              disabled={!segmentId || series.length === 0}
+            />
           </div>
         </DrawerCard>
       </Drawer>
