@@ -1157,6 +1157,8 @@ Grid de permissoes por role (modulo x acao) com overrides por usuario.
 
 **Verificação:** `supabase/tests/permissions_verification.sql` executa fixtures + asserts em transação (ROLLBACK automático). Cobre mirror/phantom/deny/tenancy/bypass.
 
+**Padrão anyModuleKeys — itens de menu umbrella (2026-04-17)** ✅: o campo `anyModuleKeys?: readonly string[]` em `NavItem` e a variante homônima em `ModuleGuard` implementam a semântica "OR granular" para páginas que agregam várias sub-tabs (Configurações, Gestão, Acadêmico, Loja, Secretaria). O item de menu e a rota ficam visíveis iff o usuário tem `view` em **ao menos uma** das chaves listadas; a própria página filtra suas tabs internamente por permissão. Código canônico em `src/admin/lib/umbrella-modules.ts` (`SETTINGS_SUBTAB_MODULE_KEYS`, `GESTAO_*`, `ACADEMICO_*`, `LOJA_*`, `SECRETARIA_*`, `FINANCIAL_*`). Elimina o bug em que um role com permissão granular num único sub-módulo (ex.: `academico`) via access também a todas as abas do umbrella que partilhavam a mesma chave (`settings`).
+
 ### 5.12 Auditoria
 
 Consulta de `audit_logs` com filtros por usuario, acao, modulo e periodo.
@@ -5703,6 +5705,31 @@ SELECT sem `.eq('school_year', ...)` — em producao com varios anos letivos, ca
 |------|---------|-----------|
 | A-3 | migration 141 + `DiarioAdminPage.tsx` | `disciplines` eleita tabela canonica; `discipline_id` em `class_diary_entries`; tipo `ClassDiaryEntry` criado; `ProfessorAuthContext` expoe `subject_id` |
 | A-5 | `DiarioEntradaPage.tsx`, `DiarioPage.tsx` | Busca disciplinas de `disciplines`; salva `discipline_id` + `subject_id`; auto-sugere disciplina com base em `class_schedules` do dia da semana |
+
+#### Sprint UX-1 — Auditoria de Permissoes Frontend ✅ (commits 71b3868–9905df4, 2026-04-17)
+
+Fechou 7 gaps de seguranca/UX no sistema de permissoes granulares do painel admin (sem migrations — mudancas puramente frontend):
+
+| Item | Arquivos | Resultado |
+|------|---------|-----------|
+| Sub-tabs de SettingsPage gateadas | `SettingsPage.tsx` | 16 abas filtradas por `canView(requiredModule)`; primeiro tab permitido selecionado automaticamente; empty-state se nenhum for acessivel |
+| Sub-tabs de FinancialPage gateadas | `FinancialPage.tsx` | 15 abas filtradas por modulo granular |
+| Sub-tabs de GestaoPage, LojaPage, AcademicoPage, SecretariaPage | 4 arquivos | Cada aba filtrada por `canView(moduleKey)` |
+| PermissionGate em acoes CRUD | `EnrollmentsPage`, `ContactsPage`, `ProdutosTab` | Botoes de criar/editar/excluir so aparecem para quem tem a permissao correspondente |
+| Rotas granulares em routes.tsx | `routes.tsx` | `alunos/importar` exige `import`; `diario` exige `teacher-diary`; `provas` exige `teacher-exams` |
+| AchadosPerdidosPage | `AchadosPerdidosPage.tsx` | Link de Configuracoes gateado por `can('settings','view')` |
+| Padrão anyModuleKeys — menus umbrella | `umbrella-modules.ts`, `admin.types.ts`, `ModuleGuard.tsx`, `Sidebar.tsx`, `admin-navigation.ts`, `routes.tsx` | Menu e rota de umbrella (Configuracoes, Gestao, Academico, Loja, Secretaria, Financeiro) visiveis iff usuario tem `view` em ao menos uma sub-tab; closes bug em que professor via menu de Configuracoes sem nenhuma sub-permissao liberada |
+| Hotfix ProtectedRoute | `ProtectedRoute.tsx` | Revertida chamada `usePermissions()` dentro de ProtectedRoute que quebrava `/admin` (PermissionsProvider vive dentro de AdminLayout, filho de ProtectedRoute) |
+
+#### Sprint UX-2 — Breadcrumb URL Sync ✅ (commit 498b22c, 2026-04-17)
+
+Corrigiu o breadcrumb do admin que nao exibia a sub-aba ativa ao navegar dentro das paginas umbrella (sem migrations):
+
+| Item | Arquivos | Resultado |
+|------|---------|-----------|
+| SUB_TAB_LABELS incompleto | `AdminHeader.tsx` | Adicionadas entradas `loja` (5 abas) e `secretaria` (4 abas) ao mapa de rotulos |
+| Paginas nao escreviam ?tab= na URL | `GestaoPage`, `SettingsPage`, `LojaPage`, `FinancialPage`, `AcademicoPage`, `SecretariaPage` | Clicar em aba chama `setSearchParams({ tab: key }, { replace: true })`; URL sempre reflete aba ativa |
+| Paginas sem leitura de ?tab= no mount | `LojaPage`, `FinancialPage`, `AcademicoPage`, `SecretariaPage` | Importado `useSearchParams`; `initialTab` prioriza `?tab=` da URL (links diretos, favoritos, reload) |
 
 ---
 
