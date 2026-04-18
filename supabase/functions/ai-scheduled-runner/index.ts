@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
   );
 
   const auth = await authOrBail(req, service);
-  if ((auth as Response).status) return auth as Response;
+  if (auth instanceof Response) return auth;
 
   let body: { cadence?: string; run_agent?: string } = {};
   try { body = await req.json(); } catch { /* body opcional */ }

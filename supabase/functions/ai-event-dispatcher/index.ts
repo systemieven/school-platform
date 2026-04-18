@@ -102,7 +102,7 @@ Deno.serve(async (req: Request) => {
   );
 
   const auth = await authOrBail(req, service);
-  if (auth !== true && "ok" in auth === false) return auth as Response;
+  if (auth instanceof Response) return auth;
 
   let body: {
     event_type?: string;

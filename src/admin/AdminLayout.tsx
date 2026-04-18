@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import AdminHeader from './components/AdminHeader';
+import AiContextualNudge from './components/AiContextualNudge';
 import { WhatsAppStatusProvider } from './contexts/WhatsAppStatusContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
 import { useBranding } from '../contexts/BrandingContext';
@@ -59,6 +60,7 @@ export default function AdminLayout() {
           >
             <Outlet />
           </main>
+          <AiContextualNudge />
         </div>
       </WhatsAppStatusProvider>
     </PermissionsProvider>
