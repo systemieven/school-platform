@@ -86,12 +86,9 @@ export default function TurmasPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Minhas Turmas</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          {teacherClasses.length} turma{teacherClasses.length !== 1 ? 's' : ''} vinculada{teacherClasses.length !== 1 ? 's' : ''}
-        </p>
-      </div>
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        {teacherClasses.length} turma{teacherClasses.length !== 1 ? 's' : ''} vinculada{teacherClasses.length !== 1 ? 's' : ''}
+      </p>
 
       {teacherClasses.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-12 text-center">

@@ -183,10 +183,7 @@ export default function PlanosPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Planos de Aula</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{plans.length} plano{plans.length !== 1 ? 's' : ''}</p>
-        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{plans.length} plano{plans.length !== 1 ? 's' : ''}</p>
         <button
           onClick={openNew}
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl bg-brand-primary text-white hover:bg-brand-primary-dark transition-colors"
