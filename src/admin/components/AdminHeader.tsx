@@ -40,7 +40,7 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
 
   return (
     <header
-      className={`sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 h-16 flex items-center justify-between px-6 transition-all duration-300 ${
+      className={`sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 h-16 flex items-center justify-between px-6 transition-all duration-300 relative ${
         sidebarCollapsed ? 'ml-[72px]' : 'ml-64'
       }`}
     >
@@ -59,6 +59,10 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
         </button>
         <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
         <Breadcrumb />
+      </div>
+
+      {/* Center: busca indexada */}
+      <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
         <AdminBreadcrumbSearch />
       </div>
 
