@@ -42,6 +42,7 @@
     - 10.13 Central de Migracao de Dados — Onboarding
     - 10.14 Editor Visual de Templates HTML
     - 10.18 Auditoria & Hardening de Autenticacao dos 3 Portais ✅
+    - 10.19 Carrinho Hibrido — localStorage + Supabase com Merge no Login ⏳
 11. [Requisitos Nao Funcionais](#11-requisitos-nao-funcionais)
 12. [Apendices](#apendices)
 
@@ -1559,6 +1560,7 @@ Configuravel na aba Aparencia > Home:
 | 189 | `must_change_password_students` | 18/04 | ✅ **Auditoria Auth (step 1)** — `ALTER TABLE students ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT false`. Alinha o portal do aluno com o flag já existente em `profiles` e `guardian_profiles`; `StudentAuthContext` carrega o campo e `StudentProtectedRoute` redireciona para `/portal/trocar-senha` quando `true`. Edge function `change-password` (v36) faz UPDATE em paralelo nas 3 tabelas conforme o user logado. |
 | 191 | `teacher_access_attempts` | 18/04 | ✅ **Auditoria Auth (step 3)** — Tabela `teacher_access_attempts` (espelho da 190 com `email` em vez de `cpf`/`phone`; CHECK em `result`: `sent\|email_not_found\|no_phone\|no_whatsapp\|rate_limited\|whatsapp_send_failed\|invalid_input\|wa_not_configured`). Usada pelo edge function `professor-request-access` para rate-limit (3 envios/email/h, 10 tentativas/IP/10min) e auditoria. RLS habilitado sem policies — service_role only. |
 | 190 | `guardian_access_attempts` | 18/04 | ✅ **Auditoria Auth (step 2)** — Tabela `guardian_access_attempts` (`cpf`, `phone`, `ip_address`, `user_agent`, `result CHECK (sent\|cpf_not_found\|phone_mismatch\|no_whatsapp\|rate_limited\|whatsapp_send_failed\|invalid_input\|wa_not_configured)`) usada pelo edge function `guardian-request-access` para rate-limit (3 envios/CPF/h, 10 tentativas/IP/10min) e auditoria. RLS habilitado sem policies — service_role only. |
+| 192 | `store_carts` | — | ⏳ **Carrinho Hibrido (§10.19)** — `store_carts(id UUID PK, guardian_id UUID UNIQUE NOT NULL REFERENCES guardian_profiles(id) ON DELETE CASCADE, items JSONB NOT NULL DEFAULT '[]', updated_at TIMESTAMPTZ DEFAULT now())`. Snapshot do carrinho do responsavel autenticado (1 linha por guardian). Sem tabela de itens relacional — JSONB cobre v1 (variant_id, productName, variantDescription, sku, quantity, unitPrice). RLS: SELECT/UPSERT/DELETE so para `guardian_id IN (SELECT id FROM guardian_profiles WHERE user_id = auth.uid())`; admin/super_admin ALL via policy separada. Trigger `set_updated_at`. |
 | 187 | `staff_documents_bucket` | 18/04 | 🟡 **Fase 16 PR1** — Bucket privado `hr-documents` (10MB, PDF/DOC/DOCX/JPEG/PNG) + tabela `staff_documents` (`document_type CHECK ('contrato'|'rg'|'cpf'|'comprovante_residencia'|'carteira_trabalho'|'diploma'|'outro')`, `file_path`, `filename`, `mime_type`, `size_bytes`, `expires_at`). RLS via módulo `rh-colaboradores` + self-service (próprio colaborador vê próprios docs via EXISTS em `staff`). Path convention `hr-documents/{staff_id}/{uuid}.{ext}`. |
 | 173 | `teacher_dashboard_access` | 17/04 | ✅ **Dashboard registry-driven** — libera `dashboard.can_view=true` para role `teacher` no seed de `role_permissions`. Antes, teacher batia no redirect do `<ModuleGuard moduleKey="dashboard">` mesmo tendo acesso a submódulos (teacher-diary, teacher-exams, occurrences). O novo `DashboardPage` único filtra widgets por `has_module_permission` + `requireRole`, então teacher passa a ver `Minhas aulas de hoje`, `Diário pendente`, `Provas a corrigir`, `Minhas turmas` e `Ocorrências recentes` (tenancy RLS da migration 145 continua escopando por `teacher_sees_student`). |
 
@@ -5944,6 +5946,101 @@ Commit `fbb7c43 feat(auth): primeiro acesso/esqueci-a-senha do responsavel via W
 Combinado com o gate do Step 1, o professor cai direto em `/professor/trocar-senha` no proximo login com a senha provisoria.
 
 **Fora de escopo (mantido)**: o admin continua podendo resetar via `/admin/usuarios` (`reset-user-password`); o novo fluxo e auto-servico, nao substitui o admin.
+
+---
+
+### 10.19 Carrinho Hibrido — localStorage + Supabase com Merge no Login
+
+**Status**: ⏳ Plano validado (2026-04-18) — implementacao pendente. Independente das demais frentes, paralelizavel.
+
+**Contexto**. Hoje `src/hooks/useCart.ts` opera 100% em `localStorage` (chave `store_cart`) com a TODO declarada na linha 74: `// TODO: when guardian auth is present, sync cart to Supabase store_cart table`. Isso e proposital — pre-login a loja nao pode pedir autenticacao (mata conversao), entao localStorage e o caminho zero-friccao para navegacao anonima. O problema aparece no usuario que abre a loja num device, monta o carrinho, e abre depois noutro device ja logado: o carrinho some.
+
+**Decisao**: hibrido com **merge no login**, nao migracao total. Pre-login continua localStorage como antes. Ao detectar sessao do responsavel autenticado, `useCart` faz merge bidirecional com `store_carts` no servidor. Dai em diante, toda mutacao grava em ambos (localStorage como cache otimista, debounce de 1s para UPSERT no servidor). Logout limpa apenas o servidor; mantem o local.
+
+**Por que nao so servidor**: anonimo perde carrinho ao trocar de device de qualquer jeito (nao tem identidade), e exigir login pra adicionar item mata a conversao. O ganho do TODO e o usuario logado — nao precisa cobrir mais.
+
+#### 10.19.1 Schema (migration 192 planejada)
+
+```sql
+CREATE TABLE store_carts (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  guardian_id UUID NOT NULL UNIQUE REFERENCES guardian_profiles(id) ON DELETE CASCADE,
+  items       JSONB NOT NULL DEFAULT '[]',
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_store_carts_guardian_id ON store_carts(guardian_id);
+
+ALTER TABLE store_carts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "store_carts_self" ON store_carts
+  FOR ALL USING (
+    guardian_id IN (SELECT id FROM guardian_profiles WHERE user_id = auth.uid())
+  );
+
+-- admin RLS via helper de modulo (admin/super_admin ALL) na convencao usada em store_orders
+CREATE POLICY "store_carts_admin" ON store_carts
+  FOR ALL USING (is_admin_or_super());
+
+CREATE TRIGGER set_store_carts_updated_at
+  BEFORE UPDATE ON store_carts
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+```
+
+**Convencao confirmada via auditoria**: `store_orders` (migration 95) usa `guardian_id UUID REFERENCES guardian_profiles(id)` e RLS `guardian_id IN (SELECT id FROM guardian_profiles WHERE user_id = auth.uid())`. A proposta original mencionava `guardian_user_id` — corrigido para alinhar com a convencao existente.
+
+**JSONB schema** (validado via tipo `CartItem` em `useCart.ts`):
+```json
+[
+  { "variantId": "uuid", "productName": "string", "variantDescription": "string",
+    "sku": "string", "quantity": 2, "unitPrice": 49.90 }
+]
+```
+
+#### 10.19.2 Politica de merge
+
+Uniao por `variantId`, quantidade = `max(local.qty, server.qty)`. Assume "o que ele queria mais" — evita perder itens em qualquer direcao. Trade-off documentado: usuario que removeu item no device A e re-adicionou no B com qty menor pode ver a qty maior reaparecer; aceitavel para v1 (caso raro, comportamento previsivel).
+
+```typescript
+function mergeCartItems(local: CartItem[], server: CartItem[]): CartItem[] {
+  const map = new Map<string, CartItem>();
+  for (const item of [...server, ...local]) {
+    const existing = map.get(item.variantId);
+    map.set(item.variantId, existing
+      ? { ...item, quantity: Math.max(existing.quantity, item.quantity) }
+      : item);
+  }
+  return Array.from(map.values());
+}
+```
+
+#### 10.19.3 Fluxo no `useCart`
+
+1. **Mount** — le localStorage (comportamento atual mantido).
+2. **Auth subscription** — `useEffect` registra `supabase.auth.onAuthStateChange`; quando `session?.user?.id` muda de `null` para um UUID:
+   - SELECT em `store_carts` por `guardian_id` (via subquery `guardian_profiles.user_id = auth.uid()`).
+   - Merge com o estado atual de `items`.
+   - SetState com resultado mergeado + UPSERT imediato no servidor (sincroniza ambos os lados).
+3. **Mutacoes** (`addItem`/`removeItem`/`updateQuantity`/`clearCart`) — atualizam `items` (que ja persiste em localStorage via effect existente). Se ha sessao ativa, agenda UPSERT no servidor com debounce de 1s (`useRef<number>` para timer + cleanup no unmount).
+4. **Logout** — `onAuthStateChange` com session `null`: nao mexe no local (permite seguir comprando como anonimo); opcionalmente limpa o registro no servidor se preferirmos isolar contas (decisao: **mantem** o registro do servidor — proximo login do mesmo guardian recupera).
+5. **Checkout** — quando `clearCart` e chamado pos-pedido, deleta tambem o servidor (DELETE direto, sem debounce).
+
+**Por que ler sessao via `supabase.auth` direto e nao via `useGuardian`**: `GuardianAuthProvider` envolve apenas `/responsavel/*` (vide `src/responsavel/routes.tsx`). As paginas da loja (`/loja/*`) **nao** estao dentro desse provider, entao `useGuardian()` retornaria sempre o `defaultValue` (guardian: null) — e o `useCart` quebraria como dependencia. Solucao: `useCart` ouve `supabase.auth.getSession()` + `onAuthStateChange` direto. Sem dependencia ciclica entre `hooks/useCart.ts` e `responsavel/contexts/`.
+
+#### 10.19.4 Esforco
+
+- 1 migration (`00000000000192_store_carts.sql`).
+- ~30 LOC adicionadas em `src/hooks/useCart.ts` (effect de auth + merge + debounce + DELETE no checkout).
+- Sem mudancas em UI da loja (`ProdutoPage`, `CarrinhoPage`, `CheckoutPage`) — API publica do hook permanece.
+- Sem alteracao no `GuardianAuthProvider` ou rotas.
+
+#### 10.19.5 Notas de validacao (achados da auditoria do codigo)
+
+- ✅ `useCart.ts:74` ja documenta a intencao via TODO — recomendacao aprovada sem reformulacao.
+- ⚠️ Nome de coluna corrigido: `guardian_id` (FK pra `guardian_profiles.id`), nao `guardian_user_id`. Alinha com `store_orders` (migration 95).
+- ⚠️ `GuardianAuthProvider` envolve so `/responsavel/*`. `useCart` precisa ler sessao direto via `supabase.auth` (nao via `useGuardian`).
+- 🐛 **Achado lateral, fora de escopo**: `src/pages/loja/CheckoutPage.tsx:5,24` ja importa `useGuardian()` estando fora do provider — sempre cai no `defaultValue` (`guardian: null`) e o guard `if (!guardian) navigate('/responsavel/login')` redireciona em loop. Bug pre-existente que merece sprint propria (mover redirect para depois de validar sessao via `supabase.auth`, ou subir o `GuardianAuthProvider` para envolver `/loja/*` tambem). Nao bloqueia esta sprint do carrinho, mas precisa ser anotado pra nao "embolar" no merge.
+- ✅ Politica de merge "uniao por variant_id, qty=max" mantida — simples e previsivel.
+- ✅ Custo: zero risco de prejudicar conversao anonima (localStorage continua sendo a fonte de verdade pre-login).
 
 ---
 
