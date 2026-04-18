@@ -19,9 +19,10 @@ import LoginPage from './pages/login/LoginPage';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange';
 
 // Lazy: all admin pages
-// DashboardRouter escolhe entre DashboardPage (super_admin) e
-// SharedDashboard (demais roles, com blocos filtrados por permissão).
-const DashboardRouter      = lazy(() => import('./pages/dashboard/DashboardRouter'));
+// DashboardPage é único para todos os roles — cada widget declara seus
+// `anyModuleKeys` no registry e aparece apenas para quem tem a permissão
+// (super_admin passa via bypass de has_module_permission).
+const DashboardPage        = lazy(() => import('./pages/dashboard/DashboardPage'));
 const GestaoPage           = lazy(() => import('./pages/gestao/GestaoPage'));
 const SettingsPage         = lazy(() => import('./pages/settings/SettingsPage'));
 const KanbanPage           = lazy(() => import('./pages/leads/KanbanPage'));
@@ -111,7 +112,7 @@ export default function AdminRoutes() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<ModuleGuard moduleKey="dashboard"><LazyPage><DashboardRouter /></LazyPage></ModuleGuard>} />
+          <Route index element={<ModuleGuard moduleKey="dashboard"><LazyPage><DashboardPage /></LazyPage></ModuleGuard>} />
 
           {/* Gestão (tab rail: Agendamentos, Atendimentos, Contatos, Matrícula).
               Umbrella: liberado quando o usuário tem `view` em pelo menos uma

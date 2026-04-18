@@ -96,7 +96,7 @@ Todos os dados sao armazenados no Supabase (PostgreSQL + RLS + Realtime + Storag
 ### 2.2 Banco de Dados
 
 - **40+ tabelas** com Row Level Security (RLS) em todas
-- **149 migrations** aplicadas sequencialmente
+- **150 migrations** aplicadas sequencialmente (última numeração: 173 — gaps históricos nos slots 150-172)
 - **5 storage buckets**: `enrollment-documents`, `site-images`, `whatsapp-media`, `library-resources`, `avatars`
 - **16 Edge Functions** para logica server-side (8 publicas com rate limiting ou auth customizada)
 - **Realtime** habilitado em `visit_appointments`, `enrollments`, `contact_requests`, `attendance_tickets` e `system_settings`
@@ -1525,6 +1525,7 @@ Configuravel na aba Aparencia > Home:
 | 169 | `pg_cron` job | 17/04 | ✅ **Sprint 13.IA-dash PR1** — `cron.schedule('ai_billing_sync_daily', '1 0 * * *', ...)` dispara `ai-billing-sync` via `net.http_post` às 00:01 UTC, passando `x-trigger-secret` de `system_settings('internal','trigger_secret')`. |
 | 170 | `company_ai_config` (alter) | 17/04 | ✅ **Sprint 13.IA-dash PR3** — Adiciona `anthropic_workspace_id TEXT`. Quando informada, o `ai-billing-sync` envia `workspace_ids[]=<id>` para a Anthropic Admin API, escopando o consumo a um Workspace específico em vez da organização inteira. UI no campo "Workspace ID (opcional)" no card "Chaves de API" do `AiAgentsPanel`. |
 | 171 | `ai_drop_balance_tracking` | 17/04 | ✅ **Sprint 13.IA-dash PR3** — `DROP TABLE ai_recharges CASCADE` + remove colunas `balance_usd`/`auto_recharge_enabled`/`auto_recharge_threshold`/`auto_recharge_amount` de `ai_usage_snapshots` + `balance_alert_threshold` de `company_ai_config`. Motivo: nem Anthropic nem OpenAI expõem saldo via Admin API (só usage + cost). Manter cards de "saldo estimado" baseado em recargas inferidas passava falsa precisão — saldo real é compartilhado entre workspaces/projetos e só confiável no console do provider. Dashboard mantém apenas `total_spent_usd`, `tokens_input/output`, `requests_count` (dados reais do `cost_report`). |
+| 173 | `teacher_dashboard_access` | 17/04 | ✅ **Dashboard registry-driven** — libera `dashboard.can_view=true` para role `teacher` no seed de `role_permissions`. Antes, teacher batia no redirect do `<ModuleGuard moduleKey="dashboard">` mesmo tendo acesso a submódulos (teacher-diary, teacher-exams, occurrences). O novo `DashboardPage` único filtra widgets por `has_module_permission` + `requireRole`, então teacher passa a ver `Minhas aulas de hoje`, `Diário pendente`, `Provas a corrigir`, `Minhas turmas` e `Ocorrências recentes` (tenancy RLS da migration 145 continua escopando por `teacher_sees_student`). |
 
 ### 7.4 RLS Policies
 
@@ -5497,7 +5498,59 @@ O componente `HtmlTemplateEditor` usa `PermissionGate` com os modulos existentes
 
 ---
 
-### 10.16 DASH-1 — Dashboards por Permissao (mesmo vocabulario visual, gatilho por permissao)
+### 10.16 DASH-1 — Dashboards por Permissao (registry unificado + widgets granulares)
+
+**Status**: ✅ Concluido (2026-04-17, **reescrito 2026-04-17** como registry unificado; migration 173 libera `dashboard` para teacher)
+
+#### Segunda iteracao (registry-driven, migration 173)
+
+O split `DashboardPage` (super_admin) + `SharedDashboard` (demais) duplicava ~300 linhas: mesmas constantes (`REASON_LABELS`, `ENROLLMENT_PIPELINE`, `APPT_STATUS`, `LEAD_FUNNEL`), mesmos widgets com gates manuais. Apos as migrations 144-149 o super_admin passa por bypass em `has_module_permission` — o split virou puramente historico.
+
+**Entregue nesta iteracao:**
+
+- **`registry.tsx` unificado**: cada widget declara `id`, `anyModuleKeys`, `slot`, `order`, `requireRole?`, `load(ctx)`, `Render({data, ctx})`. `DashboardPage` vira um orquestrador: filtra widgets visíveis por `canView()` + `hasRole()`, dispara `Promise.all` apenas nos carregadores dos visiveis, renderiza por slot (kpi → chart → list → wide). Adicionar widget novo = **1 entrada no array `DASHBOARD_WIDGETS`**.
+- **Widgets novos (12)** cobrindo gaps por role:
+  - **Financeiro**: `finance.snapshot` (receita 30d + A/R aberto + A/P 7d), `finance.inadimplencia` (top 5 vencidas >30d), `finance.nfse` (emitidas/pendentes/canceladas no mes).
+  - **Academico**: `academic.alertas` (top 5 alunos com frequencia <75% em 90d), `academic.minhas_aulas` (aulas de hoje por `class_schedules.day_of_week + teacher_id` — `requireRole: ['teacher']`), `academic.diario_pendente` (entradas `status='draft'` nos ultimos 7d — teacher), `academic.provas_corrigir` (`class_exams.status` applied/pending_correction — teacher), `academic.rematricula` (progresso da campanha ativa em `reenrollment_campaigns`/`reenrollment_applications`).
+  - **Operacional**: `ops.ocorrencias` (ultimas 5 `student_occurrences`), `ops.saidas_hoje` (autorizacoes aprovadas para hoje), `ops.declaracoes` (`document_requests` em aberto).
+- **Consolidacoes**: `AppointmentsKpi` absorve o contador de pendentes como badge interna (sumiu o card "Pendentes de confirmacao" separado). Removido "Contatos por motivo" (redundante com funil de leads na mesma tela).
+- **Migration 173** (`teacher_dashboard_access`) libera `dashboard.can_view=true` no seed para role `teacher`. Antes, teacher batia no redirect do `<ModuleGuard moduleKey="dashboard">` mesmo tendo acesso a submodulos. Tenancy de `students`/`class_diary_entries` (migration 145) continua aplicada — teacher nao passa a ver dados cross-turma.
+- **Constantes compartilhadas**: `widgets/constants.ts` centraliza `REASON_LABELS`, `ENROLLMENT_PIPELINE`, `APPT_STATUS`, `LEAD_FUNNEL`, `ROLE_LABELS`, `formatBRL` — deletando as copias duplicadas.
+- **Componente auxiliar**: `widgets/ListCard.tsx` padroniza o visual de widgets top-N (empty-state embutido, header com icone + CTA opcional).
+
+**Arquivos removidos (iteracao 2)**:
+
+| Arquivo | Motivo |
+|---------|--------|
+| `src/admin/pages/dashboard/DashboardRouter.tsx` | Dispatch `if role==='super_admin'` virou obsoleto com bypass de `has_module_permission`. |
+| `src/admin/pages/dashboard/SharedDashboard.tsx` | Funde no `DashboardPage` unico dirigido por registry. |
+
+**Arquivos criados (iteracao 2)**:
+
+| Arquivo | Conteudo |
+|---------|----------|
+| `src/admin/pages/dashboard/registry.tsx` | Tipos `DashboardWidget`/`LoadCtx`/`DashboardSlot` + array `DASHBOARD_WIDGETS` com 21 entradas (9 portadas + 12 novas) |
+| `src/admin/pages/dashboard/widgets/constants.ts` | Constantes visuais compartilhadas |
+| `src/admin/pages/dashboard/widgets/ListCard.tsx` | Container para widgets top-N |
+| `supabase/migrations/00000000000173_teacher_dashboard_access.sql` | Seed `dashboard.can_view=true` para teacher |
+
+**`routes.tsx`**: a rota index `/admin` aponta direto para `DashboardPage` (sem o Router).
+
+**Matriz de visibilidade pos-iteracao 2**:
+
+| Role (defaults) | KPIs | Listas | Wide |
+|-----------------|------|--------|------|
+| super_admin | Todos (bypass) + `AiInsightsPanel` | Todos | Todos |
+| admin | Agendamentos, Matriculas, Contatos, Financeiro | Inadimplencia, NFS-e, Alertas freq., Ocorrencias, Saidas, Declaracoes, Contatos atrasados, Rematricula | Proximas visitas |
+| coordinator | Agendamentos, Matriculas, Contatos | Alertas freq., Ocorrencias, Saidas, Declaracoes, Contatos atrasados, Rematricula | Proximas visitas |
+| teacher (pos-173) | — (sem `appointments/students/kanban` default) | `Minhas aulas de hoje`, `Diario pendente`, `Provas a corrigir`, `Ocorrencias recentes` | `Minhas turmas` |
+| user (sem overrides) | Empty-state educativo apontando para Configuracoes |
+
+Overrides granulares ampliam essa matriz em tempo real — invalidation da migration 144 garante que liberar `financial.view=true` para um coordenador faz os widgets `finance.*` aparecerem em <1s sem refresh.
+
+---
+
+### 10.16 (iteracao 1 — historico)
 
 **Status**: ✅ Concluido (2026-04-17, refatorado em 2026-04-17 para reaproveitar widgets do super_admin)
 **Prioridade**: Media-Alta — quick win de UX
