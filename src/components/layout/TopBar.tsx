@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
+import { getTopBarIcon } from '../../shared/topBarIcons';
 
 // ── Defaults ──
 
@@ -62,7 +63,7 @@ function TopBarSocialIcon({ network }: { network: string }) {
 
 interface TopBarConfig {
   show_topbar: boolean;
-  quick_links: Array<{ label: string; route: string }>;
+  quick_links: Array<{ label: string; route: string; icon?: string | null }>;
 }
 
 function parseTopbar(raw: unknown): TopBarConfig {
@@ -90,17 +91,21 @@ export default function TopBar() {
         <div className="flex justify-end items-center gap-4 text-sm">
 
           {/* Quick links (com divisores entre eles) */}
-          {config.quick_links.map((link, idx) => (
-            <Fragment key={`${link.route}-${idx}`}>
-              {idx > 0 && <span className="w-px h-3.5 bg-brand-primary/20" aria-hidden="true" />}
-              <Link
-                to={link.route}
-                className="hover:text-brand-primary/80 transition-colors"
-              >
-                {link.label}
-              </Link>
-            </Fragment>
-          ))}
+          {config.quick_links.map((link, idx) => {
+            const Icon = getTopBarIcon(link.icon);
+            return (
+              <Fragment key={`${link.route}-${idx}`}>
+                {idx > 0 && <span className="w-px h-3.5 bg-brand-primary/20" aria-hidden="true" />}
+                <Link
+                  to={link.route}
+                  className="inline-flex items-center gap-1.5 hover:text-brand-primary/80 transition-colors"
+                >
+                  {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />}
+                  <span>{link.label}</span>
+                </Link>
+              </Fragment>
+            );
+          })}
 
           {/* Divider */}
           {socialNetworks.length > 0 && (
