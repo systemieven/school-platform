@@ -6,17 +6,22 @@
  * Saida e HTML limpo, compativel com o renderer atual
  * (`dangerouslySetInnerHTML` em preview + regex no `generate-document`).
  *
- * - Toolbar: bold, italic, underline, H1/H2/H3, listas, alinhamento, link,
- *   clear formatting.
+ * - Toolbar: fonte, bold, italic, underline, H1/H2/H3, listas, alinhamento,
+ *   recuo de parágrafo, cor da fonte (paleta de marca), link, clear formatting.
  * - Chips de variaveis: clicaveis, inserem `{{key}}` na posicao do cursor.
+ * - As cores da paleta vêm de `useBranding()` → primary/primary_dark/secondary/
+ *   secondary_light definidos em /admin/configuracoes > site > marca.
  */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@tiptap/extension-placeholder';
+import { TextStyle, FontFamily, Color } from '@tiptap/extension-text-style';
+import { useBranding } from '../../contexts/BrandingContext';
 import {
   Bold,
   Italic,
@@ -34,7 +39,63 @@ import {
   Undo2,
   Redo2,
   Code2,
+  IndentIncrease,
+  IndentDecrease,
+  Palette,
+  ChevronDown,
 } from 'lucide-react';
+
+// ── Fontes padrão ────────────────────────────────────────────────────────────
+// Stacks web-safe com fallback — mesmo não estando o arquivo da fonte carregado,
+// o navegador do usuário usa a fonte de sistema equivalente.
+const FONT_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Padrão',         value: '' },
+  { label: 'Arial',          value: 'Arial, sans-serif' },
+  { label: 'Helvetica',      value: 'Helvetica, Arial, sans-serif' },
+  { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+  { label: 'Georgia',        value: 'Georgia, serif' },
+  { label: 'Garamond',       value: 'Garamond, serif' },
+  { label: 'Courier New',    value: '"Courier New", Courier, monospace' },
+  { label: 'Verdana',        value: 'Verdana, Geneva, sans-serif' },
+  { label: 'Tahoma',         value: 'Tahoma, Geneva, sans-serif' },
+  { label: 'Trebuchet MS',   value: '"Trebuchet MS", sans-serif' },
+  { label: 'Calibri',        value: 'Calibri, "Segoe UI", sans-serif' },
+  { label: 'Lato',           value: 'Lato, sans-serif' },
+  { label: 'Roboto',         value: 'Roboto, sans-serif' },
+  { label: 'Open Sans',      value: '"Open Sans", sans-serif' },
+];
+
+// ── Indent extension ─────────────────────────────────────────────────────────
+// Adiciona atributo `indent` (0-8) em `paragraph` e `heading`, renderizando
+// como `margin-left: N*32px`. Preserva o recuo na serialização HTML, garantindo
+// que o template impresso mantenha a indentação quando renderizado via
+// `dangerouslySetInnerHTML` no preview ou no generate-document.
+const MAX_INDENT = 8;
+const INDENT_STEP_PX = 32;
+const IndentExtension = Extension.create({
+  name: 'paragraphIndent',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['paragraph', 'heading'],
+        attributes: {
+          indent: {
+            default: 0,
+            parseHTML: (el) => {
+              const ml = (el as HTMLElement).style?.marginLeft || '';
+              const match = ml.match(/(-?\d+)px/);
+              return match ? Math.min(Math.max(Math.round(parseInt(match[1], 10) / INDENT_STEP_PX), 0), MAX_INDENT) : 0;
+            },
+            renderHTML: (attrs) => {
+              const n = Number(attrs.indent) || 0;
+              return n > 0 ? { style: `margin-left: ${n * INDENT_STEP_PX}px` } : {};
+            },
+          },
+        },
+      },
+    ];
+  },
+});
 
 export interface TemplateVariable {
   key: string;
@@ -66,6 +127,36 @@ export default function HtmlTemplateEditor({
   hideVariables,
   className,
 }: HtmlTemplateEditorProps) {
+  const { colors } = useBranding();
+  const [colorOpen, setColorOpen] = useState(false);
+  const colorRef = useRef<HTMLDivElement | null>(null);
+
+  // Paleta: preto + brand colors + cinzas neutros. Fecha ao clicar fora.
+  const colorSwatches = useMemo(
+    () => [
+      { label: 'Preto',             value: '#000000' },
+      { label: 'Cinza escuro',      value: '#374151' },
+      { label: 'Cinza',             value: '#6B7280' },
+      { label: 'Branco',            value: '#FFFFFF' },
+      { label: 'Primária',          value: colors.primary },
+      { label: 'Primária escura',   value: colors.primary_dark },
+      { label: 'Secundária',        value: colors.secondary },
+      { label: 'Secundária clara',  value: colors.secondary_light },
+    ],
+    [colors.primary, colors.primary_dark, colors.secondary, colors.secondary_light],
+  );
+
+  useEffect(() => {
+    if (!colorOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (colorRef.current && !colorRef.current.contains(e.target as Node)) {
+        setColorOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [colorOpen]);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -80,6 +171,12 @@ export default function HtmlTemplateEditor({
       Placeholder.configure({
         placeholder: placeholder ?? 'Escreva o conteúdo do template…',
       }),
+      // TextStyle precede Color e FontFamily — ambos dependem do mark
+      // `textStyle` pra aplicar `style` inline em spans.
+      TextStyle,
+      FontFamily.configure({ types: ['textStyle'] }),
+      Color.configure({ types: ['textStyle'] }),
+      IndentExtension,
     ],
     content: value || '',
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -124,6 +221,15 @@ export default function HtmlTemplateEditor({
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
+  // ── Indent helpers ──
+  const bumpIndent = (delta: 1 | -1) => {
+    if (!editor) return;
+    const nodeType = editor.isActive('heading') ? 'heading' : 'paragraph';
+    const current = Number(editor.getAttributes(nodeType).indent) || 0;
+    const next = Math.min(Math.max(current + delta, 0), MAX_INDENT);
+    editor.chain().focus().updateAttributes(nodeType, { indent: next }).run();
+  };
+
   if (!editor) return null;
 
   return (
@@ -132,6 +238,26 @@ export default function HtmlTemplateEditor({
     >
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
+        {/* Font family */}
+        <select
+          value={(editor.getAttributes('textStyle').fontFamily as string) || ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v) editor.chain().focus().setFontFamily(v).run();
+            else editor.chain().focus().unsetFontFamily().run();
+          }}
+          title="Fonte"
+          className="h-8 px-2 pr-6 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-300 hover:border-brand-primary focus:outline-none focus:border-brand-primary appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239ca3af%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226 9 12 15 18 9%22/></svg>')] bg-no-repeat bg-[right_0.35rem_center] bg-[length:12px_12px]"
+        >
+          {FONT_OPTIONS.map((f) => (
+            <option key={f.label} value={f.value} style={{ fontFamily: f.value || undefined }}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+
+        <Divider />
+
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive('bold')}
@@ -218,6 +344,82 @@ export default function HtmlTemplateEditor({
         >
           <AlignRight className="w-4 h-4" />
         </ToolbarButton>
+
+        <Divider />
+
+        {/* Indent */}
+        <ToolbarButton
+          onClick={() => bumpIndent(-1)}
+          title="Diminuir recuo"
+        >
+          <IndentDecrease className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => bumpIndent(1)}
+          title="Aumentar recuo"
+        >
+          <IndentIncrease className="w-4 h-4" />
+        </ToolbarButton>
+
+        <Divider />
+
+        {/* Cor da fonte */}
+        <div className="relative" ref={colorRef}>
+          <button
+            type="button"
+            onClick={() => setColorOpen((o) => !o)}
+            title="Cor da fonte"
+            className="flex items-center gap-0.5 h-8 px-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <Palette className="w-4 h-4" />
+            {/* Faixinha da cor ativa abaixo do ícone */}
+            <span
+              className="w-3 h-1 rounded-sm border border-gray-200 dark:border-gray-700"
+              style={{ background: (editor.getAttributes('textStyle').color as string) || '#000000' }}
+              aria-hidden
+            />
+            <ChevronDown className="w-3 h-3 text-gray-400" />
+          </button>
+          {colorOpen && (
+            <div className="absolute top-full left-0 mt-1 z-30 w-56 p-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 px-1 pb-1.5">
+                Cor da fonte
+              </p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {colorSwatches.map((s) => {
+                  const active = (editor.getAttributes('textStyle').color as string | undefined)?.toLowerCase() === s.value.toLowerCase();
+                  return (
+                    <button
+                      key={s.value}
+                      type="button"
+                      title={s.label}
+                      onClick={() => {
+                        editor.chain().focus().setColor(s.value).run();
+                        setColorOpen(false);
+                      }}
+                      className={`group relative w-full aspect-square rounded-md border transition-all ${
+                        active
+                          ? 'border-brand-primary ring-2 ring-brand-primary/30'
+                          : 'border-gray-200 dark:border-gray-600 hover:scale-110'
+                      }`}
+                      style={{ background: s.value }}
+                    />
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().unsetColor().run();
+                  setColorOpen(false);
+                }}
+                className="mt-2 w-full py-1.5 text-[11px] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
+              >
+                Remover cor
+              </button>
+            </div>
+          )}
+        </div>
 
         <Divider />
 
