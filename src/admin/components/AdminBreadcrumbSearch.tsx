@@ -102,8 +102,7 @@ export default function AdminBreadcrumbSearch() {
       >
         <Search className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
         {!open && (
-          <span className="flex-1 flex items-center justify-center gap-2 text-[12px] text-gray-500 dark:text-gray-400">
-            <span>Buscar</span>
+          <span className="flex-1 flex items-center justify-center text-[12px] text-gray-500 dark:text-gray-400">
             <kbd className="text-[9px] font-mono bg-white dark:bg-gray-900 text-gray-500 border border-gray-200 dark:border-gray-700 rounded px-1 py-0.5">
               Ctrl K
             </kbd>
