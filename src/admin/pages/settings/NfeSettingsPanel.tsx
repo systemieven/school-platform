@@ -13,13 +13,33 @@ import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import { SelectDropdown } from '../../components/FormField';
 import {
-  FileText, Plug, Activity,
+  Building2, FileText, Plug, Activity,
   Loader2, Check, Save, Eye, EyeOff, Zap,
 } from 'lucide-react';
 
 type Ambiente = 'homologacao' | 'producao';
 type Provider = 'nuvem_fiscal' | 'outro' | '';
 type IntegrationStatus = 'none' | 'homologacao' | 'ativa' | 'erro';
+type RegimeTributario = 'simples_nacional' | 'lucro_presumido' | 'lucro_real';
+
+/**
+ * Dados do emitente — vivem em `company_fiscal_config` (tabela compartilhada
+ * com NFS-e/NFC-e/Perfis Fiscais). NF-e mantém a numeração/integração em
+ * `company_nfe_config` (tabela separada deste painel). Mesclamos no UI mas
+ * mantemos as tabelas separadas pra não migrar dados existentes.
+ */
+interface EmitenteConfig {
+  id?: string;
+  razao_social: string;
+  ie: string;
+  regime_tributario: RegimeTributario;
+}
+
+const EMITENTE_EMPTY: EmitenteConfig = {
+  razao_social: '',
+  ie: '',
+  regime_tributario: 'simples_nacional',
+};
 
 interface NfeConfig {
   id?: string;
@@ -77,6 +97,8 @@ const INPUT_CLS = 'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:bor
 export default function NfeSettingsPanel() {
   const [form, setForm] = useState<NfeConfig>(EMPTY);
   const [origForm, setOrigForm] = useState<NfeConfig>(EMPTY);
+  const [emitente, setEmitente] = useState<EmitenteConfig>(EMITENTE_EMPTY);
+  const [origEmitente, setOrigEmitente] = useState<EmitenteConfig>(EMITENTE_EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -90,13 +112,28 @@ export default function NfeSettingsPanel() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('company_nfe_config')
-      .select('*')
-      .maybeSingle();
-    const loaded = data ? (data as unknown as NfeConfig) : EMPTY;
+    const [nfeRes, emitRes] = await Promise.all([
+      supabase.from('company_nfe_config').select('*').maybeSingle(),
+      supabase.from('company_fiscal_config')
+        .select('id, razao_social, ie, regime_tributario')
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    const loaded = nfeRes.data ? (nfeRes.data as unknown as NfeConfig) : EMPTY;
     setForm(loaded);
     setOrigForm(loaded);
+    const loadedEmit: EmitenteConfig = emitRes.data
+      ? {
+          id: (emitRes.data as { id: string }).id,
+          razao_social: (emitRes.data as { razao_social: string | null }).razao_social ?? '',
+          ie: (emitRes.data as { ie: string | null }).ie ?? '',
+          regime_tributario:
+            ((emitRes.data as { regime_tributario: RegimeTributario | null }).regime_tributario
+              ?? 'simples_nacional'),
+        }
+      : EMITENTE_EMPTY;
+    setEmitente(loadedEmit);
+    setOrigEmitente(loadedEmit);
     setLoading(false);
   }, []);
 
@@ -106,7 +143,13 @@ export default function NfeSettingsPanel() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  const hasChanges = JSON.stringify(form) !== JSON.stringify(origForm);
+  function setEmit<K extends keyof EmitenteConfig>(key: K, value: EmitenteConfig[K]) {
+    setEmitente((prev) => ({ ...prev, [key]: value }));
+  }
+
+  const hasChanges =
+    JSON.stringify(form) !== JSON.stringify(origForm) ||
+    JSON.stringify(emitente) !== JSON.stringify(origEmitente);
 
   async function handleSave() {
     if (saving) return;
@@ -125,6 +168,22 @@ export default function NfeSettingsPanel() {
       }
     }
 
+    // Emitente — UPSERT em company_fiscal_config (compartilhado com NFS-e/NFC-e/Perfis)
+    const emitPayload = {
+      razao_social: emitente.razao_social,
+      ie: emitente.ie,
+      regime_tributario: emitente.regime_tributario,
+      updated_at: new Date().toISOString(),
+    };
+    if (emitente.id) {
+      const res = await supabase.from('company_fiscal_config').update(emitPayload).eq('id', emitente.id);
+      if (res.error) error = res.error;
+    } else {
+      const res = await supabase.from('company_fiscal_config').insert(emitPayload).select('id').single();
+      if (res.error) error = res.error;
+      else if (res.data) setEmitente((prev) => ({ ...prev, id: (res.data as { id: string }).id }));
+    }
+
     setSaving(false);
     if (error) {
       console.error('[NfeSettingsPanel] save error:', error);
@@ -138,6 +197,7 @@ export default function NfeSettingsPanel() {
     });
 
     setOrigForm({ ...form });
+    setOrigEmitente({ ...emitente });
     setSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSaved(false), 900);
@@ -175,6 +235,60 @@ export default function NfeSettingsPanel() {
 
   return (
     <div className="p-6 space-y-4">
+      {/* ── 0. Dados do Emitente ─────────────────────────────────────────── */}
+      <SettingsCard
+        title="Dados do Emitente"
+        description="Informações fiscais específicas da empresa emissora de NF-e"
+        icon={Building2}
+        collapseId="nfe.emitente"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 text-sm text-blue-700 dark:text-blue-300">
+            <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+            </svg>
+            <span>
+              CNPJ, nome fantasia, endereço e demais dados cadastrais são gerenciados em{' '}
+              <a href="/admin/configuracoes?tab=institutional" className="font-semibold underline hover:opacity-80">
+                Configurações › Institucional
+              </a>.
+            </span>
+          </div>
+          <div>
+            <label className={LABEL_CLS}>Razão Social</label>
+            <input
+              type="text"
+              value={emitente.razao_social}
+              onChange={(e) => setEmit('razao_social', e.target.value)}
+              placeholder="Razão Social Ltda"
+              className={INPUT_CLS}
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Nome jurídico exato conforme registro — pode diferir do nome fantasia.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={LABEL_CLS}>Inscrição Estadual (IE)</label>
+              <input
+                type="text"
+                value={emitente.ie}
+                onChange={(e) => setEmit('ie', e.target.value)}
+                placeholder="000000000"
+                className={INPUT_CLS}
+              />
+            </div>
+            <SelectDropdown
+              label="Regime Tributário"
+              value={emitente.regime_tributario}
+              onChange={(e) => setEmit('regime_tributario', e.target.value as RegimeTributario)}
+            >
+              <option value="simples_nacional">Simples Nacional</option>
+              <option value="lucro_presumido">Lucro Presumido</option>
+              <option value="lucro_real">Lucro Real</option>
+            </SelectDropdown>
+          </div>
+        </div>
+      </SettingsCard>
+
       {/* ── 1. Emissão ───────────────────────────────────────────────────── */}
       <SettingsCard
         title="Emissão"
