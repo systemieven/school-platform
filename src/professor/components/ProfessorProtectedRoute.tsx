@@ -1,9 +1,10 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useProfessor } from '../contexts/ProfessorAuthContext';
 import { Loader2 } from 'lucide-react';
 
 export default function ProfessorProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useProfessor();
+  const { session, loading, mustChangePassword } = useProfessor();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -14,6 +15,10 @@ export default function ProfessorProtectedRoute({ children }: { children: React.
   }
 
   if (!session) return <Navigate to="/professor/login" replace />;
+
+  if (mustChangePassword && !location.pathname.endsWith('/trocar-senha')) {
+    return <Navigate to="/professor/trocar-senha" replace />;
+  }
 
   return <>{children}</>;
 }

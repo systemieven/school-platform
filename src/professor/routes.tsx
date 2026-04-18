@@ -10,12 +10,14 @@ import NotasPage         from './pages/notas/NotasPage';
 import PlanosPage        from './pages/planos/PlanosPage';
 import ProvasPage        from './pages/provas/ProvasPage';
 import AlunoPerfilPage   from './pages/aluno/AlunoPerfilPage';
+import TrocarSenhaPage   from './pages/trocar-senha/TrocarSenhaPage';
 
 export default function ProfessorRoutes() {
   return (
     <ProfessorAuthProvider>
       <Routes>
         <Route path="login" element={<LoginPage />} />
+        <Route path="trocar-senha" element={<TrocarSenhaPage />} />
 
         <Route element={<ProfessorLayout />}>
           <Route index element={<DashboardPage />} />

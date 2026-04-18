@@ -1,9 +1,10 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useGuardian } from '../contexts/GuardianAuthContext';
 import { Loader2 } from 'lucide-react';
 
 export default function GuardianProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useGuardian();
+  const { session, loading, mustChangePassword } = useGuardian();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -14,6 +15,10 @@ export default function GuardianProtectedRoute({ children }: { children: React.R
   }
 
   if (!session) return <Navigate to="/responsavel/login" replace />;
+
+  if (mustChangePassword && !location.pathname.endsWith('/trocar-senha')) {
+    return <Navigate to="/responsavel/trocar-senha" replace />;
+  }
 
   return <>{children}</>;
 }
