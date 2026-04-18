@@ -1,4 +1,4 @@
--- 188: Fase 16 PR2 — Vagas (`job_openings`)
+-- 204: Fase 16 PR2 — Vagas (`job_openings`)
 --
 -- Vagas abertas pela escola. Requisitos vão no prompt do agente
 -- `resume_screener` (PR3) para pontuar candidatos.

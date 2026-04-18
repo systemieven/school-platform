@@ -1,4 +1,4 @@
--- 189: Fase 16 PR2 — Candidatos e candidaturas
+-- 205: Fase 16 PR2 — Candidatos e candidaturas
 --
 -- `candidates`          — pessoa física (cadastro único por email).
 -- `job_applications`    — relação candidato × vaga com pipeline kanban
