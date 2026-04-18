@@ -6,6 +6,7 @@ import {
   Loader2, Wallet, CalendarClock, AlertCircle, CalendarDays,
   CheckSquare, ChevronRight,
 } from 'lucide-react';
+import GrantStudentAccessButton from '../../components/GrantStudentAccessButton';
 
 interface SummaryData {
   pendingInstallments: number;
@@ -221,6 +222,15 @@ export default function GuardianDashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Acesso do aluno ao Portal (PRD §10.20) */}
+      {currentStudentId && (
+        <GrantStudentAccessButton
+          studentId={currentStudentId}
+          studentName={currentStudent?.student?.full_name?.split(' ')[0]}
+          variant="card"
+        />
+      )}
 
       {/* Quick links */}
       <div className="grid grid-cols-2 gap-3">
