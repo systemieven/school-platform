@@ -31,6 +31,36 @@ function isSupported(): boolean {
   );
 }
 
+/**
+ * Garante uma ServiceWorkerRegistration utilizável.
+ * - `navigator.serviceWorker.ready` SÓ resolve quando ha um SW ativo;
+ *   se nenhum estiver registrado (ex.: dev mode com VitePWA `devOptions.enabled=false`,
+ *   ou primeira visita antes do auto-register concluir) o Promise pendura para sempre
+ *   e o botao fica em loading permanente.
+ * - `getRegistration()` resolve imediatamente (undefined se nao houver),
+ *   permitindo decidir se devemos tentar registrar `/sw.js` manualmente.
+ */
+async function ensureRegistration(register: boolean): Promise<ServiceWorkerRegistration | null> {
+  let reg = (await navigator.serviceWorker.getRegistration()) ?? null;
+  if (!reg && register) {
+    try {
+      reg = await navigator.serviceWorker.register('/sw.js', { type: 'classic' });
+    } catch {
+      reg = null;
+    }
+  }
+  if (!reg) return null;
+  // Aguarda ativacao com timeout — evita pendurar se algo der errado no install.
+  if (!reg.active) {
+    await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => setTimeout(resolve, 5000)),
+    ]);
+    reg = (await navigator.serviceWorker.getRegistration()) ?? reg;
+  }
+  return reg;
+}
+
 export function usePushSubscription(userType: UserType) {
   const supported = isSupported();
   const [permission, setPermission] = useState<PermState>(
@@ -42,17 +72,27 @@ export function usePushSubscription(userType: UserType) {
 
   useEffect(() => {
     if (!supported) { setLoading(false); return; }
+    let cancelled = false;
     (async () => {
       try {
-        const reg = await navigator.serviceWorker.ready;
+        // NUNCA usar `navigator.serviceWorker.ready` aqui — sem SW registrado o
+        // Promise nao resolve e prende o botao em loading. `getRegistration()`
+        // resolve imediatamente (undefined se nao houver).
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (cancelled) return;
+        if (!reg) {
+          setSubscribed(false);
+          return;
+        }
         const sub = await reg.pushManager.getSubscription();
-        setSubscribed(!!sub);
+        if (!cancelled) setSubscribed(!!sub);
       } catch (e) {
-        setError((e as Error).message);
+        if (!cancelled) setError((e as Error).message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [supported]);
 
   const subscribe = useCallback(async () => {
@@ -78,7 +118,13 @@ export function usePushSubscription(userType: UserType) {
       const vapid = typeof raw === 'string' ? raw : String(raw ?? '').replace(/^"|"$/g, '');
       if (!vapid) throw new Error('VAPID public key não configurada.');
 
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await ensureRegistration(true);
+      if (!reg) {
+        throw new Error(
+          'Service worker indisponível. Em desenvolvimento as notificações ficam desativadas; ' +
+          'teste no build de produção ou no app instalado.',
+        );
+      }
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
         sub = await reg.pushManager.subscribe({
@@ -124,8 +170,8 @@ export function usePushSubscription(userType: UserType) {
     setError(null);
     setLoading(true);
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
       if (sub) {
         await supabase
           .from('push_subscriptions')
