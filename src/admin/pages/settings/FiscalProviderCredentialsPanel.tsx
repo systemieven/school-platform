@@ -15,13 +15,16 @@
  * Teste: edge function `fiscal-provider-test` (faz um token exchange).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import { SelectDropdown } from '../../components/FormField';
+import KpiCard from '../../components/KpiCard';
 import {
   KeyRound, Plug, Activity, Loader2, Check, Save, Eye, EyeOff, Zap,
-  ExternalLink, Gauge, RefreshCw,
+  ExternalLink, Gauge, RefreshCw, FileText, ShoppingCart, ScrollText,
+  Search, List, MapPin, ShieldCheck,
 } from 'lucide-react';
 
 type Environment = 'sandbox' | 'production';
@@ -52,20 +55,20 @@ interface QuotasResult {
   status?: number;
 }
 
-/** Rótulo amigável por nome de cota conhecido. */
-const QUOTA_LABELS: Record<string, string> = {
-  'nfe-emissao':       'NF-e · Emissões',
-  'nfce-emissao':      'NFC-e · Emissões',
-  'nfse-emissao':      'NFS-e · Emissões',
-  'dfe-eventos':       'DF-e · Eventos',
-  'cnpj-consultas':    'CNPJ · Consultas',
-  'cnpj-listagem':     'CNPJ · Listagem',
-  'cep-consultas':     'CEP · Consultas',
-  'empresa-certificados': 'Empresas · Certificados',
+/** Metadado (rótulo amigável + ícone + cor) por nome de cota conhecido. */
+const QUOTA_META: Record<string, { label: string; icon: LucideIcon; color: string }> = {
+  'nfe-emissao':          { label: 'NF-e emitidas',        icon: FileText,    color: 'amber' },
+  'nfce-emissao':         { label: 'NFC-e emitidas',       icon: ShoppingCart, color: 'blue' },
+  'nfse-emissao':         { label: 'NFS-e emitidas',       icon: ScrollText,   color: 'purple' },
+  'dfe-eventos':          { label: 'DF-e eventos',         icon: Activity,     color: 'emerald' },
+  'cnpj-consultas':       { label: 'CNPJ consultas',       icon: Search,       color: 'blue' },
+  'cnpj-listagem':        { label: 'CNPJ listagem',        icon: List,         color: 'gray' },
+  'cep-consultas':        { label: 'CEP consultas',        icon: MapPin,       color: 'orange' },
+  'empresa-certificados': { label: 'Certificados',         icon: ShieldCheck,  color: 'emerald' },
 };
 
-function quotaLabel(nome: string): string {
-  return QUOTA_LABELS[nome] ?? nome;
+function quotaMeta(nome: string): { label: string; icon: LucideIcon; color: string } {
+  return QUOTA_META[nome] ?? { label: nome, icon: Gauge, color: 'gray' };
 }
 
 const EMPTY: ProviderCredentials = {
@@ -238,71 +241,23 @@ export default function FiscalProviderCredentialsPanel() {
 
   return (
     <div className="p-6 space-y-4">
-      {/* ── DASHBOARD (topo): teste de conexão + cotas ─────────────────── */}
-
-      {/* Teste de conexão */}
-      <SettingsCard
-        title="Teste de conexão"
-        description="Executa um token exchange com o provedor e valida as credenciais."
-        icon={Activity}
-        collapseId="fiscal-provider.test"
-      >
-        <button
-          type="button"
-          onClick={handleTest}
-          disabled={testLoading || !form.client_id || !form.client_secret_enc || hasChanges}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-primary/40 text-brand-primary text-sm font-medium hover:bg-brand-primary/5 disabled:opacity-50 transition-colors"
-          title={hasChanges ? 'Salve antes de testar' : undefined}
-        >
-          {testLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-          {testLoading ? 'Testando…' : 'Testar Conexão'}
-        </button>
-
-        {hasChanges && (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">
-            Salve as credenciais antes de testar — o teste usa o que já está no banco.
-          </p>
-        )}
-
-        {testResult && (
-          <div className={`mt-3 rounded-xl border p-3 text-sm ${
-            testResult.ok
-              ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
-              : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
-          }`}>
-            {testResult.ok ? (
-              <div className="space-y-1">
-                <p className="font-semibold">✓ Conexão estabelecida</p>
-                <p className="text-xs">Ambiente: <span className="font-mono">{testResult.environment}</span></p>
-                <p className="text-xs">Token expira em: <span className="font-mono">{fmtDatetime(testResult.expires_at)}</span></p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <p className="font-semibold">✗ Falha na autenticação</p>
-                {testResult.status !== undefined && <p className="text-xs">HTTP {testResult.status}</p>}
-                <p className="text-xs font-mono">{testResult.error ?? 'Erro desconhecido'}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </SettingsCard>
-
-      {/* Consumo e cotas */}
-      <SettingsCard
-        title="Consumo e cotas"
-        description="Dados vindos de GET /conta/cotas. Atualizado automaticamente ao acessar a aba."
-        icon={Gauge}
-        collapseId="fiscal-provider.quotas"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[11px] text-gray-400">
-            {quotas?.ok && quotas.fetched_at
-              ? <>Última consulta: <span className="font-mono">{fmtDatetime(quotas.fetched_at)}</span></>
-              : quotasLoading
-                ? 'Carregando…'
-                : !origForm.id
-                  ? 'Salve credenciais para consultar.'
-                  : 'Clique em atualizar para buscar o consumo atual.'}
+      {/* ── DASHBOARD (topo): KPI cards de consumo e cotas ─────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-base font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <Gauge className="w-4 h-4 text-brand-primary" />
+              Consumo e cotas
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {quotas?.ok && quotas.fetched_at
+                ? <>Última consulta: <span className="font-mono">{fmtDatetime(quotas.fetched_at)}</span></>
+                : quotasLoading
+                  ? 'Carregando…'
+                  : !origForm.id
+                    ? 'Salve credenciais para consultar.'
+                    : 'Clique em atualizar para buscar o consumo atual.'}
+            </p>
           </div>
           <button
             type="button"
@@ -329,47 +284,33 @@ export default function FiscalProviderCredentialsPanel() {
         )}
 
         {quotas?.ok && quotas.data && quotas.data.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {quotas.data.map((q) => {
               const limit = Math.max(0, Number(q.limite) || 0);
               const used  = Math.max(0, Number(q.consumo) || 0);
               const pct   = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
               const remaining = Math.max(0, limit - used);
-              const barColor =
-                pct >= 90 ? 'bg-red-500'
-                : pct >= 70 ? 'bg-amber-500'
-                : 'bg-emerald-500';
               const unlimited = limit === 0;
+              const meta = quotaMeta(q.nome);
+              const sub = unlimited
+                ? 'ilimitado'
+                : `de ${limit.toLocaleString('pt-BR')} · ${pct}% · restante ${remaining.toLocaleString('pt-BR')}`;
               return (
-                <div key={q.nome} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-3.5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-                      {quotaLabel(q.nome)}
-                    </span>
-                    <span className="text-[11px] font-mono text-gray-400">{q.nome}</span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5 mb-2">
-                    <span className="text-xl font-bold text-gray-800 dark:text-white">{used.toLocaleString('pt-BR')}</span>
-                    <span className="text-sm text-gray-400">/ {unlimited ? 'ilimitado' : limit.toLocaleString('pt-BR')}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                    <div
-                      className={`h-full ${unlimited ? 'bg-gray-300 dark:bg-gray-600' : barColor} transition-all`}
-                      style={{ width: unlimited ? '100%' : `${pct}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mt-1.5 text-[11px] text-gray-400">
-                    <span>{unlimited ? '—' : `${pct}% usado`}</span>
-                    <span>{unlimited ? '' : `Restante: ${remaining.toLocaleString('pt-BR')}`}</span>
-                  </div>
-                </div>
+                <KpiCard
+                  key={q.nome}
+                  label={meta.label}
+                  value={used.toLocaleString('pt-BR')}
+                  sub={sub}
+                  icon={meta.icon}
+                  color={meta.color}
+                />
               );
             })}
           </div>
         )}
-      </SettingsCard>
+      </div>
 
-      {/* ── CONFIGURAÇÃO (abaixo do dashboard) ─────────────────────────── */}
+      {/* ── CONFIGURAÇÃO ─────────────────────────────────────────────────── */}
 
       {/* Provedor + ambiente */}
       <SettingsCard
@@ -471,6 +412,53 @@ export default function FiscalProviderCredentialsPanel() {
           <ExternalLink className="w-3 h-3" />
           Documentação oficial: como gerar client_id e client_secret
         </a>
+      </SettingsCard>
+
+      {/* ── Teste de conexão (após as configurações) ─────────────────────── */}
+      <SettingsCard
+        title="Teste de conexão"
+        description="Executa um token exchange com o provedor e valida as credenciais salvas."
+        icon={Activity}
+        collapseId="fiscal-provider.test"
+      >
+        <button
+          type="button"
+          onClick={handleTest}
+          disabled={testLoading || !form.client_id || !form.client_secret_enc || hasChanges}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-primary/40 text-brand-primary text-sm font-medium hover:bg-brand-primary/5 disabled:opacity-50 transition-colors"
+          title={hasChanges ? 'Salve antes de testar' : undefined}
+        >
+          {testLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+          {testLoading ? 'Testando…' : 'Testar Conexão'}
+        </button>
+
+        {hasChanges && (
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">
+            Salve as credenciais antes de testar — o teste usa o que já está no banco.
+          </p>
+        )}
+
+        {testResult && (
+          <div className={`mt-3 rounded-xl border p-3 text-sm ${
+            testResult.ok
+              ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+              : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+          }`}>
+            {testResult.ok ? (
+              <div className="space-y-1">
+                <p className="font-semibold">✓ Conexão estabelecida</p>
+                <p className="text-xs">Ambiente: <span className="font-mono">{testResult.environment}</span></p>
+                <p className="text-xs">Token expira em: <span className="font-mono">{fmtDatetime(testResult.expires_at)}</span></p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <p className="font-semibold">✗ Falha na autenticação</p>
+                {testResult.status !== undefined && <p className="text-xs">HTTP {testResult.status}</p>}
+                <p className="text-xs font-mono">{testResult.error ?? 'Erro desconhecido'}</p>
+              </div>
+            )}
+          </div>
+        )}
       </SettingsCard>
 
       {/* ── Floating Save ────────────────────────────────────────────────── */}
