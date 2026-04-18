@@ -12,6 +12,7 @@ import {
   LOJA_SUBTAB_MODULE_KEYS,
   SECRETARIA_SUBTAB_MODULE_KEYS,
   FINANCIAL_SUBTAB_MODULE_KEYS,
+  TEACHER_AREA_SUBTAB_MODULE_KEYS,
 } from './lib/umbrella-modules';
 
 // Eager: auth pages (small, needed immediately)
@@ -43,14 +44,11 @@ const UsersImportPage                = lazy(() => import('./pages/migracao/Users
 const StudentDetailPage    = lazy(() => import('./pages/school/StudentDetailPage'));
 const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'));
 
-// Área do Professor — páginas migradas de /professor para /admin/area-professor
-const TeacherDashboardPage = lazy(() => import('./pages/area-professor/DashboardPage'));
-const TeacherTurmasPage    = lazy(() => import('./pages/area-professor/TurmasPage'));
+// Área do Professor — umbrella + drilldowns (páginas profundas fora da umbrella).
+const AreaProfessorPage    = lazy(() => import('./pages/area-professor/AreaProfessorPage'));
 const TeacherDiarioPage    = lazy(() => import('./pages/area-professor/DiarioPage'));
 const TeacherDiarioEntradaPage = lazy(() => import('./pages/area-professor/DiarioEntradaPage'));
 const TeacherNotasPage     = lazy(() => import('./pages/area-professor/NotasPage'));
-const TeacherPlanosPage    = lazy(() => import('./pages/area-professor/PlanosPage'));
-const TeacherProvasPage    = lazy(() => import('./pages/area-professor/ProvasPage'));
 const TeacherAlunoPerfilPage = lazy(() => import('./pages/area-professor/AlunoPerfilPage'));
 const LibraryPage          = lazy(() => import('./pages/library/LibraryPage'));
 const AnnouncementsPage    = lazy(() => import('./pages/announcements/AnnouncementsPage'));
@@ -143,16 +141,21 @@ export default function AdminRoutes() {
           <Route path="alunos"         element={<ModuleGuard moduleKey="students"><LazyPage><StudentsPage /></LazyPage></ModuleGuard>} />
           <Route path="alunos/importar" element={<ModuleGuard moduleKey="students" requiredAction="import"><LazyPage><StudentImportPage /></LazyPage></ModuleGuard>} />
           <Route path="alunos/:studentId" element={<ModuleGuard moduleKey="students"><LazyPage><StudentDetailPage /></LazyPage></ModuleGuard>} />
-          {/* Área do Professor — portal do professor integrado ao /admin (antigo /professor). */}
-          <Route path="area-professor"                               element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherDashboardPage /></LazyPage></ModuleGuard>} />
-          <Route path="area-professor/turmas"                        element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherTurmasPage /></LazyPage></ModuleGuard>} />
+          {/* Área do Professor (single page with internal tab rail).
+              Umbrella: liberado quando o usuário tem `view` em pelo menos uma
+              sub-tab (teacher-area, teacher-lesson-plans, teacher-exams).
+              AreaProfessorPage filtra suas próprias tabs internamente. */}
+          <Route path="area-professor" element={<ModuleGuard anyModuleKeys={TEACHER_AREA_SUBTAB_MODULE_KEYS}><LazyPage><AreaProfessorPage /></LazyPage></ModuleGuard>} />
+          {/* Redirects de rotas legadas → /admin/area-professor?tab=X */}
+          <Route path="area-professor/turmas" element={<Navigate to="/admin/area-professor?tab=turmas" replace />} />
+          <Route path="area-professor/planos" element={<Navigate to="/admin/area-professor?tab=planos" replace />} />
+          <Route path="area-professor/provas" element={<Navigate to="/admin/area-professor?tab=provas" replace />} />
+          {/* Drilldowns preservados — páginas próprias fora da umbrella */}
           <Route path="area-professor/turmas/:classId"               element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherAreaPage /></LazyPage></ModuleGuard>} />
           <Route path="area-professor/turmas/:classId/diario"        element={<ModuleGuard moduleKey="teacher-diary"><LazyPage><TeacherDiarioPage /></LazyPage></ModuleGuard>} />
           <Route path="area-professor/turmas/:classId/diario/:entryId" element={<ModuleGuard moduleKey="teacher-diary"><LazyPage><TeacherDiarioEntradaPage /></LazyPage></ModuleGuard>} />
           <Route path="area-professor/turmas/:classId/notas"         element={<ModuleGuard moduleKey="teacher-activities"><LazyPage><TeacherNotasPage /></LazyPage></ModuleGuard>} />
           <Route path="area-professor/turmas/:classId/alunos/:studentId" element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherAlunoPerfilPage /></LazyPage></ModuleGuard>} />
-          <Route path="area-professor/planos"                        element={<ModuleGuard moduleKey="teacher-lesson-plans"><LazyPage><TeacherPlanosPage /></LazyPage></ModuleGuard>} />
-          <Route path="area-professor/provas"                        element={<ModuleGuard moduleKey="teacher-exams"><LazyPage><TeacherProvasPage /></LazyPage></ModuleGuard>} />
           <Route path="biblioteca"     element={<ModuleGuard moduleKey="library"><LazyPage><LibraryPage /></LazyPage></ModuleGuard>} />
           <Route path="comunicados"    element={<ModuleGuard moduleKey="announcements"><LazyPage><AnnouncementsPage /></LazyPage></ModuleGuard>} />
           <Route path="eventos"        element={<ModuleGuard moduleKey="events"><LazyPage><EventsPage /></LazyPage></ModuleGuard>} />
