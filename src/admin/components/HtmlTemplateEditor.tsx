@@ -46,7 +46,11 @@ export interface HtmlTemplateEditorProps {
   onChange: (html: string) => void;
   variables?: TemplateVariable[];
   placeholder?: string;
-  minHeight?: number;
+  /**
+   * Altura mínima do editor. Número = pixels; string = valor CSS literal
+   * (útil pra `calc(100vh - …)` quando o drawer precisa preencher a tela).
+   */
+  minHeight?: number | string;
   /** Quando true esconde a seção de variáveis. */
   hideVariables?: boolean;
   /** Classes extras no wrapper. */
@@ -83,7 +87,7 @@ export default function HtmlTemplateEditor({
       attributes: {
         class:
           'prose prose-sm dark:prose-invert max-w-none focus:outline-none px-4 py-3',
-        style: `min-height:${minHeight}px`,
+        style: `min-height:${typeof minHeight === 'number' ? `${minHeight}px` : minHeight}`,
       },
     },
   });

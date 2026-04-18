@@ -248,7 +248,7 @@ export default function FinancialTemplatesPage() {
         icon={FileText}
         width="w-[min(1400px,calc(100vw-17rem))]"
         footer={
-          <div className="flex gap-3">
+          <div className="flex gap-3 lg:w-[360px] lg:ml-auto">
             <button onClick={close} disabled={saving} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">Cancelar</button>
             <button onClick={handleSave} disabled={!editing?.name.trim() || !editing?.content.trim() || saving}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary-dark disabled:opacity-50'}`}>
@@ -273,7 +273,7 @@ export default function FinancialTemplatesPage() {
                   onChange={(html) => updateField('content', html)}
                   variables={editing.variables}
                   placeholder="Escreva o conteúdo do template. Use os chips acima para inserir variáveis."
-                  minHeight={560}
+                  minHeight="calc(100vh - 15rem)"
                 />
                 <p className="text-[11px] text-gray-400 mt-2">
                   Clique nos chips para inserir <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{{variavel}}'}</code> no cursor. Declare novas variáveis ao lado.
