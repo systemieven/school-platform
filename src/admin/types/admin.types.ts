@@ -1666,7 +1666,7 @@ export type ChartPeriod =
   | '3months' | '6months' | '12months'
   | 'current_year' | 'previous_year';
 
-export type DashboardModule = 'financeiro' | 'academico' | 'principal';
+export type DashboardModule = 'financeiro' | 'academico' | 'principal' | 'secretaria' | 'area-professor';
 
 export interface DashboardWidgetPref {
   id: string;
@@ -1744,6 +1744,21 @@ export const ACADEMIC_DATA_SOURCES: { value: string; label: string; description:
   { value: 'learning_curve',      label: 'Curva de Aprendizado',         description: 'Evolução das médias por período letivo',           suggested: ['line', 'area'] },
   { value: 'alerts_by_severity',  label: 'Alertas por Severidade',       description: 'Alunos com alerta de frequência por nível',        suggested: ['donut'] },
   { value: 'top_absences',        label: 'Turmas com Mais Faltas',       description: 'Top 5 turmas com maior índice de ausência',        suggested: ['bar_horizontal'] },
+];
+
+export const SECRETARIA_DATA_SOURCES: { value: string; label: string; description: string; suggested: ChartType[] }[] = [
+  { value: 'declaracoes_by_status',  label: 'Declarações por Status',   description: 'Solicitações de declaração agrupadas por status',   suggested: ['donut', 'pie'] },
+  { value: 'declaracoes_by_month',   label: 'Declarações por Mês',      description: 'Volume de solicitações mês a mês',                  suggested: ['bar', 'line'] },
+  { value: 'transfers_by_type',      label: 'Transferências por Tipo',  description: 'Interna / saída / trancamento / cancelamento',       suggested: ['donut'] },
+  { value: 'rematricula_funnel',     label: 'Funil de Rematrícula',     description: 'Pendente → confirmado → assinado → completado',      suggested: ['bar_horizontal'] },
+];
+
+export const AREA_PROFESSOR_DATA_SOURCES: { value: string; label: string; description: string; suggested: ChartType[] }[] = [
+  // RLS das tabelas filtra automaticamente por teacher_id = auth.uid() quando role='teacher'
+  { value: 'attendance_by_class',     label: 'Frequência por Turma',   description: 'Presença média nas turmas vinculadas',              suggested: ['bar'] },
+  { value: 'class_occupancy',         label: 'Ocupação por Turma',     description: 'Taxa de ocupação das turmas vinculadas',            suggested: ['bar'] },
+  { value: 'teacher_plans_by_month',  label: 'Planos por Mês',         description: 'Planos de aula criados mês a mês',                  suggested: ['bar', 'line'] },
+  { value: 'teacher_exams_by_status', label: 'Provas por Status',      description: 'Rascunho / publicada / aplicada / corrigida',       suggested: ['donut'] },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

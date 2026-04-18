@@ -6,6 +6,8 @@ import { supabase } from '../../../lib/supabase';
 import {
   BookOpen, AlertCircle, ClipboardList, BarChart2, Loader2,
 } from 'lucide-react';
+import KpiCard from '../../components/KpiCard';
+import DashboardChartGrid from '../../components/DashboardChartGrid';
 
 interface DashboardStats {
   classesCount: number;
@@ -135,54 +137,35 @@ export default function ProfessorDashboardPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <BookOpen className="w-4 h-4 text-brand-primary" />
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Minhas Turmas</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.classesCount ?? 0}</p>
-          <button
-            onClick={() => navigate('/admin/area-professor?tab=turmas')}
-            className="mt-2 text-xs text-brand-primary hover:underline"
-          >
-            Ver turmas
-          </button>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-4 h-4 text-amber-500" />
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Sem Presença (3d)</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {stats?.missingAttendanceEntries.length ?? 0}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">aulas pendentes</p>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <ClipboardList className="w-4 h-4 text-purple-500" />
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Planos Pendentes</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.pendingPlans ?? 0}</p>
-          <button
-            onClick={() => navigate('/admin/area-professor?tab=planos')}
-            className="mt-2 text-xs text-brand-primary hover:underline"
-          >
-            Ver planos
-          </button>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <BarChart2 className="w-4 h-4 text-emerald-500" />
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Aulas esta Semana</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.weeklyEntriesCount ?? 0}</p>
-          <p className="text-xs text-gray-400 mt-1">registradas</p>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <KpiCard
+          label="Minhas Turmas"
+          value={String(stats?.classesCount ?? 0)}
+          sub="vinculadas"
+          icon={BookOpen}
+          color="blue"
+        />
+        <KpiCard
+          label="Sem Presença (3d)"
+          value={String(stats?.missingAttendanceEntries.length ?? 0)}
+          sub="aulas pendentes"
+          icon={AlertCircle}
+          color="amber"
+        />
+        <KpiCard
+          label="Planos Pendentes"
+          value={String(stats?.pendingPlans ?? 0)}
+          sub="publicados"
+          icon={ClipboardList}
+          color="purple"
+        />
+        <KpiCard
+          label="Aulas esta Semana"
+          value={String(stats?.weeklyEntriesCount ?? 0)}
+          sub="registradas"
+          icon={BarChart2}
+          color="emerald"
+        />
       </div>
 
       {/* Missing attendance alert */}
@@ -242,6 +225,9 @@ export default function ProfessorDashboardPage() {
           <p className="text-sm text-gray-400 text-center py-4">Nenhuma turma vinculada.</p>
         )}
       </div>
+
+      {/* Gráficos customizáveis */}
+      <DashboardChartGrid module="area-professor" />
     </div>
   );
 }

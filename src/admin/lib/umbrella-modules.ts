@@ -74,6 +74,7 @@ export const LOJA_SUBTAB_MODULE_KEYS = [
 
 // /admin/secretaria — src/admin/pages/secretaria/SecretariaPage.tsx
 export const SECRETARIA_SUBTAB_MODULE_KEYS = [
+  'secretaria-dashboard',
   'secretaria-declaracoes',
   'secretaria-saude',
   'secretaria-rematricula',
