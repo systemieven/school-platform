@@ -228,7 +228,7 @@ export default function FinancialTemplatesPage() {
         onClose={() => setPreviewId(null)}
         title={previewTemplate?.name || 'Pré-visualizar'}
         icon={Eye}
-        width="w-[640px]"
+        width="w-[min(1400px,calc(100vw-17rem))]"
       >
         {previewTemplate && (
           <DrawerCard title="Conteúdo renderizado" icon={FileText}>
@@ -246,7 +246,7 @@ export default function FinancialTemplatesPage() {
         onClose={close}
         title={isNew ? 'Novo Template' : 'Editar Template'}
         icon={FileText}
-        width="w-[640px]"
+        width="w-[min(1400px,calc(100vw-17rem))]"
         footer={
           <div className="flex gap-3">
             <button onClick={close} disabled={saving} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">Cancelar</button>
@@ -259,86 +259,97 @@ export default function FinancialTemplatesPage() {
         }
       >
         {editing && (
-          <>
-            <DrawerCard title="Identificação" icon={Tag}>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Nome *</label>
-                <input value={editing.name} onChange={(e) => updateField('name', e.target.value)} placeholder="Ex: Contrato Ensino Fundamental 2026"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none text-sm" />
-              </div>
-              <SelectDropdown label="Tipo *" value={editing.template_type} onChange={(e) => updateField('template_type', e.target.value as ContractTemplateType)}>
-                {Object.entries(CONTRACT_TEMPLATE_TYPE_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </SelectDropdown>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Descrição</label>
-                <textarea value={editing.description || ''} onChange={(e) => updateField('description', e.target.value || null)} rows={2}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none text-sm resize-none" />
-              </div>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div className={`relative w-10 h-5 rounded-full transition-colors ${editing.is_active ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                  onClick={() => updateField('is_active', !editing.is_active)}>
-                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${editing.is_active ? 'translate-x-5' : ''}`} />
-                </div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">{editing.is_active ? 'Template ativo' : 'Template inativo'}</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div className={`relative w-10 h-5 rounded-full transition-colors ${editing.is_default ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                  onClick={() => updateField('is_default', !editing.is_default)}>
-                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${editing.is_default ? 'translate-x-5' : ''}`} />
-                </div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">Usar como padrão para este tipo</span>
-              </label>
-            </DrawerCard>
+          /*
+           * Layout 2-col: editor HTML domina a esquerda (flex-1),
+           * metadados + variáveis ficam numa trilha estreita à direita.
+           * No mobile (< lg) colapsa em coluna única para não espremer nada.
+           */
+          <div className="flex flex-col lg:flex-row gap-3 lg:items-stretch">
+            {/* Coluna principal — Conteúdo */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <DrawerCard title="Conteúdo" icon={Code2}>
+                <HtmlTemplateEditor
+                  value={editing.content}
+                  onChange={(html) => updateField('content', html)}
+                  variables={editing.variables}
+                  placeholder="Escreva o conteúdo do template. Use os chips acima para inserir variáveis."
+                  minHeight={560}
+                />
+                <p className="text-[11px] text-gray-400 mt-2">
+                  Clique nos chips para inserir <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{{variavel}}'}</code> no cursor. Declare novas variáveis ao lado.
+                </p>
+              </DrawerCard>
+            </div>
 
-            <DrawerCard title="Conteúdo" icon={Code2}>
-              <HtmlTemplateEditor
-                value={editing.content}
-                onChange={(html) => updateField('content', html)}
-                variables={editing.variables}
-                placeholder="Escreva o conteúdo do template. Use os chips acima para inserir variáveis."
-                minHeight={360}
-              />
-              <p className="text-[11px] text-gray-400 mt-2">
-                Clique nos chips para inserir <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{{variavel}}'}</code> no cursor. Declare novas variáveis abaixo.
-              </p>
-            </DrawerCard>
-
-            <DrawerCard title="Variáveis disponíveis" icon={Code2}>
-              <div className="space-y-2">
-                {editing.variables.map((v, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input value={v.key}
-                      onChange={(e) => {
-                        const next = [...editing.variables];
-                        next[idx] = { ...next[idx], key: e.target.value };
-                        updateField('variables', next);
-                      }}
-                      placeholder="chave"
-                      className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs font-mono" />
-                    <input value={v.label}
-                      onChange={(e) => {
-                        const next = [...editing.variables];
-                        next[idx] = { ...next[idx], label: e.target.value };
-                        updateField('variables', next);
-                      }}
-                      placeholder="Rótulo"
-                      className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs" />
-                    <button onClick={() => updateField('variables', editing.variables.filter((_, i) => i !== idx))}
-                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+            {/* Coluna lateral — Identificação + Variáveis */}
+            <div className="w-full lg:w-[360px] lg:flex-shrink-0 space-y-3">
+              <DrawerCard title="Identificação" icon={Tag}>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Nome *</label>
+                  <input value={editing.name} onChange={(e) => updateField('name', e.target.value)} placeholder="Ex: Contrato Ensino Fundamental 2026"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none text-sm" />
+                </div>
+                <SelectDropdown label="Tipo *" value={editing.template_type} onChange={(e) => updateField('template_type', e.target.value as ContractTemplateType)}>
+                  {Object.entries(CONTRACT_TEMPLATE_TYPE_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </SelectDropdown>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Descrição</label>
+                  <textarea value={editing.description || ''} onChange={(e) => updateField('description', e.target.value || null)} rows={2}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary outline-none text-sm resize-none" />
+                </div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <div className={`relative w-10 h-5 rounded-full transition-colors ${editing.is_active ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                    onClick={() => updateField('is_active', !editing.is_active)}>
+                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${editing.is_active ? 'translate-x-5' : ''}`} />
                   </div>
-                ))}
-                <button type="button"
-                  onClick={() => updateField('variables', [...editing.variables, { key: '', label: '' }])}
-                  className="w-full py-2 text-xs text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors border border-dashed border-gray-300 dark:border-gray-600">
-                  + Adicionar variável
-                </button>
-              </div>
-            </DrawerCard>
-          </>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{editing.is_active ? 'Template ativo' : 'Template inativo'}</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <div className={`relative w-10 h-5 rounded-full transition-colors ${editing.is_default ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                    onClick={() => updateField('is_default', !editing.is_default)}>
+                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${editing.is_default ? 'translate-x-5' : ''}`} />
+                  </div>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Usar como padrão para este tipo</span>
+                </label>
+              </DrawerCard>
+
+              <DrawerCard title="Variáveis disponíveis" icon={Code2}>
+                <div className="space-y-2">
+                  {editing.variables.map((v, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input value={v.key}
+                        onChange={(e) => {
+                          const next = [...editing.variables];
+                          next[idx] = { ...next[idx], key: e.target.value };
+                          updateField('variables', next);
+                        }}
+                        placeholder="chave"
+                        className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs font-mono" />
+                      <input value={v.label}
+                        onChange={(e) => {
+                          const next = [...editing.variables];
+                          next[idx] = { ...next[idx], label: e.target.value };
+                          updateField('variables', next);
+                        }}
+                        placeholder="Rótulo"
+                        className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs" />
+                      <button onClick={() => updateField('variables', editing.variables.filter((_, i) => i !== idx))}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button"
+                    onClick={() => updateField('variables', [...editing.variables, { key: '', label: '' }])}
+                    className="w-full py-2 text-xs text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors border border-dashed border-gray-300 dark:border-gray-600">
+                    + Adicionar variável
+                  </button>
+                </div>
+              </DrawerCard>
+            </div>
+          </div>
         )}
       </Drawer>
     </div>

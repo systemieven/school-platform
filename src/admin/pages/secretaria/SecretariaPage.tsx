@@ -211,81 +211,95 @@ function TemplateDrawer({
   return (
     <Drawer open={state.open} onClose={onClose}
       title={isEdit ? 'Editar Template' : 'Novo Template'}
-      icon={FileText} width="w-[520px]" footer={footer}>
-      <DrawerCard title="Informações" icon={FileText}>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Nome *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
-              placeholder="Ex: Declaração de Matrícula" />
-          </div>
-          <SelectDropdown label="Tipo de Documento" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentType)}>
-            {(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((k) => (
-              <option key={k} value={k}>{DOCUMENT_TYPE_LABELS[k]}</option>
-            ))}
-          </SelectDropdown>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Descrição</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 resize-none"
-              placeholder="Breve descrição do template" />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600 dark:text-gray-300">Requer aprovação</span>
-            <button onClick={() => setRequiresApproval(!requiresApproval)}
-              className={`relative w-10 h-5 rounded-full transition-colors ${requiresApproval ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-700'}`}>
-              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${requiresApproval ? 'translate-x-5' : ''}`} />
-            </button>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600 dark:text-gray-300">Ativo</span>
-            <button onClick={() => setIsActive(!isActive)}
-              className={`relative w-10 h-5 rounded-full transition-colors ${isActive ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-700'}`}>
-              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isActive ? 'translate-x-5' : ''}`} />
-            </button>
-          </div>
+      icon={FileText} width="w-[min(1400px,calc(100vw-17rem))]" footer={footer}>
+      {/*
+       * Layout 2-col: editor HTML domina a esquerda (flex-1),
+       * metadados + variáveis extras ficam em trilha estreita à direita.
+       */}
+      <div className="flex flex-col lg:flex-row gap-3 lg:items-stretch">
+        {/* Coluna principal — Conteúdo HTML */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <DrawerCard title="Conteúdo HTML" icon={FileText}>
+            <HtmlTemplateEditor
+              value={htmlContent}
+              onChange={setHtmlContent}
+              variables={[
+                ...variablesRaw
+                  .split(',')
+                  .map((k) => k.trim())
+                  .filter(Boolean)
+                  .map((key) => ({ key })),
+                { key: 'nome_completo', label: 'Aluno' },
+                { key: 'matricula', label: 'Matrícula' },
+                { key: 'turma', label: 'Turma' },
+                { key: 'serie', label: 'Série' },
+                { key: 'ano_letivo', label: 'Ano letivo' },
+                { key: 'data_emissao', label: 'Data de emissão' },
+                { key: 'escola', label: 'Escola' },
+              ].filter((v, i, a) => a.findIndex((x) => x.key === v.key) === i)}
+              placeholder="Escreva o conteúdo do documento. Use os chips acima para inserir variáveis."
+              minHeight={560}
+            />
+          </DrawerCard>
         </div>
-      </DrawerCard>
 
-      <DrawerCard title="Conteúdo HTML" icon={FileText}>
-        <div className="space-y-3">
-          <HtmlTemplateEditor
-            value={htmlContent}
-            onChange={setHtmlContent}
-            variables={[
-              ...variablesRaw
-                .split(',')
-                .map((k) => k.trim())
-                .filter(Boolean)
-                .map((key) => ({ key })),
-              { key: 'nome_completo', label: 'Aluno' },
-              { key: 'matricula', label: 'Matrícula' },
-              { key: 'turma', label: 'Turma' },
-              { key: 'serie', label: 'Série' },
-              { key: 'ano_letivo', label: 'Ano letivo' },
-              { key: 'data_emissao', label: 'Data de emissão' },
-              { key: 'escola', label: 'Escola' },
-            ].filter((v, i, a) => a.findIndex((x) => x.key === v.key) === i)}
-            placeholder="Escreva o conteúdo do documento. Use os chips acima para inserir variáveis."
-            minHeight={320}
-          />
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Variáveis adicionais (separadas por vírgula)</label>
-            <input value={variablesRaw} onChange={(e) => setVariablesRaw(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
-              placeholder="Ex: numero_protocolo, cidade" />
-            <p className="text-[11px] text-gray-400 mt-1.5">
-              Declare aqui chaves além das padrão (aluno, turma, data_emissão, etc.) — elas aparecem como chips no editor.
+        {/* Coluna lateral — Informações + variáveis extras */}
+        <div className="w-full lg:w-[360px] lg:flex-shrink-0 space-y-3">
+          <DrawerCard title="Informações" icon={FileText}>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Nome *</label>
+                <input value={name} onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                  placeholder="Ex: Declaração de Matrícula" />
+              </div>
+              <SelectDropdown label="Tipo de Documento" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentType)}>
+                {(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((k) => (
+                  <option key={k} value={k}>{DOCUMENT_TYPE_LABELS[k]}</option>
+                ))}
+              </SelectDropdown>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Descrição</label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30 resize-none"
+                  placeholder="Breve descrição do template" />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-300">Requer aprovação</span>
+                <button onClick={() => setRequiresApproval(!requiresApproval)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${requiresApproval ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${requiresApproval ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-300">Ativo</span>
+                <button onClick={() => setIsActive(!isActive)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${isActive ? 'bg-brand-primary' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isActive ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+            </div>
+          </DrawerCard>
+
+          <DrawerCard title="Variáveis extras" icon={FileText}>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Separadas por vírgula</label>
+              <input value={variablesRaw} onChange={(e) => setVariablesRaw(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                placeholder="Ex: numero_protocolo, cidade" />
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Declare aqui chaves além das padrão (aluno, turma, data_emissão, etc.) — elas aparecem como chips no editor.
+              </p>
+            </div>
+          </DrawerCard>
+
+          {error && (
+            <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+              {error}
             </p>
-          </div>
+          )}
         </div>
-      </DrawerCard>
-      {error && (
-        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg mx-1">
-          {error}
-        </p>
-      )}
+      </div>
     </Drawer>
   );
 }
