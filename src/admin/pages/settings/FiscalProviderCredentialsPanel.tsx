@@ -21,7 +21,7 @@ import { SettingsCard } from '../../components/SettingsCard';
 import { SelectDropdown } from '../../components/FormField';
 import {
   KeyRound, Plug, Activity, Loader2, Check, Save, Eye, EyeOff, Zap,
-  ExternalLink,
+  ExternalLink, Gauge, RefreshCw,
 } from 'lucide-react';
 
 type Environment = 'sandbox' | 'production';
@@ -36,7 +36,37 @@ interface ProviderCredentials {
   scopes: string;
 }
 
-const DEFAULT_SCOPES = 'empresa nfe nfce nfse cnpj cep';
+const DEFAULT_SCOPES = 'empresa nfe nfce nfse cnpj cep conta';
+
+interface QuotaRow {
+  nome: string;
+  consumo: number;
+  limite: number;
+}
+
+interface QuotasResult {
+  ok: boolean;
+  data?: QuotaRow[];
+  fetched_at?: string;
+  error?: string;
+  status?: number;
+}
+
+/** Rótulo amigável por nome de cota conhecido. */
+const QUOTA_LABELS: Record<string, string> = {
+  'nfe-emissao':       'NF-e · Emissões',
+  'nfce-emissao':      'NFC-e · Emissões',
+  'nfse-emissao':      'NFS-e · Emissões',
+  'dfe-eventos':       'DF-e · Eventos',
+  'cnpj-consultas':    'CNPJ · Consultas',
+  'cnpj-listagem':     'CNPJ · Listagem',
+  'cep-consultas':     'CEP · Consultas',
+  'empresa-certificados': 'Empresas · Certificados',
+};
+
+function quotaLabel(nome: string): string {
+  return QUOTA_LABELS[nome] ?? nome;
+}
 
 const EMPTY: ProviderCredentials = {
   provider: 'nuvem_fiscal',
@@ -73,6 +103,9 @@ export default function FiscalProviderCredentialsPanel() {
   const [showSecret, setShowSecret] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+
+  const [quotasLoading, setQuotasLoading] = useState(false);
+  const [quotas, setQuotas] = useState<QuotasResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,6 +170,26 @@ export default function FiscalProviderCredentialsPanel() {
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSaved(false), 900);
   }
+
+  const loadQuotas = useCallback(async () => {
+    setQuotasLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fiscal-provider-quotas', { body: {} });
+      if (error) {
+        setQuotas({ ok: false, error: error.message });
+      } else {
+        setQuotas(data as QuotasResult);
+      }
+    } catch (e: unknown) {
+      setQuotas({ ok: false, error: e instanceof Error ? e.message : String(e) });
+    }
+    setQuotasLoading(false);
+  }, []);
+
+  // Auto-load quotas once when credentials exist.
+  useEffect(() => {
+    if (!loading && origForm.id && !quotas) void loadQuotas();
+  }, [loading, origForm.id, quotas, loadQuotas]);
 
   async function handleTest() {
     if (testLoading) return;
@@ -310,6 +363,86 @@ export default function FiscalProviderCredentialsPanel() {
                 <p className="text-xs font-mono">{testResult.error ?? 'Erro desconhecido'}</p>
               </div>
             )}
+          </div>
+        )}
+      </SettingsCard>
+
+      {/* ── 4. Consumo e cotas ───────────────────────────────────────────── */}
+      <SettingsCard
+        title="Consumo e cotas"
+        description="Dados vindos de GET /conta/cotas. Mostra o quanto da sua franquia mensal já foi utilizada."
+        icon={Gauge}
+        collapseId="fiscal-provider.quotas"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[11px] text-gray-400">
+            {quotas?.ok && quotas.fetched_at
+              ? <>Última consulta: <span className="font-mono">{fmtDatetime(quotas.fetched_at)}</span></>
+              : quotasLoading
+                ? 'Carregando…'
+                : 'Clique em atualizar para buscar o consumo atual.'}
+          </div>
+          <button
+            type="button"
+            onClick={loadQuotas}
+            disabled={quotasLoading || !origForm.id}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            title={!origForm.id ? 'Salve credenciais antes' : undefined}
+          >
+            {quotasLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Atualizar
+          </button>
+        </div>
+
+        {quotas && !quotas.ok && (
+          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            <p className="font-semibold">Falha ao consultar cotas</p>
+            {quotas.status !== undefined && <p className="text-xs">HTTP {quotas.status}</p>}
+            <p className="text-xs font-mono mt-1">{quotas.error ?? 'Erro desconhecido'}</p>
+          </div>
+        )}
+
+        {quotas?.ok && quotas.data && quotas.data.length === 0 && (
+          <p className="text-sm text-gray-400 py-4 text-center">Nenhuma cota reportada pelo provedor.</p>
+        )}
+
+        {quotas?.ok && quotas.data && quotas.data.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {quotas.data.map((q) => {
+              const limit = Math.max(0, Number(q.limite) || 0);
+              const used  = Math.max(0, Number(q.consumo) || 0);
+              const pct   = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+              const remaining = Math.max(0, limit - used);
+              const barColor =
+                pct >= 90 ? 'bg-red-500'
+                : pct >= 70 ? 'bg-amber-500'
+                : 'bg-emerald-500';
+              const unlimited = limit === 0;
+              return (
+                <div key={q.nome} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-3.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                      {quotaLabel(q.nome)}
+                    </span>
+                    <span className="text-[11px] font-mono text-gray-400">{q.nome}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5 mb-2">
+                    <span className="text-xl font-bold text-gray-800 dark:text-white">{used.toLocaleString('pt-BR')}</span>
+                    <span className="text-sm text-gray-400">/ {unlimited ? 'ilimitado' : limit.toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                    <div
+                      className={`h-full ${unlimited ? 'bg-gray-300 dark:bg-gray-600' : barColor} transition-all`}
+                      style={{ width: unlimited ? '100%' : `${pct}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5 text-[11px] text-gray-400">
+                    <span>{unlimited ? '—' : `${pct}% usado`}</span>
+                    <span>{unlimited ? '' : `Restante: ${remaining.toLocaleString('pt-BR')}`}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </SettingsCard>
