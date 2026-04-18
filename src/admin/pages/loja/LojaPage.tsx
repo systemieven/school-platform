@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  LayoutDashboard, ShoppingBag, ClipboardList, Monitor, BarChart3, Receipt,
+  LayoutDashboard, ShoppingBag, FolderTree, ClipboardList, Monitor, BarChart3, Receipt,
   PanelLeftClose, PanelLeftOpen, ShieldOff,
 } from 'lucide-react';
 import LojaDashboardTab   from './tabs/LojaDashboardTab';
 import ProdutosTab        from './tabs/ProdutosTab';
+import CategoriasTab      from './tabs/CategoriasTab';
 import PedidosTab         from './tabs/PedidosTab';
 import PDVTab             from './tabs/PDVTab';
 import RelatoriosLojaTab  from './tabs/RelatoriosLojaTab';
@@ -24,7 +25,8 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { key: 'dashboard',  label: 'Dashboard',       shortLabel: 'Dashboard',  icon: LayoutDashboard, description: 'Visão geral da loja',                       moduleKey: 'loja' },
-  { key: 'produtos',   label: 'Produtos',         shortLabel: 'Produtos',   icon: ShoppingBag,     description: 'Gerencie produtos, variantes e categorias', moduleKey: 'store-products' },
+  { key: 'produtos',   label: 'Produtos',         shortLabel: 'Produtos',   icon: ShoppingBag,     description: 'Gerencie produtos, variantes e estoque',    moduleKey: 'store-products' },
+  { key: 'categorias', label: 'Categorias',       shortLabel: 'Categorias', icon: FolderTree,      description: 'Organize os produtos em árvore hierárquica', moduleKey: 'store-products' },
   { key: 'pedidos',    label: 'Pedidos',          shortLabel: 'Pedidos',    icon: ClipboardList,   description: 'Pipeline de pedidos e status de entrega',  moduleKey: 'store-orders' },
   { key: 'pdv',        label: 'PDV',              shortLabel: 'PDV',        icon: Monitor,         description: 'Ponto de venda e caixa',                    moduleKey: 'store-pdv' },
   { key: 'relatorios', label: 'Relatórios',       shortLabel: 'Relatórios', icon: BarChart3,       description: 'Relatórios e análises da loja',             moduleKey: 'store-reports' },
@@ -145,6 +147,7 @@ export default function LojaPage() {
             <div className="p-6">
               {activeTab === 'dashboard'  && <LojaDashboardTab />}
               {activeTab === 'produtos'   && <ProdutosTab />}
+              {activeTab === 'categorias' && <CategoriasTab />}
               {activeTab === 'pedidos'    && <PedidosTab />}
               {activeTab === 'pdv'        && <PDVTab />}
               {activeTab === 'relatorios' && <RelatoriosLojaTab />}
