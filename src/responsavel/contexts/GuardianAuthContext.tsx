@@ -38,8 +38,16 @@ interface GuardianAuthState {
   mustChangePassword: boolean;
   loading: boolean;
   signIn: (cpf: string, password: string) => Promise<{ error?: string }>;
-  /** First-access: verify CPF in student_guardians, then create auth user and sign in */
-  firstAccess: (cpf: string, newPassword: string) => Promise<{ error?: string }>;
+  /**
+   * First-access / esqueci-a-senha: valida CPF + telefone em student_guardians,
+   * cria (ou reseta) auth user com senha provisória e dispara WhatsApp.
+   * O fluxo segue o mesmo padrão da criação de usuários do admin
+   * (must_change_password=true → portal força tela de troca após login).
+   */
+  requestAccess: (cpf: string, phone: string) => Promise<{
+    status: 'sent' | 'no_whatsapp' | 'rate_limited' | 'invalid_input' | 'error';
+    message?: string;
+  }>;
   setCurrentStudent: (id: string) => void;
   signOut: () => Promise<void>;
   clearMustChangePassword: () => void;
@@ -51,7 +59,7 @@ const GuardianAuthContext = createContext<GuardianAuthState>({
   session: null, guardian: null, students: [], currentStudentId: null,
   mustChangePassword: false, loading: true,
   signIn: async () => ({}),
-  firstAccess: async () => ({}),
+  requestAccess: async () => ({ status: 'error' }),
   setCurrentStudent: () => {},
   signOut: async () => {},
   clearMustChangePassword: () => {},
@@ -139,47 +147,39 @@ export function GuardianAuthProvider({ children }: { children: React.ReactNode }
     return {};
   }, []);
 
-  // ── firstAccess ────────────────────────────────────────────────────────────
+  // ── requestAccess ──────────────────────────────────────────────────────────
+  // Chama edge function pública `guardian-request-access`. Toda a validação
+  // (CPF + telefone), criação/reset de auth user, geração de senha provisória
+  // e disparo do WhatsApp ocorre no servidor — anti-enumeração e rate-limit
+  // ficam fora do alcance do client.
 
-  const firstAccess = useCallback(async (cpf: string, newPassword: string) => {
+  const requestAccess = useCallback(async (cpf: string, phone: string) => {
     const normalizedCpf = normalizeCpf(cpf);
+    const systemUrl = window.location.origin + '/responsavel/login';
 
-    // 1. Verify CPF exists in student_guardians
-    const { data: guardianRow, error: findErr } = await supabase
-      .from('student_guardians')
-      .select('id, guardian_cpf, guardian_user_id')
-      .eq('guardian_cpf', normalizedCpf)
-      .limit(1)
-      .single();
+    try {
+      const { data, error } = await supabase.functions.invoke('guardian-request-access', {
+        body: { cpf: normalizedCpf, phone, system_url: systemUrl },
+      });
 
-    if (findErr || !guardianRow) {
-      return { error: 'CPF não encontrado. Verifique o número e tente novamente.' };
+      if (error) {
+        return { status: 'error' as const, message: error.message };
+      }
+      const payload = (data ?? {}) as { status?: string; message?: string };
+      const status = (payload.status as
+        | 'sent'
+        | 'no_whatsapp'
+        | 'rate_limited'
+        | 'invalid_input'
+        | 'error'
+        | undefined) ?? 'error';
+      return { status, message: payload.message };
+    } catch (err: unknown) {
+      return {
+        status: 'error' as const,
+        message: err instanceof Error ? err.message : 'Erro inesperado.',
+      };
     }
-
-    // 2. If already has guardian_user_id, access already activated
-    if ((guardianRow as { guardian_user_id: string | null }).guardian_user_id) {
-      return { error: 'Este acesso já foi ativado. Use seu CPF e senha para entrar.' };
-    }
-
-    // 3. Create auth user
-    const email = toEmail(normalizedCpf);
-    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-      email,
-      password: newPassword,
-      options: { data: { role: 'responsavel', cpf: normalizedCpf } },
-    });
-
-    if (signUpErr || !signUpData.user) {
-      return { error: signUpErr?.message ?? 'Erro ao criar acesso.' };
-    }
-
-    // 4. Link guardian_user_id in all student_guardians rows with this CPF
-    await supabase
-      .from('student_guardians')
-      .update({ guardian_user_id: signUpData.user.id })
-      .eq('guardian_cpf', normalizedCpf);
-
-    return {};
   }, []);
 
   // ── setCurrentStudent ─────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ export function GuardianAuthProvider({ children }: { children: React.ReactNode }
     <GuardianAuthContext.Provider value={{
       session, guardian, students, currentStudentId,
       mustChangePassword, loading,
-      signIn, firstAccess, setCurrentStudent, signOut, clearMustChangePassword,
+      signIn, requestAccess, setCurrentStudent, signOut, clearMustChangePassword,
     }}>
       {children}
     </GuardianAuthContext.Provider>
