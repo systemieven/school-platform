@@ -8,6 +8,7 @@ import {
   GripVertical, Trash2,
 } from 'lucide-react';
 import RoutePicker from '../../components/RoutePicker';
+import TopBarIconPicker from '../../components/TopBarIconPicker';
 import {
   InputField, SectionLabel, SectionDivider,
   ArrayItemCard, AddButton, RemoveButton, INPUT_CLS,
@@ -26,6 +27,8 @@ import { CSS } from '@dnd-kit/utilities';
 interface LinkItem {
   label: string;
   route: string;
+  /** key opcional do registry em src/shared/topBarIcons.ts (usado so no topbar) */
+  icon?: string | null;
 }
 
 interface TopBarSettings {
@@ -104,9 +107,10 @@ interface SortableQuickLinkProps {
   onRemove: () => void;
   onChangeLabel: (v: string) => void;
   onChangeRoute: (v: string) => void;
+  onChangeIcon: (v: string | null) => void;
 }
 
-function SortableQuickLink({ id, index, link, onRemove, onChangeLabel, onChangeRoute }: SortableQuickLinkProps) {
+function SortableQuickLink({ id, index, link, onRemove, onChangeLabel, onChangeRoute, onChangeIcon }: SortableQuickLinkProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -137,7 +141,7 @@ function SortableQuickLink({ id, index, link, onRemove, onChangeLabel, onChangeR
           </button>
         </div>
         <div className="px-4 py-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <InputField
               label="Label"
               value={link.label}
@@ -148,6 +152,11 @@ function SortableQuickLink({ id, index, link, onRemove, onChangeLabel, onChangeR
               label="Rota"
               value={link.route}
               onChange={onChangeRoute}
+            />
+            <TopBarIconPicker
+              label="Icone (opcional)"
+              value={link.icon ?? null}
+              onChange={onChangeIcon}
             />
           </div>
         </div>
@@ -313,6 +322,11 @@ export default function NavigationSettingsPanel() {
                     onChangeRoute={(v) => {
                       const updated = [...topbar.quick_links];
                       updated[i] = { ...updated[i], route: v };
+                      setTopbar((p) => ({ ...p, quick_links: updated }));
+                    }}
+                    onChangeIcon={(v) => {
+                      const updated = [...topbar.quick_links];
+                      updated[i] = { ...updated[i], icon: v };
                       setTopbar((p) => ({ ...p, quick_links: updated }));
                     }}
                   />
