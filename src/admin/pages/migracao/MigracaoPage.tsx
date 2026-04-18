@@ -331,6 +331,12 @@ interface GroupTimelineProps {
 
 function GroupTimeline({ modules, statusMap, groupUnlocked, progress, maxSize, onImport, onUnlock }: GroupTimelineProps) {
   const spacerCount = Math.max(0, maxSize - modules.length);
+  // Distribui os spacers em volta das etapas (metade à esquerda, metade à
+  // direita) para que os avatares das etapas fiquem centralizados no card.
+  // O avatar final de conclusão segue ancorado à direita — por isso ele fica
+  // fora dessa distribuição e mantém o alinhamento vertical entre grupos.
+  const leftSpacers = Math.floor(spacerCount / 2);
+  const rightSpacers = spacerCount - leftSpacers;
   // Sequencial dentro do grupo: um módulo só desbloqueia depois que todos
   // anteriores (mesma ordem do catálogo) estiverem concluídos.
   let previousDone = true;
@@ -343,6 +349,11 @@ function GroupTimeline({ modules, statusMap, groupUnlocked, progress, maxSize, o
           className="absolute top-7 left-10 right-10 h-px bg-gradient-to-r from-gray-200 via-gray-200 to-gray-200 dark:from-gray-700 dark:via-gray-700 dark:to-gray-700"
           aria-hidden
         />
+        {/* Spacers à esquerda — centralizam as etapas quando o grupo tem menos
+            módulos que o maior grupo. */}
+        {Array.from({ length: leftSpacers }).map((_, i) => (
+          <div key={`spacer-l-${i}`} className="w-32 shrink-0" aria-hidden />
+        ))}
         {modules.map((mod) => {
           const completed = statusMap[mod.key]?.status === 'completed';
           const locked = !groupUnlocked || !previousDone;
@@ -359,11 +370,12 @@ function GroupTimeline({ modules, statusMap, groupUnlocked, progress, maxSize, o
           if (!completed) previousDone = false;
           return node;
         })}
-        {/* Spacers para alinhar o avatar final das 3 timelines na mesma coluna */}
-        {Array.from({ length: spacerCount }).map((_, i) => (
-          <div key={`spacer-${i}`} className="w-32 shrink-0" aria-hidden />
+        {/* Spacers à direita — completam a centralização antes do avatar final. */}
+        {Array.from({ length: rightSpacers }).map((_, i) => (
+          <div key={`spacer-r-${i}`} className="w-32 shrink-0" aria-hidden />
         ))}
-        {/* Avatar final do grupo — porcentagem / check */}
+        {/* Avatar final do grupo — porcentagem / check. Mantém coluna fixa à
+            direita, alinhado verticalmente entre os três grupos. */}
         <GroupFinishAvatar progress={progress} />
       </div>
     </div>
