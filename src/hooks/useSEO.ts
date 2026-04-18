@@ -71,6 +71,10 @@ const PAGE_DEFAULTS: Record<string, PageSEO> = {
     title: 'Estrutura',
     description: 'Conheça os espaços modernos e acolhedores: salas, laboratórios, quadras e muito mais.',
   },
+  loja: {
+    title: 'Loja',
+    description: 'Uniformes, material escolar e produtos oficiais. Compre com praticidade e receba em casa.',
+  },
 };
 
 // ── Meta tag helpers ──
