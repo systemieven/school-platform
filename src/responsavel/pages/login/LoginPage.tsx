@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useGuardian, normalizeCpf } from '../../contexts/GuardianAuthContext';
-import { Loader2, Eye, EyeOff, UserCheck } from 'lucide-react';
+import { Loader2, Eye, EyeOff, UserCheck, MessageCircle, AlertCircle } from 'lucide-react';
 import { useBranding } from '../../../contexts/BrandingContext';
 
 type Mode = 'login' | 'first-access';
@@ -14,52 +14,79 @@ function formatCpf(value: string): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
+function formatPhone(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 export default function GuardianLoginPage() {
-  const { signIn, firstAccess, session } = useGuardian();
+  const { signIn, requestAccess, session } = useGuardian();
   const { identity } = useBranding();
   const navigate = useNavigate();
 
-  const [mode, setMode]                   = useState<Mode>('login');
-  const [cpf, setCpf]                     = useState('');
-  const [password, setPassword]           = useState('');
-  const [newPassword, setNewPassword]     = useState('');
-  const [confirmPwd, setConfirmPwd]       = useState('');
-  const [showPwd, setShowPwd]             = useState(false);
-  const [loading, setLoading]             = useState(false);
-  const [error, setError]                 = useState('');
-  const [success, setSuccess]             = useState('');
+  const [mode, setMode]         = useState<Mode>('login');
+  const [cpf, setCpf]           = useState('');
+  const [password, setPassword] = useState('');
+  const [phone, setPhone]       = useState('');
+  const [showPwd, setShowPwd]   = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [sent, setSent]         = useState(false);
+  const [noWhats, setNoWhats]   = useState(false);
 
   if (session) return <Navigate to="/responsavel" replace />;
 
+  function resetMessages() {
+    setError(''); setSent(false); setNoWhats(false);
+  }
+
   function handleCpfChange(e: React.ChangeEvent<HTMLInputElement>) {
     setCpf(formatCpf(e.target.value));
+  }
+  function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPhone(formatPhone(e.target.value));
   }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     if (!cpf.trim() || !password) { setError('Preencha todos os campos.'); return; }
     if (normalizeCpf(cpf).length !== 11) { setError('CPF inválido.'); return; }
-    setLoading(true); setError('');
+    setLoading(true); resetMessages();
     const res = await signIn(cpf, password);
     if (res.error) { setError(res.error); setLoading(false); return; }
     navigate('/responsavel');
   }
 
-  async function handleFirstAccess(e: React.FormEvent) {
+  async function handleRequestAccess(e: React.FormEvent) {
     e.preventDefault();
-    if (!cpf.trim() || !newPassword || !confirmPwd) {
-      setError('Preencha todos os campos.'); return;
-    }
+    if (!cpf.trim() || !phone.trim()) { setError('Preencha CPF e telefone.'); return; }
     if (normalizeCpf(cpf).length !== 11) { setError('CPF inválido.'); return; }
-    if (newPassword.length < 6) { setError('A senha deve ter ao menos 6 caracteres.'); return; }
-    if (newPassword !== confirmPwd) { setError('As senhas não conferem.'); return; }
-    setLoading(true); setError('');
-    const res = await firstAccess(cpf, newPassword);
-    if (res.error) { setError(res.error); setLoading(false); return; }
-    setSuccess('Acesso ativado com sucesso! Você já pode entrar com seu CPF e nova senha.');
-    setMode('login');
-    setNewPassword(''); setConfirmPwd('');
+    if (phone.replace(/\D/g, '').length < 10) { setError('Telefone inválido.'); return; }
+
+    setLoading(true); resetMessages();
+    const res = await requestAccess(cpf, phone);
     setLoading(false);
+
+    if (res.status === 'sent') {
+      setSent(true);
+      return;
+    }
+    if (res.status === 'no_whatsapp') {
+      setNoWhats(true);
+      return;
+    }
+    if (res.status === 'rate_limited') {
+      setError(res.message ?? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.');
+      return;
+    }
+    if (res.status === 'invalid_input') {
+      setError(res.message ?? 'Dados inválidos.');
+      return;
+    }
+    setError(res.message ?? 'Erro ao solicitar acesso. Tente novamente.');
   }
 
   const inp = `w-full px-4 py-3 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-brand-primary dark:focus:border-brand-secondary outline-none transition-colors`;
@@ -79,19 +106,21 @@ export default function GuardianLoginPage() {
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6">
           {/* Mode tabs */}
           <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
-            <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+            <button onClick={() => { setMode('login'); resetMessages(); }}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${mode === 'login' ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
               Entrar
             </button>
-            <button onClick={() => { setMode('first-access'); setError(''); setSuccess(''); }}
+            <button onClick={() => { setMode('first-access'); resetMessages(); }}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${mode === 'first-access' ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
               Primeiro acesso
             </button>
           </div>
 
-          {error   && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg mb-4">{error}</p>}
-          {success && <p className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 rounded-lg mb-4">{success}</p>}
-
+          {error && (
+            <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg mb-4">
+              {error}
+            </p>
+          )}
           {mode === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
@@ -122,11 +151,65 @@ export default function GuardianLoginPage() {
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 {loading ? 'Entrando...' : 'Entrar'}
               </button>
+              <button
+                type="button"
+                onClick={() => { setMode('first-access'); resetMessages(); }}
+                className="w-full text-xs text-brand-primary hover:underline mt-2"
+              >
+                Esqueci minha senha / primeiro acesso
+              </button>
             </form>
+          ) : sent ? (
+            // Estado de sucesso — senha enviada por WhatsApp
+            <div className="space-y-4 text-center py-2">
+              <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto">
+                <MessageCircle className="w-7 h-7 text-emerald-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                Verifique seu WhatsApp
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                Enviamos uma senha provisória para o telefone cadastrado. Use seu CPF
+                e essa senha para entrar — você poderá trocá-la em seguida.
+              </p>
+              <button
+                onClick={() => { setMode('login'); resetMessages(); setPhone(''); }}
+                className="w-full py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors"
+              >
+                Ir para o login
+              </button>
+            </div>
+          ) : noWhats ? (
+            // Estado: número não tem WhatsApp ou CPF/telefone não conferem
+            <div className="space-y-4 text-center py-2">
+              <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-7 h-7 text-amber-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                Não conseguimos confirmar seus dados
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                O telefone informado não responde no WhatsApp ou não está cadastrado
+                em nossa base. Procure a secretaria para atualizar seu cadastro.
+              </p>
+              <Link
+                to="/agendar-visita"
+                className="block w-full py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors"
+              >
+                Falar com a secretaria
+              </Link>
+              <button
+                onClick={() => { setNoWhats(false); }}
+                className="w-full text-xs text-gray-500 hover:underline"
+              >
+                Tentar novamente
+              </button>
+            </div>
           ) : (
-            <form onSubmit={handleFirstAccess} className="space-y-4">
-              <p className="text-xs text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
-                Informe seu CPF cadastrado pela escola para ativar o acesso ao portal.
+            <form onSubmit={handleRequestAccess} className="space-y-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg leading-relaxed">
+                Informe o CPF e o telefone cadastrados pela escola. Enviaremos uma
+                senha provisória pelo WhatsApp — você poderá trocá-la no primeiro acesso.
               </p>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">CPF</label>
@@ -139,27 +222,19 @@ export default function GuardianLoginPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Nova senha</label>
-                <div className="relative">
-                  <input type={showPwd ? 'text' : 'password'} value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres" className={`${inp} pr-10`} />
-                  <button type="button" onClick={() => setShowPwd((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Confirmar senha</label>
-                <input type={showPwd ? 'text' : 'password'} value={confirmPwd}
-                  onChange={(e) => setConfirmPwd(e.target.value)}
-                  placeholder="Repita a senha" className={inp} />
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Telefone (WhatsApp)</label>
+                <input
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  placeholder="(00) 00000-0000"
+                  inputMode="tel"
+                  className={inp}
+                />
               </div>
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                {loading ? 'Ativando...' : 'Ativar acesso'}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                {loading ? 'Enviando...' : 'Enviar senha por WhatsApp'}
               </button>
             </form>
           )}
