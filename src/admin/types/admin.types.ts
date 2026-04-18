@@ -2049,7 +2049,7 @@ export interface DocumentRequest {
   updated_at: string;
   // Joins
   template?: DocumentTemplate;
-  student?: { id: string; full_name: string; enrollment_code: string | null } | null;
+  student?: { id: string; full_name: string; enrollment_number: string | null } | null;
 }
 
 export const DOCUMENT_REQUEST_STATUS_LABELS: Record<DocumentRequestStatus, string> = {
