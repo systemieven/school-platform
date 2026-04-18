@@ -691,9 +691,9 @@ export default function SettingsPage() {
               {activeTab === 'fiscal' && (() => {
                 const allFiscalSubs = [
                   { key: 'nfe', label: 'NF-e', module: 'settings-fiscal-nfe' },
-                  { key: 'nfse', label: 'NFS-e (Serviços)', module: 'settings-fiscal-nfse' },
-                  { key: 'nfce', label: 'NFC-e (Consumidor)', module: 'settings-fiscal-nfce' },
-                  { key: 'perfis', label: 'Perfis Fiscais', module: 'settings-fiscal-perfis' },
+                  { key: 'nfse', label: 'NFS-e', module: 'settings-fiscal-nfse' },
+                  { key: 'nfce', label: 'NFC-e', module: 'settings-fiscal-nfce' },
+                  { key: 'perfis', label: 'Perfis', module: 'settings-fiscal-perfis' },
                 ] as const;
                 const allowedSubs = allFiscalSubs.filter((s) => canView(s.module));
                 if (allowedSubs.length === 0) return null;
