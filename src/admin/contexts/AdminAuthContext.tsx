@@ -112,6 +112,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN' && session?.user) {
         // Fire-and-forget: audit login after sign-in (profile name fetched inside log_audit RPC)
         logAudit({ action: 'login', module: 'auth', description: 'Login realizado' });
+        // Fire-and-forget: pre-compute de insights proativos (Sprint 13.IA.v2)
+        supabase.functions
+          .invoke('ai-login-refresh', { body: { user_id: session.user.id } })
+          .catch(() => {});
       }
     });
 
