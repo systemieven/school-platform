@@ -6,6 +6,7 @@ import {
   LOJA_SUBTAB_MODULE_KEYS,
   SECRETARIA_SUBTAB_MODULE_KEYS,
   FINANCIAL_SUBTAB_MODULE_KEYS,
+  TEACHER_AREA_SUBTAB_MODULE_KEYS,
 } from './umbrella-modules';
 
 export const ADMIN_NAV: NavGroup[] = [
@@ -130,36 +131,13 @@ export const ADMIN_NAV: NavGroup[] = [
     label: 'Área do Professor',
     items: [
       {
-        key: 'teacher-dashboard',
-        label: 'Dashboard',
-        icon: 'LayoutDashboard',
+        key: 'area-professor',
+        label: 'Área do Professor',
+        icon: 'GraduationCap',
         path: '/admin/area-professor',
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
-        moduleKey: 'teacher-area',
-      },
-      {
-        key: 'teacher-turmas',
-        label: 'Minhas Turmas',
-        icon: 'BookOpen',
-        path: '/admin/area-professor/turmas',
-        roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
-        moduleKey: 'teacher-area',
-      },
-      {
-        key: 'teacher-planos',
-        label: 'Planos de Aula',
-        icon: 'FileText',
-        path: '/admin/area-professor/planos',
-        roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
-        moduleKey: 'teacher-lesson-plans',
-      },
-      {
-        key: 'teacher-provas',
-        label: 'Provas',
-        icon: 'FileQuestion',
-        path: '/admin/area-professor/provas',
-        roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
-        moduleKey: 'teacher-exams',
+        // Umbrella: visible iff user can view at least one sub-tab.
+        anyModuleKeys: TEACHER_AREA_SUBTAB_MODULE_KEYS,
       },
     ],
   },

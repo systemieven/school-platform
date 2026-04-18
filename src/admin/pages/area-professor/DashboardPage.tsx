@@ -143,7 +143,7 @@ export default function ProfessorDashboardPage() {
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.classesCount ?? 0}</p>
           <button
-            onClick={() => navigate('/admin/area-professor/turmas')}
+            onClick={() => navigate('/admin/area-professor?tab=turmas')}
             className="mt-2 text-xs text-brand-primary hover:underline"
           >
             Ver turmas
@@ -168,7 +168,7 @@ export default function ProfessorDashboardPage() {
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.pendingPlans ?? 0}</p>
           <button
-            onClick={() => navigate('/admin/area-professor/planos')}
+            onClick={() => navigate('/admin/area-professor?tab=planos')}
             className="mt-2 text-xs text-brand-primary hover:underline"
           >
             Ver planos

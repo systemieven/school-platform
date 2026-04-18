@@ -97,3 +97,15 @@ export const FINANCIAL_SUBTAB_MODULE_KEYS = [
   'nfse-apuracao',
   'fornecedores',                  // cobre fornecedores + NF-e de entrada
 ] as const;
+
+// /admin/area-professor — src/admin/pages/area-professor/AreaProfessorPage.tsx
+//
+// Umbrella da Área do Professor: agrega Dashboard + Turmas (ambos sob
+// `teacher-area`), Planos de Aula e Provas. Os drilldowns profundos
+// (`teacher-diary`, `teacher-activities`) são páginas próprias fora da
+// umbrella, então suas chaves não entram aqui.
+export const TEACHER_AREA_SUBTAB_MODULE_KEYS = [
+  'teacher-area',           // Dashboard + Turmas
+  'teacher-lesson-plans',   // Planos
+  'teacher-exams',          // Provas
+] as const;
