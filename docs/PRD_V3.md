@@ -1,8 +1,8 @@
 # PRD v3 — Plataforma Escolar (school-platform)
 
-> **Versao**: 3.5
-> **Data**: 17 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, Sprint 14.S.P-bis concluido, Sprint 14.S.P-ter concluido, Sprint 13.IA + 13.IA-dash concluidos (ai_agents + orchestrator multi-provider + 4 workers integrados + dashboard de consumo real via Admin APIs), Sprint 13.IA.v2 concluido (infra proativa ai_insights + 7 agentes contextuais + AiContextualNudge + pg_cron hourly/6h/12h), migrations 153-183) + roadmap ate v1 (F6.4 Documentação)
+> **Versao**: 3.6
+> **Data**: 18 de abril de 2026
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, Sprint 14.S.P-bis concluido, Sprint 14.S.P-ter concluido, Sprint 13.IA + 13.IA-dash concluidos (ai_agents + orchestrator multi-provider + 4 workers integrados + dashboard de consumo real via Admin APIs), Sprint 13.IA.v2 concluido (infra proativa ai_insights + 7 agentes contextuais + AiContextualNudge + pg_cron hourly/6h/12h), migrations 153-187, **Fase 16 em progresso — PR1 backend parcial** (staff autônomo + bucket hr-documents + módulos granulares)) + roadmap ate v1 (F6.4 Documentação)
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -1535,6 +1535,10 @@ Configuravel na aba Aparencia > Home:
 | 181 | `admin_financial_agents_seed` | 17/04 | ✅ **Sprint 13.IA.v2 PR4** — Seed de `financial_anomaly_scout` (cron 1h + event-driven em `financial_installments.status`, audience `['admin']`) e `admin_pulse` (run_on_login + cron 1h, audience `['admin']`). Trigger AFTER UPDATE em `financial_installments.status` → `ai-event-dispatcher`. |
 | 182 | `secretary_pulse_rpc_seed` | 17/04 | ✅ **Sprint 13.IA.v2 PR5** — RPC `detect_registration_issues()` (documentos expirando, matrículas incompletas, campos obrigatórios faltantes) + seed `secretary_pulse` (cron 1h, audience `['admin']`). |
 | 183 | `ai_scheduled_runner_crons` | 17/04 | ✅ **Sprint 13.IA.v2 PR5** — 3 jobs `pg_cron` (`ai_runner_hourly` `3 * * * *`, `ai_runner_6h` `5 */6 * * *`, `ai_runner_12h` `7 */12 * * *`) disparando `ai-scheduled-runner` via `net.http_post` com `x-trigger-secret` de `system_settings('internal','trigger_secret')`. Cada job passa `{cadence}` no body; runner faz fan-out por cadência. Idempotente (unschedule prévio por jobname). |
+| 184 | `dashboard_principal_widgets` | 18/04 | ✅ Estende CHECK de `dashboard_widgets.module` para incluir `'principal'` + nova tabela `dashboard_widget_prefs` (visibilidade/ordem dos widgets estáticos do registry). RLS espelhada da migration 74 (admin/super_admin edit, coordinator read). |
+| 185 | `hr_modules_seed` | 18/04 | 🟡 **Fase 16 PR1** — Módulos granulares `rh-colaboradores` (grupo `rh`, icon `Users`, position 300) e `rh-seletivo` (icon `Briefcase`, position 301). Defaults em `role_permissions`: admin all true; coordinator colaboradores view/edit, seletivo só view; teacher/user tudo false. |
+| 186 | `staff` | 18/04 | 🟡 **Fase 16 PR1** — Tabela standalone `staff` (independente de `profiles`): `profile_id UUID UNIQUE NULL FK profiles ON DELETE SET NULL`, dados pessoais (CPF UNIQUE, RG, CNH não, birth_date, email com CHECK de formato), endereço completo, `position NOT NULL`, `department`, `hire_date NOT NULL`, `termination_date`, `employment_type CHECK ('clt'|'pj'|'estagio'|'terceirizado')`, contato de emergência, avatar, `is_active`, notes. Trigger `sync_staff_to_profile_on_update` mantém `profiles.full_name/email/phone/avatar_url` espelhado enquanto `profile_id IS NOT NULL`. RLS: admin/super_admin ALL + demais roles via `get_effective_permissions('rh-colaboradores')` + self-service (`profile_id = auth.uid()`). |
+| 187 | `staff_documents_bucket` | 18/04 | 🟡 **Fase 16 PR1** — Bucket privado `hr-documents` (10MB, PDF/DOC/DOCX/JPEG/PNG) + tabela `staff_documents` (`document_type CHECK ('contrato'|'rg'|'cpf'|'comprovante_residencia'|'carteira_trabalho'|'diploma'|'outro')`, `file_path`, `filename`, `mime_type`, `size_bytes`, `expires_at`). RLS via módulo `rh-colaboradores` + self-service (próprio colaborador vê próprios docs via EXISTS em `staff`). Path convention `hr-documents/{staff_id}/{uuid}.{ext}`. |
 | 173 | `teacher_dashboard_access` | 17/04 | ✅ **Dashboard registry-driven** — libera `dashboard.can_view=true` para role `teacher` no seed de `role_permissions`. Antes, teacher batia no redirect do `<ModuleGuard moduleKey="dashboard">` mesmo tendo acesso a submódulos (teacher-diary, teacher-exams, occurrences). O novo `DashboardPage` único filtra widgets por `has_module_permission` + `requireRole`, então teacher passa a ver `Minhas aulas de hoje`, `Diário pendente`, `Provas a corrigir`, `Minhas turmas` e `Ocorrências recentes` (tenancy RLS da migration 145 continua escopando por `teacher_sees_student`). |
 
 ### 7.4 RLS Policies
@@ -1875,7 +1879,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 
 Roadmap original: — PR1: migrations 165-169 (`ai_usage_snapshots`, `ai_recharges`, extender `company_ai_config` com admin keys, RPC `ai_usage_stats`, job `pg_cron` 00:01). PR2: Edge Functions `ai-billing-sync` + `ai-billing-manual-refresh` (consomem Anthropic Admin API `/v1/organizations/usage_report` + OpenAI `/v1/organization/usage` e `/costs`). PR3: refactor `AiAgentsPanel` em sub-abas (Visão geral default, Agentes, Chaves) + novo `AiUsageDashboard` (KPIs periodo, saldo estimado por provider, top agentes, gráfico histórico, filtros Hoje/Semana/Mês/Personalizado). PR4 opcional: registro manual de recargas + alertas de saldo baixo. **Dependências de integração**: ⚠️ saldo em tempo real e auto-recarga **não têm API pública** em nenhum dos dois providers — dashboard lê tokens/custo via admin keys e estima saldo via snapshots + recargas manuais; auto-recarga fica read-only com deep link para o console do provider. Exige Admin API keys separadas das keys de inference (Anthropic: Organization Admin Key; OpenAI: `sk-admin-*` + `OpenAI-Organization` header). | Media | Admin API keys Anthropic/OpenAI + pg_cron + net.http_post |
 | Sprint 13.IA.v2 | Agentes Proativos Contextuais (event-driven + cron + nudge por rota) | ✅ **Concluído (2026-04-18)** — PR1-PR5 entregues, migrations 174-183. PR1 (infra): `ai_insights` + `ai_event_bindings`, 3 edge functions (`ai-event-dispatcher`, `ai-login-refresh`, `ai-scheduled-runner`), hook `useAiInsights`, `AiInsightsInbox` + `AiComposeMessage`, integração no `AdminAuthContext`/`AdminHeader`. PR2 (acadêmico): RPC `calculate_academic_risk` + agente `academic_pulse` (cron hourly) + `AiContextualNudge` (FAB bottom-right com `useAiRouteContext`, scoped por rota/role, NudgeBoundary defensivo). PR3 (portais): `student_study_buddy` (cron 6h), `guardian_pulse` (cron 12h), `lost_found_match` (trigger INSERT em `lost_found_items`) + hook `usePortalAiInsights` + montagem nos layouts do aluno e responsável. PR4 (financeiro): RPCs `delinquency_snapshot`/`admin_pulse_snapshot` + `financial_anomaly_scout` (cron 1h + trigger em `financial_installments.status`) + `admin_pulse` (run_on_login + cron 1h). PR5 (secretaria): RPC `detect_registration_issues` + `secretary_pulse` (cron 1h) + migration 183 com 3 jobs `pg_cron` (hourly/6h/12h) despachando para `ai-scheduled-runner`. Detalhes em §10.8C. | Media | Sprint 13.IA + 13.IA-dash |
-| Fase 16 | Módulo RH (colaboradores expandido, processo seletivo, folha de pagamento, agente `resume_screener`) | ⏳ Pendente (sem escopo detalhado) | Media | Cadastro de colaboradores (OP-1 PR5) |
+| Fase 16 | Módulo RH — Cadastro expandido + Processo seletivo + Captação pública + 3 agentes IA (`resume_screener`, `resume_extractor`, `pre_screening_interviewer`) | 🟡 **Em progresso (2026-04-18)** — plano aprovado em 5 PRs (folha de pagamento adiada para v2). **PR1 backend parcial**: migrations 185 (modules `rh-colaboradores` + `rh-seletivo` + defaults `role_permissions`), 186 (tabela `staff` standalone com `profile_id UNIQUE NULL FK profiles ON DELETE SET NULL`, trigger `sync_staff_to_profile_on_update`, RLS via `get_effective_permissions`), 187 (bucket privado `hr-documents` + tabela `staff_documents` com CHECK nos tipos). Migrations renumeradas +1 vs plano por colisão com 184 (dashboard_principal_widgets). **PR1 pendente**: edge functions `staff-grant-access` (valida dupla permissão `users.can_create` + `rh-colaboradores.can_edit`, role restrita a coordinator/teacher/user, cria auth+profile via `auth.admin.createUser`, linka `staff.profile_id`) e `staff-revoke-access` (soft-delete profile, zera profile_id); `ColaboradoresPage.tsx` com drawer multi-tabs + `GrantAccessPanel`; integrações sidebar/routes/UsersPage. **PR2 pendente**: seletivo kanban (migrations 188-189, `SeletivoPage`, trigger `promote_candidate_to_staff` no stage=contratado). **PR3 pendente**: `resume_screener` + `resume_extractor` no admin (migration 190 com seeds em `ai_agents`, pdfjs-dist client-side, card "Análise IA" no drawer do candidato). **PR4 pendente**: captação pública `/trabalhe-conosco` (migrations 191-195, edge functions `careers-intake` + `careers-interview-turn`, agente `pre_screening_interviewer` com DISC/Big Five/MBTI/STAR, Config > Site > Carreiras e Config > RH). **PR5 opcional**: importação em massa de colaboradores (migration 196, `bulk-import-staff`). Detalhes em §10.16. | Media | Cadastro de colaboradores (OP-1 PR5), Sprint 13.IA (ai-orchestrator), Fase 7 (Whitelabel system_settings) |
 | Fase 17 | Analytics Avançada (`cash_flow_forecast`, `satisfaction_analyzer`, `agenda_optimizer`, `stock_demand_forecast`) | ⏳ Pendente (pós-v1) | Baixa-Media | Sprint 13.IA.v2 |
 | DASH-1 | Dashboards por Permissao (1 dashboard compartilhado, blocos auto-filtrantes) | ✅ Concluido (2026-04-17) | Media-Alta | Permissoes granulares (migration 143) |
 
@@ -5733,6 +5737,144 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 - `npx tsc -b` ✅ zero erros (modo strict project references — usado pelo Lovable)
 - `npx vite build` ✅ build em ~5s
 - Tested manually post-deploy: super_admin ve DashboardPage com todos os widgets; coordenador/professor/portaria/financeiro veem SharedDashboard com widgets contextuais; usuario sem permissoes ve empty-state.
+
+---
+
+### 10.17 Fase 16 — Módulo RH (cadastro + processo seletivo + captação pública)
+
+**Status**: 🟡 Em progresso (plano aprovado em 2026-04-18, PR1 backend parcial entregue)
+
+**Contexto**: colaboradores antes eram apenas `profiles` (email/nome/role/sector_keys) — sem CPF, endereço, cargo, documentos. Colaboradores de serviços gerais/cozinha/zeladoria não deveriam ocupar linha em `auth.users`. Processo seletivo vivia em planilhas externas. A Fase 16 estabelece RH como cidadão de primeira classe com entidade `staff` autônoma, promoção opt-in para `profiles` via edge function, pipeline de contratação no admin e captação pública no site.
+
+**Folha de pagamento fica adiada para v2** (custo desproporcional para manter tabelas legais INSS/IRRF na v1).
+
+#### Escopo aprovado (5 PRs)
+
+1. **Cadastro autônomo de colaboradores** — tabela `staff` independente de `profiles` (um `staff` pode existir sem conta no sistema).
+2. **Promoção opt-in** — botão "Criar acesso ao sistema" no drawer cria `auth.users`+`profiles` e linka via `staff.profile_id`; gated por dupla permissão (`users.can_create` + `rh-colaboradores.can_edit`); role restrita a `coordinator|teacher|user` (admin/super_admin continuam exclusivos do super_admin via UsersPage).
+3. **Processo seletivo kanban** — vagas + candidatos com stages (novo → triagem → entrevista → proposta → contratado/descartado); trigger `promote_candidate_to_staff` cria `staff` ao marcar `contratado`.
+4. **Captação pública** — página `/trabalhe-conosco` no site institucional, 3 passos (form básico + upload CV, extração automática de dados via `resume_extractor`, entrevista pré-candidatura com `pre_screening_interviewer` que gera relatório markdown). Totalmente customizável via `system_settings` key `content.careers` (padrão Whitelabel Fase 7).
+5. **Três agentes IA**:
+   - `resume_extractor` — extrai JSON estruturado do CV (CPF, RG, CNH, experiência, formação, endereço).
+   - `pre_screening_interviewer` — conduz 6 perguntas no site aplicando DISC/Big Five/MBTI/STAR; gera relatório markdown.
+   - `resume_screener` — pontua compatibilidade CV vs requisitos da vaga (roda no admin, não no site).
+6. **Sub-módulos granulares** — `rh-colaboradores`, `rh-seletivo`, `settings-rh` para isolar dados sensíveis de coordenador/teacher.
+
+#### Divisão em PRs
+
+| PR | Objetivo | Status | Migrations |
+|----|----------|--------|------------|
+| PR1 | Cadastro autônomo + promoção | 🟡 Backend parcial | 185, 186, 187 |
+| PR2 | Processo seletivo (kanban) | ⏳ Pendente | 188, 189 |
+| PR3 | `resume_screener` + `resume_extractor` | ⏳ Pendente | 190 |
+| PR4 | Captação pública + entrevista | ⏳ Pendente | 191, 192, 193, 194, 195 |
+| PR5 (opcional) | Importação em massa | ⏳ Pendente | 196 |
+
+> Numeração renumerada **+1 vs plano original** — migration 184 já existia (`dashboard_principal_widgets`).
+
+#### PR1 — Cadastro autônomo + promoção (🟡 backend parcial)
+
+**Entregue**:
+- `00000000000185_hr_modules_seed.sql` — módulos `rh-colaboradores` e `rh-seletivo` no grupo `rh` + defaults em `role_permissions`:
+  - admin: all true
+  - coordinator: `rh-colaboradores` view/edit, `rh-seletivo` só view
+  - teacher/user: nada
+- `00000000000186_staff.sql` — tabela standalone com `profile_id UUID UNIQUE NULL FK profiles(id) ON DELETE SET NULL`, `full_name`, `email` (CHECK formato), `phone`, `cpf UNIQUE`, `rg`, `birth_date`, endereço completo (`address_street/number/complement/neighborhood/city/state/zip`), `position NOT NULL`, `department`, `hire_date NOT NULL`, `termination_date`, `employment_type CHECK ('clt'|'pj'|'estagio'|'terceirizado')`, contato de emergência, `avatar_url`, `is_active`, `notes`, `created_by`. Trigger `sync_staff_to_profile_on_update` mantém `profiles` espelhado enquanto `profile_id IS NOT NULL`. RLS via `get_effective_permissions` + self-service (`profile_id = auth.uid()`).
+- `00000000000187_staff_documents_bucket.sql` — bucket privado `hr-documents` (10MB, PDF/DOC/DOCX/JPEG/PNG) + tabela `staff_documents` (types: `contrato|rg|cpf|comprovante_residencia|carteira_trabalho|diploma|outro`) com RLS via módulo e self-service.
+
+**Pendente**:
+- Edge Functions:
+  - `staff-grant-access` — valida `users.can_create` + `rh-colaboradores.can_edit` via `get_effective_permissions`, valida `role ∈ {coordinator,teacher,user}` (super_admin/admin ficam de fora), `auth.admin.createUser` com `must_change_password=true`, copia dados para `profiles`, UPDATE `staff.profile_id`, retorna `{ profile_id, temp_password }`.
+  - `staff-revoke-access` — soft-delete profile (`is_active=false`) + zera `staff.profile_id`. Preserva `auth.users` para manter `audit_logs`.
+- Frontend:
+  - `ColaboradoresPage.tsx` (`/admin/rh/colaboradores`) com listagem + filtros (department/status) + badge "Tem acesso ao sistema".
+  - `ColaboradorDrawer.tsx` com tabs: Dados pessoais / Dados profissionais / Endereço / Documentos / Acesso ao sistema.
+  - `GrantAccessPanel.tsx` — botão "Criar acesso ao sistema" + Select de role + fluxo de temp_password; quando linkado: "Remover acesso".
+  - Hooks: `useStaff.ts`, `useStaffDocuments.ts`.
+  - Sidebar: novo grupo "RH" (icon `Users`) com item "Colaboradores" + `ModuleGuard('rh-colaboradores')`.
+  - Rota `/admin/rh/colaboradores` no router.
+  - Integração `UsersPage`: badge "Colaborador RH" + link para drawer.
+
+**Decisões chave**:
+- `staff` é fonte de verdade para dados RH. Quando promovido, `full_name`/`email`/`phone` duplicam em `profiles` via trigger, mas RH ganha em caso de divergência.
+- Demotar não apaga `auth.users` (preserva auditoria). Profile soft-deleted.
+- Promoção via API direta com role admin/super_admin é rejeitada (403) pelo CHECK do edge function — nunca permite escalada silenciosa.
+
+#### PR2 — Processo seletivo (⏳ pendente)
+
+**Migrations**:
+- `188_job_openings.sql` — `id`, `title`, `department`, `description`, `requirements` (entra no prompt do screener), `employment_type`, `location`, `salary_range_min/max`, `status CHECK ('draft'|'published'|'paused'|'closed')`, `opened_at/closed_at`.
+- `189_candidates_and_applications.sql` — `candidates` (UNIQUE email), `job_applications` (FK opening + candidate UNIQUE, `stage CHECK ('novo'|'triagem'|'entrevista'|'proposta'|'contratado'|'descartado')`, `resume_path`, `screener_score/summary/payload/screened_at`, `rejected_reason`, `hired_staff_id UUID NULL FK staff`). Inclui RPC `promote_candidate_to_staff(application_id)` + trigger AFTER UPDATE OF stage WHEN `NEW.stage='contratado'`.
+
+**Frontend**:
+- `SeletivoPage.tsx` (`/admin/rh/seletivo`) com sub-tabs "Vagas" e "Candidatos".
+- Vagas: listagem + drawer com descrição em `HtmlTemplateEditor` (TV-1).
+- Candidatos: kanban horizontal com 6 colunas, drag-and-drop, card com score do screener.
+- `CandidatoDrawer` com viewer PDF inline + card "Análise IA" + histórico de stages.
+- Upload via `hr-documents/_recruitment/{application_id}/resume.pdf`.
+
+#### PR3 — Agentes `resume_screener` + `resume_extractor` (⏳ pendente)
+
+**Migration 190**: seed em `ai_agents`:
+- `resume_screener` — Haiku 4.5, `temperature=0.2`, `max_tokens=800`, retorna `{score_0_100, pros[], cons[], recommendation, reasoning}`.
+- `resume_extractor` — Haiku 4.5, retorna JSON com CPF/RG/CNH + experiência/formação/endereço.
+
+**Frontend**:
+- `extractPdfText.ts` wrapper sobre `pdfjs-dist` (lazy-load, pinado sem caret conforme CLAUDE.md).
+- Botão "Analisar com IA" no drawer do candidato: download via signed URL → parse → `ai-orchestrator` → UPDATE em `job_applications`.
+- Auto-trigger fire-and-forget ao criar candidatura com CV; score ≥ 85 cria `ai_insight` para admin (integra inbox Sprint 13.IA.v2).
+
+**Trigger `promote_candidate_to_staff`** (documentado em PR2, implementado junto com PR3 integration tests): ao mover para `contratado`, cria row em `staff` com `position=job_openings.title` + `hire_date=CURRENT_DATE`, preenche `hired_staff_id`.
+
+#### PR4 — Captação pública + entrevista (⏳ pendente)
+
+**Migrations**:
+- `191_job_positions_catalog.sql` — `id`, `title UNIQUE`, `area CHECK ('administrativa'|'educacional'|'servicos_gerais')`, `description`, `is_published`, `position`. RLS: SELECT público onde `is_published=true`; admin full via `settings-rh`.
+- `192_pre_screening_sessions.sql` — `id`, `application_id FK`, `status CHECK ('active'|'completed'|'abandoned')`, `messages JSONB` (array `{role,text,timestamp}`), `area`, `started_at/completed_at`, `expires_at DEFAULT now() + interval '30 min'`.
+- `193_careers_public_fields.sql` — ALTER `job_applications` ADD `pre_screening_status`, `pre_screening_report TEXT`, `source TEXT DEFAULT 'manual'`; ALTER `candidates` ADD `cpf`, `rg`, `cnh_number`, `cnh_category`, `address_*`, `experience JSONB`, `education JSONB`.
+- `194_settings_rh_module_seed.sql` — módulo `settings-rh` + defaults (só admin/super_admin) + INSERT default de `content.careers` em `system_settings`.
+- `195_pre_screening_interviewer_seed.sql` — agente com system_prompt (DISC/Big Five/MBTI/STAR, 6 perguntas, relatório markdown estruturado).
+
+**Edge Functions**:
+- `careers-intake` (`verify_jwt=false`) — rate-limit por IP, valida captcha opcional (Turnstile), chama `resume_extractor`, UPSERT candidato, INSERT application com `source='public_form'`, cria session com TTL 30min.
+- `careers-interview-turn` (`verify_jwt=false`) — valida session por token, append mensagem, chama `ai-orchestrator`; se finalizado, UPDATE `pre_screening_report` + dispara `ai_insight`.
+
+**Frontend público**:
+- `src/pages/TrabalheConosco.tsx` (wizard 3 passos) + `CareersForm`, `CareersInterview` (chat WhatsApp-style), `CareersThankYou`.
+- Parser client-side com `pdfjs-dist` (reaproveita `extractPdfText.ts` de PR3).
+- `usePublicCareersConfig.ts` lê `content.careers` de `system_settings`.
+
+**Frontend admin**:
+- Nova aba `/admin/configuracoes?tab=rh` (gated por `settings-rh`) com CRUD de `job_positions_catalog`.
+- Sub-aba `/admin/configuracoes?tab=site` → "Carreiras" (hero_title/subtitle/image, why_work_here[], faq[], thank_you_message).
+- Cards "Entrevista pré-candidatura" (markdown render) e "Dados extraídos do CV" no drawer do candidato.
+
+#### PR5 (opcional) — Importação em massa (⏳ pendente)
+
+- `196_bulk_import_staff_key.sql` — registro em `migration_modules` (padrão OP-1).
+- Edge Function `bulk-import-staff` — INSERT em `staff` sem criar auth/profile.
+- Reaproveita `ModuleImportWizard` do hub `/admin/migracao`.
+
+#### Riscos/decisões documentadas
+
+- **PDF parsing no client** (`pdfjs-dist` ~500KB): lazy-load só quando drawer de candidato monta.
+- **Duplicação staff↔profiles**: trigger mantém sincronia enquanto linkado; staff ganha se divergir.
+- **Promoção sem escalada**: edge function recusa admin/super_admin no body.
+- **LGPD/PII**: bucket privado + RLS + `audit_logs` via `logAudit`. Consentimento obrigatório no form público. Purge de CVs descartados após 180 dias (cron a ser definido).
+- **Prompt injection via CV**: wrapper defensivo `### USER RESUME (untrusted) ... ### END` + validação estrita do JSON retornado.
+- **Custo IA**: `resume_screener` ~$0.005/CV; `resume_extractor`+`pre_screening_interviewer` agregados ~$0.023/candidato público; 100/mês ≈ $2.30.
+- **Abuso endpoint público**: rate-limit IP, captcha opcional, session TTL 30min, limite 5MB no upload.
+- **Migration numbering**: PRs 1-4 consomem 185-195 (11 migrations). PR5 soma 196.
+
+#### Ordem de execução
+
+1. **PR1** fundacional — destrava PR4 e PR5.
+2. **PR2** kanban — base do PR3 e PR4.
+3. **PR3** agentes admin — depende de PR2.
+4. **PR4** captação pública — depende de PR2 e PR3 (reusa extractor).
+5. **PR5** bulk import — opcional.
+
+Commit/push via `./scripts/push-all.sh` a cada PR completo (branch `base`, sem force-push). Folha de pagamento e módulo `rh-folha` permanecem como ⏳ Pendente v2.
 
 ---
 
