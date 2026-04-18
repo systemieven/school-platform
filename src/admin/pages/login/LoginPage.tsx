@@ -39,7 +39,7 @@ export default function LoginPage() {
               <img
                 src={identity.logo_url}
                 alt={identity.school_name || 'Logo'}
-                className="h-16 w-auto object-contain"
+                className="h-32 w-auto object-contain"
               />
             ) : (
               <div className="w-16 h-16 rounded-2xl bg-brand-primary/10 flex items-center justify-center">
