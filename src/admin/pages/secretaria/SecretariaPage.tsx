@@ -238,7 +238,7 @@ function TemplateDrawer({
                 { key: 'escola', label: 'Escola' },
               ].filter((v, i, a) => a.findIndex((x) => x.key === v.key) === i)}
               placeholder="Escreva o conteúdo do documento. Use os chips acima para inserir variáveis."
-              minHeight="calc(100vh - 15rem)"
+              minHeight="calc(100vh - 17rem)"
             />
           </DrawerCard>
         </div>

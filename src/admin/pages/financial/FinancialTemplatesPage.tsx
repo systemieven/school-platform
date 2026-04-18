@@ -14,6 +14,87 @@ import {
 import { SelectDropdown } from '../../components/FormField';
 import HtmlTemplateEditor from '../../components/HtmlTemplateEditor';
 
+/**
+ * Variáveis padrão disponíveis como chips no editor, por tipo de documento
+ * financeiro. Seguem a mesma convenção `{{chave}}` que secretaria usa; são
+ * pistas pro usuário e podem ser complementadas via `template.variables`
+ * (variáveis adicionais declaradas no drawer).
+ */
+const FINANCIAL_BASE_VARS: { key: string; label: string }[] = [
+  // Aluno
+  { key: 'nome_aluno',          label: 'Aluno' },
+  { key: 'matricula',           label: 'Matrícula' },
+  { key: 'turma',               label: 'Turma' },
+  { key: 'serie',               label: 'Série' },
+  { key: 'ano_letivo',          label: 'Ano letivo' },
+  { key: 'turno',               label: 'Turno' },
+  // Responsável
+  { key: 'nome_responsavel',    label: 'Responsável' },
+  { key: 'cpf_responsavel',     label: 'CPF Resp.' },
+  { key: 'rg_responsavel',      label: 'RG Resp.' },
+  { key: 'endereco_responsavel', label: 'Endereço Resp.' },
+  { key: 'telefone_responsavel', label: 'Telefone Resp.' },
+  { key: 'email_responsavel',   label: 'E-mail Resp.' },
+  // Escola
+  { key: 'escola',              label: 'Escola' },
+  { key: 'cnpj_escola',         label: 'CNPJ Escola' },
+  { key: 'endereco_escola',     label: 'Endereço Escola' },
+  { key: 'cidade',              label: 'Cidade' },
+  // Data
+  { key: 'data_emissao',        label: 'Data emissão' },
+  { key: 'data_assinatura',     label: 'Data assinatura' },
+];
+
+const FINANCIAL_TYPE_VARS: Record<ContractTemplateType, { key: string; label: string }[]> = {
+  contract: [
+    { key: 'plano',               label: 'Plano' },
+    { key: 'valor_mensalidade',   label: 'Mensalidade' },
+    { key: 'valor_total',         label: 'Valor total' },
+    { key: 'quantidade_parcelas', label: 'Qtd. parcelas' },
+    { key: 'vencimento_dia',      label: 'Dia de venc.' },
+    { key: 'desconto',            label: 'Desconto' },
+  ],
+  receipt: [
+    { key: 'numero_recibo',       label: 'Nº recibo' },
+    { key: 'valor_pago',          label: 'Valor pago' },
+    { key: 'valor_por_extenso',   label: 'Valor por extenso' },
+    { key: 'data_pagamento',      label: 'Data pagto.' },
+    { key: 'forma_pagamento',     label: 'Forma pagto.' },
+    { key: 'referencia',          label: 'Referência' },
+  ],
+  boleto: [
+    { key: 'numero_boleto',       label: 'Nº boleto' },
+    { key: 'valor',               label: 'Valor' },
+    { key: 'vencimento',          label: 'Vencimento' },
+    { key: 'linha_digitavel',     label: 'Linha digitável' },
+    { key: 'codigo_barras',       label: 'Cód. barras' },
+    { key: 'beneficiario',        label: 'Beneficiário' },
+  ],
+  enrollment_form: [
+    { key: 'data_matricula',      label: 'Data matrícula' },
+    { key: 'plano',               label: 'Plano' },
+    { key: 'valor_matricula',     label: 'Valor matrícula' },
+  ],
+  termination: [
+    { key: 'motivo_rescisao',     label: 'Motivo' },
+    { key: 'data_rescisao',       label: 'Data rescisão' },
+    { key: 'saldo_pendente',      label: 'Saldo pendente' },
+  ],
+};
+
+function buildTemplateVariables(
+  type: ContractTemplateType,
+  userVars: { key: string; label?: string }[],
+): { key: string; label?: string }[] {
+  const merged = [
+    ...FINANCIAL_BASE_VARS,
+    ...FINANCIAL_TYPE_VARS[type],
+    ...userVars.filter((v) => v && v.key),
+  ];
+  // dedup por chave (primeira ocorrência vence)
+  return merged.filter((v, i, a) => a.findIndex((x) => x.key === v.key) === i);
+}
+
 const TYPE_ICON_COLOR: Record<ContractTemplateType, string> = {
   contract: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
   receipt: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
@@ -271,13 +352,10 @@ export default function FinancialTemplatesPage() {
                 <HtmlTemplateEditor
                   value={editing.content}
                   onChange={(html) => updateField('content', html)}
-                  variables={editing.variables}
+                  variables={buildTemplateVariables(editing.template_type, editing.variables)}
                   placeholder="Escreva o conteúdo do template. Use os chips acima para inserir variáveis."
-                  minHeight="calc(100vh - 15rem)"
+                  minHeight="calc(100vh - 17rem)"
                 />
-                <p className="text-[11px] text-gray-400 mt-2">
-                  Clique nos chips para inserir <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{{variavel}}'}</code> no cursor. Declare novas variáveis ao lado.
-                </p>
               </DrawerCard>
             </div>
 
@@ -315,7 +393,10 @@ export default function FinancialTemplatesPage() {
                 </label>
               </DrawerCard>
 
-              <DrawerCard title="Variáveis disponíveis" icon={Code2}>
+              <DrawerCard title="Variáveis adicionais" icon={Code2}>
+                <p className="text-[11px] text-gray-400 -mt-1 mb-2">
+                  As variáveis padrão (aluno, responsável, escola e específicas do tipo) já aparecem como chips no editor. Declare aqui qualquer chave extra.
+                </p>
                 <div className="space-y-2">
                   {editing.variables.map((v, idx) => (
                     <div key={idx} className="flex items-center gap-2">
