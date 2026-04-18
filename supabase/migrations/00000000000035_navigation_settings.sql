@@ -6,12 +6,15 @@
 
 INSERT INTO system_settings (category, key, value) VALUES
   -- social_links and whatsapp live in general (Dados Institucionais) — single source of truth
+  -- NOTA: rotas dos portais corrigidas em migration 196 (antes apontavam
+  -- para /portal-aluno, /area-professor e /biblioteca-virtual — nenhuma
+  -- existente em App.tsx). Seed default abaixo ja esta nos paths reais.
   ('navigation', 'topbar', '{
     "show_topbar": true,
     "quick_links": [
-      { "label": "Portal do Aluno",    "route": "/portal-aluno" },
-      { "label": "Biblioteca Virtual", "route": "/biblioteca-virtual" },
-      { "label": "Área do Professor",  "route": "/area-professor" }
+      { "label": "Portal do Aluno",       "route": "/portal/login" },
+      { "label": "Portal do Responsável", "route": "/responsavel/login" },
+      { "label": "Área do Professor",     "route": "/professor/login" }
     ]
   }'::jsonb),
 
@@ -40,9 +43,9 @@ INSERT INTO system_settings (category, key, value) VALUES
       {
         "title": "Links Rápidos",
         "links": [
-          { "label": "Portal do Aluno",    "route": "/portal-aluno" },
-          { "label": "Biblioteca Virtual", "route": "/biblioteca-virtual" },
-          { "label": "Área do Professor",  "route": "/area-professor" }
+          { "label": "Portal do Aluno",       "route": "/portal/login" },
+          { "label": "Portal do Responsável", "route": "/responsavel/login" },
+          { "label": "Área do Professor",     "route": "/professor/login" }
         ]
       },
       {

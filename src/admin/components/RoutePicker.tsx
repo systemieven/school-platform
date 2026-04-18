@@ -9,6 +9,10 @@ interface RoutePickerProps {
   allowExternal?: boolean;
 }
 
+// Espelha src/App.tsx — TODAS as rotas aqui devem existir nele.
+// Antes apontava para /portal-aluno, /area-professor e /biblioteca-virtual
+// que NUNCA existiram no router (caiam no NotFound). Corrigido para
+// rotas reais dos 3 portais + loja + atendimento.
 const AVAILABLE_ROUTES = [
   { group: 'Institucional', routes: [
     { path: '/', label: 'Inicio' },
@@ -26,10 +30,16 @@ const AVAILABLE_ROUTES = [
   { group: 'Matricula', routes: [
     { path: '/matricula', label: 'Matricula' },
   ]},
+  { group: 'Loja', routes: [
+    { path: '/loja', label: 'Loja' },
+  ]},
   { group: 'Portais', routes: [
-    { path: '/portal-aluno', label: 'Portal do Aluno' },
-    { path: '/area-professor', label: 'Area do Professor' },
-    { path: '/biblioteca-virtual', label: 'Biblioteca Virtual' },
+    { path: '/portal/login',       label: 'Portal do Aluno' },
+    { path: '/responsavel/login',  label: 'Portal do Responsavel' },
+    { path: '/professor/login',    label: 'Area do Professor' },
+  ]},
+  { group: 'Atendimento', routes: [
+    { path: '/atendimento', label: 'Atendimento (QR)' },
   ]},
   { group: 'Legal', routes: [
     { path: '/politica-privacidade', label: 'Politica de Privacidade' },
