@@ -4,6 +4,7 @@ import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { Lock, Mail, Eye, EyeOff, Loader2, AlertCircle, Building2, MessageCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { useBranding } from '../../../contexts/BrandingContext';
 import { supabase } from '../../../lib/supabase';
+import { InputField } from '../../components/FormField';
 
 type Mode = 'login' | 'forgot';
 
@@ -120,46 +121,37 @@ export default function LoginPage() {
 
           {mode === 'login' ? (
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* E-mail */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">E-mail</label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    required
-                    autoComplete="email"
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all text-sm"
-                  />
-                </div>
-              </div>
+              <InputField
+                label="E-mail institucional"
+                icon={Mail}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+                autoComplete="email"
+              />
 
-              {/* Senha */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Senha</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    autoComplete="current-password"
-                    className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all text-sm"
-                  />
+              <InputField
+                label="Senha"
+                icon={Lock}
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+                rightSlot={
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                    tabIndex={-1}
                   >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
-                </div>
-              </div>
+                }
+              />
 
               {/* Submit */}
               <button
@@ -220,21 +212,16 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">E-mail</label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    required
-                    autoComplete="email"
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all text-sm"
-                  />
-                </div>
-              </div>
+              <InputField
+                label="E-mail cadastrado"
+                icon={Mail}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+                autoComplete="email"
+              />
 
               <button
                 type="submit"
