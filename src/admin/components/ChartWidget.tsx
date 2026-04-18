@@ -180,6 +180,73 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
     }));
   }
 
+  // ── Principal (cross-module) ──────────────────────────────────────────────
+
+  if (source === 'leads_by_month') {
+    const { data } = await supabase
+      .from('contact_requests')
+      .select('created_at')
+      .gte('created_at', start + 'T00:00:00')
+      .lte('created_at', end + 'T23:59:59');
+    const agg: Record<string, number> = {};
+    (data ?? []).forEach((r: { created_at: string }) => {
+      const ym = toYYYYMM(r.created_at.slice(0, 10));
+      agg[ym] = (agg[ym] ?? 0) + 1;
+    });
+    return Object.entries(agg)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([ym, value]) => ({ month: fmtMonth(ym), value }));
+  }
+
+  if (source === 'appointments_by_status') {
+    const { data } = await supabase
+      .from('visit_appointments')
+      .select('status')
+      .gte('created_at', start + 'T00:00:00')
+      .lte('created_at', end + 'T23:59:59');
+    const labels: Record<string, string> = {
+      pending: 'Pendente', confirmed: 'Confirmado', completed: 'Realizado',
+      cancelled: 'Cancelado', no_show: 'Não compareceu',
+    };
+    const agg: Record<string, number> = {};
+    (data ?? []).forEach((r: { status: string }) => {
+      const name = labels[r.status] ?? r.status;
+      agg[name] = (agg[name] ?? 0) + 1;
+    });
+    return Object.entries(agg).map(([name, value]) => ({ name, value }));
+  }
+
+  if (source === 'enrollments_funnel') {
+    const [leads, visits, enrolls] = await Promise.all([
+      supabase.from('contact_requests').select('id', { count: 'exact', head: true }).gte('created_at', start + 'T00:00:00').lte('created_at', end + 'T23:59:59'),
+      supabase.from('visit_appointments').select('id', { count: 'exact', head: true }).gte('created_at', start + 'T00:00:00').lte('created_at', end + 'T23:59:59'),
+      supabase.from('enrollments').select('id', { count: 'exact', head: true }).gte('created_at', start + 'T00:00:00').lte('created_at', end + 'T23:59:59'),
+    ]);
+    return [
+      { name: 'Leads', value: leads.count ?? 0 },
+      { name: 'Visitas', value: visits.count ?? 0 },
+      { name: 'Matrículas', value: enrolls.count ?? 0 },
+    ];
+  }
+
+  if (source === 'wa_messages_by_status') {
+    const { data } = await supabase
+      .from('whatsapp_messages')
+      .select('status')
+      .gte('created_at', start + 'T00:00:00')
+      .lte('created_at', end + 'T23:59:59');
+    const labels: Record<string, string> = {
+      sent: 'Enviada', delivered: 'Entregue', read: 'Lida',
+      failed: 'Falhou', queued: 'Na fila',
+    };
+    const agg: Record<string, number> = {};
+    (data ?? []).forEach((r: { status: string }) => {
+      const name = labels[r.status] ?? r.status;
+      agg[name] = (agg[name] ?? 0) + 1;
+    });
+    return Object.entries(agg).map(([name, value]) => ({ name, value }));
+  }
+
   // ── Academic ───────────────────────────────────────────────────────────────
 
   if (source === 'class_occupancy') {

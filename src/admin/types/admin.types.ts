@@ -1666,7 +1666,18 @@ export type ChartPeriod =
   | '3months' | '6months' | '12months'
   | 'current_year' | 'previous_year';
 
-export type DashboardModule = 'financeiro' | 'academico';
+export type DashboardModule = 'financeiro' | 'academico' | 'principal';
+
+export interface DashboardWidgetPref {
+  id: string;
+  module: DashboardModule;
+  registry_widget_id: string;
+  is_visible: boolean;
+  position: number;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface WidgetConfig {
   period?: ChartPeriod;
@@ -1714,6 +1725,16 @@ export const FINANCIAL_DATA_SOURCES: { value: string; label: string; description
   { value: 'installments_status_dist',  label: 'Distribuição de Parcelas',       description: 'Parcelas por status: pago / pendente / vencido',       suggested: ['pie', 'donut'] },
   { value: 'collection_funnel',         label: 'Funil de Cobrança',              description: 'Valor total por status de cobrança',                  suggested: ['bar_horizontal'] },
   { value: 'monthly_revenue_vs_overdue',label: 'Receita × Inadimplência',        description: 'Receita recebida vs. inadimplência por mês',           suggested: ['bar'] },
+];
+
+export const PRINCIPAL_DATA_SOURCES: { value: string; label: string; description: string; suggested: ChartType[] }[] = [
+  { value: 'leads_by_month',          label: 'Leads por Mês',                  description: 'Volume de contatos recebidos no site mês a mês',     suggested: ['bar', 'line', 'area'] },
+  { value: 'appointments_by_status',  label: 'Agendamentos por Status',        description: 'Visitas agendadas agrupadas por status',             suggested: ['donut', 'pie'] },
+  { value: 'enrollments_funnel',      label: 'Funil de Matrícula',             description: 'Lead → Visita → Matrícula',                          suggested: ['bar_horizontal'] },
+  { value: 'revenue_by_month',        label: 'Receita por Mês',                description: 'Receita recebida mês a mês',                         suggested: ['bar', 'line', 'area'] },
+  { value: 'overdue_trend',           label: 'Evolução da Inadimplência',      description: 'Valor inadimplente acumulado mês a mês',             suggested: ['line', 'area'] },
+  { value: 'class_occupancy',         label: 'Ocupação por Turma',             description: 'Taxa de ocupação (%) de cada turma ativa',           suggested: ['bar'] },
+  { value: 'wa_messages_by_status',   label: 'Mensagens WhatsApp por Status',  description: 'Distribuição de envios (sent/delivered/read/failed)', suggested: ['donut'] },
 ];
 
 export const ACADEMIC_DATA_SOURCES: { value: string; label: string; description: string; suggested: ChartType[] }[] = [

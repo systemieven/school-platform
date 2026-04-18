@@ -2,29 +2,36 @@
  * DashboardPage
  *
  * Página única do painel `/admin`, dirigida pelo registry de widgets
- * (`./registry.tsx`). Funciona para qualquer role — o gating acontece
- * por módulo via `has_module_permission` (super_admin passa por bypass).
+ * (`./registry.tsx`) e personalizável via `dashboard_widget_prefs`
+ * (visibilidade/ordem dos widgets do registry) + `dashboard_widgets`
+ * com `module='principal'` (gráficos custom — mesma infra dos
+ * dashboards Financeiro e Acadêmico).
  *
  * Fluxo:
- *   1. Filtra widgets por (requireRole? AND anyModuleKeys matches canView)
- *   2. Dispara `Promise.all` nos `load()` dos visíveis (queries gated
- *      nunca rodam para quem não verá)
- *   3. Renderiza por slot: KPIs → Charts → Listas → Wide
+ *   1. Carrega prefs (admin pode esconder/reordenar via drawer).
+ *   2. Filtra registry por (requireRole? AND anyModuleKeys matches canView)
+ *      e aplica prefs (is_visible/position).
+ *   3. Dispara `Promise.all` nos `load()` dos visíveis.
+ *   4. Renderiza por slot: KPIs → Charts → Listas → Wide.
+ *   5. Mostra `DashboardChartGrid module="principal"` para gráficos custom.
  *
- * Adicionar widgets novos = 1 entrada em DASHBOARD_WIDGETS. Sem dispatch,
- * sem split por role, sem duplicação.
+ * Adicionar widgets novos = 1 entrada em DASHBOARD_WIDGETS + (opcional)
+ * label em WIDGET_LABELS.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Lock } from 'lucide-react';
+import { Loader2, Lock, Sliders } from 'lucide-react';
 
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { usePermissions } from '../../contexts/PermissionsContext';
+import { supabase } from '../../../lib/supabase';
 import { DashboardHeader, AiInsightsWidget } from './widgets';
 import type { Period } from './widgets';
-import type { Profile } from '../../types/admin.types';
-import { DASHBOARD_WIDGETS, type DashboardWidget, type LoadCtx } from './registry';
+import type { Profile, DashboardWidgetPref } from '../../types/admin.types';
+import { DASHBOARD_WIDGETS, WIDGET_LABELS, type DashboardWidget, type LoadCtx } from './registry';
 import { ROLE_LABELS } from './widgets/constants';
+import DashboardChartGrid from '../../components/DashboardChartGrid';
+import DashboardWidgetPrefsDrawer, { type RegistryWidgetMeta } from '../../components/DashboardWidgetPrefsDrawer';
 
 export default function DashboardPage() {
   const { profile, hasRole } = useAdminAuth();
@@ -32,15 +39,42 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>('7d');
   const [results, setResults] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
+  const [prefs, setPrefs] = useState<DashboardWidgetPref[]>([]);
+  const [prefsDrawerOpen, setPrefsDrawerOpen] = useState(false);
+
+  const isAdmin = hasRole('admin', 'super_admin');
+
+  // ── Carrega prefs do registry (visibilidade/ordem) ──────────────────────
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase
+        .from('dashboard_widget_prefs')
+        .select('*')
+        .eq('module', 'principal');
+      if (alive && data) setPrefs(data as DashboardWidgetPref[]);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const prefsByWidget = useMemo(() => {
+    const m: Record<string, DashboardWidgetPref> = {};
+    prefs.forEach((p) => { m[p.registry_widget_id] = p; });
+    return m;
+  }, [prefs]);
 
   // ── Quais widgets o usuário enxerga? ─────────────────────────────────────
   const visibleWidgets: DashboardWidget[] = useMemo(() => {
     if (!profile) return [];
     return DASHBOARD_WIDGETS.filter((w) => {
       if (w.requireRole && !hasRole(...w.requireRole)) return false;
-      return w.anyModuleKeys.some((k) => canView(k));
+      if (!w.anyModuleKeys.some((k) => canView(k))) return false;
+      // Pref override: se existir pref e is_visible=false, esconde.
+      const pref = prefsByWidget[w.id];
+      if (pref && !pref.is_visible) return false;
+      return true;
     });
-  }, [profile, canView, hasRole]);
+  }, [profile, canView, hasRole, prefsByWidget]);
 
   // ── Fetch em paralelo, apenas dos visíveis ──────────────────────────────
   const fetchAll = useCallback(async () => {
@@ -89,10 +123,19 @@ export default function DashboardPage() {
     ? `Resumo do que você acompanha como ${roleLabel}.`
     : 'Resumo dos seus módulos.';
 
+  // Ordena por pref.position se existir, senão por w.order.
+  const orderOf = (w: DashboardWidget) => {
+    const p = prefsByWidget[w.id];
+    return p ? p.position : w.order;
+  };
+
   const bySlot = (slot: DashboardWidget['slot']) =>
     visibleWidgets
       .filter((w) => w.slot === slot)
-      .sort((a, b) => a.order - b.order);
+      // Pula widgets cujo load() retornou null (erro/sem permissão fina) —
+      // evita crash em Render({ data: null }) sem precisar de guard em cada widget.
+      .filter((w) => results[w.id] != null)
+      .sort((a, b) => orderOf(a) - orderOf(b));
 
   const kpis = bySlot('kpi');
   const charts = bySlot('chart');
@@ -110,15 +153,43 @@ export default function DashboardPage() {
   // resultados agregados dos demais widgets.
   const showAi = hasRole('super_admin');
 
+  // Lista de widgets do registry que o usuário atual poderia ver (passou no
+  // gate de role + módulo) — base do drawer "Personalizar".
+  const registryForPrefs: RegistryWidgetMeta[] = DASHBOARD_WIDGETS
+    .filter((w) => {
+      if (w.requireRole && !hasRole(...w.requireRole)) return false;
+      return w.anyModuleKeys.some((k) => canView(k));
+    })
+    .map((w) => ({
+      id: w.id,
+      label: w.label ?? WIDGET_LABELS[w.id] ?? w.id,
+      slot: w.slot,
+    }));
+
   return (
     <div>
-      <DashboardHeader
-        fullName={profile?.full_name ?? null}
-        fallbackName={profile?.email?.split('@')[0] ?? null}
-        description={description}
-        period={period}
-        onPeriodChange={setPeriod}
-      />
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex-1">
+          <DashboardHeader
+            fullName={profile?.full_name ?? null}
+            fallbackName={profile?.email?.split('@')[0] ?? null}
+            description={description}
+            period={period}
+            onPeriodChange={setPeriod}
+          />
+        </div>
+        {isAdmin && (
+          <button
+            onClick={() => setPrefsDrawerOpen(true)}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 text-xs font-semibold
+                       bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+                       text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title="Mostrar/ocultar e reordenar widgets"
+          >
+            <Sliders className="w-3.5 h-3.5" /> Personalizar
+          </button>
+        )}
+      </div>
 
       {visibleWidgets.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-10 text-center">
@@ -177,6 +248,13 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* Gráficos personalizados (mesmo padrão dos dashboards Financeiro/Acadêmico). */}
+          {isAdmin && (
+            <div className="mt-8">
+              <DashboardChartGrid module="principal" />
+            </div>
+          )}
+
           {showAi && (
             <div className="mt-4">
               <AiInsightsWidget
@@ -189,6 +267,17 @@ export default function DashboardPage() {
             </div>
           )}
         </>
+      )}
+
+      {isAdmin && (
+        <DashboardWidgetPrefsDrawer
+          open={prefsDrawerOpen}
+          onClose={() => setPrefsDrawerOpen(false)}
+          module="principal"
+          registry={registryForPrefs}
+          prefsByWidget={prefsByWidget}
+          onSaved={(next) => setPrefs(next)}
+        />
       )}
     </div>
   );

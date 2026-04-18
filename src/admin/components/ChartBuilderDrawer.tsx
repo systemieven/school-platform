@@ -24,6 +24,7 @@ import {
   CHART_PERIOD_LABELS,
   FINANCIAL_DATA_SOURCES,
   ACADEMIC_DATA_SOURCES,
+  PRINCIPAL_DATA_SOURCES,
 } from '../types/admin.types';
 
 // ── Chart type gallery ────────────────────────────────────────────────────────
@@ -60,7 +61,10 @@ export default function ChartBuilderDrawer({
   const [saved,  setSaved]  = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const sources = module === 'financeiro' ? FINANCIAL_DATA_SOURCES : ACADEMIC_DATA_SOURCES;
+  const sources =
+    module === 'financeiro' ? FINANCIAL_DATA_SOURCES
+    : module === 'academico' ? ACADEMIC_DATA_SOURCES
+    : PRINCIPAL_DATA_SOURCES;
 
   // Populate form when editing
   useEffect(() => {
