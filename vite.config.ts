@@ -61,6 +61,16 @@ export default defineConfig(({ mode }) => {
     strictPort: true,
     host: true,
   },
+  // O pré-bundle de deps no dev server roda um esbuild próprio com target
+  // default `es2020` — que não suporta top-level await do pdfjs-dist 4.x.
+  // Alinhamos com o `build.target` para que `vite dev`/`vite preview` também
+  // consigam carregar a página.
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2022',
+      supported: { 'top-level-await': true },
+    },
+  },
   build: {
     // `es2022` habilita top-level await (Chrome 89+, FF 89+, Safari 15+).
     // Necessário para o chunk dinâmico de pdfjs-dist 4.x (src/lib/extractPdfText.ts).
