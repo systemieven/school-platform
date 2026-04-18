@@ -144,10 +144,10 @@ const TABS: TabDef[] = [
   },
   {
     key: 'nfse',
-    label: 'NFS-e Emitidas',
+    label: 'NFS-e',
     shortLabel: 'NFS-e',
     icon: FileCheck2,
-    description: 'Notas Fiscais de Serviço emitidas e status de emissão',
+    description: 'NFS-e',
     moduleKey: 'nfse-emitidas',
   },
   {
@@ -168,11 +168,11 @@ const TABS: TabDef[] = [
   },
   {
     key: 'nfe-emitidas',
-    label: 'NF-e Emitidas (Devolução)',
+    label: 'NF-e Saída',
     shortLabel: 'NF-e Saída',
     icon: FileSignature,
-    description: 'NF-e modelo 55 de devolução emitidas a fornecedores',
-    moduleKey: 'fornecedores',
+    description: 'NF-e de saída',
+    moduleKey: 'nfe-emitidas',
   },
   {
     key: 'fornecedores',

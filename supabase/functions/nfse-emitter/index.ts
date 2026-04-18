@@ -19,7 +19,8 @@ import { nuvemFiscalFetch } from "../_shared/nuvemFiscal.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, authorization",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function json(data: unknown, status = 200) {
@@ -30,12 +31,40 @@ function json(data: unknown, status = 200) {
 }
 
 interface EmitRequest {
-  source: "installment" | "receivable";
-  source_id: string;
-  guardian_id: string;
-  valor_servico: number;
-  discriminacao: string;
+  source: "installment" | "receivable" | "avulsa";
+  source_id?: string;
+  guardian_id?: string;
+  valor_servico?: number;
+  discriminacao?: string;
   initiated_by: string;
+  tomador?: AvulsaTomador;
+  servico?: AvulsaServico;
+  informacoes_adicionais?: string;
+}
+
+interface AvulsaTomador {
+  tipo_pessoa: "juridica" | "fisica";
+  cnpj_cpf: string;
+  razao_social: string;
+  email?: string | null;
+  ie?: string | null;
+  endereco?: {
+    cep: string;
+    logradouro: string;
+    numero: string;
+    complemento?: string | null;
+    bairro: string;
+    municipio: string;
+    uf: string;
+    codigo_municipio_ibge: string;
+  };
+}
+
+interface AvulsaServico {
+  discriminacao: string;
+  codigo_servico?: string;
+  valor: number;
+  aliq_iss?: number;
 }
 
 interface ProviderResponse {
@@ -346,6 +375,245 @@ function buildNuvemFiscalDps(args: {
   };
 }
 
+// ── NFS-e AVULSA ──────────────────────────────────────────────────────────────
+//
+// Emite NFS-e sem vínculo com installment/receivable — tomador, descrição e
+// valor vêm direto do body. Persistido com source='avulsa'.
+
+async function handleAvulsaNfse(
+  service: SupabaseClient,
+  body: EmitRequest,
+): Promise<Response> {
+  const { tomador, servico, informacoes_adicionais, initiated_by } = body;
+  if (!tomador || !tomador.cnpj_cpf || !tomador.razao_social) {
+    return json({ error: "tomador incompleto (cnpj_cpf + razao_social obrigatorios)" }, 400);
+  }
+  if (!servico || !servico.discriminacao || !servico.valor) {
+    return json({ error: "servico incompleto (discriminacao + valor obrigatorios)" }, 400);
+  }
+
+  // Config NFS-e + prestador
+  const { data: cfg } = await service.from("company_nfse_config").select("*").single();
+  if (!cfg) return json({ error: "NFS-e nao configurado" }, 422);
+  const { data: fiscal } = await service.from("company_fiscal_config").select("*").single();
+  if (!fiscal) return json({ error: "Configuracao fiscal da empresa nao encontrada" }, 422);
+
+  const aliq_iss = Number(servico.aliq_iss ?? cfg.aliq_iss_padrao ?? 0);
+  const valor_servico = Number(servico.valor);
+  const codigo_servico = servico.codigo_servico ?? String((cfg as Record<string, unknown>).codigo_servico ?? "");
+  const discriminacao = servico.discriminacao;
+
+  const tomDocDigits = tomador.cnpj_cpf.replace(/\D/g, "");
+  const isPJ = tomador.tipo_pessoa === "juridica";
+
+  const cMunPrest = String(cfg.codigo_municipio_ibge ?? "");
+
+  const prestador = {
+    razao_social: fiscal.razao_social,
+    cnpj: fiscal.cnpj,
+    inscricao_municipal: cfg.inscricao_municipal ?? fiscal.im,
+    codigo_municipio_ibge: cMunPrest,
+    endereco: {
+      logradouro: fiscal.logradouro,
+      numero: fiscal.numero,
+      complemento: fiscal.complemento ?? null,
+      bairro: fiscal.bairro,
+      cep: fiscal.cep,
+      municipio: fiscal.municipio,
+      uf: fiscal.uf,
+    },
+  };
+
+  const tomadorPersist = {
+    tipo_pessoa: tomador.tipo_pessoa,
+    nome: tomador.razao_social,
+    cpf_cnpj: tomDocDigits,
+    email: tomador.email ?? null,
+    endereco: tomador.endereco ?? null,
+  };
+
+  const servicoPersist = {
+    codigo_servico,
+    discriminacao,
+    aliq_iss,
+    valor_servico,
+  };
+
+  const reter_iss = Boolean(cfg.reter_iss);
+  const valor_iss = reter_iss ? 0 : +(valor_servico * aliq_iss / 100).toFixed(2);
+  const valor_iss_retido = reter_iss ? +(valor_servico * aliq_iss / 100).toFixed(2) : 0;
+  const valor_liquido = +(valor_servico - valor_iss_retido).toFixed(2);
+
+  // Reserva numero
+  const { data: numRow, error: numErr } = await service.rpc("increment_nfse_numero");
+  if (numErr || numRow === null) {
+    return json({ error: "Falha ao reservar numero da NFS-e", detail: numErr?.message }, 500);
+  }
+  const numero = Number(numRow);
+
+  const nfseRecord = {
+    numero,
+    serie: cfg.serie ?? "RPS",
+    prestador,
+    tomador: tomadorPersist,
+    servico: servicoPersist,
+    valor_servico,
+    aliq_iss,
+    valor_iss,
+    valor_iss_retido,
+    valor_liquido,
+    installment_id: null,
+    receivable_id: null,
+    guardian_id: null,
+    source: "avulsa",
+    informacoes_adicionais: informacoes_adicionais ?? null,
+    status: "pendente",
+    emitida_por: initiated_by,
+  };
+
+  const { data: nfse, error: insertErr } = await service
+    .from("nfse_emitidas")
+    .insert(nfseRecord)
+    .select("id")
+    .single();
+  if (insertErr || !nfse) {
+    return json({ error: "Falha ao registrar NFS-e", detail: insertErr?.message }, 500);
+  }
+  const nfse_id = nfse.id;
+
+  // Provider
+  let providerResult: ProviderResponse;
+  let dadosEnv: Record<string, unknown>;
+  try {
+    if (cfg.provider === "nuvem_fiscal") {
+      const ambiente = ((cfg.ambiente as string) === "producao" ? "producao" : "homologacao") as "producao" | "homologacao";
+      const tpAmb: 1 | 2 = ambiente === "producao" ? 1 : 2;
+      const serie = (cfg.serie as string) ?? "RPS";
+      const now = new Date();
+      const dhEmi = now.toISOString().replace(/\.\d{3}Z$/, "-03:00");
+      const dCompet = now.toISOString().slice(0, 10);
+      const cnpjDigits = String(fiscal.cnpj ?? "").replace(/\D/g, "");
+
+      const tomEndNac = tomador.endereco
+        ? {
+          xLgr: tomador.endereco.logradouro,
+          nro: tomador.endereco.numero,
+          xCpl: tomador.endereco.complemento ?? undefined,
+          xBairro: tomador.endereco.bairro,
+          CEP: tomador.endereco.cep.replace(/\D/g, ""),
+          cMun: tomador.endereco.codigo_municipio_ibge,
+          UF: tomador.endereco.uf,
+        }
+        : undefined;
+
+      const dps: NuvemFiscalDps = {
+        provedor: "padrao_nacional",
+        ambiente,
+        referencia: `${serie}-${numero}`,
+        infDPS: {
+          tpAmb,
+          dhEmi,
+          verAplic: "school-platform-1.0",
+          serie,
+          nDPS: String(numero),
+          dCompet,
+          tpEmit: 1,
+          cLocEmi: cMunPrest,
+          prest: {
+            CNPJ: cnpjDigits || undefined,
+            IM: (cfg.inscricao_municipal as string | null) ?? (fiscal.im as string | null) ?? undefined,
+            xNome: String(fiscal.razao_social ?? ""),
+            end: {
+              endNac: {
+                xLgr: String(fiscal.logradouro ?? ""),
+                nro: String(fiscal.numero ?? ""),
+                xCpl: (fiscal.complemento as string | null) ?? undefined,
+                xBairro: String(fiscal.bairro ?? ""),
+                CEP: String(fiscal.cep ?? "").replace(/\D/g, ""),
+                cMun: cMunPrest,
+                UF: String(fiscal.uf ?? ""),
+              },
+            },
+          },
+          toma: {
+            CNPJ: isPJ ? tomDocDigits : undefined,
+            CPF: !isPJ ? tomDocDigits : undefined,
+            xNome: tomador.razao_social,
+            email: tomador.email ?? undefined,
+            end: tomEndNac ? { endNac: tomEndNac } : undefined,
+          },
+          serv: {
+            locPrest: { cLocPrestacao: cMunPrest },
+            cServ: {
+              cTribNac: codigo_servico,
+              cTribMun: codigo_servico,
+              xDescServ: discriminacao.slice(0, 2000),
+            },
+          },
+          valores: {
+            vServPrest: { vServ: valor_servico },
+            trib: {
+              tribMun: {
+                tribISSQN: 1,
+                pAliq: aliq_iss,
+                tpRetISSQN: reter_iss ? 1 : 2,
+              },
+            },
+          },
+        },
+      };
+      dadosEnv = dps as unknown as Record<string, unknown>;
+      providerResult = await callNuvemFiscal(service, dps);
+    } else {
+      dadosEnv = { prestador, tomador: tomadorPersist, servico: servicoPersist, numero };
+      providerResult = await callGenericProvider(cfg as Record<string, unknown>, dadosEnv);
+    }
+  } catch (e) {
+    providerResult = {
+      provider_nfse_id: "",
+      link_pdf: null,
+      xml_retorno: null,
+      status: "pendente",
+      error_message: e instanceof Error ? e.message : "Erro desconhecido",
+    };
+    dadosEnv = { numero, error: true };
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    status: providerResult.status,
+    provider_nfse_id: providerResult.provider_nfse_id || null,
+    link_pdf: providerResult.link_pdf,
+    xml_retorno: providerResult.xml_retorno,
+  };
+  if (providerResult.status === "rejeitada") {
+    updatePayload.motivo_rejeicao = providerResult.error_message ?? null;
+  }
+  await service.from("nfse_emitidas").update(updatePayload).eq("id", nfse_id);
+
+  await service.from("nfse_emission_log").insert({
+    nfse_id,
+    tentativa: 1,
+    iniciado_por: initiated_by,
+    dados_env: dadosEnv,
+    resposta: providerResult as unknown as Record<string, unknown>,
+    status:
+      providerResult.status === "autorizada"
+        ? "success"
+        : providerResult.status === "rejeitada"
+          ? "error"
+          : "pending",
+  });
+
+  return json({
+    success: providerResult.status !== "rejeitada",
+    nfse_id,
+    status: providerResult.status,
+    numero,
+    link_pdf: providerResult.link_pdf,
+    error: providerResult.error_message,
+  });
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -362,6 +630,11 @@ Deno.serve(async (req: Request) => {
     body = await req.json();
   } catch {
     return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  // NFS-e avulsa — tomador/discriminacao/valor vindos direto do body.
+  if (body.source === "avulsa") {
+    return await handleAvulsaNfse(service, body);
   }
 
   const { source, source_id, guardian_id, valor_servico, discriminacao, initiated_by } = body;
@@ -483,6 +756,7 @@ Deno.serve(async (req: Request) => {
     installment_id: source === "installment" ? source_id : null,
     receivable_id: source === "receivable" ? source_id : null,
     guardian_id,
+    source,
     status: "pendente",
     emitida_por: initiated_by,
   };

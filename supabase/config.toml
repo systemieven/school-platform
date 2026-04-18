@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.fiscal-provider-quotas]
 verify_jwt = false
+
+# Consulta CNPJ via Nuvem Fiscal — auto-preenchimento em cadastro de
+# fornecedores, empresas etc. Mesma razao dos outros: gateway nao valida
+# JWT ES256; funcao valida internamente via auth.getUser().
+[functions.cnpj-lookup]
+verify_jwt = false
