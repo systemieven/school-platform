@@ -31,7 +31,7 @@ import SecuritySettingsPanel from './SecuritySettingsPanel';
 import FinancialSettingsPanel from './FinancialSettingsPanel';
 import AcademicoSettingsPanel from './AcademicoSettingsPanel';
 import LostFoundSettingsPanel from './LostFoundSettingsPanel';
-import FiscalSettingsPanel from './FiscalSettingsPanel';
+import FiscalProfilesPanel from './FiscalProfilesPanel';
 import NfseSettingsPanel from './NfseSettingsPanel';
 import NfceSettingsPanel from './NfceSettingsPanel';
 import NfeSettingsPanel from './NfeSettingsPanel';
@@ -300,7 +300,7 @@ export default function SettingsPage() {
 
   const [siteSubTab, setSiteSubTab] = useState<SiteTab>('appearance');
   const [aiSubTab, setAiSubTab] = useState<AiSubTab>('overview');
-  const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfe-emissao' | 'nfse' | 'nfce'>('nfe');
+  const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfse' | 'nfce' | 'perfis'>('nfe');
   const [waSubTab, setWaSubTab] = useState<WaSubTab>('templates');
   const [tabsCollapsed, setTabsCollapsed] = useState(() => {
     try { return localStorage.getItem(TABS_STORAGE_KEY) === 'true'; } catch { return false; }
@@ -688,29 +688,34 @@ export default function SettingsPage() {
               </div>
 
               {/* Fiscal sub-tabs */}
-              {activeTab === 'fiscal' && (
-                <div className="flex flex-wrap gap-1.5 flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
-                  {([
-                    { key: 'nfe', label: 'NF-e (Produtos)' },
-                    { key: 'nfe-emissao', label: 'NF-e (Emissão)' },
-                    { key: 'nfse', label: 'NFS-e (Serviços)' },
-                    { key: 'nfce', label: 'NFC-e (Consumidor)' },
-                  ] as { key: 'nfe' | 'nfe-emissao' | 'nfse' | 'nfce'; label: string }[]).map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setFiscalSubTab(key)}
-                      className={[
-                        'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
-                        fiscalSubTab === key
-                          ? 'bg-brand-primary text-brand-secondary shadow-md shadow-brand-primary/20'
-                          : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
-                      ].join(' ')}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {activeTab === 'fiscal' && (() => {
+                const allFiscalSubs = [
+                  { key: 'nfe', label: 'NF-e', module: 'settings-fiscal-nfe' },
+                  { key: 'nfse', label: 'NFS-e (Serviços)', module: 'settings-fiscal-nfse' },
+                  { key: 'nfce', label: 'NFC-e (Consumidor)', module: 'settings-fiscal-nfce' },
+                  { key: 'perfis', label: 'Perfis Fiscais', module: 'settings-fiscal-perfis' },
+                ] as const;
+                const allowedSubs = allFiscalSubs.filter((s) => canView(s.module));
+                if (allowedSubs.length === 0) return null;
+                return (
+                  <div className="flex flex-wrap gap-1.5 flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
+                    {allowedSubs.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setFiscalSubTab(key)}
+                        className={[
+                          'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
+                          fiscalSubTab === key
+                            ? 'bg-brand-primary text-brand-secondary shadow-md shadow-brand-primary/20'
+                            : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
+                        ].join(' ')}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Site sub-tabs (preset buttons moved to page-tab row via SiteSettingsPanel headerRight) */}
               {activeTab === 'site' && (
@@ -829,7 +834,8 @@ export default function SettingsPage() {
               ) : activeTab === 'fiscal' ? (
                 fiscalSubTab === 'nfse' ? <NfseSettingsPanel /> :
                 fiscalSubTab === 'nfce' ? <NfceSettingsPanel /> :
-                fiscalSubTab === 'nfe-emissao' ? <NfeSettingsPanel /> : <FiscalSettingsPanel />
+                fiscalSubTab === 'perfis' ? <FiscalProfilesPanel /> :
+                <NfeSettingsPanel />
               ) : activeTab === 'academico' ? (
                 <AcademicoSettingsPanel />
               ) : activeTab === 'ia' ? (
