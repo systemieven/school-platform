@@ -8,6 +8,7 @@ import { Bell, ChevronDown, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, Mes
 import NotificationsPanel from './NotificationsPanel';
 import EditProfileDrawer from './EditProfileDrawer';
 import ChangePasswordDrawer from './ChangePasswordDrawer';
+import AdminBreadcrumbSearch from './AdminBreadcrumbSearch';
 
 interface Props {
   sidebarCollapsed: boolean;
@@ -58,6 +59,7 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
         </button>
         <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
         <Breadcrumb />
+        <AdminBreadcrumbSearch />
       </div>
 
       {/* Right: actions */}
