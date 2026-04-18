@@ -2,7 +2,7 @@
 
 > **Versao**: 3.7
 > **Data**: 18 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, Sprint 14.S.P-bis concluido, Sprint 14.S.P-ter concluido, Sprint 13.IA + 13.IA-dash concluidos (ai_agents + orchestrator multi-provider + 4 workers integrados + dashboard de consumo real via Admin APIs), Sprint 13.IA.v2 concluido (infra proativa ai_insights + 7 agentes contextuais + AiContextualNudge + pg_cron hourly/6h/12h), migrations 153-206, **Fase 16 em progresso — PR1+PR2+PR3 concluídos** (PR1: staff autônomo + promoção opt-in via edge functions `staff-grant-access`/`staff-revoke-access` + `ColaboradoresPage`; PR2: migrations 204+205 — `job_openings` + `candidates` + `job_applications` com RPC `promote_candidate_to_staff` + trigger AFTER UPDATE + `SeletivoPage` kanban com drag-and-drop + drawers de vaga e candidato com preview PDF, aplicado em produção; PR3: migration 206 — seed `resume_screener` + `resume_extractor` (Haiku 4.5 com prompt defensivo anti-injection) + `extractPdfText.ts` lazy wrapper sobre `pdfjs-dist` 4.2.67 + botão "Analisar com IA" no drawer do candidato integrado ao `ai-orchestrator`)) + roadmap ate v1 (F6.4 Documentação)
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, Sprint 14.S.P-bis concluido, Sprint 14.S.P-ter concluido, Sprint 13.IA + 13.IA-dash concluidos (ai_agents + orchestrator multi-provider + 4 workers integrados + dashboard de consumo real via Admin APIs), Sprint 13.IA.v2 concluido (infra proativa ai_insights + 7 agentes contextuais + AiContextualNudge + pg_cron hourly/6h/12h), migrations 153-206, **Fase 16 em progresso — PR1+PR2+PR3a concluídos, PR3 replanejado** (PR1: staff autônomo + promoção opt-in via edge functions `staff-grant-access`/`staff-revoke-access` + `ColaboradoresPage`; PR2: migrations 204+205 — `job_openings` + `candidates` + `job_applications` com RPC `promote_candidate_to_staff` + trigger AFTER UPDATE + `SeletivoPage` kanban com drag-and-drop + drawers de vaga e candidato com preview PDF, aplicado em produção; PR3: migration 206 — seed `resume_screener` + `resume_extractor` (Haiku 4.5 com prompt defensivo anti-injection) + `extractPdfText.ts` lazy wrapper sobre `pdfjs-dist` 4.2.67 + botão "Analisar com IA" no drawer do candidato integrado ao `ai-orchestrator`)) + roadmap ate v1 (F6.4 Documentação)
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -1917,7 +1917,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 
 Roadmap original: — PR1: migrations 165-169 (`ai_usage_snapshots`, `ai_recharges`, extender `company_ai_config` com admin keys, RPC `ai_usage_stats`, job `pg_cron` 00:01). PR2: Edge Functions `ai-billing-sync` + `ai-billing-manual-refresh` (consomem Anthropic Admin API `/v1/organizations/usage_report` + OpenAI `/v1/organization/usage` e `/costs`). PR3: refactor `AiAgentsPanel` em sub-abas (Visão geral default, Agentes, Chaves) + novo `AiUsageDashboard` (KPIs periodo, saldo estimado por provider, top agentes, gráfico histórico, filtros Hoje/Semana/Mês/Personalizado). PR4 opcional: registro manual de recargas + alertas de saldo baixo. **Dependências de integração**: ⚠️ saldo em tempo real e auto-recarga **não têm API pública** em nenhum dos dois providers — dashboard lê tokens/custo via admin keys e estima saldo via snapshots + recargas manuais; auto-recarga fica read-only com deep link para o console do provider. Exige Admin API keys separadas das keys de inference (Anthropic: Organization Admin Key; OpenAI: `sk-admin-*` + `OpenAI-Organization` header). | Media | Admin API keys Anthropic/OpenAI + pg_cron + net.http_post |
 | Sprint 13.IA.v2 | Agentes Proativos Contextuais (event-driven + cron + nudge por rota) | ✅ **Concluído (2026-04-18)** — PR1-PR5 entregues, migrations 174-183. PR1 (infra): `ai_insights` + `ai_event_bindings`, 3 edge functions (`ai-event-dispatcher`, `ai-login-refresh`, `ai-scheduled-runner`), hook `useAiInsights`, `AiInsightsInbox` + `AiComposeMessage`, integração no `AdminAuthContext`/`AdminHeader`. PR2 (acadêmico): RPC `calculate_academic_risk` + agente `academic_pulse` (cron hourly) + `AiContextualNudge` (FAB bottom-right com `useAiRouteContext`, scoped por rota/role, NudgeBoundary defensivo). PR3 (portais): `student_study_buddy` (cron 6h), `guardian_pulse` (cron 12h), `lost_found_match` (trigger INSERT em `lost_found_items`) + hook `usePortalAiInsights` + montagem nos layouts do aluno e responsável. PR4 (financeiro): RPCs `delinquency_snapshot`/`admin_pulse_snapshot` + `financial_anomaly_scout` (cron 1h + trigger em `financial_installments.status`) + `admin_pulse` (run_on_login + cron 1h). PR5 (secretaria): RPC `detect_registration_issues` + `secretary_pulse` (cron 1h) + migration 183 com 3 jobs `pg_cron` (hourly/6h/12h) despachando para `ai-scheduled-runner`. Detalhes em §10.8C. | Media | Sprint 13.IA + 13.IA-dash |
-| Fase 16 | Módulo RH — Cadastro expandido + Processo seletivo + Captação pública + 3 agentes IA (`resume_screener`, `resume_extractor`, `pre_screening_interviewer`) | 🟡 **Em progresso (2026-04-18)** — plano aprovado em 5 PRs (folha de pagamento adiada para v2). ✅ **PR1 concluído** (migrations 185-187 aplicadas em produção, edge functions `staff-grant-access` v1 + `staff-revoke-access` v1 publicadas em `dinbwugbwnkrzljuocbs` com `verify_jwt=true`, `ColaboradoresPage` + drawer multi-tab + grupo "RH" na sidebar + rota `/admin/rh/colaboradores`). ✅ **PR2 concluído** (migrations 204-205 aplicadas, `SeletivoPage` com sub-tabs Vagas + Pipeline, kanban horizontal de 6 colunas com drag-and-drop HTML5 nativo, `VagaDrawer` + `CandidatoDrawer` com preview PDF inline e card de Análise IA, RPC `promote_candidate_to_staff` + trigger AFTER UPDATE cria staff automaticamente ao mover para `contratado`, rota `/admin/rh/seletivo` + item na sidebar). ✅ **PR3 concluído** (migration 206 aplicada com seed idempotente `resume_screener` + `resume_extractor` Haiku 4.5 + prompt defensivo anti-injection; `src/lib/extractPdfText.ts` lazy wrapper sobre `pdfjs-dist` 4.2.67 pinado; botão "Analisar com IA" no `CandidatoDrawer` baixa PDF via signed URL → parse client-side → `ai-orchestrator` → UPDATE `job_applications` com `screener_score/summary/payload/screened_at` + `logAudit`). **PR4 pendente**: captação pública `/trabalhe-conosco` (migrations 191-195, edge functions `careers-intake` + `careers-interview-turn`, agente `pre_screening_interviewer` com DISC/Big Five/MBTI/STAR, Config > Site > Carreiras e Config > RH). **PR5 opcional**: importação em massa de colaboradores (migration 196, `bulk-import-staff`). Detalhes em §10.17. | Media | Cadastro de colaboradores (OP-1 PR5), Sprint 13.IA (ai-orchestrator), Fase 7 (Whitelabel system_settings) |
+| Fase 16 | Módulo RH — Cadastro expandido + Processo seletivo + Captação pública + 3 agentes IA (`resume_screener`, `resume_extractor`, `pre_screening_interviewer`) | 🟡 **Em progresso (2026-04-18)** — plano aprovado em 5 PRs (folha de pagamento adiada para v2). ✅ **PR1 concluído** (migrations 185-187 aplicadas em produção, edge functions `staff-grant-access` v1 + `staff-revoke-access` v1 publicadas em `dinbwugbwnkrzljuocbs` com `verify_jwt=true`, `ColaboradoresPage` + drawer multi-tab + grupo "RH" na sidebar + rota `/admin/rh/colaboradores`). ✅ **PR2 concluído** (migrations 204-205 aplicadas, `SeletivoPage` com sub-tabs Vagas + Pipeline, kanban horizontal de 6 colunas com drag-and-drop HTML5 nativo, `VagaDrawer` + `CandidatoDrawer` com preview PDF inline e card de Análise IA, RPC `promote_candidate_to_staff` + trigger AFTER UPDATE cria staff automaticamente ao mover para `contratado`, rota `/admin/rh/seletivo` + item na sidebar). ⚠️ **PR3 replanejado** (2026-04-18) — PR3a entregue (migration 206 seeds `resume_extractor` + `resume_screener` Haiku 4.5 com wrapper anti-injection; `src/lib/extractPdfText.ts` + `vite.config.ts` target `es2022` para TLA do pdfjs-dist 4.x) mas escopo original (botão "Analisar com IA" manual) estava invertido. Novo PR3 = **captação pública automática** (`/trabalhe-conosco` com seleção de área → vaga publicada ou cadastro reserva → form + upload → `resume_extractor` em background → chat com `pre_screening_interviewer` → candidatura aparece pronta no kanban em `triagem`). Botão manual do `CandidatoDrawer` será removido. Novas migrations 207-209, 211 (210 = `nfe_stock_ledger` do Financeiro). **PR4 pendente**: captação pública `/trabalhe-conosco` (migrations 191-195, edge functions `careers-intake` + `careers-interview-turn`, agente `pre_screening_interviewer` com DISC/Big Five/MBTI/STAR, Config > Site > Carreiras e Config > RH). **PR5 opcional**: importação em massa de colaboradores (migration 196, `bulk-import-staff`). Detalhes em §10.17. | Media | Cadastro de colaboradores (OP-1 PR5), Sprint 13.IA (ai-orchestrator), Fase 7 (Whitelabel system_settings) |
 | Fase 17 | Analytics Avançada (`cash_flow_forecast`, `satisfaction_analyzer`, `agenda_optimizer`, `stock_demand_forecast`) | ⏳ Pendente (pós-v1) | Baixa-Media | Sprint 13.IA.v2 |
 | DASH-1 | Dashboards por Permissao (1 dashboard compartilhado, blocos auto-filtrantes) | ✅ Concluido (2026-04-17) | Media-Alta | Permissoes granulares (migration 143) |
 
@@ -5909,10 +5909,11 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 2. **Promoção opt-in** — botão "Criar acesso ao sistema" no drawer cria `auth.users`+`profiles` e linka via `staff.profile_id`; gated por dupla permissão (`users.can_create` + `rh-colaboradores.can_edit`); role restrita a `coordinator|teacher|user` (admin/super_admin continuam exclusivos do super_admin via UsersPage).
 3. **Processo seletivo kanban** — vagas + candidatos com stages (novo → triagem → entrevista → proposta → contratado/descartado); trigger `promote_candidate_to_staff` cria `staff` ao marcar `contratado`.
 4. **Captação pública** — página `/trabalhe-conosco` no site institucional, 3 passos (form básico + upload CV, extração automática de dados via `resume_extractor`, entrevista pré-candidatura com `pre_screening_interviewer` que gera relatório markdown). Totalmente customizável via `system_settings` key `content.careers` (padrão Whitelabel Fase 7).
-5. **Três agentes IA**:
-   - `resume_extractor` — extrai JSON estruturado do CV (CPF, RG, CNH, experiência, formação, endereço).
-   - `pre_screening_interviewer` — conduz 6 perguntas no site aplicando DISC/Big Five/MBTI/STAR; gera relatório markdown.
-   - `resume_screener` — pontua compatibilidade CV vs requisitos da vaga (roda no admin, não no site).
+5. **Agentes IA** (todos em background, sem botão manual):
+   - `resume_extractor` — extrai JSON estruturado do CV (CPF, RG, CNH, experiência, formação, endereço). Roda no `careers-intake` assim que o candidato submete o form.
+   - `pre_screening_interviewer` — conduz 4-6 turnos de chat no site aplicando DISC/STAR; gera relatório markdown + payload estruturado ao final.
+   - `resume_screener` — seedado mas **adormecido**. Reservado para PR4 (v2): ranking da base reserva quando vaga da mesma área abrir.
+   - `best_fit_selector` (PR4, v2) — orquestra `resume_screener` sobre a reserva e dispara `ai_insight` com top-N.
 6. **Sub-módulos granulares** — `rh-colaboradores`, `rh-seletivo`, `settings-rh` para isolar dados sensíveis de coordenador/teacher.
 
 #### Divisão em PRs
@@ -5921,11 +5922,14 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 |----|----------|--------|------------|
 | PR1 | Cadastro autônomo + promoção | ✅ Concluído (2026-04-18) | 185, 186, 187 |
 | PR2 | Processo seletivo (kanban) | ✅ Concluído (2026-04-18) | 204, 205 |
-| PR3 | `resume_screener` + `resume_extractor` | ✅ Concluído (2026-04-18) | 206 |
-| PR4 | Captação pública + entrevista | ⏳ Pendente | 191, 192, 193, 194, 195 |
-| PR5 (opcional) | Importação em massa | ⏳ Pendente | 196 |
+| PR3a | Agentes `resume_extractor`/`resume_screener` seedados + `extractPdfText.ts` | ✅ Concluído (2026-04-18) — botão manual será removido pelo PR3 | 206 |
+| PR3 | **Captação pública automática (área → vaga ou reserva → extrator → entrevistador)** | ⏳ Pendente | 207, 208, 209, 211 |
+| PR4 (opcional) | Agente `best_fit_selector` sobre a base reserva | ⏳ Pendente (v2) | — |
+| PR5 (opcional) | Importação em massa | ⏳ Pendente | 212 |
 
-> Numeração renumerada **+1 vs plano original** — migration 184 já existia (`dashboard_principal_widgets`).
+> Numeração renumerada **+1 vs plano original** — migration 184 já existia (`dashboard_principal_widgets`). A migration 210 ficou com `nfe_stock_ledger` (módulo Financeiro), por isso a captação pública pula de 209 para 211.
+>
+> **Nota de replan (2026-04-18)**: o escopo original do PR3 (botão "Analisar com IA" manual no admin) foi implementado antes do alinhamento final e provou estar invertido — a intenção sempre foi *captação pública com pipeline automático*. O que já foi entregue (migration 206 com seeds + wrapper `extractPdfText.ts` + target `es2022` no Vite) permanece porque é **reaproveitado** pelo novo PR3 (ver abaixo). O botão manual no `CandidatoDrawer` será **removido** pelo PR3, substituído por exibição read-only do relatório da entrevista + dados extraídos que já chegam populados do fluxo público.
 
 #### PR1 — Cadastro autônomo + promoção (✅ concluído 2026-04-18)
 
@@ -6006,83 +6010,154 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 - Histórico de stage changes em `audit_logs` como timeline visual no drawer (hoje registra via `logAudit` mas sem UI dedicada).
 - `stage_position` ainda não reordena manualmente dentro da coluna (drag entre colunas funciona; dentro da mesma coluna mantém ordem por `stage_position ASC`).
 
-#### PR3 — Agentes `resume_screener` + `resume_extractor` (✅ concluído 2026-04-18)
+#### PR3a — Seeds dos agentes + `extractPdfText.ts` (✅ concluído 2026-04-18, parcialmente superado)
+
+> ⚠️ **Replan**: este PR foi originalmente escopado como "botão manual no admin para analisar CV com IA". Descoberto em revisão (2026-04-18) que o design correto é **captação pública automática** (ver PR3 reescrito abaixo). O que foi entregue permanece porque é reaproveitado; o **botão manual será removido pelo PR3**.
 
 **Entregue — Banco**:
-- **Migration 206** (`rh_resume_agents_seed`) — seed idempotente (`ON CONFLICT DO UPDATE`) em `ai_agents` com dois agentes:
-  - `resume_screener` — Haiku 4.5 (`claude-haiku-4-5`), `temperature=0.2`, `max_tokens=800`, retorna `{score_0_100, pros[], cons[], recommendation, reasoning}`. Critérios de recomendação: ≥85 "avancar", 60-84 "considerar", <60 "descartar".
-  - `resume_extractor` — Haiku 4.5, `temperature=0.1`, `max_tokens=1200`, retorna JSON com identificação, contato, endereço completo, `experience[]`, `education[]`, `skills[]`, `summary`.
-- Ambos os prompts usam wrapper defensivo `### USER RESUME (untrusted) … ### END RESUME` para mitigar prompt injection.
+- **Migration 206** (`rh_resume_agents_seed`) — seed idempotente (`ON CONFLICT DO UPDATE`) em `ai_agents`:
+  - `resume_extractor` — Haiku 4.5, `temperature=0.1`, `max_tokens=1200`, JSON com identificação, contato, endereço, `experience[]`, `education[]`, `skills[]`, `summary`. **Consumido em background** pelo `careers-intake` do PR3.
+  - `resume_screener` — Haiku 4.5, `temperature=0.2`, `max_tokens=800`, `{score_0_100, pros[], cons[], recommendation, reasoning}`. **Mantido adormecido** para reutilização futura (PR4: `best_fit_selector` sobre a base reserva, ou ranking automático pós-entrevista).
+- Ambos usam wrapper defensivo `### USER RESUME (untrusted) … ### END RESUME`.
 
 **Entregue — Frontend**:
-- `src/lib/extractPdfText.ts` — wrapper lazy sobre `pdfjs-dist` (v4.2.67 pinado sem caret). Configura `workerSrc` via `import('pdfjs-dist/build/pdf.worker.min.mjs?url')`. Trunca em 24 000 chars (orçamento de tokens). Retorna `{ text, pageCount, truncated }`.
-- Botão **Analisar com IA** na aba "Análise IA" do `CandidatoDrawer`:
-  - Baixa o PDF via signed URL (ou usa o `File` local se ainda não foi salvo).
-  - `extractPdfText` → `supabase.functions.invoke('ai-orchestrator', { agent_slug: 'resume_screener', context: { job_title, job_requirements, resume_text } })`.
-  - Parse defensivo do JSON (aceita ```cercas de markdown).
-  - `UPDATE job_applications SET screener_score, screener_summary, screener_payload, screened_at = now()` + `logAudit`.
-  - Exibe erro inline se PDF não tem texto (scan), se orchestrator falhar ou se JSON vier inválido.
-- Estado idle → "Analisar com IA" (ícone `Sparkles`) / saving → `Loader2` "Analisando…". Botão troca para "Reanalisar com IA" após primeira execução. Timestamp da última análise visível.
+- `src/lib/extractPdfText.ts` — wrapper lazy sobre `pdfjs-dist@4.2.67` (pinado sem caret, build `legacy` para evitar TLA em chunks antigos). Trunca em 24 000 chars. **Reaproveitado pelo PR3** tanto no client público quanto (em fallback) no admin.
+- `vite.config.ts`: `build.target='es2022'` + `optimizeDeps.esbuildOptions.{target, supported: {'top-level-await': true}}` — necessário porque `pdfjs-dist 4.x` usa TLA no entrypoint. Dev server e publish quebravam sem isto.
+- Botão **"Analisar com IA"** na aba "Análise IA" do `CandidatoDrawer` (**será removido pelo PR3**) — triggers manual do `resume_screener`, substituído pela análise automática do fluxo público.
 
-**Decisões chave**:
-- **Client-side PDF parsing**: mantém custo zero de infra (sem Edge Function pesando com `pdfjs`). O bundle extra só carrega quando o drawer de candidato monta (dynamic import).
-- **Agente único no MVP**: só o botão manual por enquanto. Auto-trigger ao fazer upload e ai_insight para score ≥85 ficam como follow-up quando a volumetria justificar.
-- **`resume_extractor` já seedado**: prompt já está no DB pronto para ser consumido pelo `careers-intake` do PR4 — evita migration extra no PR4.
-- **Não alterado**: trigger `promote_candidate_to_staff` do PR2 (AFTER UPDATE OF stage WHEN NEW.stage='contratado') — já cobre o fluxo de promoção.
+**Pendência descoberta pelo replan**:
+- A aba "Análise IA" do `CandidatoDrawer` passa a ser **read-only** exibindo o relatório da entrevista + payload do perfil (DISC/STAR) gerados automaticamente pelo PR3. Botão manual sai.
 
-**Pendente (follow-up não bloqueante)**:
-- Auto-trigger fire-and-forget do screener ao salvar com CV novo (hoje é manual via botão).
-- Criar `ai_insight` automático quando `screener_score ≥ 85` (integra inbox Sprint 13.IA.v2).
-- Botão "Preencher dados do candidato com IA" chamando `resume_extractor` (UI para popular CPF/RG/endereço/experiência).
-- Teste integrado do fluxo completo: upload CV → analisar → mover para contratado → verificar row em `staff`.
+#### PR3 — Captação pública automática (⏳ pendente — substitui PR3a+PR4 originais)
 
-#### PR4 — Captação pública + entrevista (⏳ pendente)
+**Visão**: candidato entra no site → escolhe área → vê vagas publicadas (ou segue para cadastro reserva se não houver) → preenche form mínimo (nome, email, telefone, upload CV PDF/JPG) → em background `resume_extractor` popula o cadastro → `pre_screening_interviewer` conduz chat curto contextualizado com vaga+dados extraídos → agradecimento. Candidatura chega pronta no kanban em `stage='triagem'` com relatório + perfil + CV baixável.
+
+**Princípios**:
+- Zero atrito para o candidato: CPF/endereço/experiência **nunca** digitados à mão — extraídos do CV em background.
+- Sem botão de "Analisar com IA" no admin: a análise acontece **antes** da candidatura chegar ao admin.
+- Aceita **cadastro reserva** (sem `job_opening_id`) para compor base quando vaga da mesma área abrir.
+- Catálogo de áreas fixo (3 valores): `pedagogica | administrativa | servicos_gerais`.
 
 **Migrations**:
-- `191_job_positions_catalog.sql` — `id`, `title UNIQUE`, `area CHECK ('administrativa'|'educacional'|'servicos_gerais')`, `description`, `is_published`, `position`. RLS: SELECT público onde `is_published=true`; admin full via `settings-rh`.
-- `192_pre_screening_sessions.sql` — `id`, `application_id FK`, `status CHECK ('active'|'completed'|'abandoned')`, `messages JSONB` (array `{role,text,timestamp}`), `area`, `started_at/completed_at`, `expires_at DEFAULT now() + interval '30 min'`.
-- `193_careers_public_fields.sql` — ALTER `job_applications` ADD `pre_screening_status`, `pre_screening_report TEXT`, `source TEXT DEFAULT 'manual'`; ALTER `candidates` ADD `cpf`, `rg`, `cnh_number`, `cnh_category`, `address_*`, `experience JSONB`, `education JSONB`.
-- `194_settings_rh_module_seed.sql` — módulo `settings-rh` + defaults (só admin/super_admin) + INSERT default de `content.careers` em `system_settings`.
-- `195_pre_screening_interviewer_seed.sql` — agente com system_prompt (DISC/Big Five/MBTI/STAR, 6 perguntas, relatório markdown estruturado).
+- **207** `rh_careers_schema_alter.sql`:
+  - `ALTER TABLE job_openings ADD COLUMN area TEXT NOT NULL DEFAULT 'administrativa' CHECK (area IN ('pedagogica','administrativa','servicos_gerais'))` + backfill + `ALTER COLUMN area DROP DEFAULT`.
+  - `ALTER TABLE job_applications ALTER COLUMN job_opening_id DROP NOT NULL` (permite reserva).
+  - `ALTER TABLE job_applications ADD COLUMN area TEXT NOT NULL CHECK (...)` — obrigatório em todos os registros (inclusive reserva).
+  - `ADD COLUMN pre_screening_status TEXT CHECK ('pending','running','completed','abandoned')`, `ADD COLUMN pre_screening_session_id UUID`, `ALTER source SET DEFAULT 'manual'`.
+  - `DROP CONSTRAINT job_applications_job_opening_id_candidate_id_key` + `CREATE UNIQUE INDEX job_applications_opening_candidate_uniq ON job_applications (job_opening_id, candidate_id) WHERE job_opening_id IS NOT NULL` (permite múltiplas reservas do mesmo candidato).
+  - RLS: adiciona policy anônima `INSERT` indireta — todo write público passa por edge function `careers-intake` com `service_role`, então não abrimos política direta.
+- **208** `pre_screening_sessions.sql` — tabela com `id UUID PK`, `application_id UUID FK ON DELETE CASCADE`, `token TEXT UNIQUE` (gerado via `gen_random_bytes`), `status CHECK ('active','completed','abandoned','expired')`, `messages JSONB DEFAULT '[]'::jsonb` (`[{role:'agent'|'user', text, at}]`), `area`, `started_at`, `completed_at`, `expires_at DEFAULT now()+'30 min'`. RLS: service_role only (public acessa via edge function passando token).
+- **209** `pre_screening_interviewer_seed.sql` — agente `pre_screening_interviewer` (Haiku 4.5 ou Sonnet 4.5 conforme benchmark), `temperature=0.4`, `max_tokens=1500`. System prompt conduz **4-6 turnos** coletando: (1) disponibilidade + motivação; (2) fit DISC (cenário comportamental); (3) exemplo STAR aderente à área; (4) expectativa salarial/regime; (5) fechamento. Retorna a cada turno `{assistant_message, should_finalize, final_report?}`. Ao `should_finalize=true`, `final_report` traz markdown estruturado + payload JSON com `disc_profile`, `star_scores`, `fit_summary`, `recommendation`. Wrapper anti-injection reforçado (candidato tenta "se vender" com comandos).
+- **211** `settings_rh_and_careers_content.sql`:
+  - Módulo `settings-rh` (grupo settings) + defaults super_admin/admin ALL.
+  - INSERT default em `system_settings` key `content.careers` com `{ hero_title, hero_subtitle, hero_image_url, areas_descriptions: {pedagogica, administrativa, servicos_gerais}, reserva_copy, thank_you_message, lgpd_consent_text }`.
+  - (migration 210 ficou com `nfe_stock_ledger` do módulo Financeiro.)
 
-**Edge Functions**:
-- `careers-intake` (`verify_jwt=false`) — rate-limit por IP, valida captcha opcional (Turnstile), chama `resume_extractor`, UPSERT candidato, INSERT application com `source='public_form'`, cria session com TTL 30min.
-- `careers-interview-turn` (`verify_jwt=false`) — valida session por token, append mensagem, chama `ai-orchestrator`; se finalizado, UPDATE `pre_screening_report` + dispara `ai_insight`.
+**Edge Functions** (ambas `verify_jwt=false`):
+- `careers-intake` (POST):
+  - Body: `{ area, job_opening_id?, full_name, email, phone, resume_file (base64 ou multipart) }` + CV em PDF/JPG (≤ 5 MB).
+  - Rate-limit por IP (10 req/h) + captcha Turnstile opcional (habilitado via `system_settings`).
+  - Se PDF → `resume_extractor` via `ai-orchestrator` com `resume_text` extraído. Se JPG → OCR via Anthropic vision (input com imagem direto no agente).
+  - UPSERT candidate por email. INSERT `job_applications` com `source='public_form'`, `stage='triagem'`, `area`, `job_opening_id` (pode ser null), `pre_screening_status='pending'`.
+  - Upload CV para `hr-documents/_recruitment/{application_id}/resume.{ext}` + `UPDATE resume_path`.
+  - INSERT `pre_screening_sessions` com token 32-byte base64url. Retorna `{ session_token, agent_first_message }`.
+  - Validações: email formato, phone 10-11 dígitos, tamanho/mime do arquivo, consentimento LGPD.
+- `careers-interview-turn` (POST):
+  - Body: `{ session_token, user_message }`.
+  - Valida `expires_at > now()` + `status='active'`.
+  - Append mensagem em `messages` JSONB. Chama `ai-orchestrator` com histórico + dados extraídos + vaga (ou área se reserva).
+  - Se `should_finalize=true`: UPDATE session (`status='completed'`, `completed_at=now()`) + UPDATE application (`interview_report=final_report.markdown`, `interview_payload=final_report.payload`, `pre_screening_status='completed'`) + dispara `ai_insight` para admin (inbox).
+  - Retorna `{ assistant_message, done }`.
 
 **Frontend público**:
-- `src/pages/TrabalheConosco.tsx` (wizard 3 passos) + `CareersForm`, `CareersInterview` (chat WhatsApp-style), `CareersThankYou`.
-- Parser client-side com `pdfjs-dist` (reaproveita `extractPdfText.ts` de PR3).
-- `usePublicCareersConfig.ts` lê `content.careers` de `system_settings`.
+- `src/pages/TrabalheConosco.tsx` — wizard com passos:
+  0. **Área** — 3 cards grandes (pedagógica/administrativa/serviços gerais) com cor e ícone.
+  1. **Vaga ou reserva** — lista vagas `status='published' AND area=<escolhida>`; card "Cadastro reserva" sempre visível como opção; mensagem amigável se lista vazia.
+  2. **Dados + CV** — nome, email (formato), telefone (máscara), upload (drag-drop, validação de mime/tamanho), aceite LGPD obrigatório.
+  3. **Entrevista** — chat WhatsApp-style consumindo `careers-interview-turn`; indicador "digitando…"; limite de 500 chars por mensagem; 10-15 min total.
+  4. **Obrigado** — `thank_you_message` customizável.
+- Hooks: `usePublicCareersConfig.ts` (lê `content.careers`), `usePublicJobOpenings.ts` (SELECT anon filtrando area + status).
+- Reaproveita `extractPdfText.ts` (pré-parse client opcional para dar preview "lemos seu CV, agora vamos conversar").
 
 **Frontend admin**:
-- Nova aba `/admin/configuracoes?tab=rh` (gated por `settings-rh`) com CRUD de `job_positions_catalog`.
-- Sub-aba `/admin/configuracoes?tab=site` → "Carreiras" (hero_title/subtitle/image, why_work_here[], faq[], thank_you_message).
-- Cards "Entrevista pré-candidatura" (markdown render) e "Dados extraídos do CV" no drawer do candidato.
+- `VagaDrawer`: novo `SelectDropdown` **Área** (obrigatório) na aba Informações.
+- `SeletivoPage`: nova sub-aba **Base reserva** (ao lado de Vagas/Pipeline) mostrando candidaturas `job_opening_id IS NULL`, agrupadas por área, com busca e filtro por status da entrevista.
+- `CandidatoDrawer`:
+  - Remove botão "Analisar com IA" da aba "Análise IA".
+  - Aba "Análise IA" vira **read-only** exibindo: relatório markdown (via `react-markdown` ou renderer existente) + payload estruturado (DISC/STAR em cards), com timestamp.
+  - Nova aba **Extração** (read-only) com os dados JSONB de `candidates.extracted_payload` organizados (identificação / contato / endereço / experiência / formação / skills).
+  - Aba "Pipeline" mostra badge "Reserva (sem vaga)" quando `job_opening_id IS NULL`.
+- `/admin/configuracoes?tab=rh` (gated `settings-rh`): edita `content.careers` (textos, áreas, thank you, LGPD) + toggle de captcha + configuração de rate-limit.
 
-#### PR5 (opcional) — Importação em massa (⏳ pendente)
+**Fluxo de dados (end-to-end)**:
 
-- `196_bulk_import_staff_key.sql` — registro em `migration_modules` (padrão OP-1).
-- Edge Function `bulk-import-staff` — INSERT em `staff` sem criar auth/profile.
-- Reaproveita `ModuleImportWizard` do hub `/admin/migracao`.
+```
+candidato
+   │ (form + CV + consentimento)
+   ▼
+careers-intake  ──► resume_extractor (Haiku) ──► candidates + job_applications (stage=triagem)
+   │                                        └──► upload CV para hr-documents
+   │
+   └──► pre_screening_sessions (token)
+   │
+   ▼
+candidato (chat)
+   │ (user_message)
+   ▼
+careers-interview-turn  ──► pre_screening_interviewer (contexto: vaga+extracted+histórico)
+   │
+   └──► append messages ──► (N turnos) ──► final_report
+                                              │
+                                              ▼
+                                job_applications.interview_report/payload
+                                              │
+                                              ▼
+                                         ai_insight (inbox admin)
+                                              │
+                                              ▼
+                                        admin abre drawer
+                                        read-only: relatório + extração + CV
+```
 
-#### Riscos/decisões documentadas
+**Decisões chave**:
+- **Área é obrigatória em `job_applications`** mesmo com vaga (redundante com `job_openings.area`) para simplificar filtros do kanban e permitir candidatura reserva sem JOIN.
+- **Partial UNIQUE index** em vez de constraint plana — reserva admite múltiplas linhas por candidato (ex: inscreveu em pedagógica hoje, administrativa amanhã).
+- **Chat com token, não com cookie/JWT** — candidato é anônimo, token opaco na session guarda o estado.
+- **Screener adormecido** (seedado em PR3a) — fica pronto para uso futuro (ex: ranking automático da base reserva quando vaga abrir). Sem custo enquanto não for invocado.
+- **`best_fit_selector`** fica como PR4 (pós-v1) — agente separado que, ao publicar uma vaga, roda sobre reservas da mesma área e marca as top-N com `ai_insight`.
+- **Vision API para JPG de CV** — Anthropic suporta imagem no input; evita dependência de Tesseract/OCR server-side.
 
-- **PDF parsing no client** (`pdfjs-dist` ~500KB): lazy-load só quando drawer de candidato monta.
+**Riscos/decisões documentadas**:
+- **PDF parsing no client** (`pdfjs-dist` ~500 KB): lazy-load só quando wizard do passo 2 monta.
 - **Duplicação staff↔profiles**: trigger mantém sincronia enquanto linkado; staff ganha se divergir.
 - **Promoção sem escalada**: edge function recusa admin/super_admin no body.
 - **LGPD/PII**: bucket privado + RLS + `audit_logs` via `logAudit`. Consentimento obrigatório no form público. Purge de CVs descartados após 180 dias (cron a ser definido).
-- **Prompt injection via CV**: wrapper defensivo `### USER RESUME (untrusted) ... ### END` + validação estrita do JSON retornado.
-- **Custo IA**: `resume_screener` ~$0.005/CV; `resume_extractor`+`pre_screening_interviewer` agregados ~$0.023/candidato público; 100/mês ≈ $2.30.
-- **Abuso endpoint público**: rate-limit IP, captcha opcional, session TTL 30min, limite 5MB no upload.
-- **Migration numbering**: PRs 1-4 consomem 185-195 (11 migrations). PR5 soma 196.
+- **Prompt injection via CV/chat**: wrapper defensivo `### USER RESUME (untrusted) ... ### END` + validação estrita do JSON retornado + limite de chars em mensagens do candidato.
+- **Custo IA**: `resume_extractor` (~$0.004/CV) + `pre_screening_interviewer` (~$0.020/candidato, 4-6 turnos curtos) ≈ $0.024/candidato público; 100/mês ≈ $2.40.
+- **Abuso endpoint público**: rate-limit IP, captcha opcional (Turnstile), session TTL 30 min, limite 5 MB no upload.
+- **Migration numbering**: PR3 consome 207, 208, 209, 211 (pula 210 reservada ao `nfe_stock_ledger`). PR5 fica com 212.
 
-#### Ordem de execução
+#### PR4 (opcional, pós-v1) — `best_fit_selector` sobre base reserva
 
-1. **PR1** fundacional — destrava PR4 e PR5.
-2. **PR2** kanban — base do PR3 e PR4.
-3. **PR3** agentes admin — depende de PR2.
-4. **PR4** captação pública — depende de PR2 e PR3 (reusa extractor).
-5. **PR5** bulk import — opcional.
+- Agente que, ao publicar vaga nova, roda sobre candidaturas reserva da mesma área e ranqueia usando `resume_screener` + `interview_payload`.
+- Dispara `ai_insight` para admin com top-N sugeridos + CTA "mover para triagem".
+- Opcionalmente envia comunicação via `MessageOrchestrator` (Fase 11/12) para os candidatos selecionados avisando da vaga.
+- Implementação fica para quando a base reserva tiver volume real (>50 candidaturas).
+
+#### PR5 (opcional) — Importação em massa (⏳ pendente)
+
+- **212** `bulk_import_staff_key.sql` — registro em `migration_modules` (padrão OP-1).
+- Edge Function `bulk-import-staff` — INSERT em `staff` sem criar auth/profile.
+- Reaproveita `ModuleImportWizard` do hub `/admin/migracao`.
+
+#### Ordem de execução revisada
+
+1. **PR1** ✅ fundacional.
+2. **PR2** ✅ kanban — base do PR3 e PR3a.
+3. **PR3a** ✅ seeds `resume_extractor`/`resume_screener` + `extractPdfText.ts` (reaproveitados).
+4. **PR3** ⏳ captação pública automática + remove botão manual do `CandidatoDrawer` (substitui PR3 manual original + PR4 original).
+5. **PR4** ⏳ v2 — `best_fit_selector` sobre base reserva.
+6. **PR5** ⏳ opcional — bulk import.
 
 Commit/push via `./scripts/push-all.sh` a cada PR completo (branch `base`, sem force-push). Folha de pagamento e módulo `rh-folha` permanecem como ⏳ Pendente v2.
 
