@@ -168,28 +168,24 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="flex-1">
-          <DashboardHeader
-            fullName={profile?.full_name ?? null}
-            fallbackName={profile?.email?.split('@')[0] ?? null}
-            description={description}
-            period={period}
-            onPeriodChange={setPeriod}
-          />
-        </div>
-        {isAdmin && (
+      <DashboardHeader
+        fullName={profile?.full_name ?? null}
+        fallbackName={profile?.email?.split('@')[0] ?? null}
+        description={description}
+        period={period}
+        onPeriodChange={setPeriod}
+        actionSlot={isAdmin ? (
           <button
             onClick={() => setPrefsDrawerOpen(true)}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 text-xs font-semibold
-                       bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
-                       text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="btn-matricula-nav hidden sm:inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold
+                       bg-brand-primary text-brand-secondary rounded-xl shadow-sm
+                       hover:bg-brand-primary-dark transition-colors"
             title="Mostrar/ocultar e reordenar widgets"
           >
-            <Sliders className="w-3.5 h-3.5" /> Personalizar
+            <Sliders className="w-4 h-4" /> Personalizar
           </button>
-        )}
-      </div>
+        ) : null}
+      />
 
       {visibleWidgets.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-10 text-center">

@@ -7,7 +7,7 @@
  *
  * Manter aqui garante visual consistente entre os dois dashboards.
  */
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
 export type Period = 'today' | '7d' | '30d';
 
@@ -35,6 +35,8 @@ export interface DashboardHeaderProps {
   period: Period;
   /** Callback ao trocar o período. Quando ausente, o seletor não é renderizado. */
   onPeriodChange?: (p: Period) => void;
+  /** Slot opcional renderizado à direita do seletor de período (ex.: botão Personalizar). */
+  actionSlot?: ReactNode;
 }
 
 export function DashboardHeader({
@@ -43,6 +45,7 @@ export function DashboardHeader({
   description = 'Aqui está o resumo do seu painel.',
   period,
   onPeriodChange,
+  actionSlot,
 }: DashboardHeaderProps) {
   const greeting = useMemo(buildGreeting, []);
 
@@ -61,21 +64,26 @@ export function DashboardHeader({
         <p className="text-gray-500 dark:text-gray-400 mt-1">{description}</p>
       </div>
 
-      {onPeriodChange && (
-        <div className="flex bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1 gap-1">
-          {PERIOD_OPTS.map((opt) => (
-            <button
-              key={opt.key}
-              onClick={() => onPeriodChange(opt.key)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                period === opt.key
-                  ? 'bg-brand-primary text-white shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+      {(onPeriodChange || actionSlot) && (
+        <div className="flex items-center gap-2">
+          {onPeriodChange && (
+            <div className="flex bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1 gap-1">
+              {PERIOD_OPTS.map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => onPeriodChange(opt.key)}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    period === opt.key
+                      ? 'bg-brand-primary text-brand-secondary shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {actionSlot}
         </div>
       )}
     </div>
