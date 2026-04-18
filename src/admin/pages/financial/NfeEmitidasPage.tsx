@@ -17,6 +17,8 @@ import {
   Check, Download,
 } from 'lucide-react';
 import { logAudit } from '../../../lib/audit';
+import PermissionGate from '../../components/PermissionGate';
+import NfeAvulsaDrawer from './drawers/NfeAvulsaDrawer';
 
 type NfeStatus = 'pendente' | 'autorizada' | 'cancelada' | 'rejeitada' | 'denegada' | 'inutilizada';
 
@@ -379,6 +381,7 @@ export default function NfeEmitidasPage() {
   const [notas, setNotas] = useState<NfeEmitida[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<NfeEmitida | null>(null);
+  const [newDrawerOpen, setNewDrawerOpen] = useState(false);
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>(() => {
@@ -464,6 +467,16 @@ export default function NfeEmitidasPage() {
           onChange={(e) => setFilterMonth(e.target.value)}
           className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none"
         />
+
+        <PermissionGate moduleKey="nfe-emitidas" action="create">
+          <button
+            onClick={() => setNewDrawerOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary-dark transition-colors"
+          >
+            <FileSignature className="w-4 h-4" />
+            Nova NF-e
+          </button>
+        </PermissionGate>
       </div>
 
       {loading ? (
@@ -535,6 +548,12 @@ export default function NfeEmitidasPage() {
       )}
 
       <DetailDrawer nfe={selected} onClose={() => setSelected(null)} onRefresh={load} />
+
+      <NfeAvulsaDrawer
+        open={newDrawerOpen}
+        onClose={() => setNewDrawerOpen(false)}
+        onEmitted={() => { setNewDrawerOpen(false); load(); }}
+      />
     </div>
   );
 }

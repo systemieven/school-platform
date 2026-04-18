@@ -13,6 +13,8 @@ import {
   Send, MessageSquare, Check,
 } from 'lucide-react';
 import { logAudit } from '../../../lib/audit';
+import PermissionGate from '../../components/PermissionGate';
+import NfseAvulsaDrawer from './drawers/NfseAvulsaDrawer';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -433,6 +435,7 @@ export default function NfseEmitidas() {
   const [notas, setNotas] = useState<NfseEmitida[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<NfseEmitida | null>(null);
+  const [newDrawerOpen, setNewDrawerOpen] = useState(false);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -523,6 +526,16 @@ export default function NfseEmitidas() {
           onChange={(e) => setFilterMonth(e.target.value)}
           className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:border-brand-primary outline-none"
         />
+
+        <PermissionGate moduleKey="nfse-emitidas" action="create">
+          <button
+            onClick={() => setNewDrawerOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-primary text-white text-sm font-semibold hover:bg-brand-primary-dark transition-colors"
+          >
+            <Receipt className="w-4 h-4" />
+            Nova NFS-e
+          </button>
+        </PermissionGate>
       </div>
 
       {/* Table */}
@@ -604,6 +617,13 @@ export default function NfseEmitidas() {
 
       {/* Detail Drawer */}
       <DetailDrawer nfse={selected} onClose={() => setSelected(null)} onRefresh={load} />
+
+      {/* Avulsa Drawer */}
+      <NfseAvulsaDrawer
+        open={newDrawerOpen}
+        onClose={() => setNewDrawerOpen(false)}
+        onEmitted={() => { setNewDrawerOpen(false); load(); }}
+      />
     </div>
   );
 }
