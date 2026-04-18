@@ -15,11 +15,12 @@ let cached: PdfLoader | null = null;
 
 async function loadPdfjs(): Promise<PdfLoader> {
   if (cached) return cached;
-  // O pdfjs-dist 4.x exige workerSrc configurado. Usamos um worker inline via
-  // Vite's `?url` import para ficar independente de CDN.
-  const pdfjs = await import('pdfjs-dist');
+  // O entrypoint principal de pdfjs-dist 4.x usa top-level await — o target
+  // default do Vite ("es2020" + browserslist) não suporta, então importamos
+  // o build `legacy` que é transpilado e sem TLA.
+  const pdfjs = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as unknown as PdfLoader;
   const workerMod = (await import(
-    /* @vite-ignore */ 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+    /* @vite-ignore */ 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
   )) as { default: string };
   pdfjs.GlobalWorkerOptions.workerSrc = workerMod.default;
   cached = pdfjs;

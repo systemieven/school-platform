@@ -62,6 +62,9 @@ export default defineConfig(({ mode }) => {
     host: true,
   },
   build: {
+    // `es2022` habilita top-level await (Chrome 89+, FF 89+, Safari 15+).
+    // Necessário para o chunk dinâmico de pdfjs-dist 4.x (src/lib/extractPdfText.ts).
+    target: 'es2022',
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
