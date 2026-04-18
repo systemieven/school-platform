@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useProfessor } from '../../contexts/ProfessorAuthContext';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useTeacherClasses } from './hooks/useTeacherClasses';
 import { supabase } from '../../../lib/supabase';
 import {
   FileQuestion, Plus, Check, Loader2, Printer, Trash2, ChevronDown, ChevronUp,
@@ -61,7 +62,8 @@ const QUESTION_TYPES: QuestionType[] = [
 ];
 
 export default function ProvasPage() {
-  const { professor, teacherClasses } = useProfessor();
+  const { profile } = useAdminAuth();
+  const { classes: teacherClasses } = useTeacherClasses();
   const [exams, setExams]             = useState<ClassExamRow[]>([]);
   const [loading, setLoading]         = useState(true);
   const [expandedId, setExpandedId]   = useState<string | null>(null);
@@ -86,24 +88,24 @@ export default function ProvasPage() {
   const [savingQ, setSavingQ]                 = useState<SaveState>('idle');
 
   const loadExams = useCallback(async () => {
-    if (!professor) return;
+    if (!profile) return;
     setLoading(true);
     const { data } = await supabase
       .from('class_exams')
       .select('*, exam_questions(*)')
-      .eq('teacher_id', professor.id)
+      .eq('teacher_id', profile!.id)
       .order('created_at', { ascending: false });
     setExams((data as ClassExamRow[]) ?? []);
     setLoading(false);
-  }, [professor]);
+  }, [profile]);
 
   useEffect(() => { loadExams(); }, [loadExams]);
 
   async function handleCreateExam() {
-    if (!professor || !examTitle.trim() || !examClassId) return;
+    if (!profile || !examTitle.trim() || !examClassId) return;
     setSavingExam('saving');
     await supabase.from('class_exams').insert({
-      teacher_id:   professor.id,
+      teacher_id:   profile!.id,
       class_id:     examClassId,
       subject_id:   examSubjectId || null,
       title:        examTitle.trim(),

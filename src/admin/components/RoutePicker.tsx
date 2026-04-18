@@ -36,7 +36,6 @@ const AVAILABLE_ROUTES = [
   { group: 'Portais', routes: [
     { path: '/portal/login',       label: 'Portal do Aluno' },
     { path: '/responsavel/login',  label: 'Portal do Responsavel' },
-    { path: '/professor/login',    label: 'Area do Professor' },
   ]},
   { group: 'Atendimento', routes: [
     { path: '/atendimento', label: 'Atendimento (QR)' },

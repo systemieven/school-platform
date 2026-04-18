@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useProfessor } from '../../contexts/ProfessorAuthContext';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useTeacherClasses } from './hooks/useTeacherClasses';
 import { supabase } from '../../../lib/supabase';
 import {
   BookOpen, AlertCircle, ClipboardList, BarChart2, Loader2,
@@ -15,17 +16,18 @@ interface DashboardStats {
 }
 
 export default function ProfessorDashboardPage() {
-  const { professor, teacherClasses } = useProfessor();
+  const { profile } = useAdminAuth();
+  const { classes: teacherClasses } = useTeacherClasses();
   const navigate = useNavigate();
   const [stats, setStats]   = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!professor) return;
+    if (!profile) return;
 
     async function loadStats() {
       setLoading(true);
-      const teacherId = professor!.id;
+      const teacherId = profile!.id;
       const classIds  = teacherClasses.map((c) => c.id);
 
       // Aulas sem presença nos últimos 3 dias
@@ -108,9 +110,9 @@ export default function ProfessorDashboardPage() {
     }
 
     loadStats();
-  }, [professor, teacherClasses]);
+  }, [profile, teacherClasses]);
 
-  const firstName = professor?.full_name?.split(' ')[0] ?? 'Professor(a)';
+  const firstName = profile?.full_name?.split(' ')[0] ?? 'Professor(a)';
 
   if (loading) {
     return (
@@ -141,7 +143,7 @@ export default function ProfessorDashboardPage() {
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.classesCount ?? 0}</p>
           <button
-            onClick={() => navigate('/professor/turmas')}
+            onClick={() => navigate('/admin/area-professor/turmas')}
             className="mt-2 text-xs text-brand-primary hover:underline"
           >
             Ver turmas
@@ -166,7 +168,7 @@ export default function ProfessorDashboardPage() {
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats?.pendingPlans ?? 0}</p>
           <button
-            onClick={() => navigate('/professor/planos')}
+            onClick={() => navigate('/admin/area-professor/planos')}
             className="mt-2 text-xs text-brand-primary hover:underline"
           >
             Ver planos
@@ -206,7 +208,7 @@ export default function ProfessorDashboardPage() {
                     {new Date(entry.entry_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                   </span>
                   <button
-                    onClick={() => navigate(`/professor/turmas/${entry.class_id}/diario`)}
+                    onClick={() => navigate(`/admin/area-professor/turmas/${entry.class_id}/diario`)}
                     className="text-xs text-brand-primary hover:underline"
                   >
                     Abrir diário
@@ -225,7 +227,7 @@ export default function ProfessorDashboardPage() {
           {teacherClasses.slice(0, 6).map((cls) => (
             <button
               key={cls.id}
-              onClick={() => navigate(`/professor/turmas/${cls.id}/diario`)}
+              onClick={() => navigate(`/admin/area-professor/turmas/${cls.id}/diario`)}
               className="text-left p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 hover:bg-brand-primary/5 dark:hover:bg-brand-primary/10 border border-gray-100 dark:border-gray-700 transition-colors"
             >
               <div className="flex items-center gap-2 mb-1">

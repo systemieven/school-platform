@@ -34,11 +34,11 @@ const CarrinhoPage         = lazy(() => import('./pages/loja/CarrinhoPage'));
 const CheckoutPage         = lazy(() => import('./pages/loja/CheckoutPage'));
 const ConfirmacaoPedidoPage = lazy(() => import('./pages/loja/ConfirmacaoPedidoPage'));
 
-// Admin panel, student portal, guardian portal and teacher portal — lazy: large bundles
+// Admin panel, student portal and guardian portal — lazy: large bundles.
+// Portal do Professor foi migrado para /admin/area-professor (ver src/admin/routes.tsx).
 const AdminRoutes      = lazy(() => import('./admin/routes'));
 const PortalRoutes     = lazy(() => import('./portal/routes'));
 const ResponsavelRoutes = lazy(() => import('./responsavel/routes'));
-const ProfessorRoutes   = lazy(() => import('./professor/routes'));
 
 function FullPageFallback() {
   return (
@@ -125,15 +125,6 @@ export default function App() {
         }
       />
 
-      {/* ── Teacher portal (lazy-loaded) ── */}
-      <Route
-        path="professor/*"
-        element={
-          <Suspense fallback={<FullPageFallback />}>
-            <ProfessorRoutes />
-          </Suspense>
-        }
-      />
     </Routes>
   );
 }

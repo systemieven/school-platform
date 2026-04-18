@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useProfessor } from '../../contexts/ProfessorAuthContext';
+import { useTeacherClasses } from './hooks/useTeacherClasses';
 import { supabase } from '../../../lib/supabase';
 import { BookOpen, Users, ClipboardList, Star, Loader2 } from 'lucide-react';
-import type { TeacherClass } from '../../contexts/ProfessorAuthContext';
+import type { TeacherClass } from './hooks/useTeacherClasses';
 
 interface ClassStats {
   [classId: string]: {
@@ -19,7 +19,7 @@ const SHIFT_LABELS: Record<string, string> = {
 };
 
 export default function TurmasPage() {
-  const { teacherClasses } = useProfessor();
+  const { classes: teacherClasses } = useTeacherClasses();
   const navigate = useNavigate();
   const [stats, setStats]   = useState<ClassStats>({});
   const [loading, setLoading] = useState(true);
@@ -106,9 +106,9 @@ export default function TurmasPage() {
               key={cls.id}
               cls={cls}
               stats={stats[cls.id]}
-              onDiario={() => navigate(`/professor/turmas/${cls.id}/diario`)}
-              onNotas={() => navigate(`/professor/turmas/${cls.id}/notas`)}
-              onAlunos={() => navigate(`/professor/turmas/${cls.id}/alunos/lista`)}
+              onDiario={() => navigate(`/admin/area-professor/turmas/${cls.id}/diario`)}
+              onNotas={() => navigate(`/admin/area-professor/turmas/${cls.id}/notas`)}
+              onAlunos={() => navigate(`/admin/area-professor/turmas/${cls.id}/alunos/lista`)}
             />
           ))}
         </div>
