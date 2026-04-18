@@ -204,16 +204,24 @@ function injectManifest(opts: {
 
 function injectFavicon(url: string) {
   if (!url) return;
-  let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
-  if (link) {
-    if (link.href === url) return;
-    link.href = url;
-  } else {
-    link = document.createElement('link');
-    link.rel = 'icon';
-    link.href = url;
-    document.head.appendChild(link);
-  }
+
+  // Remove o favicon default (ex.: /favicon.ico do Lovable) para garantir
+  // que o browser pegue o novo. Alguns browsers (Chrome) insistem no ico
+  // em cache se ele continuar no DOM.
+  const stale = document.querySelectorAll(
+    "link[rel='icon'], link[rel='shortcut icon']",
+  );
+  stale.forEach((el) => el.parentElement?.removeChild(el));
+
+  const icon = document.createElement('link');
+  icon.rel = 'icon';
+  // Deixa o browser inferir o type a partir da extensão/URL
+  icon.href = url;
+  document.head.appendChild(icon);
+
+  // apple-touch-icon — atualiza se existir
+  const apple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement | null;
+  if (apple && apple.href !== url) apple.href = url;
 }
 
 // ── Provider ──
@@ -280,7 +288,10 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
             case 'logos': {
               const logoData = val as Partial<BrandingIdentity>;
               setIdentity((prev) => ({ ...prev, ...logoData }));
-              if (logoData.favicon_url) injectFavicon(logoData.favicon_url);
+              // Fallback: se não há favicon_url configurado, usa a própria
+              // logo como favicon — evita que o default do Lovable persista.
+              const faviconSrc = logoData.favicon_url || logoData.logo_url;
+              if (faviconSrc) injectFavicon(faviconSrc);
               break;
             }
           }
@@ -361,7 +372,8 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
             case 'logos': {
               const logoData = val as Partial<BrandingIdentity>;
               setIdentity((prev) => ({ ...prev, ...logoData }));
-              if (logoData.favicon_url) injectFavicon(logoData.favicon_url);
+              const faviconSrc = logoData.favicon_url || logoData.logo_url;
+              if (faviconSrc) injectFavicon(faviconSrc);
               break;
             }
           }
