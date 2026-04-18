@@ -384,94 +384,6 @@ export default function ContentSettingsPanel() {
   return (
     <div className="p-6 space-y-5">
 
-      {/* ── Aviso de Cookies (global — aparece em todas as sub-abas) ── */}
-      <SettingsCard
-        collapseId="content-cookies"
-        title="Aviso de Cookies"
-        description="Banner exibido no site público no primeiro acesso. Usa as cores de Site > Marca."
-        icon={Cookie}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <SectionLabel>Exibir banner</SectionLabel>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Desative para não exibir o aviso no site público.
-            </p>
-          </div>
-          <Toggle
-            checked={cookies.enabled}
-            onChange={(v) => { setCookies((s) => ({ ...s, enabled: v })); setSaved(false); }}
-            onColor="bg-emerald-500"
-          />
-        </div>
-
-        <SectionDivider />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InputField
-            label="Título"
-            value={cookies.title}
-            onChange={(e) => { setCookies((s) => ({ ...s, title: e.target.value })); setSaved(false); }}
-            placeholder="Este site usa cookies"
-            maxLength={60}
-          />
-          <InputField
-            label="Texto do link da política"
-            value={cookies.policy_label}
-            onChange={(e) => { setCookies((s) => ({ ...s, policy_label: e.target.value })); setSaved(false); }}
-            placeholder="Política de Privacidade"
-            maxLength={40}
-          />
-        </div>
-
-        <TextareaField
-          label="Mensagem"
-          value={cookies.message}
-          onChange={(e) => { setCookies((s) => ({ ...s, message: e.target.value })); setSaved(false); }}
-          placeholder="Utilizamos cookies para..."
-          rows={4}
-          maxLength={400}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InputField
-            label="Botão aceitar"
-            value={cookies.accept_label}
-            onChange={(e) => { setCookies((s) => ({ ...s, accept_label: e.target.value })); setSaved(false); }}
-            placeholder="Aceitar"
-            maxLength={20}
-          />
-          <InputField
-            label="Botão recusar"
-            value={cookies.decline_label}
-            onChange={(e) => { setCookies((s) => ({ ...s, decline_label: e.target.value })); setSaved(false); }}
-            placeholder="Recusar"
-            maxLength={20}
-          />
-        </div>
-
-        <RoutePicker
-          label="Rota da política de privacidade"
-          value={cookies.policy_route}
-          onChange={(v) => { setCookies((s) => ({ ...s, policy_route: v })); setSaved(false); }}
-        />
-
-        <SectionDivider />
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <SectionLabel>Efeito pulse no botão aceitar</SectionLabel>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Mesmo efeito de pulso usado no botão "Matrícula" da navbar.
-            </p>
-          </div>
-          <Toggle
-            checked={cookies.pulse}
-            onChange={(v) => { setCookies((s) => ({ ...s, pulse: v })); setSaved(false); }}
-            onColor="bg-emerald-500"
-          />
-        </div>
-      </SettingsCard>
-
       {/* ── Sub-tab bar ── */}
       <div className="flex flex-wrap gap-1.5 w-fit rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
         {SUB_TABS.map(({ key, label, icon: Icon }) => (
@@ -610,6 +522,93 @@ export default function ContentSettingsPanel() {
             <AddButton label="Adicionar segmento" onClick={() =>
               updateKey('home_segments', [...state.home_segments, { title: '', description: '', image: '', ages: '', to: '' }])
             } />
+          </SettingsCard>
+
+          <SettingsCard
+            collapseId="content-cookies"
+            title="Aviso de Cookies"
+            description="Banner exibido no site público no primeiro acesso. Usa as cores de Site > Marca."
+            icon={Cookie}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <SectionLabel>Exibir banner</SectionLabel>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Desative para não exibir o aviso no site público.
+                </p>
+              </div>
+              <Toggle
+                checked={cookies.enabled}
+                onChange={(v) => { setCookies((s) => ({ ...s, enabled: v })); setSaved(false); }}
+                onColor="bg-emerald-500"
+              />
+            </div>
+
+            <SectionDivider />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField
+                label="Título"
+                value={cookies.title}
+                onChange={(e) => { setCookies((s) => ({ ...s, title: e.target.value })); setSaved(false); }}
+                placeholder="Este site usa cookies"
+                maxLength={60}
+              />
+              <InputField
+                label="Texto do link da política"
+                value={cookies.policy_label}
+                onChange={(e) => { setCookies((s) => ({ ...s, policy_label: e.target.value })); setSaved(false); }}
+                placeholder="Política de Privacidade"
+                maxLength={40}
+              />
+            </div>
+
+            <TextareaField
+              label="Mensagem"
+              value={cookies.message}
+              onChange={(e) => { setCookies((s) => ({ ...s, message: e.target.value })); setSaved(false); }}
+              placeholder="Utilizamos cookies para..."
+              rows={4}
+              maxLength={400}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField
+                label="Botão aceitar"
+                value={cookies.accept_label}
+                onChange={(e) => { setCookies((s) => ({ ...s, accept_label: e.target.value })); setSaved(false); }}
+                placeholder="Aceitar"
+                maxLength={20}
+              />
+              <InputField
+                label="Botão recusar"
+                value={cookies.decline_label}
+                onChange={(e) => { setCookies((s) => ({ ...s, decline_label: e.target.value })); setSaved(false); }}
+                placeholder="Recusar"
+                maxLength={20}
+              />
+            </div>
+
+            <RoutePicker
+              label="Rota da política de privacidade"
+              value={cookies.policy_route}
+              onChange={(v) => { setCookies((s) => ({ ...s, policy_route: v })); setSaved(false); }}
+            />
+
+            <SectionDivider />
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <SectionLabel>Efeito pulse no botão aceitar</SectionLabel>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Mesmo efeito de pulso usado no botão "Matrícula" da navbar.
+                </p>
+              </div>
+              <Toggle
+                checked={cookies.pulse}
+                onChange={(v) => { setCookies((s) => ({ ...s, pulse: v })); setSaved(false); }}
+                onColor="bg-emerald-500"
+              />
+            </div>
           </SettingsCard>
         </>
       )}
