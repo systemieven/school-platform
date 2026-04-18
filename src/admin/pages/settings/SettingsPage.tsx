@@ -712,49 +712,24 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {/* Site sub-tabs + preset buttons */}
+              {/* Site sub-tabs (preset buttons moved to page-tab row via SiteSettingsPanel headerRight) */}
               {activeTab === 'site' && (
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="flex flex-wrap gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
-                    {SITE_SUB_TABS.map(({ key, label, icon: Icon }) => (
-                      <button
-                        key={key}
-                        onClick={() => setSiteSubTab(key)}
-                        className={[
-                          'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
-                          siteSubTab === key
-                            ? 'bg-brand-primary text-brand-secondary shadow-md shadow-brand-primary/20'
-                            : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
-                        ].join(' ')}
-                      >
-                        <Icon className="w-3.5 h-3.5" />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <span className="w-px h-5 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
-
-                  <div className="flex gap-1 hidden sm:flex">
+                <div className="flex flex-wrap gap-1.5 flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
+                  {SITE_SUB_TABS.map(({ key, label, icon: Icon }) => (
                     <button
-                      onClick={() => { setPresetName(''); setShowSavePreset(true); }}
-                      disabled={presetBusy}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg text-gray-500 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors disabled:opacity-50"
-                      title="Salvar preset"
+                      key={key}
+                      onClick={() => setSiteSubTab(key)}
+                      className={[
+                        'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
+                        siteSubTab === key
+                          ? 'bg-brand-primary text-brand-secondary shadow-md shadow-brand-primary/20'
+                          : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
+                      ].join(' ')}
                     >
-                      <Download className="w-3.5 h-3.5" />
-                      Salvar
+                      <Icon className="w-3.5 h-3.5" />
+                      {label}
                     </button>
-                    <button
-                      onClick={openRestoreModal}
-                      disabled={presetBusy}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg text-gray-500 hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
-                      title="Restaurar preset"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Restaurar
-                    </button>
-                  </div>
+                  ))}
                 </div>
               )}
 
@@ -814,7 +789,31 @@ export default function SettingsPage() {
               ) : activeTab === 'contact' ? (
                 <ContactSettingsPanel />
               ) : activeTab === 'site' ? (
-                <SiteSettingsPanel activeTab={siteSubTab} />
+                <SiteSettingsPanel
+                  activeTab={siteSubTab}
+                  headerRight={
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => { setPresetName(''); setShowSavePreset(true); }}
+                        disabled={presetBusy}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg text-gray-500 hover:text-brand-primary hover:bg-brand-primary/5 transition-colors disabled:opacity-50"
+                        title="Salvar preset"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Salvar
+                      </button>
+                      <button
+                        onClick={openRestoreModal}
+                        disabled={presetBusy}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg text-gray-500 hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
+                        title="Restaurar preset"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Restaurar
+                      </button>
+                    </div>
+                  }
+                />
               ) : activeTab === 'security' ? (
                 <SecuritySettingsPanel />
               ) : activeTab === 'users' ? (
