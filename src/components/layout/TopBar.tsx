@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
@@ -88,15 +89,17 @@ export default function TopBar() {
       <div className="container mx-auto px-4">
         <div className="flex justify-end items-center gap-4 text-sm">
 
-          {/* Quick links */}
-          {config.quick_links.map((link) => (
-            <Link
-              key={link.route}
-              to={link.route}
-              className="hover:text-brand-primary/80 transition-colors"
-            >
-              {link.label}
-            </Link>
+          {/* Quick links (com divisores entre eles) */}
+          {config.quick_links.map((link, idx) => (
+            <Fragment key={`${link.route}-${idx}`}>
+              {idx > 0 && <span className="w-px h-3.5 bg-brand-primary/20" aria-hidden="true" />}
+              <Link
+                to={link.route}
+                className="hover:text-brand-primary/80 transition-colors"
+              >
+                {link.label}
+              </Link>
+            </Fragment>
           ))}
 
           {/* Divider */}
