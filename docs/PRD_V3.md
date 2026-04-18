@@ -2,7 +2,7 @@
 
 > **Versao**: 3.5
 > **Data**: 17 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, Sprint 14.S.P-bis concluido, Sprint 14.S.P-ter concluido, Sprint 13.IA + 13.IA-dash concluidos (ai_agents + orchestrator multi-provider + 4 workers integrados + dashboard de consumo real via Admin APIs), migrations 153-171) + roadmap ate v1 (F6.4 Documentação)
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, Sprint 14.S.P-bis concluido, Sprint 14.S.P-ter concluido, Sprint 13.IA + 13.IA-dash concluidos (ai_agents + orchestrator multi-provider + 4 workers integrados + dashboard de consumo real via Admin APIs), Sprint 13.IA.v2 PR1 concluido (infra proativa: ai_insights + ai_event_bindings + 3 edge functions), migrations 153-175) + roadmap ate v1 (F6.4 Documentação)
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -1525,6 +1525,8 @@ Configuravel na aba Aparencia > Home:
 | 169 | `pg_cron` job | 17/04 | ✅ **Sprint 13.IA-dash PR1** — `cron.schedule('ai_billing_sync_daily', '1 0 * * *', ...)` dispara `ai-billing-sync` via `net.http_post` às 00:01 UTC, passando `x-trigger-secret` de `system_settings('internal','trigger_secret')`. |
 | 170 | `company_ai_config` (alter) | 17/04 | ✅ **Sprint 13.IA-dash PR3** — Adiciona `anthropic_workspace_id TEXT`. Quando informada, o `ai-billing-sync` envia `workspace_ids[]=<id>` para a Anthropic Admin API, escopando o consumo a um Workspace específico em vez da organização inteira. UI no campo "Workspace ID (opcional)" no card "Chaves de API" do `AiAgentsPanel`. |
 | 171 | `ai_drop_balance_tracking` | 17/04 | ✅ **Sprint 13.IA-dash PR3** — `DROP TABLE ai_recharges CASCADE` + remove colunas `balance_usd`/`auto_recharge_enabled`/`auto_recharge_threshold`/`auto_recharge_amount` de `ai_usage_snapshots` + `balance_alert_threshold` de `company_ai_config`. Motivo: nem Anthropic nem OpenAI expõem saldo via Admin API (só usage + cost). Manter cards de "saldo estimado" baseado em recargas inferidas passava falsa precisão — saldo real é compartilhado entre workspaces/projetos e só confiável no console do provider. Dashboard mantém apenas `total_spent_usd`, `tokens_input/output`, `requests_count` (dados reais do `cost_report`). |
+| 174 | `ai_insights` | 17/04 | ✅ **Sprint 13.IA.v2 PR1** — Caixa de entrada do assistente proativo: `agent_slug FK ai_agents`, `severity` CHECK ('low'\|'medium'\|'high'\|'critical'), `status` CHECK ('new'\|'seen'\|'dismissed'\|'resolved'), `audience TEXT[]`, `recipient_id FK profiles` (personal), `related_module/entity_type/entity_id`, `title`, `summary`, `payload JSONB`, `actions JSONB`, `context_hash`, timestamps. UNIQUE INDEX `(agent_slug, context_hash) WHERE status='new'` para dedup. GIN em audience, índice por status+severity. RLS: admin/coordinator ALL, teacher por `audience && ['teacher']`, guardian/student por `recipient_id=auth.uid()`. INSERT só via service_role. Publicada em `supabase_realtime`. |
+| 175 | `ai_event_bindings` | 17/04 | ✅ **Sprint 13.IA.v2 PR1** — Mapeia `event_type → agent_slug` com `debounce_hours` e `enabled`. UNIQUE `(event_type, agent_slug)`. RLS admin-only. Alter `ai_agents` adicionando `run_on_login BOOL`, `run_on_event TEXT[]`, `run_on_cron TEXT`, `debounce_hours INT`, `audience TEXT[]` — suporte a disparos proativos (event-driven + cron + pre-compute no login). |
 | 173 | `teacher_dashboard_access` | 17/04 | ✅ **Dashboard registry-driven** — libera `dashboard.can_view=true` para role `teacher` no seed de `role_permissions`. Antes, teacher batia no redirect do `<ModuleGuard moduleKey="dashboard">` mesmo tendo acesso a submódulos (teacher-diary, teacher-exams, occurrences). O novo `DashboardPage` único filtra widgets por `has_module_permission` + `requireRole`, então teacher passa a ver `Minhas aulas de hoje`, `Diário pendente`, `Provas a corrigir`, `Minhas turmas` e `Ocorrências recentes` (tenancy RLS da migration 145 continua escopando por `teacher_sees_student`). |
 
 ### 7.4 RLS Policies
@@ -1657,6 +1659,9 @@ Configuravel na aba Aparencia > Home:
 | `ai-worker-openai` | service_role (interno) | 17/04 | Sprint 13.PR1 | Wrapper para `POST https://api.openai.com/v1/chat/completions`. Body: `{ model, system, user, temperature, max_tokens }`. Retorna `{ text, input_tokens, output_tokens }` normalizado a partir de `usage.prompt_tokens`/`completion_tokens`. Exige secret `OPENAI_API_KEY`. |
 | `ai-billing-sync` | X-Trigger-Secret (cron) OU JWT admin | 17/04 | Sprint 13.IA-dash PR2 | Consulta APIs admin oficiais (Anthropic `/v1/organizations/usage_report/messages`+`/cost_report` com `workspace_ids[]` opcional, OpenAI `/v1/organization/usage/completions`+`/costs`) para o dia solicitado; UPSERT em `ai_usage_snapshots` por `(provider, snapshot_date)` com `tokens_input/output`, `requests_count`, `total_spent_usd`, `raw_payload`. Body: `{ provider?, date?, force? }`. Pula provider com `status='skipped'` quando admin key ausente. Disparado diariamente às 00:01 UTC via `pg_cron`. Bloco de inferência de recarga removido na limpeza do PR3 (migration 171). |
 | `ai-billing-manual-refresh` | `verify_jwt=false` (validação interna de admin/super_admin) | 17/04 | Sprint 13.IA-dash PR2+PR3 | Thin wrapper que delega para `ai-billing-sync` com `force=true`, passando `x-trigger-secret` internamente. Rate-limit de **1 chamada / 5 minutos** baseada no `fetched_at` mais recente em `ai_usage_snapshots` (retorna 429 com `retry_after_seconds`). Invocado pelo botão "Atualizar agora" no `AiUsageDashboard`. |
+| `ai-event-dispatcher` | X-Trigger-Secret (trigger/cron) OU JWT admin | 17/04 | Sprint 13.IA.v2 PR1 | Backbone do modo event-driven: recebe `{event_type, entity_type?, entity_id?, payload?}`, carrega bindings enabled em `ai_event_bindings`, aplica debounce via `context_hash` em `ai_insights` (janela `debounce_hours`), invoca `ai-orchestrator` com `{agent_slug, context}`, parseia verdict JSON (`should_alert`, `severity`, `audience`, `recipient_id`, `title`, `summary`, `payload`, `actions`) e UPSERT em `ai_insights` com `onConflict='agent_slug,context_hash'+ignoreDuplicates`. Dispara `push-send` quando severity ∈ {high, critical}. |
+| `ai-login-refresh` | JWT (admin/super_admin) | 17/04 | Sprint 13.IA.v2 PR1 | Chamado fire-and-forget pelo `AdminAuthContext.onAuthStateChange` após `SIGNED_IN`; carrega agentes WHERE `run_on_login=true AND enabled=true`, filtra por role do usuário via `audience`, faz fan-out para `ai-event-dispatcher` com `event_type='login_refresh.<slug>'`. Pre-computa insights personalizados para aparecer no inbox em < 5s após login via Realtime. |
+| `ai-scheduled-runner` | X-Trigger-Secret (pg_cron) OU JWT admin | 17/04 | Sprint 13.IA.v2 PR1 | Runner multi-cadência: body `{cadence?, run_agent?}`. Busca `ai_agents` WHERE `run_on_cron=cadence AND enabled=true`, faz fan-out para `ai-event-dispatcher` com `event_type='cron.<slug>'`. Cada agente faz seu próprio fan-out interno (ex: `student_weekly_summary` itera alunos dentro do prompt/RPC, dispatcher cria 1 insight por destinatário via `recipient_id`). |
 
 ---
 
@@ -1861,6 +1866,9 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 | Sprint 13.IA-dash | Dashboard de Uso/Consumo IA (configuracoes/ia como root) | ✅ **Concluido (2026-04-17)** — PR1: migrations 165-169 aplicadas em produção (`ai_usage_snapshots` com UNIQUE provider+snapshot_date, `company_ai_config` extendida com admin keys + `openai_organization_id`, RPC `ai_usage_stats(from,to,provider?,agent_slug?)` SECURITY DEFINER retornando `{kpis,daily,top}` com custo estimado por modelo, job `pg_cron` `ai_billing_sync_daily` agendado para 00:01 UTC via `net.http_post` com `x-trigger-secret`). `AiAgentsPanel` ganha campos Anthropic Admin Key, OpenAI Admin Key, Organization ID no card "Chaves de API" com toggle Eye/EyeOff e divisor explicativo separando inference keys das admin keys. **PR2**: Edge Function `ai-billing-sync` (`verify_jwt=false`, auth dual via `x-trigger-secret` para cron ou JWT admin para chamada manual; fetch paralelo de usage+cost por provider, agrega tokens_input/output/requests_count/total_spent_usd, UPSERT em `ai_usage_snapshots`, pula providers sem admin key com `status='skipped'`). Edge Function `ai-billing-manual-refresh` (`verify_jwt=false` com validação interna de admin/super_admin, rate-limit de 5min por `fetched_at` do último snapshot respondendo 429 com `retry_after_seconds`, delega para `ai-billing-sync` via fetch interno). **PR3**: refactor de `AiAgentsPanel` em sub-abas ("Visão geral"/"Agentes"/"Chaves de API") com sub-tabs lifted para o header do `SettingsPage` (padrão border-wrapped pill `bg-brand-primary text-brand-secondary`). Novo componente `AiUsageDashboard` com KPIs de período, card "Custo Diário" (gráfico de barras), top 10 agentes e botão "Atualizar agora" invocando `ai-billing-manual-refresh`. Migration 170 adiciona `anthropic_workspace_id` (filtra consumo a um Workspace da Anthropic via `workspace_ids[]`). **Pivot de escopo (2026-04-17)**: migration 171 drop `ai_recharges` + colunas `balance_*`/`auto_recharge_*`/`balance_alert_threshold` — nem Anthropic nem OpenAI expõem saldo via Admin API, e a heurística de recarga inferida passava falsa sensação de precisão (saldo real é compartilhado entre workspaces/projetos e só confiável no console do provider). Dashboard final mantém apenas consumo real (`total_spent_usd`, tokens, requests) com link "Ver saldo no console" por provider. Toggle Anthropic/OpenAI no card "Chaves" movido para cima do card com padrão border-wrapped brand-secondary. Sprint 13.IA-dash concluída. Detalhes em §10.8B.
 
 Roadmap original: — PR1: migrations 165-169 (`ai_usage_snapshots`, `ai_recharges`, extender `company_ai_config` com admin keys, RPC `ai_usage_stats`, job `pg_cron` 00:01). PR2: Edge Functions `ai-billing-sync` + `ai-billing-manual-refresh` (consomem Anthropic Admin API `/v1/organizations/usage_report` + OpenAI `/v1/organization/usage` e `/costs`). PR3: refactor `AiAgentsPanel` em sub-abas (Visão geral default, Agentes, Chaves) + novo `AiUsageDashboard` (KPIs periodo, saldo estimado por provider, top agentes, gráfico histórico, filtros Hoje/Semana/Mês/Personalizado). PR4 opcional: registro manual de recargas + alertas de saldo baixo. **Dependências de integração**: ⚠️ saldo em tempo real e auto-recarga **não têm API pública** em nenhum dos dois providers — dashboard lê tokens/custo via admin keys e estima saldo via snapshots + recargas manuais; auto-recarga fica read-only com deep link para o console do provider. Exige Admin API keys separadas das keys de inference (Anthropic: Organization Admin Key; OpenAI: `sk-admin-*` + `OpenAI-Organization` header). | Media | Admin API keys Anthropic/OpenAI + pg_cron + net.http_post |
+| Sprint 13.IA.v2 | Agentes Proativos Contextuais (event-driven + cron + nudge por rota) | 🚧 **Em progresso (2026-04-17)** — PR1 concluído: migrations 174-175 (`ai_insights` com RLS por audience/recipient_id + Realtime, `ai_event_bindings` + alter `ai_agents` proativo), 3 edge functions deployadas (`ai-event-dispatcher`, `ai-login-refresh`, `ai-scheduled-runner`), hook `useAiInsights`, componentes `AiInsightsInbox` + `AiComposeMessage`, integração no `AdminAuthContext` (fire-and-forget `ai-login-refresh` pós-login) e `AdminHeader` (ícone Sparkles + badge). PR2+ em andamento: `AiContextualNudge` (FAB discreto bottom-right scoped por rota/role) + 7 agentes por (módulo, role). Detalhes em §10.8C. | Media | Sprint 13.IA + 13.IA-dash |
+| Fase 16 | Módulo RH (colaboradores expandido, processo seletivo, folha de pagamento, agente `resume_screener`) | ⏳ Pendente (sem escopo detalhado) | Media | Cadastro de colaboradores (OP-1 PR5) |
+| Fase 17 | Analytics Avançada (`cash_flow_forecast`, `satisfaction_analyzer`, `agenda_optimizer`, `stock_demand_forecast`) | ⏳ Pendente (pós-v1) | Baixa-Media | Sprint 13.IA.v2 |
 | DASH-1 | Dashboards por Permissao (1 dashboard compartilhado, blocos auto-filtrantes) | ✅ Concluido (2026-04-17) | Media-Alta | Permissoes granulares (migration 143) |
 
 **Dependencias**: Fase 9.5 pode ser desenvolvida imediatamente (8+9 concluidos). Fases 10 e 10.P compartilham as mesmas dependencias (9+9.M) e devem ser desenvolvidas **em paralelo** — o Portal do Professor gera os dados (frequencia, notas, conteudo) que o Portal do Responsavel exibe. Fase 11 depende de 10. Fase 12 (agora limitada a BNCC e relatorios avancados) depende de 10.P. Fase 13 depende de 8+9+10 (dados suficientes para insights). Fase 14 depende de 8.5 (caixas e financeiro) e de 10 (portal do responsavel para checkout autenticado).
@@ -3310,6 +3318,71 @@ Este é o bloco crítico — o que é viável hoje:
 - **PR4** (opcional): registro manual de recargas + alertas por e-mail quando saldo estimado cair abaixo do threshold (cron 06:00 diário).
 
 **Verificação**: rodar `ai-billing-sync` manualmente, conferir `ai_usage_snapshots` populado para ambos providers; abrir dashboard e validar KPIs contra o console do provider; simular período de 7 dias e comparar custo.
+
+---
+
+### 10.8C Sprint 13.IA.v2 — Agentes Proativos Contextuais
+
+**Problema**: Sprint 13.IA + 13.IA-dash entregaram 4 agentes click-to-invoke. O assistente só age quando o humano clica — então só muda o dia a dia se alguém lembrar de abrir a tela certa. Para virar "assistente real", o agente precisa rodar em segundo plano, detectar o que importa sozinho e **colocar o achado na frente do usuário certo, na página certa**.
+
+**Objetivo**: construir a espinha dorsal proativa — tabela `ai_insights` como caixa de entrada do assistente, alimentada por três modos de disparo (Postgres triggers, pg_cron, pre-compute no login) — e surfacá-la em dois lugares complementares:
+1. **`<AiInsightsInbox/>`** (navbar): lista completa de insights do usuário (dropdown tipo notificação).
+2. **`<AiContextualNudge/>`** (FAB bottom-right): notificação discreta do insight **mais relevante para a rota atual**, tipo balão de chat (mas **não é chat** — é one-way, contextual).
+
+**Isolamento entre roles** é requisito duro: agente do financeiro não vazia informação para professor; agente do aluno não mostra conteúdo de outro aluno. Garantido via RLS de `ai_insights` (existente):
+- `audience TEXT[]` + policy teacher `audience && ARRAY['teacher']`
+- `recipient_id UUID` + policy guardian/student `recipient_id = auth.uid()`
+- admin/coordinator têm SELECT geral
+
+#### PR1 — Espinha dorsal (✅ concluído)
+- **migration 174** `ai_insights` — tabela + RLS + indexes + trigger `set_ai_insights_updated_at` + `ALTER PUBLICATION supabase_realtime ADD TABLE`.
+- **migration 175** `ai_event_bindings` + alter `ai_agents` com colunas proativas (`run_on_login`, `run_on_event TEXT[]`, `run_on_cron`, `debounce_hours`, `audience`).
+- **Edge Function `ai-event-dispatcher`** (`verify_jwt=false`): dual auth, debounce via `context_hash`, invoca orchestrator, UPSERT insight, push-send se crítico.
+- **Edge Function `ai-login-refresh`** (JWT admin): fan-out de agentes `run_on_login=true` filtrados por role.
+- **Edge Function `ai-scheduled-runner`** (dual auth): orquestra jobs por cadência; cada agente faz fan-out interno via `recipient_id`.
+- **Hook `useAiInsights.ts`**: query inicial + Realtime subscribe + `markSeen/dismiss/resolve`.
+- **`AiInsightsInbox.tsx`**: dropdown na navbar com Sparkles + badge por severity; ações `navigate`/`whatsapp`/`resolve`.
+- **`AiComposeMessage.tsx`**: drawer universal com rascunho via agente `parent_communication` + envio via `message-orchestrator`.
+- **`AdminAuthContext`** chama `ai-login-refresh` fire-and-forget pós-`SIGNED_IN`.
+- **`AdminHeader`** monta `<AiInsightsInbox/>` ao lado do sino de notificações.
+
+#### PR2 — Nudge contextual + agente acadêmico (🚧 em progresso)
+- **migration 176** RPC `calculate_academic_risk(student_id)` agregando frequência + notas recentes + justificativas.
+- **migration 177** seed agente `academic_pulse` (run_on_cron='hourly', audience=['coordinator','teacher'], debounce_hours=1) + binding `cron.academic_pulse` em `ai_event_bindings`.
+- **Hook `useAiRouteContext.ts`**: deriva `{module, entity_type, entity_id}` de `useLocation` + `useSearchParams` + `useAdminAuth`.
+- **`AiContextualNudge.tsx`**: FAB bottom-right; consome `useAiInsights` filtrado pela rota corrente; aparece como balão discreto (1 insight top-severity por vez); clicar abre card expandido com ação.
+- Montagem em `AdminLayout.tsx` (após o main content, antes do footer).
+
+#### PR3 — Portal (aluno + responsável + lost_found_match)
+- `student_study_buddy` (audience=['student'], recipient_id por aluno ativo): dicas nas matérias de pior desempenho + link YouTube do conteúdo corrente do diário. Cron 6h.
+- `guardian_pulse` (audience=['guardian'], recipient_id=guardian): faltas recentes do filho, parcelas a vencer, eventos escolares. Cron 12h + trigger em `financial_installments`/`diary_attendance`.
+- `lost_found_match` (audience=['student','guardian']): AFTER INSERT em `lost_found_items` varre alunos cujo perfil/turma bate com descrição; cria insight "É seu?" com action claim.
+
+#### PR4 — Financeiro (anomalia + admin pulse)
+- `financial_anomaly_scout` (audience=['admin'], cron 1h + trigger `financial_installments.status`): detecta picos de inadimplência, spikes em cancelamentos, fornecedores com preço fora da curva (tipo `supplier_price_anomaly`).
+- `admin_pulse` (audience=['admin'], run_on_login + cron 1h): visão geral para admin — KPIs ocultos, mudanças bruscas vs baseline.
+
+#### PR5 — Secretaria
+- `secretary_pulse` (audience=['admin'], cron 1h): documentos expirando, matrículas incompletas, inconsistências em cadastros.
+
+#### Roster final de agentes proativos
+
+| Agent | Audience | Módulo | Gatilho | Severidade típica |
+|---|---|---|---|---|
+| `academic_pulse` | coordinator, teacher | academico | cron 1h + trigger notas/faltas | medium a critical |
+| `financial_anomaly_scout` | admin | financeiro | cron 1h + trigger parcelas | medium a high |
+| `secretary_pulse` | admin | secretaria | cron 1h | low a medium |
+| `admin_pulse` | admin | dashboard | login + cron 1h | low a medium |
+| `student_study_buddy` | student (recipient_id) | portal aluno | cron 6h + trigger notas | low |
+| `guardian_pulse` | guardian (recipient_id) | portal responsável | cron 12h + trigger parcela/falta | low a high |
+| `lost_found_match` | student, guardian | portal | trigger INSERT `lost_found_items` | low |
+
+**Custo projetado**: 7 agentes × cadências calibradas + debounce 1-12h + Haiku 4.5 → ~$3–8/mês extra em produção com 500 alunos ativos. Já rastreado via `ai_usage_log` + `ai_usage_snapshots`.
+
+**Verificação** (por PR):
+- PR1: login como admin → `ai-login-refresh` invocada sem bloquear UI; inserir linha em `ai_insights` via SQL → badge sobe via Realtime em <5s.
+- PR2: rodar manual `SELECT cron.run_job(...)` do `ai_scheduled_runner_hourly` → insight aparece em <10s no inbox + nudge surge apenas nas rotas `/admin/academico/*`.
+- PR3-5: análogo, com fan-out por recipient e trigger reais.
 
 ---
 
