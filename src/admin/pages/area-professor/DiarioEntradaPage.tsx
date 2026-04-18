@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useProfessor } from '../../contexts/ProfessorAuthContext';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useTeacherClasses } from './hooks/useTeacherClasses';
 import { supabase } from '../../../lib/supabase';
 import {
   ChevronLeft, ClipboardList, Check, Loader2, Lock, Users, BookOpen, FileText, MessageCircle,
@@ -39,7 +40,8 @@ interface StudentAttendance {
 
 export default function DiarioEntradaPage() {
   const { classId, entryId } = useParams<{ classId: string; entryId: string }>();
-  const { professor, teacherClasses } = useProfessor();
+  const { profile } = useAdminAuth();
+  const { classes: teacherClasses } = useTeacherClasses();
   const navigate = useNavigate();
 
   const isNew = entryId === 'novo' || !entryId;
@@ -187,7 +189,7 @@ export default function DiarioEntradaPage() {
   }
 
   async function handleSave() {
-    if (!professor || !classId) return;
+    if (!profile || !classId) return;
     setSaveState('saving');
 
     const selectedDiscipline = disciplines.find((d) => d.discipline_id === disciplineId);
@@ -195,7 +197,7 @@ export default function DiarioEntradaPage() {
       class_id:      classId,
       discipline_id: disciplineId || null,
       subject_id:    selectedDiscipline?.subject_id ?? null,
-      teacher_id:    professor.id,
+      teacher_id:    profile!.id,
       entry_date:    entryDate,
       type,
       content,
@@ -237,7 +239,7 @@ export default function DiarioEntradaPage() {
 
     setSaveState('saved');
     setTimeout(() => {
-      navigate(`/professor/turmas/${classId}/diario`);
+      navigate(`/admin/area-professor/turmas/${classId}/diario`);
     }, 900);
   }
 
@@ -259,7 +261,7 @@ export default function DiarioEntradaPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate(`/professor/turmas/${classId}/diario`)}
+          onClick={() => navigate(`/admin/area-professor/turmas/${classId}/diario`)}
           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -468,7 +470,7 @@ export default function DiarioEntradaPage() {
       {!isLocked && (
         <div className="flex gap-3">
           <button
-            onClick={() => navigate(`/professor/turmas/${classId}/diario`)}
+            onClick={() => navigate(`/admin/area-professor/turmas/${classId}/diario`)}
             disabled={saveState === 'saving'}
             className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
           >

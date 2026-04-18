@@ -42,6 +42,16 @@ const FinancialCashImportPage        = lazy(() => import('./pages/migracao/Finan
 const UsersImportPage                = lazy(() => import('./pages/migracao/UsersImportPage'));
 const StudentDetailPage    = lazy(() => import('./pages/school/StudentDetailPage'));
 const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'));
+
+// Área do Professor — páginas migradas de /professor para /admin/area-professor
+const TeacherDashboardPage = lazy(() => import('./pages/area-professor/DashboardPage'));
+const TeacherTurmasPage    = lazy(() => import('./pages/area-professor/TurmasPage'));
+const TeacherDiarioPage    = lazy(() => import('./pages/area-professor/DiarioPage'));
+const TeacherDiarioEntradaPage = lazy(() => import('./pages/area-professor/DiarioEntradaPage'));
+const TeacherNotasPage     = lazy(() => import('./pages/area-professor/NotasPage'));
+const TeacherPlanosPage    = lazy(() => import('./pages/area-professor/PlanosPage'));
+const TeacherProvasPage    = lazy(() => import('./pages/area-professor/ProvasPage'));
+const TeacherAlunoPerfilPage = lazy(() => import('./pages/area-professor/AlunoPerfilPage'));
 const LibraryPage          = lazy(() => import('./pages/library/LibraryPage'));
 const AnnouncementsPage    = lazy(() => import('./pages/announcements/AnnouncementsPage'));
 const EventsPage           = lazy(() => import('./pages/events/EventsPage'));
@@ -133,7 +143,16 @@ export default function AdminRoutes() {
           <Route path="alunos"         element={<ModuleGuard moduleKey="students"><LazyPage><StudentsPage /></LazyPage></ModuleGuard>} />
           <Route path="alunos/importar" element={<ModuleGuard moduleKey="students" requiredAction="import"><LazyPage><StudentImportPage /></LazyPage></ModuleGuard>} />
           <Route path="alunos/:studentId" element={<ModuleGuard moduleKey="students"><LazyPage><StudentDetailPage /></LazyPage></ModuleGuard>} />
-          <Route path="area-professor" element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherAreaPage /></LazyPage></ModuleGuard>} />
+          {/* Área do Professor — portal do professor integrado ao /admin (antigo /professor). */}
+          <Route path="area-professor"                               element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherDashboardPage /></LazyPage></ModuleGuard>} />
+          <Route path="area-professor/turmas"                        element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherTurmasPage /></LazyPage></ModuleGuard>} />
+          <Route path="area-professor/turmas/:classId"               element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherAreaPage /></LazyPage></ModuleGuard>} />
+          <Route path="area-professor/turmas/:classId/diario"        element={<ModuleGuard moduleKey="teacher-diary"><LazyPage><TeacherDiarioPage /></LazyPage></ModuleGuard>} />
+          <Route path="area-professor/turmas/:classId/diario/:entryId" element={<ModuleGuard moduleKey="teacher-diary"><LazyPage><TeacherDiarioEntradaPage /></LazyPage></ModuleGuard>} />
+          <Route path="area-professor/turmas/:classId/notas"         element={<ModuleGuard moduleKey="teacher-activities"><LazyPage><TeacherNotasPage /></LazyPage></ModuleGuard>} />
+          <Route path="area-professor/turmas/:classId/alunos/:studentId" element={<ModuleGuard moduleKey="teacher-area"><LazyPage><TeacherAlunoPerfilPage /></LazyPage></ModuleGuard>} />
+          <Route path="area-professor/planos"                        element={<ModuleGuard moduleKey="teacher-lesson-plans"><LazyPage><TeacherPlanosPage /></LazyPage></ModuleGuard>} />
+          <Route path="area-professor/provas"                        element={<ModuleGuard moduleKey="teacher-exams"><LazyPage><TeacherProvasPage /></LazyPage></ModuleGuard>} />
           <Route path="biblioteca"     element={<ModuleGuard moduleKey="library"><LazyPage><LibraryPage /></LazyPage></ModuleGuard>} />
           <Route path="comunicados"    element={<ModuleGuard moduleKey="announcements"><LazyPage><AnnouncementsPage /></LazyPage></ModuleGuard>} />
           <Route path="eventos"        element={<ModuleGuard moduleKey="events"><LazyPage><EventsPage /></LazyPage></ModuleGuard>} />

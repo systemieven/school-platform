@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useProfessor } from '../../contexts/ProfessorAuthContext';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useTeacherClasses } from './hooks/useTeacherClasses';
 import { supabase } from '../../../lib/supabase';
 import {
   Star, Plus, Check, Loader2, ChevronLeft, ClipboardList,
@@ -54,7 +55,8 @@ interface EditingScore {
 
 export default function NotasPage() {
   const { classId } = useParams<{ classId: string }>();
-  const { professor, teacherClasses } = useProfessor();
+  const { profile } = useAdminAuth();
+  const { classes: teacherClasses } = useTeacherClasses();
   const navigate = useNavigate();
 
   const cls = teacherClasses.find((c) => c.id === classId);
@@ -78,7 +80,7 @@ export default function NotasPage() {
   const [savingActivity, setSavingActivity] = useState<SaveState>('idle');
 
   const loadData = useCallback(async () => {
-    if (!classId || !professor) return;
+    if (!classId || !profile) return;
     setLoading(true);
 
     const studentsQuery = supabase
@@ -92,7 +94,7 @@ export default function NotasPage() {
       .from('class_activities')
       .select('id, title, type, activity_date, weight, max_score, min_passing, is_published, subject_id')
       .eq('class_id', classId)
-      .eq('teacher_id', professor.id)
+      .eq('teacher_id', profile!.id)
       .order('activity_date', { ascending: false });
 
     if (discFilter) activitiesQuery = activitiesQuery.eq('subject_id', discFilter);
@@ -115,7 +117,7 @@ export default function NotasPage() {
       setScores(scoresData ?? []);
     }
     setLoading(false);
-  }, [classId, professor, discFilter]);
+  }, [classId, profile, discFilter]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -177,11 +179,11 @@ export default function NotasPage() {
   }
 
   async function handleSaveActivity() {
-    if (!professor || !classId || !actTitle.trim()) return;
+    if (!profile || !classId || !actTitle.trim()) return;
     setSavingActivity('saving');
     await supabase.from('class_activities').insert({
       class_id:   classId,
-      teacher_id: professor.id,
+      teacher_id: profile!.id,
       title:      actTitle.trim(),
       type:       actType,
       activity_date: actDate,
@@ -217,7 +219,7 @@ export default function NotasPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate('/professor/turmas')}
+          onClick={() => navigate('/admin/area-professor/turmas')}
           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors"
         >
           <ChevronLeft className="w-5 h-5" />

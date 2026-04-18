@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useProfessor } from '../../contexts/ProfessorAuthContext';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useTeacherClasses } from './hooks/useTeacherClasses';
 import { supabase } from '../../../lib/supabase';
 import {
   FileText, Plus, Check, Loader2, Calendar, Target,
@@ -20,7 +21,8 @@ const STATUS_COLORS: Record<LessonPlanStatus, string> = {
 const PLAN_STATUSES: LessonPlanStatus[] = ['draft', 'published', 'executed', 'cancelled'];
 
 export default function PlanosPage() {
-  const { professor, teacherClasses } = useProfessor();
+  const { profile } = useAdminAuth();
+  const { classes: teacherClasses } = useTeacherClasses();
   const [plans, setPlans]       = useState<LessonPlan[]>([]);
   const [loading, setLoading]   = useState(true);
   const [classFilter, setClassFilter] = useState('');
@@ -50,12 +52,12 @@ export default function PlanosPage() {
   const [notes, setNotes]           = useState('');
 
   const loadPlans = useCallback(async () => {
-    if (!professor) return;
+    if (!profile) return;
     setLoading(true);
     let query = supabase
       .from('lesson_plans')
       .select('*')
-      .eq('teacher_id', professor.id)
+      .eq('teacher_id', profile!.id)
       .order('created_at', { ascending: false });
 
     if (classFilter)  query = query.eq('class_id', classFilter);
@@ -65,7 +67,7 @@ export default function PlanosPage() {
     const { data } = await query;
     setPlans((data as LessonPlan[]) ?? []);
     setLoading(false);
-  }, [professor, classFilter, discFilter, statusFilter]);
+  }, [profile, classFilter, discFilter, statusFilter]);
 
   useEffect(() => { loadPlans(); }, [loadPlans]);
 
@@ -112,11 +114,11 @@ export default function PlanosPage() {
   }
 
   async function handleSave() {
-    if (!professor || !title.trim() || !classId) return;
+    if (!profile || !title.trim() || !classId) return;
     setSaveState('saving');
 
     const payload = {
-      teacher_id:   professor.id,
+      teacher_id:   profile!.id,
       class_id:     classId,
       subject_id:   subjectId || null,
       title:        title.trim(),

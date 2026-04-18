@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useProfessor } from '../../contexts/ProfessorAuthContext';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useTeacherClasses } from './hooks/useTeacherClasses';
 import { supabase } from '../../../lib/supabase';
 import {
   ClipboardList, Plus, Check, Calendar, ChevronLeft,
@@ -39,7 +40,8 @@ interface EntryWithMeta extends ClassDiaryEntry {
 
 export default function DiarioPage() {
   const { classId } = useParams<{ classId: string }>();
-  const { professor, teacherClasses } = useProfessor();
+  const { profile } = useAdminAuth();
+  const { classes: teacherClasses } = useTeacherClasses();
   const navigate = useNavigate();
 
   const cls = teacherClasses.find((c) => c.id === classId);
@@ -51,7 +53,7 @@ export default function DiarioPage() {
   const [discFilter, setDiscFilter] = useState('');
 
   async function loadEntries() {
-    if (!classId || !professor) return;
+    if (!classId || !profile) return;
     setLoading(true);
 
     const [year, month] = monthFilter.split('-');
@@ -62,7 +64,7 @@ export default function DiarioPage() {
       .from('class_diary_entries')
       .select('*, diary_attendance(id), discipline:disciplines(id,name)')
       .eq('class_id', classId)
-      .eq('teacher_id', professor.id)
+      .eq('teacher_id', profile!.id)
       .gte('entry_date', startDate)
       .lte('entry_date', endDate)
       .order('entry_date', { ascending: false });
@@ -91,14 +93,14 @@ export default function DiarioPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadEntries(); }, [classId, professor, monthFilter, discFilter]);
+  useEffect(() => { loadEntries(); }, [classId, profile, monthFilter, discFilter]);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate('/professor/turmas')}
+          onClick={() => navigate('/admin/area-professor/turmas')}
           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -139,7 +141,7 @@ export default function DiarioPage() {
         )}
 
         <button
-          onClick={() => navigate(`/professor/turmas/${classId}/diario/novo`)}
+          onClick={() => navigate(`/admin/area-professor/turmas/${classId}/diario/novo`)}
           className="ml-auto flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl bg-brand-primary text-white hover:bg-brand-primary-dark transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -213,7 +215,7 @@ export default function DiarioPage() {
                     </span>
                   )}
                   <button
-                    onClick={() => navigate(`/professor/turmas/${classId}/diario/${entry.id}`)}
+                    onClick={() => navigate(`/admin/area-professor/turmas/${classId}/diario/${entry.id}`)}
                     className="text-xs text-brand-primary hover:underline"
                   >
                     Editar

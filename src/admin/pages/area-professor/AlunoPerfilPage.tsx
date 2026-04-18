@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useProfessor } from '../../contexts/ProfessorAuthContext';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useTeacherClasses } from './hooks/useTeacherClasses';
 import { supabase } from '../../../lib/supabase';
 import {
   ChevronLeft, User, Calendar, Star, Loader2, Check, X, Clock, AlertCircle,
@@ -66,7 +67,8 @@ function AttIcon({ status }: { status: AttStatus }) {
 
 export default function AlunoPerfilPage() {
   const { classId, studentId } = useParams<{ classId: string; studentId: string }>();
-  const { professor, teacherClasses } = useProfessor();
+  const { profile } = useAdminAuth();
+  const { classes: teacherClasses } = useTeacherClasses();
   const navigate = useNavigate();
 
   const cls = teacherClasses.find((c) => c.id === classId);
@@ -79,7 +81,7 @@ export default function AlunoPerfilPage() {
 
   useEffect(() => {
     async function load() {
-      if (!studentId || !professor || !classId) return;
+      if (!studentId || !profile || !classId) return;
       setLoading(true);
 
       // Load student info
@@ -99,7 +101,7 @@ export default function AlunoPerfilPage() {
         .from('class_diary_entries')
         .select('id, entry_date')
         .eq('class_id', classId)
-        .eq('teacher_id', professor.id)
+        .eq('teacher_id', profile!.id)
         .gte('entry_date', ninetyDaysAgo.toISOString().split('T')[0])
         .order('entry_date', { ascending: false });
 
@@ -127,7 +129,7 @@ export default function AlunoPerfilPage() {
         .from('class_activities')
         .select('id, title, activity_date, weight, max_score, min_passing')
         .eq('class_id', classId)
-        .eq('teacher_id', professor.id)
+        .eq('teacher_id', profile!.id)
         .eq('is_published', true)
         .order('activity_date', { ascending: false });
 
@@ -158,7 +160,7 @@ export default function AlunoPerfilPage() {
       setLoading(false);
     }
     load();
-  }, [studentId, professor, classId]);
+  }, [studentId, profile, classId]);
 
   // Frequency calc
   const presentCount = attendance.filter((a) => a.status === 'present' || a.status === 'late').length;
@@ -203,7 +205,7 @@ export default function AlunoPerfilPage() {
       {/* Back + title */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate(`/professor/turmas/${classId}/diario`)}
+          onClick={() => navigate(`/admin/area-professor/turmas/${classId}/diario`)}
           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors"
         >
           <ChevronLeft className="w-5 h-5" />
