@@ -6,6 +6,8 @@ import {
 import { Drawer, DrawerCard } from '../../../components/Drawer';
 import { SelectDropdown } from '../../../components/FormField';
 import { logAudit } from '../../../../lib/audit';
+import { supabase } from '../../../../lib/supabase';
+import { extractPdfText } from '../../../../lib/extractPdfText';
 import {
   upsertCandidateByEmail, deleteCandidate, type CandidateInput,
 } from '../../../hooks/useCandidates';
@@ -65,6 +67,10 @@ export default function CandidatoDrawer({
   const [cvUrl, setCvUrl] = useState<string | null>(null);
   const [uploadingCv, setUploadingCv] = useState(false);
 
+  // Análise IA
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState('');
+
   const isNew = !application;
 
   useEffect(() => {
@@ -74,6 +80,7 @@ export default function CandidatoDrawer({
     setSaved(false);
     setCvFile(null);
     setCvUrl(null);
+    setAnalyzeError('');
     if (application) {
       const c = application.candidate;
       setCand(c ? {
@@ -240,6 +247,99 @@ export default function CandidatoDrawer({
       setError(e instanceof Error ? e.message : 'Erro ao mover candidatura.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  /**
+   * Executa o agente `resume_screener`:
+   * 1. Baixa o PDF via signed URL (ou usa o arquivo local se ainda não foi salvo).
+   * 2. Extrai texto client-side com pdfjs-dist.
+   * 3. Chama ai-orchestrator com { job_title, job_requirements, resume_text }.
+   * 4. Faz UPDATE em job_applications (score/summary/payload/screened_at).
+   */
+  async function handleAnalyzeWithAi() {
+    if (!application) return;
+    setAnalyzeError('');
+    setAnalyzing(true);
+    try {
+      // 1) Conseguir o PDF
+      let pdfSource: File | Blob | ArrayBuffer;
+      if (cvFile) {
+        pdfSource = cvFile;
+      } else if (application.resume_path) {
+        const signed = cvUrl ?? (await getApplicationResumeSignedUrl(application.resume_path));
+        const res = await fetch(signed);
+        if (!res.ok) throw new Error(`Falha ao baixar CV (HTTP ${res.status})`);
+        pdfSource = await res.blob();
+      } else {
+        throw new Error('Anexe um currículo antes de analisar.');
+      }
+
+      // 2) Extrair texto
+      const { text, truncated } = await extractPdfText(pdfSource);
+      if (!text.trim()) throw new Error('Não foi possível extrair texto do PDF (pode ser um PDF escaneado).');
+
+      // 3) Buscar dados da vaga
+      const job = application.job_opening ?? jobs.find((j) => j.id === application.job_opening_id);
+      const jobTitle = job?.title ?? 'Vaga sem título';
+      const jobReqs = (application.job_opening as { requirements?: string } | undefined)?.requirements
+        ?? jobs.find((j) => j.id === application.job_opening_id)?.requirements
+        ?? '(nenhum requisito cadastrado)';
+
+      // 4) Chamar ai-orchestrator
+      const { data, error: invErr } = await supabase.functions.invoke('ai-orchestrator', {
+        body: {
+          agent_slug: 'resume_screener',
+          context: {
+            job_title: jobTitle,
+            job_requirements: jobReqs,
+            resume_text: text,
+          },
+        },
+      });
+      if (invErr) throw invErr;
+      const rawText = (data as { text?: string })?.text ?? '';
+      let parsed: {
+        score_0_100?: number;
+        pros?: string[];
+        cons?: string[];
+        recommendation?: string;
+        reasoning?: string;
+      };
+      try {
+        // O modelo pode retornar JSON com ou sem cercas ```
+        const cleaned = rawText.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+        parsed = JSON.parse(cleaned);
+      } catch {
+        throw new Error('O agente retornou um JSON inválido. Tente novamente.');
+      }
+
+      const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score_0_100 ?? 0))));
+      const summary = parsed.reasoning?.trim() || null;
+
+      // 5) Persistir
+      await updateJobApplication(application.id, {
+        screener_score: score,
+        screener_summary: summary,
+        screener_payload: {
+          pros: parsed.pros ?? [],
+          cons: parsed.cons ?? [],
+          recommendation: parsed.recommendation ?? null,
+          reasoning: parsed.reasoning ?? null,
+          truncated,
+        },
+        screened_at: new Date().toISOString(),
+      });
+      logAudit({
+        action: 'update', module: 'rh-seletivo', recordId: application.id,
+        description: `Triagem IA executada (score ${score}/100)`,
+      });
+      onSaved();
+      setTab('triagem');
+    } catch (e) {
+      setAnalyzeError(e instanceof Error ? e.message : 'Erro ao analisar currículo.');
+    } finally {
+      setAnalyzing(false);
     }
   }
 
@@ -454,9 +554,36 @@ export default function CandidatoDrawer({
       {/* ── Análise IA (screener) ─────────────────────────────────── */}
       {tab === 'triagem' && application && (
         <DrawerCard title="Análise do agente de triagem" icon={Sparkles}>
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAnalyzeWithAi}
+              disabled={analyzing || (!application.resume_path && !cvFile)}
+              className="px-3 py-2 text-xs font-semibold rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {analyzing
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Sparkles className="w-3.5 h-3.5" />}
+              {analyzing
+                ? 'Analisando…'
+                : application.screened_at ? 'Reanalisar com IA' : 'Analisar com IA'}
+            </button>
+            {application.screened_at && (
+              <span className="text-[11px] text-gray-400">
+                Última análise: {new Date(application.screened_at).toLocaleString('pt-BR')}
+              </span>
+            )}
+          </div>
+          {analyzeError && (
+            <div className="mb-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs rounded-xl px-3 py-2">
+              {analyzeError}
+            </div>
+          )}
           {!application.screened_at ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Candidatura ainda não passou pela triagem IA. O agente <code>resume_screener</code> (PR3) será executado automaticamente quando o currículo for anexado.
+              Candidatura ainda não passou pela triagem IA. Anexe o currículo (PDF) e clique em
+              <strong> Analisar com IA</strong> para que o agente <code>resume_screener</code> pontue
+              a compatibilidade com os requisitos da vaga.
             </p>
           ) : (
             <div className="space-y-3">
