@@ -98,15 +98,17 @@ export default function AdminBreadcrumbSearch() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="Buscar em /admin (Ctrl+K)"
-        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        className="group flex items-center gap-2 w-64 lg:w-80 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-700/60 hover:bg-gray-200/70 dark:hover:bg-gray-700 transition-colors"
       >
-        <Search className="w-4 h-4" />
-        <span className="hidden lg:inline text-[11px] font-medium text-gray-400">
-          Buscar
-        </span>
-        <kbd className="hidden lg:inline text-[9px] font-mono bg-gray-100 dark:bg-gray-900 text-gray-500 border border-gray-200 dark:border-gray-700 rounded px-1 py-0.5">
-          Ctrl K
-        </kbd>
+        <Search className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+        {!open && (
+          <span className="flex-1 flex items-center justify-center gap-2 text-[12px] text-gray-500 dark:text-gray-400">
+            <span>Buscar</span>
+            <kbd className="text-[9px] font-mono bg-white dark:bg-gray-900 text-gray-500 border border-gray-200 dark:border-gray-700 rounded px-1 py-0.5">
+              Ctrl K
+            </kbd>
+          </span>
+        )}
       </button>
 
       {open && (
