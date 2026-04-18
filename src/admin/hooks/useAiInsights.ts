@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAdminAuth } from './useAdminAuth';
 
@@ -37,6 +37,7 @@ export function useAiInsights() {
   const { profile } = useAdminAuth();
   const [insights, setInsights] = useState<AiInsight[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelId = useMemo(() => Math.random().toString(36).slice(2, 10), []);
 
   const fetchInsights = useCallback(async () => {
     if (!profile) return;
@@ -78,7 +79,7 @@ export function useAiInsights() {
   useEffect(() => {
     if (!profile) return;
     const channel = supabase
-      .channel(`ai_insights:${profile.id}`)
+      .channel(`ai_insights:${profile.id}:${channelId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'ai_insights' },
@@ -97,7 +98,7 @@ export function useAiInsights() {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [profile]);
+  }, [profile, channelId]);
 
   const countsBySeverity = insights.reduce<Record<InsightSeverity, number>>(
     (acc, i) => { acc[i.severity]++; return acc; },
