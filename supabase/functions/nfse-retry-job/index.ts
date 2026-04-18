@@ -13,7 +13,8 @@
  * Returns: { processed: N, updated: M }
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { nuvemFiscalFetch } from "../_shared/nuvemFiscal.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -67,18 +68,12 @@ interface StatusCheckResult {
  * Some providers use POST with the nota fiscal number instead.
  */
 async function checkProviderStatus(
-  config: Record<string, unknown>,
+  service: SupabaseClient,
   provider_nfse_id: string,
 ): Promise<StatusCheckResult> {
-  const baseUrl = (config.api_base_url as string | null) ?? "https://api.nfse-provider.example.com";
-  const token = config.api_token_enc as string;
-
-  const res = await fetch(`${baseUrl}/nfse/${provider_nfse_id}`, {
+  const res = await nuvemFiscalFetch(service, `/nfse/${provider_nfse_id}`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${token}`,
-      "Accept": "application/json",
-    },
+    headers: { "Accept": "application/json" },
   });
 
   if (!res.ok) {
@@ -136,10 +131,10 @@ Deno.serve(async (req: Request) => {
     return json({ processed: 0, updated: 0 });
   }
 
-  // 3. Load NFS-e config
+  // 3. Confirma que NFS-e está configurado (credenciais OAuth lidas dentro do helper)
   const { data: cfg, error: cfgErr } = await service
     .from("company_nfse_config")
-    .select("*")
+    .select("provider")
     .single();
 
   if (cfgErr || !cfg) {
@@ -153,7 +148,7 @@ Deno.serve(async (req: Request) => {
   for (const nfse of pending) {
     try {
       const result = await checkProviderStatus(
-        cfg as Record<string, unknown>,
+        service,
         nfse.provider_nfse_id,
       );
 

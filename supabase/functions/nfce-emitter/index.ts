@@ -14,7 +14,8 @@
  * senao de students.guardian_id -> guardian_profiles.cpf_cnpj.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { nuvemFiscalFetch, testNuvemFiscalConnection } from "../_shared/nuvemFiscal.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -56,13 +57,17 @@ function mapNuvemFiscalStatus(raw: string | undefined): ProviderResponse["status
 // campos opcionais/tributarios podem ser adicionados conforme necessidade.
 
 async function callNuvemFiscal(
-  cfg: Record<string, unknown>,
+  service: SupabaseClient,
   payload: Record<string, unknown>,
 ): Promise<ProviderResponse> {
-  const baseUrl = (cfg.api_base_url as string | null) || "https://api.nuvemfiscal.com.br";
-  const token = cfg.api_token_enc as string;
-
-  if (!token) {
+  let res: Response;
+  try {
+    res = await nuvemFiscalFetch(service, "/nfce", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
     return {
       provider_nfce_id: "",
       chave_nfce: null,
@@ -72,20 +77,12 @@ async function callNuvemFiscal(
       qrcode_url: null,
       xml_retorno: null,
       status: "rejeitada",
-      error_message: "API token da Nuvem Fiscal nao configurado",
+      error_message: e instanceof Error ? e.message : String(e),
     };
   }
 
-  const res = await fetch(`${baseUrl}/nfce`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
   const data = await res.json().catch(() => ({}));
+  const baseUrl = res.url.replace(/\/nfce(?:\/.*)?$/, "");
 
   if (!res.ok) {
     const d = data as { message?: string; error?: string; mensagem?: string };
@@ -335,20 +332,23 @@ Deno.serve(async (req: Request) => {
   if (body.action === "test") {
     const { data: cfg } = await service
       .from("company_nfce_config")
-      .select("provider, api_base_url, api_token_enc, ambiente, csc, id_csc")
+      .select("ambiente, csc, id_csc")
       .maybeSingle();
     if (!cfg) return json({ ok: false, status: "none", message: "company_nfce_config nao configurado" });
     const missing: string[] = [];
-    if (!cfg.api_token_enc) missing.push("api_token_enc");
     if (!cfg.csc) missing.push("csc");
     if (!cfg.id_csc) missing.push("id_csc");
     if (missing.length) {
       return json({ ok: false, status: "none", message: `Faltando: ${missing.join(", ")}` });
     }
+    const auth = await testNuvemFiscalConnection(service);
+    if (!auth.ok) {
+      return json({ ok: false, status: "erro", message: auth.error });
+    }
     return json({
       ok: true,
       status: cfg.ambiente === "producao" ? "ativa" : "homologacao",
-      message: `Config OK (${cfg.provider}, ${cfg.ambiente})`,
+      message: `OAuth OK (ambiente API: ${auth.environment})`,
     });
   }
 
@@ -512,7 +512,7 @@ Deno.serve(async (req: Request) => {
         items: itemsWithFiscal,
         numero,
       });
-      providerResult = await callNuvemFiscal(cfg as Record<string, unknown>, dadosEnv);
+      providerResult = await callNuvemFiscal(service, dadosEnv);
     } else {
       dadosEnv = { numero, order_id, note: "provider generico" };
       providerResult = await callGenericProvider(cfg as Record<string, unknown>, dadosEnv);

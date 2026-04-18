@@ -89,7 +89,6 @@ export default function NfceSettingsPanel() {
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [showToken, setShowToken] = useState(false);
   const [showCsc, setShowCsc] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -275,81 +274,33 @@ export default function NfceSettingsPanel() {
         </p>
       </SettingsCard>
 
-      {/* ── 3. Integração com Provider ───────────────────────────────────── */}
+      {/* ── 3. Webhook ────────────────────────────────────────────────────── */}
       <SettingsCard
-        title="Integração com Provider"
-        description="Credenciais e endpoints do provedor de NFC-e"
+        title="Webhook de callbacks"
+        description="Cadastre esta URL no painel do provedor para receber atualizações de status das NFC-e."
         icon={Plug}
-        collapseId="nfce.provider"
+        collapseId="nfce.webhook"
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="sm:col-span-2">
-            <SelectDropdown
-              label="Provider"
-              value={form.provider}
-              onChange={(e) => set('provider', e.target.value as Provider)}
-            >
-              <option value="nuvem_fiscal">Nuvem Fiscal</option>
-              <option value="outro">Outro</option>
-            </SelectDropdown>
-          </div>
+        <div className="rounded-xl border border-brand-primary/20 bg-brand-primary/5 dark:bg-brand-primary/10 p-3 text-xs text-brand-primary dark:text-brand-secondary mb-4">
+          As credenciais (client_id / client_secret) e o ambiente da API são configurados em
+          <strong> Configurações → Fiscal → Provedor</strong>. Um único par serve para NF-e, NFC-e e NFS-e.
+        </div>
 
-          <div className="sm:col-span-2">
-            <label className={LABEL_CLS}>URL da API</label>
-            <input
-              type="url"
-              value={form.api_base_url}
-              onChange={(e) => set('api_base_url', e.target.value)}
-              placeholder="https://api.nuvemfiscal.com.br"
-              className={INPUT_CLS}
-            />
-          </div>
-
-          <div className="sm:col-span-2">
-            <label className={LABEL_CLS}>Token da API</label>
-            <div className="relative">
-              <input
-                type={showToken ? 'text' : 'password'}
-                value={form.api_token_enc}
-                onChange={(e) => set('api_token_enc', e.target.value)}
-                placeholder="Token de autenticação (Bearer)"
-                className={`${INPUT_CLS} pr-11`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                tabIndex={-1}
-              >
-                {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            <p className="text-[11px] text-gray-400 mt-1">
-              Pode ser o mesmo token usado na NFS-e — Nuvem Fiscal usa uma API key única por conta.
-            </p>
-          </div>
-
-          <div className="sm:col-span-2">
-            <label className={LABEL_CLS}>URL do Webhook (somente leitura)</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                value={webhookFnUrl}
-                className={`${INPUT_CLS} bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-default`}
-              />
-              <button
-                type="button"
-                onClick={() => navigator.clipboard.writeText(webhookFnUrl)}
-                className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap"
-              >
-                Copiar
-              </button>
-            </div>
-            <p className="text-[11px] text-gray-400 mt-1">
-              Cadastre esta URL no painel do provider para receber callbacks de status das NFC-e.
-            </p>
-          </div>
+        <label className={LABEL_CLS}>URL do Webhook (somente leitura)</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            readOnly
+            value={webhookFnUrl}
+            className={`${INPUT_CLS} bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-default`}
+          />
+          <button
+            type="button"
+            onClick={() => navigator.clipboard.writeText(webhookFnUrl)}
+            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap"
+          >
+            Copiar
+          </button>
         </div>
       </SettingsCard>
 

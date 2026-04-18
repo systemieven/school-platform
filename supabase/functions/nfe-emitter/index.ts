@@ -17,7 +17,8 @@
  * CFOP: 5.202 (mesma UF) ou 6.202 (interestadual) — devolucao de compra.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { nuvemFiscalFetch, testNuvemFiscalConnection } from "../_shared/nuvemFiscal.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -53,13 +54,17 @@ function mapNuvemFiscalStatus(raw: string | undefined): ProviderResponse["status
 }
 
 async function callNuvemFiscal(
-  cfg: Record<string, unknown>,
+  service: SupabaseClient,
   payload: Record<string, unknown>,
 ): Promise<ProviderResponse> {
-  const baseUrl = (cfg.api_base_url as string | null) || "https://api.nuvemfiscal.com.br";
-  const token = cfg.api_token_enc as string;
-
-  if (!token) {
+  let res: Response;
+  try {
+    res = await nuvemFiscalFetch(service, "/nfe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
     return {
       provider_nfe_id: "",
       chave_nfe: null,
@@ -68,20 +73,13 @@ async function callNuvemFiscal(
       link_xml: null,
       xml_retorno: null,
       status: "rejeitada",
-      error_message: "API token da Nuvem Fiscal nao configurado",
+      error_message: e instanceof Error ? e.message : String(e),
     };
   }
 
-  const res = await fetch(`${baseUrl}/nfe`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
   const data = await res.json().catch(() => ({}));
+  // baseUrl só para montar links de DANFE/XML públicos.
+  const baseUrl = res.url.replace(/\/nfe(?:\/.*)?$/, "");
 
   if (!res.ok) {
     const d = data as { message?: string; error?: string; mensagem?: string };
@@ -335,22 +333,20 @@ Deno.serve(async (req: Request) => {
   };
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
 
-  // Ping de teste do painel de configs
+  // Ping de teste do painel de configs — delega ao fluxo unificado.
   if (body.action === "test") {
     const { data: cfg } = await service
       .from("company_nfe_config")
-      .select("provider, api_base_url, api_token_enc, ambiente")
+      .select("ambiente")
       .maybeSingle();
-    if (!cfg) return json({ ok: false, status: "none", message: "company_nfe_config nao configurado" });
-    const missing: string[] = [];
-    if (!cfg.api_token_enc) missing.push("api_token_enc");
-    if (missing.length) {
-      return json({ ok: false, status: "none", message: `Faltando: ${missing.join(", ")}` });
+    const auth = await testNuvemFiscalConnection(service);
+    if (!auth.ok) {
+      return json({ ok: false, status: "erro", message: auth.error });
     }
     return json({
       ok: true,
-      status: cfg.ambiente === "producao" ? "ativa" : "homologacao",
-      message: `Config OK (${cfg.provider}, ${cfg.ambiente})`,
+      status: cfg?.ambiente === "producao" ? "ativa" : "homologacao",
+      message: `OAuth OK (ambiente API: ${auth.environment})`,
     });
   }
 
@@ -498,7 +494,7 @@ Deno.serve(async (req: Request) => {
         motivo: motivo_devolucao,
         numero,
       });
-      providerResult = await callNuvemFiscal(cfg as Record<string, unknown>, dadosEnv);
+      providerResult = await callNuvemFiscal(service, dadosEnv);
     } else {
       dadosEnv = { numero, nfe_entry_id, note: "provider generico" };
       providerResult = await callGenericProvider(cfg as Record<string, unknown>, dadosEnv);
