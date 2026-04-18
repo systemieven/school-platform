@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 
 export type InsightSeverity = 'low' | 'medium' | 'high' | 'critical';
@@ -32,6 +32,7 @@ const SEVERITY_ORDER: Record<InsightSeverity, number> = {
 export function usePortalAiInsights(authUserId: string | null | undefined) {
   const [insights, setInsights] = useState<PortalAiInsight[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelId = useMemo(() => Math.random().toString(36).slice(2, 10), []);
 
   const fetch = useCallback(async () => {
     if (!authUserId) { setLoading(false); return; }
@@ -70,7 +71,7 @@ export function usePortalAiInsights(authUserId: string | null | undefined) {
   useEffect(() => {
     if (!authUserId) return;
     const channel = supabase
-      .channel(`ai_insights_portal:${authUserId}`)
+      .channel(`ai_insights_portal:${authUserId}:${channelId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'ai_insights' },
@@ -85,7 +86,7 @@ export function usePortalAiInsights(authUserId: string | null | undefined) {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [authUserId]);
+  }, [authUserId, channelId]);
 
   return { insights, loading, totalCount: insights.length, markSeen, dismiss, resolve, refetch: fetch };
 }

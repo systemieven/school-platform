@@ -748,7 +748,7 @@ const RematriculaPanel: DashboardWidget<RematriculaData | null> = {
     const today = todayIso();
     const { data: campaigns } = await supabase
       .from('reenrollment_campaigns')
-      .select('id, name, start_date, end_date')
+      .select('id, title, start_date, end_date')
       .lte('start_date', today)
       .gte('end_date', today)
       .order('start_date', { ascending: false })
@@ -761,7 +761,7 @@ const RematriculaPanel: DashboardWidget<RematriculaData | null> = {
       .eq('campaign_id', campaign.id);
     const rows = (apps ?? []) as { status: string }[];
     return {
-      campaign_name: campaign.name ?? null,
+      campaign_name: campaign.title ?? null,
       total: rows.length,
       confirmed: rows.filter((r) => ['confirmed', 'approved', 'completed'].includes(r.status)).length,
     };
@@ -812,7 +812,7 @@ interface OcorrenciaRow {
   id: string;
   student_name: string;
   type: string | null;
-  occurred_at: string;
+  occurrence_date: string;
 }
 
 const OcorrenciasRecentesList: DashboardWidget<OcorrenciaRow[]> = {
@@ -823,14 +823,14 @@ const OcorrenciasRecentesList: DashboardWidget<OcorrenciaRow[]> = {
   load: async () => {
     const { data } = await supabase
       .from('student_occurrences')
-      .select('id, type, occurred_at, student:students(full_name)')
-      .order('occurred_at', { ascending: false })
+      .select('id, type, occurrence_date, student:students(full_name)')
+      .order('occurrence_date', { ascending: false })
       .limit(5);
     const rows = (data ?? []) as any[];
     return rows.map((r) => ({
       id: r.id as string,
       type: r.type ?? null,
-      occurred_at: r.occurred_at as string,
+      occurrence_date: r.occurrence_date as string,
       student_name: r.student?.full_name ?? '—',
     }));
   },
@@ -855,7 +855,7 @@ const OcorrenciasRecentesList: DashboardWidget<OcorrenciaRow[]> = {
               <p className="text-[11px] text-gray-400 truncate">{r.type ?? 'ocorrência'}</p>
             </div>
             <span className="text-[11px] text-gray-400 ml-2 flex-shrink-0">
-              {new Date(r.occurred_at).toLocaleDateString('pt-BR')}
+              {new Date(r.occurrence_date).toLocaleDateString('pt-BR')}
             </span>
           </li>
         ))}
@@ -868,8 +868,8 @@ const OcorrenciasRecentesList: DashboardWidget<OcorrenciaRow[]> = {
 interface SaidaHojeRow {
   id: string;
   student_name: string;
-  exit_time: string | null;
-  reason: string | null;
+  period: string | null;
+  third_party_rel: string | null;
 }
 
 const AutorizacoesSaidaHojeList: DashboardWidget<SaidaHojeRow[]> = {
@@ -881,16 +881,17 @@ const AutorizacoesSaidaHojeList: DashboardWidget<SaidaHojeRow[]> = {
     const today = todayIso();
     const { data } = await supabase
       .from('exit_authorizations')
-      .select('id, exit_time, reason, status, exit_date, student:students(full_name)')
-      .eq('exit_date', today)
+      .select('id, period, third_party_rel, status, valid_from, valid_until, student:students(full_name)')
+      .lte('valid_from', today)
+      .gte('valid_until', today)
       .eq('status', 'approved')
-      .order('exit_time', { ascending: true })
+      .order('valid_from', { ascending: true })
       .limit(6);
     const rows = (data ?? []) as any[];
     return rows.map((r) => ({
       id: r.id as string,
-      exit_time: r.exit_time ?? null,
-      reason: r.reason ?? null,
+      period: r.period ?? null,
+      third_party_rel: r.third_party_rel ?? null,
       student_name: r.student?.full_name ?? '—',
     }));
   },
@@ -910,12 +911,12 @@ const AutorizacoesSaidaHojeList: DashboardWidget<SaidaHojeRow[]> = {
             key={r.id}
             className="flex items-center gap-3 text-sm rounded-xl px-3 py-2 bg-gray-50 dark:bg-gray-700/40"
           >
-            <span className="text-xs font-mono text-blue-600 min-w-[56px]">
-              {(r.exit_time ?? '').slice(0, 5)}
+            <span className="text-xs font-medium text-blue-600 min-w-[56px]">
+              {r.period ?? '—'}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium text-gray-700 dark:text-gray-200">{r.student_name}</p>
-              {r.reason && <p className="text-[11px] text-gray-400 truncate">{r.reason}</p>}
+              {r.third_party_rel && <p className="text-[11px] text-gray-400 truncate">{r.third_party_rel}</p>}
             </div>
           </li>
         ))}
@@ -940,14 +941,14 @@ const DeclaracoesPendentesList: DashboardWidget<DeclaracaoRow[]> = {
   load: async () => {
     const { data } = await supabase
       .from('document_requests')
-      .select('id, document_type, status, created_at, student:students(full_name)')
+      .select('id, status, created_at, template:document_templates(name), student:students(full_name)')
       .in('status', ['pending', 'requested', 'processing'])
       .order('created_at', { ascending: true })
       .limit(5);
     const rows = (data ?? []) as any[];
     return rows.map((r) => ({
       id: r.id as string,
-      document_type: r.document_type ?? '—',
+      document_type: r.template?.name ?? '—',
       requested_at: r.created_at as string,
       student_name: r.student?.full_name ?? '—',
     }));

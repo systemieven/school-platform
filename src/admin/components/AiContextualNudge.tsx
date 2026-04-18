@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, X, ArrowRight, MessageCircle, Check, AlertOctagon, AlertTriangle, Info } from 'lucide-react';
 import { useAiInsights, type AiInsight, type InsightSeverity } from '../hooks/useAiInsights';
 import { useAiRouteContext } from '../hooks/useAiRouteContext';
 import AiComposeMessage, { type ComposeContext } from './AiComposeMessage';
+
+class NudgeBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(err: Error, info: ErrorInfo) {
+    // eslint-disable-next-line no-console
+    console.error('[AiContextualNudge] crashed, hidden. Reason:', err, info.componentStack);
+  }
+  render() { return this.state.failed ? null : this.props.children; }
+}
 
 const DISMISS_KEY = 'ai_nudge_dismissed_v1';
 
@@ -31,7 +41,7 @@ function persistDismissed(set: Set<string>) {
   try { sessionStorage.setItem(DISMISS_KEY, JSON.stringify(Array.from(set))); } catch {}
 }
 
-export default function AiContextualNudge() {
+function AiContextualNudgeInner() {
   const { insights, markSeen, dismiss, resolve } = useAiInsights();
   const route = useAiRouteContext();
   const navigate = useNavigate();
@@ -158,5 +168,13 @@ export default function AiContextualNudge() {
         />
       )}
     </>
+  );
+}
+
+export default function AiContextualNudge() {
+  return (
+    <NudgeBoundary>
+      <AiContextualNudgeInner />
+    </NudgeBoundary>
   );
 }
