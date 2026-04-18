@@ -193,7 +193,7 @@ function TemplateDrawer({
       </button>
     </div>
   ) : (
-    <div className="flex gap-3">
+    <div className="flex gap-3 lg:w-[360px] lg:ml-auto">
       <button onClick={onClose} disabled={saving}
         className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300
                    hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">
@@ -238,7 +238,7 @@ function TemplateDrawer({
                 { key: 'escola', label: 'Escola' },
               ].filter((v, i, a) => a.findIndex((x) => x.key === v.key) === i)}
               placeholder="Escreva o conteúdo do documento. Use os chips acima para inserir variáveis."
-              minHeight={560}
+              minHeight="calc(100vh - 15rem)"
             />
           </DrawerCard>
         </div>
