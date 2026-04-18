@@ -77,6 +77,8 @@ export interface LoadCtx {
 
 export interface DashboardWidget<TData = unknown> {
   id: string;
+  /** Rótulo amigável para o painel "Personalizar" (default: derivado do id). */
+  label?: string;
   anyModuleKeys: readonly string[];
   requireRole?: readonly Role[];
   slot: DashboardSlot;
@@ -84,6 +86,31 @@ export interface DashboardWidget<TData = unknown> {
   load: (ctx: LoadCtx) => Promise<TData>;
   Render: (props: { data: TData; ctx: LoadCtx }) => ReactNode;
 }
+
+/** Rótulos legíveis para os widgets do registry, indexados pelo `id`. */
+export const WIDGET_LABELS: Record<string, string> = {
+  'appointments.kpi':         'Agendamentos (KPI)',
+  'enrollments.kpi':          'Pré-matrículas (KPI)',
+  'contacts.kpi':             'Contatos (KPI)',
+  'finance.snapshot':         'Resumo financeiro',
+  'enrollments.funnel':       'Pré-matrículas por status',
+  'appointments.status':      'Agendamentos por status',
+  'leads.funnel':             'Funil de leads',
+  'whatsapp.stats':           'WhatsApp · estatísticas',
+  'contacts.overdue':         'Contatos atrasados',
+  'appointments.upcoming':    'Próximas visitas',
+  'finance.inadimplencia':    'Inadimplência · top 5',
+  'finance.nfse':             'NFS-e no mês',
+  'academic.alertas':         'Alunos em alerta',
+  'academic.minhas_aulas':    'Minhas aulas de hoje',
+  'academic.diario_pendente': 'Diário pendente',
+  'academic.provas_corrigir': 'Provas a corrigir',
+  'academic.rematricula':     'Rematrícula',
+  'ops.ocorrencias':          'Ocorrências recentes',
+  'ops.saidas_hoje':          'Saídas autorizadas hoje',
+  'ops.declaracoes':          'Declarações em aberto',
+  'academic.minhas_turmas':   'Minhas turmas',
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function todayIso(): string {
