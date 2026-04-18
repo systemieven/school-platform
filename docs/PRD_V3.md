@@ -41,6 +41,7 @@
     - 10.12 Fase 15 — Achados e Perdidos Digital ✅
     - 10.13 Central de Migracao de Dados — Onboarding
     - 10.14 Editor Visual de Templates HTML
+    - 10.18 Auditoria & Hardening de Autenticacao dos 3 Portais 🟡
 11. [Requisitos Nao Funcionais](#11-requisitos-nao-funcionais)
 12. [Apendices](#apendices)
 
@@ -222,16 +223,32 @@ Detecta o branch atual e age de acordo:
 - **Acessos seguintes**: numero de matricula + senha
 - E-mail ficticio: `{enrollment_number}@portal.colegiobatista.com.br`
 - Contexto React isolado: `StudentAuthContext` com `StudentProtectedRoute`
+- **Force change** no primeiro acesso (`students.must_change_password`, default `false` — admin marca via reset; migration 189). Gate em `StudentProtectedRoute` redireciona para `/portal/trocar-senha`.
 
-### 3.3 Autenticacao do Responsavel (Planejado — Fase 10)
+### 3.3 Autenticacao do Responsavel (Fase 10 — implementada)
 
-- **Credenciais**: CPF do responsavel + codigo de acesso (gerado pela secretaria ou enviado via WhatsApp)
-- **E-mail ficticio**: `{cpf}@responsavel.{school_slug}.com.br` (mesmo padrao do Portal do Aluno)
-- **Contexto React isolado**: `GuardianAuthContext` com `GuardianProtectedRoute`
-- **Multiplos filhos**: um responsavel pode ter varios filhos no sistema; seletor de filho ativo no topo
-- **Primeiro acesso**: CPF + matricula do filho → definir senha
-- **Senha temporaria**: gerada pelo admin, enviada via WhatsApp
-- **Edge Function**: `create-guardian-user` (analoga ao `create-admin-user`)
+- **Credenciais regulares**: CPF + senha (Supabase Auth); e-mail ficticio `{cpf}@responsavel.portal` (sufixo configuravel via `CLIENT_DEFAULTS.guardian.email_suffix`).
+- **Contexto React isolado**: `GuardianAuthContext` com `GuardianProtectedRoute`.
+- **Multiplos filhos**: 1 responsavel ↔ N alunos via `student_guardians`; seletor de filho ativo no topo do portal.
+- **Primeiro acesso / esqueci a senha** (mesmo fluxo unificado, edge function `guardian-request-access` `verify_jwt=false`):
+  1. Responsavel informa CPF + telefone na tab "Primeiro acesso" de `/responsavel/login`.
+  2. Edge function valida o par contra `student_guardians` (match liberal de DDI), checa `chat/check` na UazAPI e — se confirmado — gera senha provisoria, cria/atualiza `auth.users` + `guardian_profiles` (ou faz reset, no caso esqueci-a-senha) e marca `must_change_password=true`.
+  3. Senha provisoria sai pelo template `senha_temporaria` via UazAPI `/send/text` direto da edge function (sem expor para o cliente).
+  4. **Anti-enumeracao**: a mesma resposta generica cobre `cpf_not_found` e `phone_mismatch`. **Anti-abuso**: 3 envios bem-sucedidos/CPF/h e 10 tentativas/IP/10min auditados em `guardian_access_attempts` (migration 190).
+  5. Numero sem WhatsApp → resposta especifica orientando procurar a secretaria (link `/agendar-visita`).
+- **Force change**: `guardian_profiles.must_change_password` (default `true` desde a migration 75); gate em `GuardianProtectedRoute` redireciona para `/responsavel/trocar-senha`.
+
+### 3.3B Autenticacao do Professor
+
+- **Credenciais**: e-mail real + senha (Supabase Auth, mesmo `auth.users` do admin com `profiles.role='teacher'`).
+- **Contexto React isolado**: `ProfessorAuthContext` com `ProfessorProtectedRoute`.
+- **Force change**: reusa `profiles.must_change_password`; gate redireciona para `/professor/trocar-senha`.
+- **Senha provisoria / reset**: hoje passa pelos mesmos `create-admin-user` / `reset-user-password` da gestao de usuarios admin. Fluxo dedicado de "esqueci a senha" no portal do professor (analogo ao do responsavel) ainda **⏳ pendente** — ver §10.18 step 3.
+
+### 3.3C Tela compartilhada de troca obrigatoria
+
+- Componente `src/shared/components/PortalChangePasswordPage.tsx` reutilizado pelos tres portais (aluno/responsavel/professor); cada portal expoe um wrapper fino em `pages/trocar-senha/TrocarSenhaPage.tsx` que injeta `session`, `signOut`, `clearMustChangePassword` e o `redirectTo` correspondente.
+- Submissao chama o edge function `change-password`, que aplica a politica vigente em `system_settings.password_policy`, grava `password_history` e atualiza em paralelo `profiles.must_change_password`, `guardian_profiles.must_change_password` e `students.must_change_password` (zera o flag em qualquer dos tres conforme o user logado).
 
 ### 3.4 Hierarquia de Roles
 
@@ -1538,6 +1555,9 @@ Configuravel na aba Aparencia > Home:
 | 184 | `dashboard_principal_widgets` | 18/04 | ✅ Estende CHECK de `dashboard_widgets.module` para incluir `'principal'` + nova tabela `dashboard_widget_prefs` (visibilidade/ordem dos widgets estáticos do registry). RLS espelhada da migration 74 (admin/super_admin edit, coordinator read). |
 | 185 | `hr_modules_seed` | 18/04 | 🟡 **Fase 16 PR1** — Módulos granulares `rh-colaboradores` (grupo `rh`, icon `Users`, position 300) e `rh-seletivo` (icon `Briefcase`, position 301). Defaults em `role_permissions`: admin all true; coordinator colaboradores view/edit, seletivo só view; teacher/user tudo false. |
 | 186 | `staff` | 18/04 | 🟡 **Fase 16 PR1** — Tabela standalone `staff` (independente de `profiles`): `profile_id UUID UNIQUE NULL FK profiles ON DELETE SET NULL`, dados pessoais (CPF UNIQUE, RG, CNH não, birth_date, email com CHECK de formato), endereço completo, `position NOT NULL`, `department`, `hire_date NOT NULL`, `termination_date`, `employment_type CHECK ('clt'|'pj'|'estagio'|'terceirizado')`, contato de emergência, avatar, `is_active`, notes. Trigger `sync_staff_to_profile_on_update` mantém `profiles.full_name/email/phone/avatar_url` espelhado enquanto `profile_id IS NOT NULL`. RLS: admin/super_admin ALL + demais roles via `get_effective_permissions('rh-colaboradores')` + self-service (`profile_id = auth.uid()`). |
+| 188 | `fiscal_granular_modules` | 18/04 | ✅ Quebra `settings-fiscal` em 4 sub-módulos independentes (`settings-fiscal-nfe`, `settings-fiscal-nfse`, `settings-fiscal-nfce`, `settings-fiscal-perfis`) com defaults em `role_permissions`. UI de configurações reorganizada: NF-e (Produtos) e NF-e (Emissão) fundidas em "NF-e", "Perfis Fiscais" vira sub-aba. |
+| 189 | `must_change_password_students` | 18/04 | ✅ **Auditoria Auth (step 1)** — `ALTER TABLE students ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT false`. Alinha o portal do aluno com o flag já existente em `profiles` e `guardian_profiles`; `StudentAuthContext` carrega o campo e `StudentProtectedRoute` redireciona para `/portal/trocar-senha` quando `true`. Edge function `change-password` (v36) faz UPDATE em paralelo nas 3 tabelas conforme o user logado. |
+| 190 | `guardian_access_attempts` | 18/04 | ✅ **Auditoria Auth (step 2)** — Tabela `guardian_access_attempts` (`cpf`, `phone`, `ip_address`, `user_agent`, `result CHECK (sent\|cpf_not_found\|phone_mismatch\|no_whatsapp\|rate_limited\|whatsapp_send_failed\|invalid_input\|wa_not_configured)`) usada pelo edge function `guardian-request-access` para rate-limit (3 envios/CPF/h, 10 tentativas/IP/10min) e auditoria. RLS habilitado sem policies — service_role only. |
 | 187 | `staff_documents_bucket` | 18/04 | 🟡 **Fase 16 PR1** — Bucket privado `hr-documents` (10MB, PDF/DOC/DOCX/JPEG/PNG) + tabela `staff_documents` (`document_type CHECK ('contrato'|'rg'|'cpf'|'comprovante_residencia'|'carteira_trabalho'|'diploma'|'outro')`, `file_path`, `filename`, `mime_type`, `size_bytes`, `expires_at`). RLS via módulo `rh-colaboradores` + self-service (próprio colaborador vê próprios docs via EXISTS em `staff`). Path convention `hr-documents/{staff_id}/{uuid}.{ext}`. |
 | 173 | `teacher_dashboard_access` | 17/04 | ✅ **Dashboard registry-driven** — libera `dashboard.can_view=true` para role `teacher` no seed de `role_permissions`. Antes, teacher batia no redirect do `<ModuleGuard moduleKey="dashboard">` mesmo tendo acesso a submódulos (teacher-diary, teacher-exams, occurrences). O novo `DashboardPage` único filtra widgets por `has_module_permission` + `requireRole`, então teacher passa a ver `Minhas aulas de hoje`, `Diário pendente`, `Provas a corrigir`, `Minhas turmas` e `Ocorrências recentes` (tenancy RLS da migration 145 continua escopando por `teacher_sees_student`). |
 
@@ -1623,7 +1643,7 @@ Configuravel na aba Aparencia > Home:
 
 ## 8. Edge Functions
 
-### 8.1 Edge Functions Implementadas (19)
+### 8.1 Edge Functions Implementadas (20)
 
 | Funcao | Auth | Rate Limit | Descricao |
 |--------|------|------------|-----------|
@@ -1637,7 +1657,8 @@ Configuravel na aba Aparencia > Home:
 | `create-admin-user` | JWT (super_admin) | — | Cria usuario + profile com senha temporaria |
 | `delete-admin-user` | JWT (super_admin) | — | Remove usuario com cascade cleanup |
 | `reset-user-password` | JWT (admin+) | — | Gera senha temporaria; loga para envio WhatsApp |
-| `change-password` | JWT (auth) | — | Troca de senha com validacao de politica e historico |
+| `change-password` | JWT (auth) | — | Troca de senha com validacao de politica e historico; UPDATE paralelo em `profiles` / `guardian_profiles` / `students` para zerar `must_change_password` conforme role logado |
+| `guardian-request-access` | Nenhum (publico) | 3/CPF/h + 10/IP/10min | Primeiro acesso / esqueci-a-senha do portal do responsavel: valida CPF+telefone em `student_guardians`, gera senha provisoria, cria/atualiza `auth.users` + `guardian_profiles`, envia template `senha_temporaria` via UazAPI direto. Anti-enumeracao + auditoria em `guardian_access_attempts` |
 | `geocode-address` | JWT (admin+) | — | Proxy Google Maps Geocoding API; converte endereco em lat/lng |
 | `google-static-map` | JWT (admin+) | — | Proxy Google Static Maps API; retorna PNG com marcador + circulo |
 | `financial-notify` | Trigger secret (pg_cron) | — | Regua de cobranca automatica diaria (08:00 BRT); le billing_stages configuravel; agrupa por etapa em campanha via UazAPI `/sender/advanced`; dedup via `financial_notification_log` |
@@ -5875,6 +5896,55 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 5. **PR5** bulk import — opcional.
 
 Commit/push via `./scripts/push-all.sh` a cada PR completo (branch `base`, sem force-push). Folha de pagamento e módulo `rh-folha` permanecem como ⏳ Pendente v2.
+
+---
+
+### 10.18 Auditoria & Hardening de Autenticacao dos 3 Portais
+
+**Status**: 🟡 Em andamento — steps 1 e 2 ✅ entregues (2026-04-18); step 3 ⏳ pendente.
+
+**Contexto**. Auditoria comparou os fluxos de login dos portais Aluno (`/portal`), Responsavel (`/responsavel`) e Professor (`/professor`). Lacunas encontradas: (a) o flag `must_change_password` so existia em `profiles` e `guardian_profiles` — o portal do aluno nao tinha gate; (b) o "primeiro acesso" do responsavel pedia que o proprio responsavel escolhesse uma senha sem validar telefone, o que tornava o cadastro inicial fraco e abria caminho para enumeracao de CPF; (c) o portal do professor nao tinha fluxo proprio de "esqueci a senha" — depende hoje do reset feito pelo admin via `reset-user-password`.
+
+#### Step 1 — Gate `must_change_password` nos 3 portais ✅
+
+- **Migration 189** `must_change_password_students` (✅ aplicada) — adiciona o flag em `students`.
+- **Edge function `change-password` v36** (✅ deployada) — UPDATE paralelo em `profiles` / `guardian_profiles` / `students` conforme o user logado, zerando o flag de qualquer um dos tres.
+- **Tela compartilhada** `src/shared/components/PortalChangePasswordPage.tsx` + 3 wrappers `pages/trocar-senha/TrocarSenhaPage.tsx` (aluno/responsavel/professor) — reusa `PasswordCriteriaChecker` e a politica vigente em `system_settings.password_policy`.
+- **Contextos atualizados**: `StudentAuthContext`, `GuardianAuthContext`, `ProfessorAuthContext` carregam `must_change_password` da tabela respectiva e expoem `clearMustChangePassword`.
+- **`*ProtectedRoute`** redireciona para `/{portal}/trocar-senha` quando `mustChangePassword=true` e a rota atual nao for ela mesma. Rotas `trocar-senha` declaradas FORA do layout de cada portal pra evitar loop do guard.
+
+Commit `20c076b feat(auth): gate must_change_password nos 3 portais`.
+
+#### Step 2 — Primeiro acesso / esqueci-a-senha do responsavel via WhatsApp ✅
+
+- **Migration 190** `guardian_access_attempts` (✅ aplicada) — rate-limit + auditoria; RLS habilitado sem policies (service_role only).
+- **Edge function `guardian-request-access`** (✅ deployada v1, `verify_jwt=false`) — fluxo unico para primeiro acesso e esqueci-a-senha: valida CPF+telefone em `student_guardians` com match liberal de DDI, anti-enumeracao (mesma resposta generica para CPF inexistente e telefone divergente), rate-limit 3 envios/CPF/h e 10 tentativas/IP/10min, checa `chat/check` na UazAPI, gera senha provisoria (mesma rotina do `create-admin-user`), cria/atualiza `auth.users` + upsert em `guardian_profiles` (ou faz reset no caso esqueci-a-senha) e seta `must_change_password=true`, envia template `senha_temporaria` via UazAPI `/send/text` direto (a senha provisoria nunca trafega pro client) e loga em `whatsapp_message_log`.
+- **`GuardianAuthContext`**: substitui `firstAccess(cpf, newPwd)` por `requestAccess(cpf, phone)` que invoca o edge function.
+- **`/responsavel/login`**: tab "Primeiro acesso" agora pede CPF + telefone; estados `sent` ("Verifique seu WhatsApp"), `no_whatsapp` (com link `/agendar-visita`) e `rate_limited`. Form de login ganhou link "Esqueci minha senha / primeiro acesso".
+
+Combinado com o gate do Step 1, o responsavel cai direto em `/responsavel/trocar-senha` no primeiro login com a senha provisoria.
+
+Commit `fbb7c43 feat(auth): primeiro acesso/esqueci-a-senha do responsavel via WhatsApp`.
+
+#### Step 3 — Reset / esqueci-a-senha do professor via WhatsApp ⏳
+
+**Pendente**. Hoje o professor depende do admin acionar `reset-user-password` na pagina de Usuarios — nao ha fluxo "esqueci minha senha" auto-servico no `/professor/login`.
+
+Esboco da entrega:
+
+1. Edge function `professor-request-access` (`verify_jwt=false`) analoga a `guardian-request-access`:
+   - Body: `{ email, system_url? }` (professor identifica-se por e-mail real, nao por CPF).
+   - Lookup em `profiles` filtrado por `role='teacher'` AND `is_active=true`; sem match → resposta generica (anti-enumeracao).
+   - Rate-limit em tabela nova `teacher_access_attempts` (mesma forma do `guardian_access_attempts`, migration 191): 3 envios/email/h + 10 tentativas/IP/10min.
+   - Verifica `profiles.phone` — se ausente, devolve mensagem orientando contato com a coordenacao.
+   - `chat/check` na UazAPI; sem WhatsApp → mesma orientacao.
+   - Gera senha provisoria (`generateTempPassword`), `auth.admin.updateUserById`, marca `profiles.must_change_password=true`, envia `senha_temporaria` via UazAPI direto.
+2. **`/professor/login`**: link "Esqueci minha senha" abre form com campo unico de e-mail; mesmos estados de UX do responsavel (`sent`/`no_whatsapp`/`rate_limited`).
+3. **Sem mudanca em `ProfessorAuthContext`** alem de adicionar `requestAccess(email)` invocando o edge function — o gate do Step 1 ja redireciona para `/professor/trocar-senha`.
+4. **Migration 191** `teacher_access_attempts` — espelha a 190 (CHECK no `result` com mesmas chaves), RLS sem policies, indices por email + por IP.
+5. Verificacao: professor com e-mail valido + telefone com WhatsApp recebe a senha provisoria; sem telefone → mensagem orientando coordenacao; rate-limit testado disparando 4 vezes em < 1h.
+
+**Nao escopo**: o admin continua podendo resetar via `/admin/usuarios` (`reset-user-password`) — o novo fluxo e auto-servico, nao substitui o admin.
 
 ---
 
