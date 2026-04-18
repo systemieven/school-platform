@@ -4,7 +4,7 @@ import {
   Home, Baby, BookOpen, BookMarked, GraduationCap, MessageSquare,
   CalendarCheck, ClipboardList, Info, Building2, Plus, Trash2, GripVertical,
   Image as ImageIcon, Video, Eye, EyeOff, Clock, Shuffle, ListOrdered,
-  Play, Layers,
+  Play, Layers, ShoppingBag,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { SettingsCard } from '../../components/SettingsCard';
@@ -76,19 +76,28 @@ const DEFAULT_SLIDESHOW: HeroSlideshowConfig = {
   transition_duration: 1200,
 };
 
-interface HomeFields extends Omit<HeroFields, 'image'> {
+/** Hero com slideshow + fallback de vídeo. Usado por Home e Loja. */
+interface HeroMediaFields extends Omit<HeroFields, 'image'> {
   video_url: string;
   scenes: HeroScene[];
   slideshow: HeroSlideshowConfig;
+}
+
+interface HomeFields extends HeroMediaFields {
   segments: { image: string; description: string }[];
 }
+
+type LojaFields = HeroMediaFields;
 
 type ContatoFields = HeroFields;
 
 type PageKey =
   | 'home' | 'educacao_infantil' | 'fundamental_1' | 'fundamental_2'
   | 'ensino_medio' | 'contato' | 'visita' | 'matricula'
-  | 'sobre' | 'estrutura';
+  | 'sobre' | 'estrutura' | 'loja';
+
+/** Páginas que usam o editor de hero+slideshow (em vez do hero simples). */
+type MediaPageKey = 'home' | 'loja';
 
 interface AllPages {
   home: HomeFields;
@@ -101,6 +110,7 @@ interface AllPages {
   matricula: HeroFields;
   sobre: HeroFields;
   estrutura: HeroFields;
+  loja: LojaFields;
 }
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -132,6 +142,7 @@ const DEFAULT_PAGES: AllPages = {
   matricula:        { badge: 'Matrículas 2026 abertas',         title: 'Matricule seu Filho',               highlight: 'Filho',      subtitle: 'Garanta a vaga do seu filho.',                                                                      image: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&q=80&w=2070' },
   sobre:            { badge: 'Conheça nossa história',          title: 'Sobre Nós',           highlight: 'Nós',    subtitle: '',                                                             image: '' },
   estrutura:        { badge: 'Conheça nossos espaços',          title: 'Nossa Estrutura',                   highlight: 'Estrutura',  subtitle: 'Ambientes modernos e acolhedores projetados para o melhor aprendizado.',                                                                     image: '' },
+  loja:             { badge: 'Nossa Loja', title: 'Uniformes e Material', highlight: 'Material', subtitle: 'Compre com praticidade e receba em casa.', video_url: '', scenes: [], slideshow: { ...DEFAULT_SLIDESHOW } },
 };
 
 // ── Sub-tabs ──────────────────────────────────────────────────────────────────
@@ -147,6 +158,7 @@ const SUB_TABS: { key: PageKey; label: string; icon: React.ComponentType<{ class
   { key: 'matricula',        label: 'Matrícula',  icon: ClipboardList },
   { key: 'sobre',            label: 'Sobre',      icon: Info },
   { key: 'estrutura',        label: 'Estrutura',  icon: Building2 },
+  { key: 'loja',             label: 'Loja',       icon: ShoppingBag },
 ];
 
 // Style aliases from shared FormField
@@ -369,14 +381,13 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
     setPages((prev) => ({ ...prev, [key]: data }));
   }
 
-  function updateHome(partial: Partial<HomeFields>) {
-    setPages((prev) => ({ ...prev, home: { ...prev.home, ...partial } }));
+  /** Atualiza a página-mídia ativa (home ou loja) preservando campos extras (ex.: segments da home). */
+  function updateMediaPage(key: MediaPageKey, partial: Partial<HeroMediaFields>) {
+    setPages((prev) => ({ ...prev, [key]: { ...prev[key], ...partial } as AllPages[typeof key] }));
   }
 
-
-
-  // ── Scene helpers ──
-  function addScene() {
+  // ── Scene helpers (operam na media page ativa: home | loja) ──
+  function addScene(key: MediaPageKey) {
     const scene: HeroScene = {
       id: crypto.randomUUID(),
       media_type: 'image',
@@ -384,31 +395,35 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
       duration: 0,
       blue_mask: true,
     };
-    updateHome({ scenes: [...(home.scenes ?? []), scene] });
+    const current = pages[key];
+    updateMediaPage(key, { scenes: [...(current.scenes ?? []), scene] });
   }
 
-  function removeScene(id: string) {
-    updateHome({ scenes: (home.scenes ?? []).filter((s) => s.id !== id) });
+  function removeScene(key: MediaPageKey, id: string) {
+    const current = pages[key];
+    updateMediaPage(key, { scenes: (current.scenes ?? []).filter((s) => s.id !== id) });
   }
 
-  function updateScene(id: string, partial: Partial<HeroScene>) {
-    updateHome({
-      scenes: (home.scenes ?? []).map((s) => (s.id === id ? { ...s, ...partial } : s)),
+  function updateScene(key: MediaPageKey, id: string, partial: Partial<HeroScene>) {
+    const current = pages[key];
+    updateMediaPage(key, {
+      scenes: (current.scenes ?? []).map((s) => (s.id === id ? { ...s, ...partial } : s)),
     });
   }
 
-  function handleSceneDragEnd(event: DragEndEvent) {
+  function handleSceneDragEnd(key: MediaPageKey, event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const scenes = home.scenes ?? [];
+    const scenes = pages[key].scenes ?? [];
     const oldIdx = scenes.findIndex((s) => s.id === active.id);
     const newIdx = scenes.findIndex((s) => s.id === over.id);
     if (oldIdx === -1 || newIdx === -1) return;
-    updateHome({ scenes: arrayMove(scenes, oldIdx, newIdx) });
+    updateMediaPage(key, { scenes: arrayMove(scenes, oldIdx, newIdx) });
   }
 
-  function updateSlideshow(partial: Partial<HeroSlideshowConfig>) {
-    updateHome({ slideshow: { ...(home.slideshow ?? DEFAULT_SLIDESHOW), ...partial } });
+  function updateSlideshow(key: MediaPageKey, partial: Partial<HeroSlideshowConfig>) {
+    const current = pages[key];
+    updateMediaPage(key, { slideshow: { ...(current.slideshow ?? DEFAULT_SLIDESHOW), ...partial } });
   }
 
   const sensors = useSensors(
@@ -424,7 +439,6 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
     );
   }
 
-  const home    = pages.home;
   const contato = pages.contato;
 
   return (
@@ -454,41 +468,48 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
         )}
       </div>
 
-      {/* ── Home ── */}
-      {activeTab === 'home' && (
+      {/* ── Home / Loja (hero + slideshow) ────────────────────────────────
+          Ambas usam o mesmo editor de hero com slideshow + fallback de
+          vídeo. Home tem campos extras (segments) em ContentSettingsPanel. */}
+      {(activeTab === 'home' || activeTab === 'loja') && (() => {
+        const mediaKey = activeTab as MediaPageKey;
+        const media = pages[mediaKey] as HeroMediaFields;
+        const slideshow = media.slideshow ?? DEFAULT_SLIDESHOW;
+        const scenes = media.scenes ?? [];
+        return (
         <>
-          <SettingsCard collapseId="appearance.home.hero" title="Hero da Página" icon={Layers}>
+          <SettingsCard collapseId={`appearance.${mediaKey}.hero`} title="Hero da Página" icon={Layers}>
             {/* ── Textos ── */}
             <SectionLabel>Textos</SectionLabel>
-            <InputField label="Badge" value={home.badge}
-              onChange={(e) => updateHome({ badge: e.target.value })}
+            <InputField label="Badge" value={media.badge}
+              onChange={(e) => updateMediaPage(mediaKey, { badge: e.target.value })}
               placeholder="Ex: Matrículas 2026 abertas" maxLength={40} />
 
-            <InputField label="Título" value={home.title}
-              onChange={(e) => updateHome({ title: e.target.value })}
+            <InputField label="Título" value={media.title}
+              onChange={(e) => updateMediaPage(mediaKey, { title: e.target.value })}
               placeholder="Ex: Educação que Transforma Vidas" maxLength={80} />
 
-            <InputField label="Palavra em Destaque" value={home.highlight}
-              onChange={(e) => updateHome({ highlight: e.target.value })}
+            <InputField label="Palavra em Destaque" value={media.highlight}
+              onChange={(e) => updateMediaPage(mediaKey, { highlight: e.target.value })}
               placeholder="Ex: Transforma"
               hint="Deve ser exatamente como escrita no Título acima. Será exibida em itálico dourado." />
 
-            <TextareaField label="Subtítulo" rows={3} value={home.subtitle}
-              onChange={(e) => updateHome({ subtitle: e.target.value })}
+            <TextareaField label="Subtítulo" rows={3} value={media.subtitle}
+              onChange={(e) => updateMediaPage(mediaKey, { subtitle: e.target.value })}
               placeholder="Descrição exibida abaixo do título" maxLength={160} />
 
             <SectionDivider />
 
             {/* ── Mídia ── */}
             <SectionLabel>Mídia</SectionLabel>
-            <InputField label="URL do Vídeo de Fundo (fallback)" value={home.video_url}
-              onChange={(e) => updateHome({ video_url: e.target.value })}
+            <InputField label="URL do Vídeo de Fundo (fallback)" value={media.video_url}
+              onChange={(e) => updateMediaPage(mediaKey, { video_url: e.target.value })}
               placeholder="https://..."
               hint="Usado quando nenhuma cena estiver configurada no slideshow abaixo." />
           </SettingsCard>
 
           {/* ── Slideshow ── */}
-          <SettingsCard collapseId="appearance.home.slideshow" title="Slideshow da Hero" icon={Play} description="Configure cenas com imagens ou vídeos para exibição em sequência na hero.">
+          <SettingsCard collapseId={`appearance.${mediaKey}.slideshow`} title="Slideshow da Hero" icon={Play} description="Configure cenas com imagens ou vídeos para exibição em sequência na hero.">
             {/* ── Configurações ── */}
             <SectionLabel>Configurações</SectionLabel>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-900/30 rounded-xl">
@@ -498,8 +519,8 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
                   type="number"
                   min={2}
                   max={60}
-                  value={(home.slideshow ?? DEFAULT_SLIDESHOW).default_duration}
-                  onChange={(e) => updateSlideshow({ default_duration: Math.max(2, Number(e.target.value)) })}
+                  value={slideshow.default_duration}
+                  onChange={(e) => updateSlideshow(mediaKey, { default_duration: Math.max(2, Number(e.target.value)) })}
                   className={inputCls}
                 />
               </div>
@@ -510,8 +531,8 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
                   min={200}
                   max={3000}
                   step={100}
-                  value={(home.slideshow ?? DEFAULT_SLIDESHOW).transition_duration}
-                  onChange={(e) => updateSlideshow({ transition_duration: Math.max(200, Number(e.target.value)) })}
+                  value={slideshow.transition_duration}
+                  onChange={(e) => updateSlideshow(mediaKey, { transition_duration: Math.max(200, Number(e.target.value)) })}
                   className={inputCls}
                 />
               </div>
@@ -526,10 +547,10 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
                       key={v}
                       type="button"
                       title={tip}
-                      onClick={() => updateSlideshow({ order: v })}
+                      onClick={() => updateSlideshow(mediaKey, { order: v })}
                       className={[
                         'flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-200',
-                        (home.slideshow ?? DEFAULT_SLIDESHOW).order === v ? 'bg-brand-primary text-white shadow-sm' : 'text-gray-500 hover:text-gray-700',
+                        slideshow.order === v ? 'bg-brand-primary text-white shadow-sm' : 'text-gray-500 hover:text-gray-700',
                       ].join(' ')}
                     >
                       <I className="w-3.5 h-3.5" /> {tip}
@@ -540,8 +561,8 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
               <div>
                 <label className={labelCls}>Efeito de transição</label>
                 <select
-                  value={(home.slideshow ?? DEFAULT_SLIDESHOW).transition}
-                  onChange={(e) => updateSlideshow({ transition: e.target.value as TransitionEffect })}
+                  value={slideshow.transition}
+                  onChange={(e) => updateSlideshow(mediaKey, { transition: e.target.value as TransitionEffect })}
                   className={inputCls}
                 >
                   {TRANSITION_OPTIONS.map((opt) => (
@@ -561,17 +582,17 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => updateSlideshow({ transition: opt.value })}
+                    onClick={() => updateSlideshow(mediaKey, { transition: opt.value })}
                     className={[
                       'flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all duration-200 text-center',
-                      (home.slideshow ?? DEFAULT_SLIDESHOW).transition === opt.value
+                      slideshow.transition === opt.value
                         ? 'border-brand-primary bg-brand-primary/5 shadow-md shadow-brand-primary/10'
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300',
                     ].join(' ')}
                   >
                     <div className={[
                       'w-8 h-8 rounded-lg flex items-center justify-center',
-                      (home.slideshow ?? DEFAULT_SLIDESHOW).transition === opt.value ? 'bg-brand-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500',
+                      slideshow.transition === opt.value ? 'bg-brand-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500',
                     ].join(' ')}>
                       {opt.value === 'crossfade' && <Layers className="w-4 h-4" />}
                       {opt.value === 'slide' && <Play className="w-4 h-4" />}
@@ -579,7 +600,7 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
                       {opt.value === 'blur' && <Eye className="w-4 h-4" />}
                       {opt.value === 'flip' && <Video className="w-4 h-4" />}
                     </div>
-                    <span className={`text-xs font-medium ${(home.slideshow ?? DEFAULT_SLIDESHOW).transition === opt.value ? 'text-brand-primary' : 'text-gray-600 dark:text-gray-400'}`}>
+                    <span className={`text-xs font-medium ${slideshow.transition === opt.value ? 'text-brand-primary' : 'text-gray-600 dark:text-gray-400'}`}>
                       {opt.label}
                     </span>
                     <span className="text-[10px] text-gray-400 leading-tight">{opt.desc}</span>
@@ -594,28 +615,28 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
             <div className="space-y-3">
               <SectionLabel>Cenas</SectionLabel>
               <div className="flex items-center justify-between">
-                <label className={labelCls + ' mb-0'}>Cenas ({(home.scenes ?? []).length})</label>
-                <button type="button" onClick={addScene} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-brand-primary hover:bg-brand-primary-dark transition-colors shadow-sm">
+                <label className={labelCls + ' mb-0'}>Cenas ({scenes.length})</label>
+                <button type="button" onClick={() => addScene(mediaKey)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-brand-primary hover:bg-brand-primary-dark transition-colors shadow-sm">
                   <Plus className="w-3.5 h-3.5" /> Adicionar cena
                 </button>
               </div>
 
-              {(home.scenes ?? []).length === 0 ? (
+              {scenes.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-8 text-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
                   <Layers className="w-8 h-8 text-gray-300" />
                   <p className="text-sm text-gray-500">Nenhuma cena adicionada</p>
                   <p className="text-xs text-gray-400">O vídeo de fundo (fallback) será exibido enquanto não houver cenas.</p>
                 </div>
               ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSceneDragEnd}>
-                  <SortableContext items={(home.scenes ?? []).map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleSceneDragEnd(mediaKey, e)}>
+                  <SortableContext items={scenes.map((s) => s.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3">
-                      {(home.scenes ?? []).map((scene) => (
+                      {scenes.map((scene) => (
                         <SortableSceneCard
                           key={scene.id}
                           scene={scene}
-                          onUpdate={(p) => updateScene(scene.id, p)}
-                          onRemove={() => removeScene(scene.id)}
+                          onUpdate={(p) => updateScene(mediaKey, scene.id, p)}
+                          onRemove={() => removeScene(mediaKey, scene.id)}
                         />
                       ))}
                     </div>
@@ -626,7 +647,8 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
           </SettingsCard>
 
         </>
-      )}
+        );
+      })()}
 
       {/* ── Segment pages ── */}
       {(activeTab === 'educacao_infantil' || activeTab === 'fundamental_1' ||
