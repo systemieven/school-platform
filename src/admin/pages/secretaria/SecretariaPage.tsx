@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   FileText, Heart, RefreshCw, ArrowRightLeft,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, LayoutDashboard,
   Check, Loader2, Trash2, Plus, X, Search, ChevronDown,
   ShieldCheck, HeartPulse, Stethoscope, AlertTriangle, Bell, ShieldOff,
 } from 'lucide-react';
+import SecretariaDashboardPage from './SecretariaDashboardPage';
 import { usePermissions } from '../../contexts/PermissionsContext';
 import { supabase } from '../../../lib/supabase';
 import { Drawer, DrawerCard } from '../../components/Drawer';
@@ -2409,6 +2410,14 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   {
+    key: 'dashboard',
+    label: 'Visão Geral',
+    shortLabel: 'Dashboard',
+    icon: LayoutDashboard,
+    description: 'Resumo operacional da secretaria digital',
+    moduleKey: 'secretaria-dashboard',
+  },
+  {
     key: 'declaracoes',
     label: 'Declarações',
     shortLabel: 'Declarações',
@@ -2566,6 +2575,7 @@ export default function SecretariaPage() {
 
             {/* Panel content */}
             <div className="p-6">
+              {activeTab === 'dashboard' && <SecretariaDashboardPage />}
               {activeTab === 'declaracoes' && <SecretariaDeclaracoesTab />}
               {activeTab === 'fichas-saude' && <SecretariaFichasSaudeTab />}
               {activeTab === 'rematricula' && <SecretariaRematriculaTab />}

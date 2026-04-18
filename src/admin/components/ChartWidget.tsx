@@ -356,6 +356,98 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
       .map(([name, value]) => ({ name, value }));
   }
 
+  // ── Secretaria ──────────────────────────────────────────────────────────────
+
+  if (source === 'declaracoes_by_status') {
+    const { data } = await supabase.from('document_requests').select('status');
+    const labels: Record<string, string> = {
+      pending: 'Pendente', approved: 'Aprovada', generating: 'Gerando',
+      generated: 'Gerada', delivered: 'Entregue', rejected: 'Rejeitada',
+    };
+    const agg: Record<string, number> = {};
+    (data ?? []).forEach((r: { status: string }) => {
+      const name = labels[r.status] ?? r.status;
+      agg[name] = (agg[name] ?? 0) + 1;
+    });
+    return Object.entries(agg).map(([name, value]) => ({ name, value }));
+  }
+
+  if (source === 'declaracoes_by_month') {
+    const { data } = await supabase
+      .from('document_requests')
+      .select('created_at')
+      .gte('created_at', start)
+      .lte('created_at', end + 'T23:59:59');
+    const agg: Record<string, number> = {};
+    (data ?? []).forEach((r: { created_at: string }) => {
+      const ym = toYYYYMM(r.created_at);
+      agg[ym] = (agg[ym] ?? 0) + 1;
+    });
+    return Object.entries(agg)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([ym, value]) => ({ name: fmtMonth(ym), value }));
+  }
+
+  if (source === 'transfers_by_type') {
+    const { data } = await supabase.from('student_transfers').select('type');
+    const labels: Record<string, string> = {
+      internal: 'Interna', transfer_out: 'Transferência', trancamento: 'Trancamento', cancellation: 'Cancelamento',
+    };
+    const agg: Record<string, number> = {};
+    (data ?? []).forEach((r: { type: string }) => {
+      const name = labels[r.type] ?? r.type;
+      agg[name] = (agg[name] ?? 0) + 1;
+    });
+    return Object.entries(agg).map(([name, value]) => ({ name, value }));
+  }
+
+  if (source === 'rematricula_funnel') {
+    const { data } = await supabase.from('reenrollment_applications').select('status');
+    const labels: Record<string, string> = {
+      pending: 'Pendente', confirmed: 'Confirmada', signed: 'Assinada',
+      contract_generated: 'Contrato', completed: 'Concluída', cancelled: 'Cancelada',
+    };
+    const order = ['pending', 'confirmed', 'signed', 'contract_generated', 'completed', 'cancelled'];
+    const agg: Record<string, number> = {};
+    (data ?? []).forEach((r: { status: string }) => {
+      agg[r.status] = (agg[r.status] ?? 0) + 1;
+    });
+    return order
+      .filter((k) => agg[k] !== undefined)
+      .map((k) => ({ name: labels[k] ?? k, value: agg[k] }));
+  }
+
+  // ── Área do Professor (RLS filtra por teacher_id = auth.uid()) ──────────────
+
+  if (source === 'teacher_plans_by_month') {
+    const { data } = await supabase
+      .from('lesson_plans')
+      .select('created_at')
+      .gte('created_at', start)
+      .lte('created_at', end + 'T23:59:59');
+    const agg: Record<string, number> = {};
+    (data ?? []).forEach((r: { created_at: string }) => {
+      const ym = toYYYYMM(r.created_at);
+      agg[ym] = (agg[ym] ?? 0) + 1;
+    });
+    return Object.entries(agg)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([ym, value]) => ({ name: fmtMonth(ym), value }));
+  }
+
+  if (source === 'teacher_exams_by_status') {
+    const { data } = await supabase.from('class_exams').select('status');
+    const labels: Record<string, string> = {
+      draft: 'Rascunho', published: 'Publicada', applied: 'Aplicada', corrected: 'Corrigida',
+    };
+    const agg: Record<string, number> = {};
+    (data ?? []).forEach((r: { status: string }) => {
+      const name = labels[r.status] ?? r.status;
+      agg[name] = (agg[name] ?? 0) + 1;
+    });
+    return Object.entries(agg).map(([name, value]) => ({ name, value }));
+  }
+
   return [];
 }
 

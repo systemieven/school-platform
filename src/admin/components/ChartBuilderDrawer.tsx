@@ -25,6 +25,8 @@ import {
   FINANCIAL_DATA_SOURCES,
   ACADEMIC_DATA_SOURCES,
   PRINCIPAL_DATA_SOURCES,
+  SECRETARIA_DATA_SOURCES,
+  AREA_PROFESSOR_DATA_SOURCES,
 } from '../types/admin.types';
 
 // ── Chart type gallery ────────────────────────────────────────────────────────
@@ -62,8 +64,10 @@ export default function ChartBuilderDrawer({
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sources =
-    module === 'financeiro' ? FINANCIAL_DATA_SOURCES
-    : module === 'academico' ? ACADEMIC_DATA_SOURCES
+    module === 'financeiro'       ? FINANCIAL_DATA_SOURCES
+    : module === 'academico'      ? ACADEMIC_DATA_SOURCES
+    : module === 'secretaria'     ? SECRETARIA_DATA_SOURCES
+    : module === 'area-professor' ? AREA_PROFESSOR_DATA_SOURCES
     : PRINCIPAL_DATA_SOURCES;
 
   // Populate form when editing
