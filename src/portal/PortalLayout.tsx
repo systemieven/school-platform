@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useBranding } from '../contexts/BrandingContext';
 import PortalAiNudge from '../shared/components/PortalAiNudge';
+import { usePortalTitle } from '../shared/hooks/usePortalTitle';
 
 const NAV = [
   { path: '/portal',            label: 'Início',       icon: LayoutDashboard, end: true },
@@ -87,6 +88,7 @@ export default function PortalLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { identity } = useBranding();
   const { student } = useStudentAuth();
+  usePortalTitle('Portal do Aluno');
 
   return (
     <StudentProtectedRoute>

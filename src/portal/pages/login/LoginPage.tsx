@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useStudentAuth } from '../../contexts/StudentAuthContext';
 import { Loader2, Eye, EyeOff, BookOpen, Users, ExternalLink } from 'lucide-react';
 import { useBranding } from '../../../contexts/BrandingContext';
+import { usePortalTitle } from '../../../shared/hooks/usePortalTitle';
 
 type Mode = 'login' | 'first-access';
 
@@ -10,6 +11,7 @@ export default function PortalLoginPage() {
   const { signIn, firstAccess, session } = useStudentAuth();
   const { identity } = useBranding();
   const navigate = useNavigate();
+  usePortalTitle('Portal do Aluno');
 
   const [mode, setMode]           = useState<Mode>('login');
   const [enrollment, setEnrollment] = useState('');

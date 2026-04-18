@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useProfessor } from '../../contexts/ProfessorAuthContext';
 import { Loader2, Eye, EyeOff, GraduationCap, MessageCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useBranding } from '../../../contexts/BrandingContext';
+import { usePortalTitle } from '../../../shared/hooks/usePortalTitle';
 
 type Mode = 'login' | 'forgot';
 
@@ -10,6 +11,7 @@ export default function ProfessorLoginPage() {
   const { signIn, requestAccess, session } = useProfessor();
   const { identity } = useBranding();
   const navigate = useNavigate();
+  usePortalTitle('Portal do Professor');
 
   const [mode, setMode]         = useState<Mode>('login');
   const [email, setEmail]       = useState('');

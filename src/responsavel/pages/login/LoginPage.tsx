@@ -3,6 +3,7 @@ import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useGuardian, normalizeCpf } from '../../contexts/GuardianAuthContext';
 import { Loader2, Eye, EyeOff, UserCheck, MessageCircle, AlertCircle } from 'lucide-react';
 import { useBranding } from '../../../contexts/BrandingContext';
+import { usePortalTitle } from '../../../shared/hooks/usePortalTitle';
 
 type Mode = 'login' | 'first-access';
 
@@ -26,6 +27,7 @@ export default function GuardianLoginPage() {
   const { signIn, requestAccess, session } = useGuardian();
   const { identity } = useBranding();
   const navigate = useNavigate();
+  usePortalTitle('Portal do Responsável');
 
   const [mode, setMode]         = useState<Mode>('login');
   const [cpf, setCpf]           = useState('');
