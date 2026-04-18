@@ -81,6 +81,9 @@ const PortariaPage             = lazy(() => import('./pages/school/PortariaPage'
 // Fase 15 — Achados e Perdidos Digital
 const AchadosPerdidosPage      = lazy(() => import('./pages/school/AchadosPerdidosPage'));
 
+// Fase 16 — RH (colaboradores + processo seletivo)
+const ColaboradoresPage        = lazy(() => import('./pages/rh/ColaboradoresPage'));
+
 // Fase 14 — Loja, PDV e Estoque
 const LojaPage       = lazy(() => import('./pages/loja/LojaPage'));
 const PDVPage        = lazy(() => import('./pages/loja/PDVPage'));
@@ -198,6 +201,9 @@ export default function AdminRoutes() {
 
           {/* Fase 15 — Achados e Perdidos Digital */}
           <Route path="achados-perdidos" element={<ModuleGuard moduleKey="lost-found"><LazyPage><AchadosPerdidosPage /></LazyPage></ModuleGuard>} />
+
+          {/* Fase 16 — RH: cadastro de colaboradores */}
+          <Route path="rh/colaboradores" element={<ModuleGuard moduleKey="rh-colaboradores"><LazyPage><ColaboradoresPage /></LazyPage></ModuleGuard>} />
 
           {/* Fase 14 — Loja, PDV e Estoque.
               Umbrella: liberado quando o usuário tem `view` em pelo menos uma

@@ -99,6 +99,19 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'RH',
+    items: [
+      {
+        key: 'rh-colaboradores',
+        label: 'Colaboradores',
+        icon: 'Briefcase',
+        path: '/admin/rh/colaboradores',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'rh-colaboradores',
+      },
+    ],
+  },
+  {
     label: 'Instituição',
     items: [
       {
