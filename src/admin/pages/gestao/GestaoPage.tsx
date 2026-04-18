@@ -100,6 +100,15 @@ export default function GestaoPage() {
     }
   }, [activeTab, visibleTabs, firstVisibleKey]);
 
+  // Sincroniza com URL (busca do breadcrumb → ?tab=X com página já montada).
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && tab !== activeTab && visibleTabs.some((t) => t.key === tab)) {
+      setActiveTab(tab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const currentTab = visibleTabs.find((t) => t.key === activeTab) ?? visibleTabs[0];
 
   if (visibleTabs.length === 0) {

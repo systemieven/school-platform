@@ -287,6 +287,17 @@ export default function SettingsPage() {
       ? requestedTab
       : firstAllowedKey;
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Sincroniza activeTab quando a URL muda (ex: busca do breadcrumb
+  // navega pra ?tab=X com a página já montada).
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && tab !== activeTab && TABS.some((t) => t.key === tab && canView(t.requiredModule))) {
+      setActiveTab(tab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const [siteSubTab, setSiteSubTab] = useState<SiteTab>('appearance');
   const [aiSubTab, setAiSubTab] = useState<AiSubTab>('overview');
   const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfe-emissao' | 'nfse' | 'nfce'>('nfe');
