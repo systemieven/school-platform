@@ -9,6 +9,7 @@ import {
   MessageSquareDot, DoorOpen, HeartPulse, ShoppingBag,
 } from 'lucide-react';
 import { useBranding } from '../contexts/BrandingContext';
+import PortalAiNudge from '../shared/components/PortalAiNudge';
 
 const NAV = [
   { path: '/responsavel',              label: 'Início',         icon: LayoutDashboard, end: true },
@@ -149,6 +150,7 @@ export default function GuardianLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unreadOccurrences] = useState(0); // managed by DashboardPage or context if needed
   const { identity } = useBranding();
+  const { guardian } = useGuardian();
 
   return (
     <GuardianProtectedRoute>
@@ -193,6 +195,7 @@ export default function GuardianLayout() {
             <Outlet />
           </main>
         </div>
+        <PortalAiNudge authUserId={guardian?.id ?? null} />
       </div>
     </GuardianProtectedRoute>
   );
