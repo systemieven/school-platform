@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useBranding } from '../contexts/BrandingContext';
 import PortalAiNudge from '../shared/components/PortalAiNudge';
+import { usePortalTitle } from '../shared/hooks/usePortalTitle';
 
 const NAV = [
   { path: '/responsavel',              label: 'Início',         icon: LayoutDashboard, end: true },
@@ -150,6 +151,7 @@ export default function GuardianLayout() {
   const [unreadOccurrences] = useState(0); // managed by DashboardPage or context if needed
   const { identity } = useBranding();
   const { guardian } = useGuardian();
+  usePortalTitle('Portal do Responsável');
 
   return (
     <GuardianProtectedRoute>

@@ -7,6 +7,7 @@ import {
   LogOut, Menu, X,
 } from 'lucide-react';
 import { useBranding } from '../contexts/BrandingContext';
+import { usePortalTitle } from '../shared/hooks/usePortalTitle';
 
 const NAV = [
   { path: '/professor',        label: 'Dashboard',       icon: LayoutDashboard, end: true },
@@ -105,6 +106,7 @@ function ProfessorNav({ onClose }: { onClose?: () => void }) {
 export default function ProfessorLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { identity } = useBranding();
+  usePortalTitle('Portal do Professor');
 
   return (
     <ProfessorProtectedRoute>
