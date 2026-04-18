@@ -11,7 +11,6 @@ import EventosPage        from './pages/eventos/EventosPage';
 import GradeHorariaPage   from './pages/grade/GradeHorariaPage';
 import OcorrenciasPage    from './pages/ocorrencias/OcorrenciasPage';
 import AutorizacoesPage   from './pages/autorizacoes/AutorizacoesPage';
-import BibliotecaPage     from './pages/biblioteca/BibliotecaPage';
 import PerfilPage         from './pages/perfil/PerfilPage';
 import DeclaracoesPage    from './pages/declaracoes/DeclaracoesPage';
 import RematriculaPage    from './pages/rematricula/RematriculaPage';
@@ -40,7 +39,6 @@ export default function ResponsavelRoutes() {
           <Route path="grade"        element={<GradeHorariaPage />} />
           <Route path="ocorrencias"  element={<OcorrenciasPage />} />
           <Route path="autorizacoes" element={<AutorizacoesPage />} />
-          <Route path="biblioteca"   element={<BibliotecaPage />} />
           <Route path="perfil"       element={<PerfilPage />} />
           <Route path="declaracoes"  element={<DeclaracoesPage />} />
           <Route path="rematricula"         element={<RematriculaPage />} />
