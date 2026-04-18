@@ -44,6 +44,17 @@ interface ProfessorAuthState {
   mustChangePassword: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  /**
+   * Esqueci minha senha (auto-servico). Invoca a edge function pública
+   * `professor-request-access` que valida o e-mail em profiles (role=teacher),
+   * checa WhatsApp do telefone cadastrado e envia uma senha provisória pelo
+   * template `senha_temporaria`. O `must_change_password=true` no profile
+   * + o gate em ProfessorProtectedRoute forçam a troca no primeiro login.
+   */
+  requestAccess: (email: string) => Promise<{
+    status: 'sent' | 'no_whatsapp' | 'rate_limited' | 'invalid_input' | 'error';
+    message?: string;
+  }>;
   signOut: () => Promise<void>;
   refreshClasses: () => Promise<void>;
   clearMustChangePassword: () => void;
@@ -58,6 +69,7 @@ const ProfessorAuthContext = createContext<ProfessorAuthState>({
   mustChangePassword: false,
   loading: true,
   signIn: async () => ({}),
+  requestAccess: async () => ({ status: 'error' }),
   signOut: async () => {},
   refreshClasses: async () => {},
   clearMustChangePassword: () => {},
@@ -218,6 +230,39 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
     return {};
   }, []);
 
+  // ── requestAccess ──────────────────────────────────────────────────────────
+  // Auto-servico de "esqueci minha senha". Toda a validação (e-mail em
+  // profiles, telefone com WhatsApp), reset da senha e disparo do template
+  // ocorrem no servidor — anti-enumeração e rate-limit ficam fora do client.
+
+  const requestAccess = useCallback(async (email: string) => {
+    const systemUrl = window.location.origin + '/professor/login';
+
+    try {
+      const { data, error } = await supabase.functions.invoke('professor-request-access', {
+        body: { email: email.trim().toLowerCase(), system_url: systemUrl },
+      });
+
+      if (error) {
+        return { status: 'error' as const, message: error.message };
+      }
+      const payload = (data ?? {}) as { status?: string; message?: string };
+      const status = (payload.status as
+        | 'sent'
+        | 'no_whatsapp'
+        | 'rate_limited'
+        | 'invalid_input'
+        | 'error'
+        | undefined) ?? 'error';
+      return { status, message: payload.message };
+    } catch (err: unknown) {
+      return {
+        status: 'error' as const,
+        message: err instanceof Error ? err.message : 'Erro inesperado.',
+      };
+    }
+  }, []);
+
   // ── signOut ────────────────────────────────────────────────────────────────
 
   const signOut = useCallback(async () => {
@@ -233,7 +278,7 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
     <ProfessorAuthContext.Provider
       value={{
         session, professor, teacherClasses, mustChangePassword, loading,
-        signIn, signOut, refreshClasses, clearMustChangePassword,
+        signIn, requestAccess, signOut, refreshClasses, clearMustChangePassword,
       }}
     >
       {children}
