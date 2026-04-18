@@ -195,10 +195,13 @@ export default function FiscalProviderCredentialsPanel() {
     setQuotasLoading(false);
   }, []);
 
-  // Auto-load quotas once when credentials exist.
+  // Auto-load quotas sempre que o painel é acessado (mount) e as credenciais existem.
+  // O componente é remontado a cada troca de sub-aba em Configurações > Fiscal,
+  // então isso garante dados frescos a cada visita.
   useEffect(() => {
-    if (!loading && origForm.id && !quotas) void loadQuotas();
-  }, [loading, origForm.id, quotas, loadQuotas]);
+    if (!loading && origForm.id) void loadQuotas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, origForm.id]);
 
   async function handleTest() {
     if (testLoading) return;
@@ -235,7 +238,140 @@ export default function FiscalProviderCredentialsPanel() {
 
   return (
     <div className="p-6 space-y-4">
-      {/* ── 1. Provedor + ambiente ───────────────────────────────────────── */}
+      {/* ── DASHBOARD (topo): teste de conexão + cotas ─────────────────── */}
+
+      {/* Teste de conexão */}
+      <SettingsCard
+        title="Teste de conexão"
+        description="Executa um token exchange com o provedor e valida as credenciais."
+        icon={Activity}
+        collapseId="fiscal-provider.test"
+      >
+        <button
+          type="button"
+          onClick={handleTest}
+          disabled={testLoading || !form.client_id || !form.client_secret_enc || hasChanges}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-primary/40 text-brand-primary text-sm font-medium hover:bg-brand-primary/5 disabled:opacity-50 transition-colors"
+          title={hasChanges ? 'Salve antes de testar' : undefined}
+        >
+          {testLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+          {testLoading ? 'Testando…' : 'Testar Conexão'}
+        </button>
+
+        {hasChanges && (
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">
+            Salve as credenciais antes de testar — o teste usa o que já está no banco.
+          </p>
+        )}
+
+        {testResult && (
+          <div className={`mt-3 rounded-xl border p-3 text-sm ${
+            testResult.ok
+              ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+              : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+          }`}>
+            {testResult.ok ? (
+              <div className="space-y-1">
+                <p className="font-semibold">✓ Conexão estabelecida</p>
+                <p className="text-xs">Ambiente: <span className="font-mono">{testResult.environment}</span></p>
+                <p className="text-xs">Token expira em: <span className="font-mono">{fmtDatetime(testResult.expires_at)}</span></p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <p className="font-semibold">✗ Falha na autenticação</p>
+                {testResult.status !== undefined && <p className="text-xs">HTTP {testResult.status}</p>}
+                <p className="text-xs font-mono">{testResult.error ?? 'Erro desconhecido'}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </SettingsCard>
+
+      {/* Consumo e cotas */}
+      <SettingsCard
+        title="Consumo e cotas"
+        description="Dados vindos de GET /conta/cotas. Atualizado automaticamente ao acessar a aba."
+        icon={Gauge}
+        collapseId="fiscal-provider.quotas"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[11px] text-gray-400">
+            {quotas?.ok && quotas.fetched_at
+              ? <>Última consulta: <span className="font-mono">{fmtDatetime(quotas.fetched_at)}</span></>
+              : quotasLoading
+                ? 'Carregando…'
+                : !origForm.id
+                  ? 'Salve credenciais para consultar.'
+                  : 'Clique em atualizar para buscar o consumo atual.'}
+          </div>
+          <button
+            type="button"
+            onClick={loadQuotas}
+            disabled={quotasLoading || !origForm.id}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            title={!origForm.id ? 'Salve credenciais antes' : undefined}
+          >
+            {quotasLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Atualizar
+          </button>
+        </div>
+
+        {quotas && !quotas.ok && (
+          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            <p className="font-semibold">Falha ao consultar cotas</p>
+            {quotas.status !== undefined && <p className="text-xs">HTTP {quotas.status}</p>}
+            <p className="text-xs font-mono mt-1">{quotas.error ?? 'Erro desconhecido'}</p>
+          </div>
+        )}
+
+        {quotas?.ok && quotas.data && quotas.data.length === 0 && (
+          <p className="text-sm text-gray-400 py-4 text-center">Nenhuma cota reportada pelo provedor.</p>
+        )}
+
+        {quotas?.ok && quotas.data && quotas.data.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {quotas.data.map((q) => {
+              const limit = Math.max(0, Number(q.limite) || 0);
+              const used  = Math.max(0, Number(q.consumo) || 0);
+              const pct   = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+              const remaining = Math.max(0, limit - used);
+              const barColor =
+                pct >= 90 ? 'bg-red-500'
+                : pct >= 70 ? 'bg-amber-500'
+                : 'bg-emerald-500';
+              const unlimited = limit === 0;
+              return (
+                <div key={q.nome} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-3.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                      {quotaLabel(q.nome)}
+                    </span>
+                    <span className="text-[11px] font-mono text-gray-400">{q.nome}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5 mb-2">
+                    <span className="text-xl font-bold text-gray-800 dark:text-white">{used.toLocaleString('pt-BR')}</span>
+                    <span className="text-sm text-gray-400">/ {unlimited ? 'ilimitado' : limit.toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                    <div
+                      className={`h-full ${unlimited ? 'bg-gray-300 dark:bg-gray-600' : barColor} transition-all`}
+                      style={{ width: unlimited ? '100%' : `${pct}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5 text-[11px] text-gray-400">
+                    <span>{unlimited ? '—' : `${pct}% usado`}</span>
+                    <span>{unlimited ? '' : `Restante: ${remaining.toLocaleString('pt-BR')}`}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SettingsCard>
+
+      {/* ── CONFIGURAÇÃO (abaixo do dashboard) ─────────────────────────── */}
+
+      {/* Provedor + ambiente */}
       <SettingsCard
         title="Provedor fiscal"
         description="Escolha do provedor e ambiente (sandbox / produção). As credenciais abaixo são compartilhadas entre NF-e, NFC-e e NFS-e."
@@ -335,133 +471,6 @@ export default function FiscalProviderCredentialsPanel() {
           <ExternalLink className="w-3 h-3" />
           Documentação oficial: como gerar client_id e client_secret
         </a>
-      </SettingsCard>
-
-      {/* ── 3. Teste de conexão ──────────────────────────────────────────── */}
-      <SettingsCard
-        title="Teste de conexão"
-        description="Executa um token exchange com o provedor e valida as credenciais."
-        icon={Activity}
-        collapseId="fiscal-provider.test"
-      >
-        <button
-          type="button"
-          onClick={handleTest}
-          disabled={testLoading || !form.client_id || !form.client_secret_enc || hasChanges}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-primary/40 text-brand-primary text-sm font-medium hover:bg-brand-primary/5 disabled:opacity-50 transition-colors"
-          title={hasChanges ? 'Salve antes de testar' : undefined}
-        >
-          {testLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-          {testLoading ? 'Testando…' : 'Testar Conexão'}
-        </button>
-
-        {hasChanges && (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">
-            Salve as credenciais antes de testar — o teste usa o que já está no banco.
-          </p>
-        )}
-
-        {testResult && (
-          <div className={`mt-3 rounded-xl border p-3 text-sm ${
-            testResult.ok
-              ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
-              : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
-          }`}>
-            {testResult.ok ? (
-              <div className="space-y-1">
-                <p className="font-semibold">✓ Conexão estabelecida</p>
-                <p className="text-xs">Ambiente: <span className="font-mono">{testResult.environment}</span></p>
-                <p className="text-xs">Token expira em: <span className="font-mono">{fmtDatetime(testResult.expires_at)}</span></p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <p className="font-semibold">✗ Falha na autenticação</p>
-                {testResult.status !== undefined && <p className="text-xs">HTTP {testResult.status}</p>}
-                <p className="text-xs font-mono">{testResult.error ?? 'Erro desconhecido'}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </SettingsCard>
-
-      {/* ── 4. Consumo e cotas ───────────────────────────────────────────── */}
-      <SettingsCard
-        title="Consumo e cotas"
-        description="Dados vindos de GET /conta/cotas. Mostra o quanto da sua franquia mensal já foi utilizada."
-        icon={Gauge}
-        collapseId="fiscal-provider.quotas"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[11px] text-gray-400">
-            {quotas?.ok && quotas.fetched_at
-              ? <>Última consulta: <span className="font-mono">{fmtDatetime(quotas.fetched_at)}</span></>
-              : quotasLoading
-                ? 'Carregando…'
-                : 'Clique em atualizar para buscar o consumo atual.'}
-          </div>
-          <button
-            type="button"
-            onClick={loadQuotas}
-            disabled={quotasLoading || !origForm.id}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
-            title={!origForm.id ? 'Salve credenciais antes' : undefined}
-          >
-            {quotasLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            Atualizar
-          </button>
-        </div>
-
-        {quotas && !quotas.ok && (
-          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
-            <p className="font-semibold">Falha ao consultar cotas</p>
-            {quotas.status !== undefined && <p className="text-xs">HTTP {quotas.status}</p>}
-            <p className="text-xs font-mono mt-1">{quotas.error ?? 'Erro desconhecido'}</p>
-          </div>
-        )}
-
-        {quotas?.ok && quotas.data && quotas.data.length === 0 && (
-          <p className="text-sm text-gray-400 py-4 text-center">Nenhuma cota reportada pelo provedor.</p>
-        )}
-
-        {quotas?.ok && quotas.data && quotas.data.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {quotas.data.map((q) => {
-              const limit = Math.max(0, Number(q.limite) || 0);
-              const used  = Math.max(0, Number(q.consumo) || 0);
-              const pct   = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-              const remaining = Math.max(0, limit - used);
-              const barColor =
-                pct >= 90 ? 'bg-red-500'
-                : pct >= 70 ? 'bg-amber-500'
-                : 'bg-emerald-500';
-              const unlimited = limit === 0;
-              return (
-                <div key={q.nome} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-3.5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-                      {quotaLabel(q.nome)}
-                    </span>
-                    <span className="text-[11px] font-mono text-gray-400">{q.nome}</span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5 mb-2">
-                    <span className="text-xl font-bold text-gray-800 dark:text-white">{used.toLocaleString('pt-BR')}</span>
-                    <span className="text-sm text-gray-400">/ {unlimited ? 'ilimitado' : limit.toLocaleString('pt-BR')}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                    <div
-                      className={`h-full ${unlimited ? 'bg-gray-300 dark:bg-gray-600' : barColor} transition-all`}
-                      style={{ width: unlimited ? '100%' : `${pct}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mt-1.5 text-[11px] text-gray-400">
-                    <span>{unlimited ? '—' : `${pct}% usado`}</span>
-                    <span>{unlimited ? '' : `Restante: ${remaining.toLocaleString('pt-BR')}`}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </SettingsCard>
 
       {/* ── Floating Save ────────────────────────────────────────────────── */}
