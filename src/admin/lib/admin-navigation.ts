@@ -109,6 +109,14 @@ export const ADMIN_NAV: NavGroup[] = [
         roles: ['super_admin', 'admin', 'coordinator'],
         moduleKey: 'rh-colaboradores',
       },
+      {
+        key: 'rh-seletivo',
+        label: 'Processo seletivo',
+        icon: 'UserPlus',
+        path: '/admin/rh/seletivo',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'rh-seletivo',
+      },
     ],
   },
   {
