@@ -2,7 +2,7 @@
 
 > **Versao**: 3.7
 > **Data**: 18 de abril de 2026
-> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, Sprint 14.S.P-bis concluido, Sprint 14.S.P-ter concluido, Sprint 13.IA + 13.IA-dash concluidos (ai_agents + orchestrator multi-provider + 4 workers integrados + dashboard de consumo real via Admin APIs), Sprint 13.IA.v2 concluido (infra proativa ai_insights + 7 agentes contextuais + AiContextualNudge + pg_cron hourly/6h/12h), migrations 153-205, **Fase 16 em progresso — PR1+PR2 concluídos** (PR1: staff autônomo + promoção opt-in via edge functions `staff-grant-access`/`staff-revoke-access` + `ColaboradoresPage`; PR2: migrations 204+205 — `job_openings` + `candidates` + `job_applications` com RPC `promote_candidate_to_staff` + trigger AFTER UPDATE + `SeletivoPage` kanban com drag-and-drop + drawers de vaga e candidato com preview PDF, aplicado em produção)) + roadmap ate v1 (F6.4 Documentação)
+> **Status**: Documento unificado — estado atual (Fases 1-15 concluidas, Sprints 6–13 concluidos, Sprint 13.N concluido, Sprint 14.S.P concluido, Sprint 14.S.P-bis concluido, Sprint 14.S.P-ter concluido, Sprint 13.IA + 13.IA-dash concluidos (ai_agents + orchestrator multi-provider + 4 workers integrados + dashboard de consumo real via Admin APIs), Sprint 13.IA.v2 concluido (infra proativa ai_insights + 7 agentes contextuais + AiContextualNudge + pg_cron hourly/6h/12h), migrations 153-206, **Fase 16 em progresso — PR1+PR2+PR3 concluídos** (PR1: staff autônomo + promoção opt-in via edge functions `staff-grant-access`/`staff-revoke-access` + `ColaboradoresPage`; PR2: migrations 204+205 — `job_openings` + `candidates` + `job_applications` com RPC `promote_candidate_to_staff` + trigger AFTER UPDATE + `SeletivoPage` kanban com drag-and-drop + drawers de vaga e candidato com preview PDF, aplicado em produção; PR3: migration 206 — seed `resume_screener` + `resume_extractor` (Haiku 4.5 com prompt defensivo anti-injection) + `extractPdfText.ts` lazy wrapper sobre `pdfjs-dist` 4.2.67 + botão "Analisar com IA" no drawer do candidato integrado ao `ai-orchestrator`)) + roadmap ate v1 (F6.4 Documentação)
 > **Arquitetura**: Multi-tenant via upstream/client repos com sync merge-based (sem force-push)
 
 ---
@@ -1572,6 +1572,7 @@ Configuravel na aba Aparencia > Home:
 | 203 | `fiscal_provider_module` | 18/04 | ✅ **Sprint Fiscal OAuth2 PR2** — Adiciona módulo granular `settings-fiscal-provider` (grupo `settings`, position 212) com defaults super_admin ALL + admin ALL (exceto delete). Libera controle granular de acesso à aba **Configurações › Fiscal › Provedor** (credenciais OAuth + painel de cotas), separado dos módulos específicos NF-e/NFC-e/NFS-e. Amplia `fiscal_provider_credentials.scopes` default para `'empresa nfe nfce nfse cnpj cep conta'` (escopo `conta` necessário para `GET /conta/cotas`) e aplica retroativamente às credenciais já salvas. |
 | 204 | `job_openings` | 18/04 | ✅ **Fase 16 PR2** — Tabela `job_openings` (vagas abertas pela escola): `title`, `department`, `location`, `description` (HTML), `requirements` (texto plano, usado pelo prompt do `resume_screener` no PR3), `employment_type CHECK ('clt'|'pj'|'estagio'|'terceirizado')`, `salary_range_min/max`, `status CHECK ('draft'|'published'|'paused'|'closed')`, `opened_at/closed_at`. Trigger `set_job_opening_timestamps` auto-seta `opened_at` no primeiro `published` e `closed_at` no `closed`. RLS via módulo `rh-seletivo` + admin ALL + política SELECT anônima quando `status='published'` (preparação para `/trabalhe-conosco` no PR4). |
 | 205 | `candidates_and_applications` | 18/04 | ✅ **Fase 16 PR2** — `candidates` (UNIQUE email, CPF UNIQUE, CNH, LinkedIn/portfolio, endereço, `extracted_payload JSONB` reservado para PR3) + `job_applications` (FK opening+candidate UNIQUE, `stage CHECK ('novo'|'triagem'|'entrevista'|'proposta'|'contratado'|'descartado')`, `stage_position`, `source`, `resume_path`, campos do screener (`screener_score/summary/payload/screened_at`), campos do interviewer (`interview_report` markdown + `interview_payload` JSONB), `rejected_reason`, `hired_staff_id UUID NULL FK staff ON DELETE SET NULL`, `hired_at`). RPC `promote_candidate_to_staff(p_application_id UUID)` SECURITY DEFINER — copia dados do candidate+vaga para `staff` (idempotente). Trigger `trg_job_applications_promote` AFTER UPDATE OF stage WHEN `NEW.stage='contratado' AND OLD.stage<>'contratado'` cria staff automaticamente. |
+| 206 | `rh_resume_agents_seed` | 18/04 | ✅ **Fase 16 PR3** — Seed idempotente em `ai_agents` com `resume_screener` (Haiku 4.5, temperature=0.2, max_tokens=800, retorna `{score_0_100, pros[], cons[], recommendation, reasoning}`) e `resume_extractor` (Haiku 4.5, temperature=0.1, max_tokens=1200, retorna JSON estruturado com identificação, contato, endereço, `experience[]`, `education[]`, `skills[]`). Ambos os prompts usam wrapper defensivo `### USER RESUME (untrusted) … ### END RESUME` contra prompt injection. `ON CONFLICT (slug) DO UPDATE` permite re-seed ao ajustar prompts. Consumido pelo botão "Analisar com IA" do `CandidatoDrawer` via `ai-orchestrator`. |
 
 ### 7.4 RLS Policies
 
@@ -1916,7 +1917,7 @@ Rota standalone sem Layout (sem Navbar/Footer). Publica: o token na URL funciona
 
 Roadmap original: — PR1: migrations 165-169 (`ai_usage_snapshots`, `ai_recharges`, extender `company_ai_config` com admin keys, RPC `ai_usage_stats`, job `pg_cron` 00:01). PR2: Edge Functions `ai-billing-sync` + `ai-billing-manual-refresh` (consomem Anthropic Admin API `/v1/organizations/usage_report` + OpenAI `/v1/organization/usage` e `/costs`). PR3: refactor `AiAgentsPanel` em sub-abas (Visão geral default, Agentes, Chaves) + novo `AiUsageDashboard` (KPIs periodo, saldo estimado por provider, top agentes, gráfico histórico, filtros Hoje/Semana/Mês/Personalizado). PR4 opcional: registro manual de recargas + alertas de saldo baixo. **Dependências de integração**: ⚠️ saldo em tempo real e auto-recarga **não têm API pública** em nenhum dos dois providers — dashboard lê tokens/custo via admin keys e estima saldo via snapshots + recargas manuais; auto-recarga fica read-only com deep link para o console do provider. Exige Admin API keys separadas das keys de inference (Anthropic: Organization Admin Key; OpenAI: `sk-admin-*` + `OpenAI-Organization` header). | Media | Admin API keys Anthropic/OpenAI + pg_cron + net.http_post |
 | Sprint 13.IA.v2 | Agentes Proativos Contextuais (event-driven + cron + nudge por rota) | ✅ **Concluído (2026-04-18)** — PR1-PR5 entregues, migrations 174-183. PR1 (infra): `ai_insights` + `ai_event_bindings`, 3 edge functions (`ai-event-dispatcher`, `ai-login-refresh`, `ai-scheduled-runner`), hook `useAiInsights`, `AiInsightsInbox` + `AiComposeMessage`, integração no `AdminAuthContext`/`AdminHeader`. PR2 (acadêmico): RPC `calculate_academic_risk` + agente `academic_pulse` (cron hourly) + `AiContextualNudge` (FAB bottom-right com `useAiRouteContext`, scoped por rota/role, NudgeBoundary defensivo). PR3 (portais): `student_study_buddy` (cron 6h), `guardian_pulse` (cron 12h), `lost_found_match` (trigger INSERT em `lost_found_items`) + hook `usePortalAiInsights` + montagem nos layouts do aluno e responsável. PR4 (financeiro): RPCs `delinquency_snapshot`/`admin_pulse_snapshot` + `financial_anomaly_scout` (cron 1h + trigger em `financial_installments.status`) + `admin_pulse` (run_on_login + cron 1h). PR5 (secretaria): RPC `detect_registration_issues` + `secretary_pulse` (cron 1h) + migration 183 com 3 jobs `pg_cron` (hourly/6h/12h) despachando para `ai-scheduled-runner`. Detalhes em §10.8C. | Media | Sprint 13.IA + 13.IA-dash |
-| Fase 16 | Módulo RH — Cadastro expandido + Processo seletivo + Captação pública + 3 agentes IA (`resume_screener`, `resume_extractor`, `pre_screening_interviewer`) | 🟡 **Em progresso (2026-04-18)** — plano aprovado em 5 PRs (folha de pagamento adiada para v2). ✅ **PR1 concluído** (migrations 185-187 aplicadas em produção, edge functions `staff-grant-access` v1 + `staff-revoke-access` v1 publicadas em `dinbwugbwnkrzljuocbs` com `verify_jwt=true`, `ColaboradoresPage` + drawer multi-tab + grupo "RH" na sidebar + rota `/admin/rh/colaboradores`). ✅ **PR2 concluído** (migrations 204-205 aplicadas, `SeletivoPage` com sub-tabs Vagas + Pipeline, kanban horizontal de 6 colunas com drag-and-drop HTML5 nativo, `VagaDrawer` + `CandidatoDrawer` com preview PDF inline e card de Análise IA, RPC `promote_candidate_to_staff` + trigger AFTER UPDATE cria staff automaticamente ao mover para `contratado`, rota `/admin/rh/seletivo` + item na sidebar). **PR3 pendente**: `resume_screener` + `resume_extractor` no admin (migration 190 com seeds em `ai_agents`, pdfjs-dist client-side, card "Análise IA" no drawer do candidato). **PR4 pendente**: captação pública `/trabalhe-conosco` (migrations 191-195, edge functions `careers-intake` + `careers-interview-turn`, agente `pre_screening_interviewer` com DISC/Big Five/MBTI/STAR, Config > Site > Carreiras e Config > RH). **PR5 opcional**: importação em massa de colaboradores (migration 196, `bulk-import-staff`). Detalhes em §10.17. | Media | Cadastro de colaboradores (OP-1 PR5), Sprint 13.IA (ai-orchestrator), Fase 7 (Whitelabel system_settings) |
+| Fase 16 | Módulo RH — Cadastro expandido + Processo seletivo + Captação pública + 3 agentes IA (`resume_screener`, `resume_extractor`, `pre_screening_interviewer`) | 🟡 **Em progresso (2026-04-18)** — plano aprovado em 5 PRs (folha de pagamento adiada para v2). ✅ **PR1 concluído** (migrations 185-187 aplicadas em produção, edge functions `staff-grant-access` v1 + `staff-revoke-access` v1 publicadas em `dinbwugbwnkrzljuocbs` com `verify_jwt=true`, `ColaboradoresPage` + drawer multi-tab + grupo "RH" na sidebar + rota `/admin/rh/colaboradores`). ✅ **PR2 concluído** (migrations 204-205 aplicadas, `SeletivoPage` com sub-tabs Vagas + Pipeline, kanban horizontal de 6 colunas com drag-and-drop HTML5 nativo, `VagaDrawer` + `CandidatoDrawer` com preview PDF inline e card de Análise IA, RPC `promote_candidate_to_staff` + trigger AFTER UPDATE cria staff automaticamente ao mover para `contratado`, rota `/admin/rh/seletivo` + item na sidebar). ✅ **PR3 concluído** (migration 206 aplicada com seed idempotente `resume_screener` + `resume_extractor` Haiku 4.5 + prompt defensivo anti-injection; `src/lib/extractPdfText.ts` lazy wrapper sobre `pdfjs-dist` 4.2.67 pinado; botão "Analisar com IA" no `CandidatoDrawer` baixa PDF via signed URL → parse client-side → `ai-orchestrator` → UPDATE `job_applications` com `screener_score/summary/payload/screened_at` + `logAudit`). **PR4 pendente**: captação pública `/trabalhe-conosco` (migrations 191-195, edge functions `careers-intake` + `careers-interview-turn`, agente `pre_screening_interviewer` com DISC/Big Five/MBTI/STAR, Config > Site > Carreiras e Config > RH). **PR5 opcional**: importação em massa de colaboradores (migration 196, `bulk-import-staff`). Detalhes em §10.17. | Media | Cadastro de colaboradores (OP-1 PR5), Sprint 13.IA (ai-orchestrator), Fase 7 (Whitelabel system_settings) |
 | Fase 17 | Analytics Avançada (`cash_flow_forecast`, `satisfaction_analyzer`, `agenda_optimizer`, `stock_demand_forecast`) | ⏳ Pendente (pós-v1) | Baixa-Media | Sprint 13.IA.v2 |
 | DASH-1 | Dashboards por Permissao (1 dashboard compartilhado, blocos auto-filtrantes) | ✅ Concluido (2026-04-17) | Media-Alta | Permissoes granulares (migration 143) |
 
@@ -4550,6 +4551,120 @@ Exclusao bloqueada se fornecedor tiver `financial_payables` ou `nfe_entries` vin
 
 ---
 
+### 10.9E Fase 14.ES — Modulo de Estoque (Controle Operacional Completo)
+
+> ⏳ **Pendente** — Plano detalhado de implementacao. Analisa o spec completo contra o estado atual do repo e fatia em fases incrementais.
+
+**Contexto**
+
+A Fase 14 entregou a base transacional de estoque (produtos, variacoes com `stock_quantity`/`reserved_quantity`/`min_stock`, `store_inventory_movements` como log de movimentos, PDV ja gravando saida na venda, NF-e de entrada com itens amarrando `store_product_id`). Falta o que caracteriza um modulo ERP de estoque: **multi-deposito, custo medio, reserva com expiracao, transferencias, inventario fisico, alertas, numeracao de documentos, protocolos assinados e painel `Config > Estoque`**. Esta fase consolida o controle operacional em um novo item de navbar `/admin/estoque` com sub-abas, integrado nativamente a Loja, PDV, NF-e, Fornecedores e Financeiro.
+
+**Objetivos**
+
+1. Item de navbar `Estoque` com dashboard + sub-abas: Depositos, Entradas, Saidas, Transferencias, Inventario (posicao), Inventario Fisico.
+2. Multi-deposito com saldo, custo medio e reserva por `(variant_id, deposito_id)`.
+3. Log imutavel de movimentos com hash de integridade, saldo antes/depois e custo unitario por operacao.
+4. Protocolos imprimiveis (HTML + PDF) reutilizaveis em entradas, saidas, transferencias e inventario fisico.
+5. Painel `Config > Estoque` cobrindo comportamento de saldo, custeio, depositos, inventario, alertas, operacoes, categorias, integracoes, auditoria e numeracao.
+
+**O que ja existe (reaproveitar, nao recriar)**
+
+| Area | Onde | Como usar |
+|---|---|---|
+| Sidebar / nav | `src/admin/lib/admin-navigation.ts`, `src/admin/components/Sidebar.tsx` | Adicionar item `Estoque` |
+| Sub-abas com `canView` | `src/admin/pages/loja/LojaPage.tsx` (`TABS: TabDef[]`) | Replicar shape em `EstoquePage` |
+| KPI do dashboard | `src/admin/components/KpiCard.tsx` | KPIs do dashboard de estoque |
+| Drawer + footer padrao | `src/admin/components/Drawer.tsx` + regras do CLAUDE.md | Todos os drawers novos |
+| SettingsCard (Config) | Padrao em `src/admin/pages/settings/*Panel.tsx` | Novo `EstoqueSettingsPanel` |
+| Permissoes granulares | `src/admin/pages/permissions/PermissionsPage.tsx`, `src/admin/lib/umbrella-modules.ts` | Grupo `estoque-*` |
+| Audit log | `src/lib/audit.ts` (`logAudit`) | Em toda operacao |
+| Produtos / variacoes | migration 93: `store_products`, `store_product_variants` (ja tem `stock_quantity`, `reserved_quantity`, `min_stock`, `cost_price`) | Nao duplicar — migrar saldo para novo modelo multi-deposito |
+| Log de movimentos | migration 94: `store_inventory_movements` (type: `purchase/sale/return/adjustment/reservation_released`, `quantity`, `balance_after`, `reference_type/id`, `justification`, `recorded_by`) | **Base do log imutavel** — estender com `deposito_id`, `unit_cost`, `balance_before`, `hash`, `numero` via `ALTER TABLE` |
+| Ajuste manual | `src/admin/pages/loja/drawers/AjusteEstoqueDrawer.tsx` | Modelo para os novos drawers de entrada/saida; remover da Loja apos migrar |
+| PDV baixando saldo | `PDVPage.tsx:287-296` insere `type:'sale'` em `store_inventory_movements` | Passar a gravar `deposito_id` a partir do caixa aberto |
+| NF-e entrada → produto | migration 112: `nfe_entries` + `nfe_entry_items` com FK `store_product_id` | Gerar entrada de estoque a partir de NF-e importada (toggle em Config) |
+| Ledger NF-e agregado | view `v_product_stock_nfe` (migration 210) | KPI fiscal no dashboard |
+| Fornecedores | `src/admin/pages/financial/FornecedoresPage.tsx` | Amarrar a entradas por compra |
+| Protocolo (modelo) | `store_pickup_protocols` (migration 96) | Metadata ok, mas **nao ha utilitario HTML→PDF** — criar generico reutilizavel |
+
+**Gaps (implementar)**
+
+1. **Depositos (multi-location)** — conceito inexistente hoje.
+2. **Saldo por deposito** — tabela derivada do log (ou materializada por trigger).
+3. **Custo medio ponderado / FIFO / fixo** — hoje so `cost_price` estatico; adicionar `unit_cost` em cada movimento + engine.
+4. **Reserva com expiracao** — `reserved_quantity` existe, mas sem tabela de reservas nem job.
+5. **Transferencias** — tabela + itens + fluxo `rascunho→enviada→em transito→recebida(parcial)→concluida` + protocolos.
+6. **Inventario fisico** — escopo + saldo de referencia congelado + folha de contagem imprimivel + lancamento + relatorio + aplicacao de ajustes.
+7. **Utilitario HTML→PDF** — generico; serve tambem para os `store_pickup_protocols` existentes.
+8. **Hash de integridade** por operacao (coluna + funcao SQL).
+9. **Numeracao de documentos** com prefixo/ano/sequencial (tabela `estoque_numeracao`).
+10. **Alertas** de saldo minimo e transferencia em transito (jobs + dashboard).
+11. **Painel `Config > Estoque`** + tabela `estoque_config` (ou linhas em `system_settings`).
+12. **Categorias configuraveis** de tipo de entrada/saida/transferencia (hoje enum fixo).
+13. **Aprovacao de supervisor** para saidas acima do limite e ajustes de inventario.
+14. **Integracao NF-e entrada → entrada de estoque** (botao manual + toggle auto).
+15. **Integracao Contas a Pagar** — entrada por compra gera `accounts_payable` amarrada.
+16. **Deposito no PDV / separacao de pedidos da Loja** — ambos precisam passar a gravar `deposito_id`.
+
+**Fases de implementacao (incrementais)**
+
+| Fase | Escopo |
+|---|---|
+| **F1 — Fundacao de dados** | Tabelas: `estoque_depositos`, `estoque_saldos`, `estoque_config`, `estoque_numeracao`. Estender `store_inventory_movements` com `deposito_id`, `unit_cost`, `balance_before`, `hash`, `numero`. Migrar saldo atual de `store_product_variants.stock_quantity` para um "Deposito Principal" default. Registrar modulos de permissao `estoque-*`. |
+| **F2 — Dashboard + Depositos + Inventario (posicao)** | Item de navbar, `EstoquePage` com abas, CRUD de depositos, aba Inventario (consulta + export CSV/Excel). Sem novas movimentacoes. |
+| **F3 — Entradas e Saidas avulsas + protocolos** | Drawers de entrada/saida (substituindo `AjusteEstoqueDrawer`), engine de custo medio (`src/lib/estoque/costEngine.ts`), utilitario HTML→PDF (`src/lib/pdf/generateProtocol.ts`), numeracao sequencial. PDV e Loja passam a gravar `deposito_id`. |
+| **F4 — Transferencias** | Tabela + fluxo de status + protocolos de envio/recebimento + reserva "em transito". |
+| **F5 — Inventario fisico** | Escopo, congelamento de saldo de referencia, folha de contagem imprimivel, lancamento item-a-item, relatorio de divergencias, aplicacao de ajustes, aprovacao. |
+| **F6 — Config > Estoque + Alertas + Reservas** | Painel `EstoqueSettingsPanel` completo, Edge Function `estoque-alerts` (cron), Edge Function `estoque-reservation-cleanup`, fluxo de aprovacao. |
+| **F7 — Integracoes** | NF-e entrada → entrada avulsa (manual + toggle auto), Contas a Pagar, consolidacao em Fornecedores, agente IA de reposicao (`AiAgentsPanel`). |
+
+**Arquivos a modificar**
+
+- `src/admin/lib/admin-navigation.ts` — item "Estoque"
+- `src/admin/lib/umbrella-modules.ts` — modulos `estoque-*`
+- `src/admin/pages/loja/PDVPage.tsx:287` — passar `deposito_id`
+- `src/admin/pages/loja/LojaPage.tsx` — remover "Ajuste de estoque" (migra para Estoque)
+- `src/admin/pages/permissions/PermissionsPage.tsx` — grupo Estoque
+- `src/admin/pages/settings/SettingsPage.tsx` — registrar `EstoqueSettingsPanel`
+
+**Arquivos a criar**
+
+- `supabase/migrations/00000000000XXX_estoque_fundacao.sql` (F1)
+- `src/admin/pages/estoque/EstoquePage.tsx` + subcomponentes por aba
+- `src/admin/pages/estoque/drawers/{DepositoDrawer,EntradaDrawer,SaidaDrawer,TransferenciaDrawer,InventarioFisicoDrawer}.tsx`
+- `src/admin/pages/settings/EstoqueSettingsPanel.tsx`
+- `src/lib/pdf/generateProtocol.ts` — utilitario HTML→PDF generico
+- `src/lib/estoque/costEngine.ts` — custo medio / FIFO
+- `supabase/functions/estoque-alerts/` — cron de alertas
+- `supabase/functions/estoque-reservation-cleanup/` — expiracao de reservas
+
+**Riscos e pontos de atencao**
+
+- **Migracao de saldo**: `store_product_variants.stock_quantity` vira saldo em `estoque_saldos` no "Deposito Principal". Qualquer codigo que leia esse campo direto (produtos, loja, PDV) deve passar a ler do novo modelo. Manter view de compatibilidade por pelo menos uma fase.
+- **`store_inventory_movements` ja tem dados**: estender com `ALTER TABLE ADD COLUMN` (nullable → backfill → NOT NULL), **nao recriar**.
+- **Reserva na loja**: hoje `reserved_quantity` e escalar na variacao; passa a ser derivado de uma tabela de reservas com TTL — mudanca contratual que afeta a Loja.
+- **Inventario fisico + toggle de bloqueio**: decidir (via config) se bloqueia ou so sinaliza movimentacoes durante contagem ativa, com teste de consistencia.
+- **Permissoes**: migracao de papeis antigos nao deve regredir acessos do modulo Loja.
+- **Propagacao multi-cliente**: todas as alteracoes em `base`; migrations rodam por `./scripts/push-migrations.sh`.
+
+**Verificacao end-to-end (por fase)**
+
+- Rodar migrations locais: `supabase db reset` + `mcp list_migrations`.
+- Sanidade de saldo: `SUM(estoque_movimentos.qty) == estoque_saldos.qty` por `(variant_id, deposito_id)`.
+- PDV ponta-a-ponta: abrir caixa → venda → conferir movimento no deposito correto + saldo atualizado.
+- Loja ponta-a-ponta: pedido → reserva → pagamento → baixa no deposito de separacao.
+- Inventario fisico simulado: escopo pequeno, lancar contagem com sobra+falta, aplicar ajustes, conferir log imutavel + PDF.
+- Protocolos: gerar PDF de entrada/saida/transferencia, validar QR de verificacao e hash.
+
+**Perguntas em aberto (decidir antes de F1)**
+
+1. **Migracao de saldo**: criar automaticamente um deposito "Principal" na F1 e migrar todo `stock_quantity` para la? _(recomendacao: sim)_
+2. **Renomeio**: `store_inventory_movements → estoque_movimentos` (com view de compat) ou manter nome antigo e so estender? _(recomendacao: manter nome para reduzir blast radius)_
+3. **Custeio inicial**: so custo medio ponderado na F3 ou ja entregar seletor com FIFO/fixo? _(recomendacao: so medio; FIFO/fixo em F6 junto com o painel de Config)_
+4. **Fases 5-7**: tudo no mesmo ciclo ou PRs subsequentes apos F1-F4 estabilizarem?
+
+---
+
 ### 10.10 Melhorias Transversais
 
 | Item | Descricao | Prioridade | Status |
@@ -5806,7 +5921,7 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 |----|----------|--------|------------|
 | PR1 | Cadastro autônomo + promoção | ✅ Concluído (2026-04-18) | 185, 186, 187 |
 | PR2 | Processo seletivo (kanban) | ✅ Concluído (2026-04-18) | 204, 205 |
-| PR3 | `resume_screener` + `resume_extractor` | ⏳ Pendente | 190 |
+| PR3 | `resume_screener` + `resume_extractor` | ✅ Concluído (2026-04-18) | 206 |
 | PR4 | Captação pública + entrevista | ⏳ Pendente | 191, 192, 193, 194, 195 |
 | PR5 (opcional) | Importação em massa | ⏳ Pendente | 196 |
 
@@ -5891,18 +6006,35 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 - Histórico de stage changes em `audit_logs` como timeline visual no drawer (hoje registra via `logAudit` mas sem UI dedicada).
 - `stage_position` ainda não reordena manualmente dentro da coluna (drag entre colunas funciona; dentro da mesma coluna mantém ordem por `stage_position ASC`).
 
-#### PR3 — Agentes `resume_screener` + `resume_extractor` (⏳ pendente)
+#### PR3 — Agentes `resume_screener` + `resume_extractor` (✅ concluído 2026-04-18)
 
-**Migration 190**: seed em `ai_agents`:
-- `resume_screener` — Haiku 4.5, `temperature=0.2`, `max_tokens=800`, retorna `{score_0_100, pros[], cons[], recommendation, reasoning}`.
-- `resume_extractor` — Haiku 4.5, retorna JSON com CPF/RG/CNH + experiência/formação/endereço.
+**Entregue — Banco**:
+- **Migration 206** (`rh_resume_agents_seed`) — seed idempotente (`ON CONFLICT DO UPDATE`) em `ai_agents` com dois agentes:
+  - `resume_screener` — Haiku 4.5 (`claude-haiku-4-5`), `temperature=0.2`, `max_tokens=800`, retorna `{score_0_100, pros[], cons[], recommendation, reasoning}`. Critérios de recomendação: ≥85 "avancar", 60-84 "considerar", <60 "descartar".
+  - `resume_extractor` — Haiku 4.5, `temperature=0.1`, `max_tokens=1200`, retorna JSON com identificação, contato, endereço completo, `experience[]`, `education[]`, `skills[]`, `summary`.
+- Ambos os prompts usam wrapper defensivo `### USER RESUME (untrusted) … ### END RESUME` para mitigar prompt injection.
 
-**Frontend**:
-- `extractPdfText.ts` wrapper sobre `pdfjs-dist` (lazy-load, pinado sem caret conforme CLAUDE.md).
-- Botão "Analisar com IA" no drawer do candidato: download via signed URL → parse → `ai-orchestrator` → UPDATE em `job_applications`.
-- Auto-trigger fire-and-forget ao criar candidatura com CV; score ≥ 85 cria `ai_insight` para admin (integra inbox Sprint 13.IA.v2).
+**Entregue — Frontend**:
+- `src/lib/extractPdfText.ts` — wrapper lazy sobre `pdfjs-dist` (v4.2.67 pinado sem caret). Configura `workerSrc` via `import('pdfjs-dist/build/pdf.worker.min.mjs?url')`. Trunca em 24 000 chars (orçamento de tokens). Retorna `{ text, pageCount, truncated }`.
+- Botão **Analisar com IA** na aba "Análise IA" do `CandidatoDrawer`:
+  - Baixa o PDF via signed URL (ou usa o `File` local se ainda não foi salvo).
+  - `extractPdfText` → `supabase.functions.invoke('ai-orchestrator', { agent_slug: 'resume_screener', context: { job_title, job_requirements, resume_text } })`.
+  - Parse defensivo do JSON (aceita ```cercas de markdown).
+  - `UPDATE job_applications SET screener_score, screener_summary, screener_payload, screened_at = now()` + `logAudit`.
+  - Exibe erro inline se PDF não tem texto (scan), se orchestrator falhar ou se JSON vier inválido.
+- Estado idle → "Analisar com IA" (ícone `Sparkles`) / saving → `Loader2` "Analisando…". Botão troca para "Reanalisar com IA" após primeira execução. Timestamp da última análise visível.
 
-**Trigger `promote_candidate_to_staff`** (documentado em PR2, implementado junto com PR3 integration tests): ao mover para `contratado`, cria row em `staff` com `position=job_openings.title` + `hire_date=CURRENT_DATE`, preenche `hired_staff_id`.
+**Decisões chave**:
+- **Client-side PDF parsing**: mantém custo zero de infra (sem Edge Function pesando com `pdfjs`). O bundle extra só carrega quando o drawer de candidato monta (dynamic import).
+- **Agente único no MVP**: só o botão manual por enquanto. Auto-trigger ao fazer upload e ai_insight para score ≥85 ficam como follow-up quando a volumetria justificar.
+- **`resume_extractor` já seedado**: prompt já está no DB pronto para ser consumido pelo `careers-intake` do PR4 — evita migration extra no PR4.
+- **Não alterado**: trigger `promote_candidate_to_staff` do PR2 (AFTER UPDATE OF stage WHEN NEW.stage='contratado') — já cobre o fluxo de promoção.
+
+**Pendente (follow-up não bloqueante)**:
+- Auto-trigger fire-and-forget do screener ao salvar com CV novo (hoje é manual via botão).
+- Criar `ai_insight` automático quando `screener_score ≥ 85` (integra inbox Sprint 13.IA.v2).
+- Botão "Preencher dados do candidato com IA" chamando `resume_extractor` (UI para popular CPF/RG/endereço/experiência).
+- Teste integrado do fluxo completo: upload CV → analisar → mover para contratado → verificar row em `staff`.
 
 #### PR4 — Captação pública + entrevista (⏳ pendente)
 
