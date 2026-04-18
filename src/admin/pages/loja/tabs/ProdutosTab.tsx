@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../../lib/supabase';
-import { Loader2, ShoppingBag, FolderOpen, Folder, ChevronDown, ChevronRight, Package } from 'lucide-react';
+import { Loader2, ShoppingBag, FolderOpen, Folder, ChevronDown, ChevronRight, Package, FolderPlus } from 'lucide-react';
 import type { StoreProduct, StoreCategory } from '../../../types/admin.types';
 import { PRODUCT_STATUS_LABELS } from '../../../types/admin.types';
 import { usePermissions } from '../../../contexts/PermissionsContext';
@@ -74,7 +74,7 @@ function CategoryRow({
   depth: number;
   onEdit: (cat: StoreCategory) => void;
 }) {
-  const [open, setOpen] = useState(depth === 0); // root nodes start expanded
+  const [open, setOpen] = useState(true); // todas as categorias começam expandidas
   const hasChildren = node.children.length > 0;
   const indent = depth * 20; // px per level
 
@@ -171,7 +171,6 @@ export default function ProdutosTab() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [showCategories, setShowCategories] = useState(false);
 
   const [produtoDrawer, setProdutoDrawer] = useState<{ open: boolean; product: StoreProduct | null }>({ open: false, product: null });
   const [categoriaDrawer, setCategoriaDrawer] = useState<{ open: boolean; category: StoreCategory | null }>({ open: false, category: null });
@@ -310,36 +309,34 @@ export default function ProdutosTab() {
         </div>
       )}
 
-      {/* Categories collapsible */}
-      <div className="border border-gray-100 dark:border-gray-700 rounded-2xl overflow-hidden">
-        <button
-          onClick={() => setShowCategories((s) => !s)}
-          className="w-full flex items-center gap-3 px-5 py-3.5 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors text-left">
+      {/* Categorias — card separado, sempre expandido */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-700/20">
           <FolderOpen className="w-4 h-4 text-brand-primary" />
-          <span className="font-semibold text-sm text-gray-800 dark:text-white flex-1">Categorias</span>
+          <div className="flex-1">
+            <h3 className="font-semibold text-sm text-gray-800 dark:text-white">Categorias</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Organize os produtos em árvore hierárquica</p>
+          </div>
           {canCreate && (
             <button
-              onClick={(e) => { e.stopPropagation(); setCategoriaDrawer({ open: true, category: null }); }}
-              className="flex items-center gap-1 text-xs font-medium text-brand-primary hover:text-brand-primary-dark mr-3">
-              <FolderOpen className="w-3.5 h-3.5" /> Nova Categoria
+              onClick={() => setCategoriaDrawer({ open: true, category: null })}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-brand-primary hover:bg-brand-primary/10 transition-colors">
+              <FolderPlus className="w-3.5 h-3.5" /> Nova Categoria
             </button>
           )}
-          {showCategories ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-        </button>
-        {showCategories && (
-          <div className="p-3">
-            {loading ? (
-              <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gray-300" /></div>
-            ) : categories.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">Nenhuma categoria cadastrada</p>
-            ) : (
-              <CategoryTree
-                nodes={buildCategoryTree(categories)}
-                onEdit={canEdit ? (cat) => setCategoriaDrawer({ open: true, category: cat }) : () => {}}
-              />
-            )}
-          </div>
-        )}
+        </div>
+        <div className="p-3">
+          {loading ? (
+            <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gray-300" /></div>
+          ) : categories.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Nenhuma categoria cadastrada</p>
+          ) : (
+            <CategoryTree
+              nodes={buildCategoryTree(categories)}
+              onEdit={canEdit ? (cat) => setCategoriaDrawer({ open: true, category: cat }) : () => {}}
+            />
+          )}
+        </div>
       </div>
 
       {/* Drawers */}
