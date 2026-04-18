@@ -29,3 +29,12 @@ verify_jwt = false
 
 [functions.attendance-feedback]
 verify_jwt = false
+
+# Funcoes do painel Configuracoes > Fiscal > Provedor. O gateway rejeita
+# o JWT ES256 da sessao (sessoes novas usam chaves assimetricas); a funcao
+# faz a propria validacao via caller.auth.getUser().
+[functions.fiscal-provider-test]
+verify_jwt = false
+
+[functions.fiscal-provider-quotas]
+verify_jwt = false
