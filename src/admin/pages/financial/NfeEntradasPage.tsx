@@ -7,7 +7,7 @@ import { Drawer, DrawerCard } from '../../components/Drawer';
 import {
   Inbox, Upload, Loader2, Check, X, Building2,
   FileText, AlertCircle, Package, ChevronDown, ChevronRight,
-  Search, Trash2, Link2, Link2Off, AlertTriangle, Undo2,
+  Search, Trash2, Link2, Link2Off, AlertTriangle, Undo2, CalendarDays,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -194,6 +194,12 @@ export default function NfeEntradasPage() {
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // Date filters
+  type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+
   // Drawer / import state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -225,18 +231,64 @@ export default function NfeEntradasPage() {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
+  // ── Date range ────────────────────────────────────────────────────────────
+  // Deriva intervalo `data_emissao` em ISO pra aplicar no query.
+  // Semana = calendário atual (seg–dom). Mês = calendário atual (dia 1 até fim).
+  function getDateRange(filter: DateFilter): { from: string | null; to: string | null } {
+    const now = new Date();
+    if (filter === 'today') {
+      const start = new Date(now); start.setHours(0, 0, 0, 0);
+      const end = new Date(now); end.setHours(23, 59, 59, 999);
+      return { from: start.toISOString(), to: end.toISOString() };
+    }
+    if (filter === 'week') {
+      const dow = now.getDay(); // 0=dom .. 6=sáb
+      const diff = dow === 0 ? 6 : dow - 1;
+      const start = new Date(now); start.setDate(now.getDate() - diff); start.setHours(0, 0, 0, 0);
+      const end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23, 59, 59, 999);
+      return { from: start.toISOString(), to: end.toISOString() };
+    }
+    if (filter === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { from: start.toISOString(), to: end.toISOString() };
+    }
+    if (filter === 'custom') {
+      return {
+        from: fromDate ? new Date(fromDate + 'T00:00:00').toISOString() : null,
+        to:   toDate   ? new Date(toDate   + 'T23:59:59').toISOString() : null,
+      };
+    }
+    return { from: null, to: null };
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { from, to } = getDateRange(dateFilter);
+    let q = supabase
       .from('nfe_entries')
       .select('*, fornecedor:fornecedor_id(razao_social, nome_fantasia)')
-      .order('created_at', { ascending: false })
-      .limit(100);
+      .order('data_emissao', { ascending: false, nullsFirst: false })
+      .limit(200);
+    if (from) q = q.gte('data_emissao', from);
+    if (to)   q = q.lte('data_emissao', to);
+    const { data } = await q;
     setEntries((data ?? []) as unknown as NfeEntry[]);
     setLoading(false);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFilter, fromDate, toDate]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Escolher um preset limpa datas custom; digitar datas muda para custom.
+  function pickPreset(f: Exclude<DateFilter, 'custom'>) {
+    setDateFilter(f);
+    setFromDate('');
+    setToDate('');
+  }
+  function onFromChange(v: string) { setFromDate(v); setDateFilter('custom'); }
+  function onToChange(v: string)   { setToDate(v);   setDateFilter('custom'); }
+  function clearDates() { setDateFilter('all'); setFromDate(''); setToDate(''); }
 
   // ── Fornecedor lookup ─────────────────────────────────────────────────────
 
@@ -506,14 +558,6 @@ export default function NfeEntradasPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-      </div>
-    );
-  }
-
   const totalValor = entries.reduce((s, e) => s + (e.valor_total ?? 0), 0);
   const semFornecedor = entries.filter((e) => !e.fornecedor_id).length;
 
@@ -544,21 +588,94 @@ export default function NfeEntradasPage() {
         </button>
       </div>
 
-      {/* Empty state */}
-      {entries.length === 0 ? (
+      {/* Date filters */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {([
+          ['all',   'Todas'],
+          ['today', 'Hoje'],
+          ['week',  'Esta semana'],
+          ['month', 'Este mês'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => pickPreset(key)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
+              dateFilter === key
+                ? 'bg-brand-primary text-white shadow shadow-brand-primary/20'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+
+        <div className="flex items-center gap-2 ml-auto">
+          <CalendarDays className="w-4 h-4 text-gray-400" />
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => onFromChange(e.target.value)}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 focus:border-brand-primary outline-none ${
+              dateFilter === 'custom' ? 'border-brand-primary/40' : 'border-gray-200 dark:border-gray-700'
+            }`}
+            title="Data inicial"
+          />
+          <span className="text-xs text-gray-400">até</span>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => onToChange(e.target.value)}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 focus:border-brand-primary outline-none ${
+              dateFilter === 'custom' ? 'border-brand-primary/40' : 'border-gray-200 dark:border-gray-700'
+            }`}
+            title="Data final"
+          />
+          {(dateFilter !== 'all' || fromDate || toDate) && (
+            <button
+              onClick={clearDates}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+              title="Limpar filtro"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Loading / Empty state */}
+      {loading ? (
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        </div>
+      ) : entries.length === 0 ? (
         <div className="text-center py-16">
           <Inbox className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">Nenhuma NF-e importada</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            Importe arquivos XML de NF-e de entrada para vincular ao estoque e fornecedores
-          </p>
-          <button
-            onClick={openDrawer}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl text-sm font-medium hover:bg-brand-primary-dark transition-colors"
-          >
-            <Upload className="w-4 h-4" />
-            Importar primeiro XML
-          </button>
+          {dateFilter !== 'all' || fromDate || toDate ? (
+            <>
+              <p className="text-gray-500 dark:text-gray-400">Nenhuma NF-e no período selecionado</p>
+              <button
+                onClick={clearDates}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+                Limpar filtro
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-500 dark:text-gray-400">Nenhuma NF-e importada</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                Importe arquivos XML de NF-e de entrada para vincular ao estoque e fornecedores
+              </p>
+              <button
+                onClick={openDrawer}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl text-sm font-medium hover:bg-brand-primary-dark transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                Importar primeiro XML
+              </button>
+            </>
+          )}
         </div>
       ) : (
         /* Table */
