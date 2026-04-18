@@ -6,6 +6,7 @@ import {
   LayoutDashboard, ClipboardList, Star, Megaphone, Library, User, LogOut, Menu, X, CalendarDays, Wallet, CalendarClock,
 } from 'lucide-react';
 import { useBranding } from '../contexts/BrandingContext';
+import PortalAiNudge from '../shared/components/PortalAiNudge';
 
 const NAV = [
   { path: '/portal',            label: 'Início',       icon: LayoutDashboard, end: true },
@@ -85,6 +86,7 @@ function PortalNav({ onClose }: { onClose?: () => void }) {
 export default function PortalLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { identity } = useBranding();
+  const { student } = useStudentAuth();
 
   return (
     <StudentProtectedRoute>
@@ -127,6 +129,7 @@ export default function PortalLayout() {
             <Outlet />
           </main>
         </div>
+        <PortalAiNudge authUserId={student?.auth_user_id ?? null} />
       </div>
     </StudentProtectedRoute>
   );
