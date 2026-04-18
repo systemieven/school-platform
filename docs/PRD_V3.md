@@ -43,6 +43,7 @@
     - 10.14 Editor Visual de Templates HTML
     - 10.18 Auditoria & Hardening de Autenticacao dos 3 Portais ✅
     - 10.19 Carrinho Hibrido — localStorage + Supabase com Merge no Login ⏳
+    - 10.20 Primeiro Acesso do Aluno via Responsavel (v2) ⏳
 11. [Requisitos Nao Funcionais](#11-requisitos-nao-funcionais)
 12. [Apendices](#apendices)
 
@@ -1561,6 +1562,7 @@ Configuravel na aba Aparencia > Home:
 | 191 | `teacher_access_attempts` | 18/04 | ✅ **Auditoria Auth (step 3)** — Tabela `teacher_access_attempts` (espelho da 190 com `email` em vez de `cpf`/`phone`; CHECK em `result`: `sent\|email_not_found\|no_phone\|no_whatsapp\|rate_limited\|whatsapp_send_failed\|invalid_input\|wa_not_configured`). Usada pelo edge function `professor-request-access` para rate-limit (3 envios/email/h, 10 tentativas/IP/10min) e auditoria. RLS habilitado sem policies — service_role only. |
 | 190 | `guardian_access_attempts` | 18/04 | ✅ **Auditoria Auth (step 2)** — Tabela `guardian_access_attempts` (`cpf`, `phone`, `ip_address`, `user_agent`, `result CHECK (sent\|cpf_not_found\|phone_mismatch\|no_whatsapp\|rate_limited\|whatsapp_send_failed\|invalid_input\|wa_not_configured)`) usada pelo edge function `guardian-request-access` para rate-limit (3 envios/CPF/h, 10 tentativas/IP/10min) e auditoria. RLS habilitado sem policies — service_role only. |
 | 192 | `store_carts` | — | ⏳ **Carrinho Hibrido (§10.19)** — `store_carts(id UUID PK, guardian_id UUID UNIQUE NOT NULL REFERENCES guardian_profiles(id) ON DELETE CASCADE, items JSONB NOT NULL DEFAULT '[]', updated_at TIMESTAMPTZ DEFAULT now())`. Snapshot do carrinho do responsavel autenticado (1 linha por guardian). Sem tabela de itens relacional — JSONB cobre v1 (variant_id, productName, variantDescription, sku, quantity, unitPrice). RLS: SELECT/UPSERT/DELETE so para `guardian_id IN (SELECT id FROM guardian_profiles WHERE user_id = auth.uid())`; admin/super_admin ALL via policy separada. Trigger `set_updated_at`. |
+| 193 | `student_access_attempts` | — | ⏳ **Primeiro Acesso do Aluno v2 (§10.20)** — `student_access_attempts(id UUID PK, student_id UUID REFERENCES students(id) ON DELETE SET NULL, granted_by_guardian_user_id UUID, ip_address TEXT, user_agent TEXT, channel TEXT CHECK ('guardian_grant'\|'self_legacy'), result TEXT CHECK ('sent'\|'student_not_found'\|'no_guardian_phone'\|'no_whatsapp'\|'rate_limited'\|'whatsapp_send_failed'\|'invalid_input'\|'wa_not_configured'\|'unauthorized'), created_at TIMESTAMPTZ DEFAULT now())`. Auditoria do edge function `student-grant-access` (acionado pelo responsavel autenticado) e do fallback `firstAccess` legado. Indices por `student_id` e por `granted_by_guardian_user_id`. RLS sem policies (service_role only). |
 | 187 | `staff_documents_bucket` | 18/04 | 🟡 **Fase 16 PR1** — Bucket privado `hr-documents` (10MB, PDF/DOC/DOCX/JPEG/PNG) + tabela `staff_documents` (`document_type CHECK ('contrato'|'rg'|'cpf'|'comprovante_residencia'|'carteira_trabalho'|'diploma'|'outro')`, `file_path`, `filename`, `mime_type`, `size_bytes`, `expires_at`). RLS via módulo `rh-colaboradores` + self-service (próprio colaborador vê próprios docs via EXISTS em `staff`). Path convention `hr-documents/{staff_id}/{uuid}.{ext}`. |
 | 173 | `teacher_dashboard_access` | 17/04 | ✅ **Dashboard registry-driven** — libera `dashboard.can_view=true` para role `teacher` no seed de `role_permissions`. Antes, teacher batia no redirect do `<ModuleGuard moduleKey="dashboard">` mesmo tendo acesso a submódulos (teacher-diary, teacher-exams, occurrences). O novo `DashboardPage` único filtra widgets por `has_module_permission` + `requireRole`, então teacher passa a ver `Minhas aulas de hoje`, `Diário pendente`, `Provas a corrigir`, `Minhas turmas` e `Ocorrências recentes` (tenancy RLS da migration 145 continua escopando por `teacher_sees_student`). |
 
@@ -6041,6 +6043,121 @@ function mergeCartItems(local: CartItem[], server: CartItem[]): CartItem[] {
 - 🐛 **Achado lateral, fora de escopo**: `src/pages/loja/CheckoutPage.tsx:5,24` ja importa `useGuardian()` estando fora do provider — sempre cai no `defaultValue` (`guardian: null`) e o guard `if (!guardian) navigate('/responsavel/login')` redireciona em loop. Bug pre-existente que merece sprint propria (mover redirect para depois de validar sessao via `supabase.auth`, ou subir o `GuardianAuthProvider` para envolver `/loja/*` tambem). Nao bloqueia esta sprint do carrinho, mas precisa ser anotado pra nao "embolar" no merge.
 - ✅ Politica de merge "uniao por variant_id, qty=max" mantida — simples e previsivel.
 - ✅ Custo: zero risco de prejudicar conversao anonima (localStorage continua sendo a fonte de verdade pre-login).
+
+---
+
+### 10.20 Primeiro Acesso do Aluno via Responsavel (v2)
+
+**Status**: ⏳ Plano validado (2026-04-18) — implementacao pendente. Independente do carrinho (§10.19), paralelizavel.
+
+**Contexto**. O fluxo atual em `src/portal/contexts/StudentAuthContext.tsx` (`firstAccess(enrollmentNumber, guardianCpf, newPassword)`) faz **self-signup** com dois dados que circulam socialmente — matricula do aluno + CPF do responsavel — e deixa o proprio usuario escolher a senha. Sem canal validado. Comparado com os fluxos do responsavel (Step 2 da auditoria, §10.18) e do professor (Step 3), e o elo fraco da cadeia: enumeracao por matricula + CPF e plausivel, e a "prova" de que quem cadastrou e quem deveria nao existe.
+
+**Recomendacao original (2026-04-18)** — dois gaps:
+1. Self-signup com CPF do responsavel e fraco. Idealmente, primeiro acesso do aluno deveria seguir o mesmo padrao do responsavel (canal validado), ou ficar gateado pelo responsavel ja autenticado ("Liberar portal do meu filho" no portal do responsavel).
+2. `must_change_password` — `StudentAuthContext` deve checar pos-login e empurrar pra `/portal/trocar-senha` antes de liberar qualquer rota.
+
+**Estado dos gaps**:
+- **Gap 2 — JA FECHADO** no Step 1 da auditoria (§10.18). Migration 189 adicionou `students.must_change_password`, `StudentAuthContext` carrega o flag e `StudentProtectedRoute` redireciona pra `/portal/trocar-senha`. Sem trabalho adicional.
+- **Gap 1 — pendente**, escopo desta sprint.
+
+**Decisao**: gate primario via responsavel autenticado + canal WhatsApp do responsavel. Sem novo canal pelo aluno (na maioria dos casos e menor de idade e nao tem `phone` proprio em `students`). O fluxo legado de self-signup (`firstAccess`) e mantido como fallback degradado para escolas que ainda nao tenham nenhum responsavel digital cadastrado, mas com mensagem "Peca ao seu responsavel para liberar pelo portal dele" como CTA primario.
+
+#### 10.20.1 Fluxo recomendado (gate via responsavel)
+
+1. Responsavel autentica em `/responsavel` (fluxo ja seguro pos-Step 2).
+2. No dashboard ou em `StudentSelector`, cada filho exibe um card. Card mostra badge "Acesso ao portal: liberado / nao liberado" baseado em `students.auth_user_id IS NOT NULL`.
+3. Filho sem acesso → botao "Liberar acesso ao portal do meu filho" abre confirmacao.
+4. Confirmacao chama edge function `student-grant-access` (`verify_jwt=true`) com body `{ student_id }`:
+   - Valida que o `auth.uid()` do caller e um guardian vinculado ao `student_id` via `student_guardians.guardian_user_id`.
+   - Carrega `students.full_name`, `students.enrollment_number`, `guardian_profiles.phone`.
+   - Gera senha provisoria (`generateTempPassword`), cria `auth.users` com email sintetico (`{enrollment}@aluno.local` — mesmo padrao usado em `toEmail()`), seta `auth_user_id` em `students` e `must_change_password=true`.
+   - `chat/check` na UazAPI no telefone do guardian.
+   - Envia template `senha_temporaria` via UazAPI `/send/text` direto, com `{{user_name}}`=nome do aluno, `{{temp_password}}`, `{{system_url}}=/portal/login`.
+   - Loga em `whatsapp_message_log` (`related_module='auth_student'`, `related_id=student_id`) e em `student_access_attempts` (`channel='guardian_grant'`).
+5. Resposta: `{ status: 'sent' }` → UI mostra "Senha provisoria enviada para o WhatsApp do responsavel"; aluno usa enrollment_number + senha provisoria → cai direto em `/portal/trocar-senha` (gate do Step 1).
+
+**Reenvio**: se `students.auth_user_id IS NOT NULL`, o mesmo botao vira "Reenviar acesso" e dispara reset (`auth.admin.updateUserById` com nova senha + `must_change_password=true`) — mesmo edge function, branch logico interno.
+
+**Rate-limit**: 3 grants/student/h + 5 grants por `granted_by_guardian_user_id`/h (auditados em `student_access_attempts`).
+
+#### 10.20.2 Fallback legado (`firstAccess` self-signup)
+
+Mantido por enquanto em `/portal/login` aba "Primeiro acesso", mas com:
+- Banner topo da aba: "**Recomendado**: peca ao seu responsavel para liberar o acesso pelo portal dele". Link para `/responsavel/login`.
+- Fluxo legado fica **abaixo** desse aviso, com label "Nao tenho responsavel digital? Use a matricula + CPF".
+- Logado em `student_access_attempts` com `channel='self_legacy'` para podermos medir uso e desativar quando residual.
+- **Hardening minimo no legado**: adiciona rate-limit por IP (5 tentativas/10min) e bloqueio se ja existir `auth_user_id` (mensagem "Acesso ja ativado, peca ao responsavel para reenviar").
+
+Roadmap futuro (nao nesta sprint): apos 90 dias monitorando uso, se `self_legacy` ficar abaixo de 1% das ativacoes, **remover** o fluxo legado e deixar apenas o gate via responsavel.
+
+#### 10.20.3 Schema (migration 193 planejada)
+
+```sql
+CREATE TABLE student_access_attempts (
+  id                            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id                    UUID REFERENCES students(id) ON DELETE SET NULL,
+  granted_by_guardian_user_id   UUID,  -- auth.users.id do responsavel autenticado (nullable para self_legacy)
+  ip_address                    TEXT,
+  user_agent                    TEXT,
+  channel                       TEXT NOT NULL CHECK (channel IN ('guardian_grant','self_legacy')),
+  result                        TEXT NOT NULL CHECK (result IN (
+    'sent','student_not_found','no_guardian_phone','no_whatsapp',
+    'rate_limited','whatsapp_send_failed','invalid_input','wa_not_configured','unauthorized'
+  )),
+  created_at                    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_student_access_attempts_student_created
+  ON student_access_attempts(student_id, created_at DESC);
+CREATE INDEX idx_student_access_attempts_guardian_created
+  ON student_access_attempts(granted_by_guardian_user_id, created_at DESC);
+ALTER TABLE student_access_attempts ENABLE ROW LEVEL SECURITY;
+-- sem policies — service_role only (mesmo padrao das migrations 190/191)
+```
+
+#### 10.20.4 Edge functions
+
+- **Nova**: `supabase/functions/student-grant-access/index.ts` (`verify_jwt=true`):
+  - Body: `{ student_id }` + `system_url?`.
+  - Autorizacao: `auth.uid()` precisa estar em `student_guardians.guardian_user_id` para o `student_id`. Caso contrario, log `result='unauthorized'` e 403.
+  - Rate-limit: 3 envios por `student_id` em 1h; 5 envios por `granted_by_guardian_user_id` em 1h.
+  - Carrega telefone via `guardian_profiles.phone` (do guardian autenticado, nao do `student_guardians.guardian_phone` — fonte de verdade pos-Fase 10).
+  - Branch interno: se `students.auth_user_id IS NULL` → `auth.admin.createUser` + `update students set auth_user_id=...`; caso contrario → `auth.admin.updateUserById` (reset de senha).
+  - Em ambos os branches: `update students set must_change_password=true, password_changed_at=NULL`.
+  - WhatsApp: mesma rotina de `guardian-request-access` / `professor-request-access` — UazAPI `/chat/check` + `/send/text` direto, sem trafegar a senha pelo client.
+- **Modificada (opcional)**: `student-self-firstaccess/index.ts` (extracao do `firstAccess` legado de dentro do `StudentAuthContext` para edge function dedicada com rate-limit por IP e auditoria em `student_access_attempts` channel `self_legacy`). Justifica para anti-enumeracao + telemetria. Pode ficar fora desta sprint se preferirmos manter o client-side flow durante a transicao.
+
+#### 10.20.5 UI
+
+**Portal do responsavel** (`/responsavel`):
+- Novo componente `<GrantStudentAccessButton studentId={...} hasAccess={...} />` em:
+  - `src/responsavel/components/StudentSelector.tsx` (botao discreto no card de cada filho)
+  - Dashboard / pagina principal do responsavel (CTA destacado quando algum filho nao tem acesso)
+- Estados: `idle` / `confirming` / `sending` / `sent` (mensagem "Senha provisoria enviada para o seu WhatsApp") / `error`.
+- Reenvio: confirmacao extra ("Vamos enviar uma nova senha. A anterior deixa de funcionar.").
+
+**Portal do aluno** (`/portal/login`):
+- Aba "Primeiro acesso" reescrita com banner CTA primario ("Peca ao responsavel para liberar pelo portal dele" + link `/responsavel/login`).
+- Fluxo legado mantido visualmente abaixo, com aviso "Recomendamos passar pelo seu responsavel".
+
+**`StudentAuthContext`**: nenhum metodo novo precisa ser exposto — o fluxo gateado e disparado pelo responsavel; o aluno ja consegue logar com a senha provisoria normalmente via `signIn` (que ja existe).
+
+#### 10.20.6 Esforco
+
+- 1 migration (`00000000000193_student_access_attempts.sql`).
+- 1 edge function nova (`student-grant-access` ~180 LOC, espelha `guardian-request-access`).
+- 1 componente novo (`GrantStudentAccessButton.tsx` ~80 LOC) + integracao em 2 telas do portal do responsavel.
+- Reescrita parcial do `LoginPage` do aluno (banner + aviso).
+- Total: ~400 LOC + migration + edge function. Comparavel ao Step 2 da auditoria.
+
+#### 10.20.7 Notas de validacao (achados da auditoria do codigo)
+
+- ✅ `StudentAuthContext.firstAccess` confirmado: `signUp` puro com email sintetico + senha escolhida pelo user. Sem canal validado. Gap 1 confirmado.
+- ✅ Gap 2 (`must_change_password` no portal do aluno) **ja foi resolvido** no Step 1 da §10.18. Sem trabalho extra.
+- ✅ `student_guardians.guardian_user_id` (FK `auth.users`, migration 44) habilita o gate "responsavel autenticado". Indice ja existe (`idx_student_guardians_user_id`).
+- ✅ `students.auth_user_id` ja serve de chave logica de "tem acesso ou nao" — reaproveitavel pelo botao de grant/reenvio.
+- ✅ Reuso completo da rotina de WhatsApp + `generateTempPassword` ja consolidada nos Steps 2 e 3 — diff de codigo concentrado em (a) novo edge function e (b) UI do botao.
+- ⚠️ **Decisao consciente**: senha vai pro WhatsApp do **responsavel**, nao do aluno (aluno geralmente e menor; `students` nao tem `phone` proprio na schema atual). Caso futuro queira canal direto, alteracao seria aditiva (campo `student_phone` + opcao no botao).
+- ⚠️ **Coexistencia legada**: durante o periodo de monitoramento, dois caminhos possiveis para criar acesso. Ambos auditados em `student_access_attempts` para podermos medir e remover o legado quando seguro.
 
 ---
 
