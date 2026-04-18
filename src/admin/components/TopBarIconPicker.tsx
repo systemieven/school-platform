@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, X } from 'lucide-react';
 import { TOPBAR_ICONS, getTopBarIcon } from '../../shared/topBarIcons';
 
@@ -10,15 +11,35 @@ interface Props {
 
 export default function TopBarIconPicker({ label, value, onChange }: Props) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Posiciona o menu abaixo do trigger (fixed) pra escapar de ancestrais com overflow-hidden
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    function onClick(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    function onDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
     }
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    function onScroll() { setOpen(false); }
+    function onResize() { setOpen(false); }
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
   }, [open]);
 
   const Current = getTopBarIcon(value);
@@ -27,13 +48,14 @@ export default function TopBarIconPicker({ label, value, onChange }: Props) {
     : 'Nenhum (so texto)';
 
   return (
-    <div ref={rootRef} className="relative">
+    <div className="relative">
       {label && (
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
           {label}
         </label>
       )}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-200 hover:border-brand-primary/50 transition-colors"
@@ -63,8 +85,12 @@ export default function TopBarIconPicker({ label, value, onChange }: Props) {
         </div>
       </button>
 
-      {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+      {open && pos && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, width: Math.max(pos.width, 260) }}
+          className="z-[100] bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden"
+        >
           <button
             type="button"
             onClick={() => { onChange(null); setOpen(false); }}
@@ -77,7 +103,7 @@ export default function TopBarIconPicker({ label, value, onChange }: Props) {
             <span className="w-4 h-4 rounded-sm border border-dashed border-gray-300 dark:border-gray-600" />
             Nenhum (so texto)
           </button>
-          <div className="max-h-64 overflow-y-auto grid grid-cols-4 gap-1 p-2 border-t border-gray-100 dark:border-gray-700/40">
+          <div className="max-h-72 overflow-y-auto grid grid-cols-4 gap-1 p-2 border-t border-gray-100 dark:border-gray-700/40">
             {TOPBAR_ICONS.map((opt) => {
               const Icon = opt.icon;
               const active = opt.key === value;
@@ -99,7 +125,8 @@ export default function TopBarIconPicker({ label, value, onChange }: Props) {
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
