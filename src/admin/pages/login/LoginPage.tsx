@@ -10,11 +10,10 @@ type Mode = 'login' | 'forgot';
 /**
  * LoginPage — tela unica de /admin/login.
  *
- * Modo 'forgot': invoca a edge function `professor-request-access` para
- * disparar uma senha provisoria via WhatsApp. Limitação conhecida: a
- * edge function só valida role='teacher'. Admin/coordinator recebem
- * status `no_whatsapp` e precisam pedir reset para o super_admin — a
- * generalização para `user-request-access` é um refactor futuro.
+ * Modo 'forgot': invoca a edge function `user-request-access` para
+ * disparar uma senha provisoria via WhatsApp. Atende admin, coordinator,
+ * teacher e user — super_admin fica excluído por segurança e precisa
+ * reset manual via admin da plataforma.
  */
 export default function LoginPage() {
   const { profile, loading: authLoading, error: authError, signIn } = useAdminAuth();
@@ -50,7 +49,7 @@ export default function LoginPage() {
     setForgotLoading(true);
     setForgotMsg(null);
     try {
-      const { data, error } = await supabase.functions.invoke('professor-request-access', {
+      const { data, error } = await supabase.functions.invoke('user-request-access', {
         body: { email: email.trim().toLowerCase(), system_url: window.location.origin + '/admin/login' },
       });
       if (error) {

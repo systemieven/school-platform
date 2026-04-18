@@ -1,28 +1,28 @@
 /**
- * professor-request-access — fluxo público "esqueci minha senha" do
- * Portal do Professor (`/professor/login`).
+ * user-request-access — fluxo público "esqueci minha senha" do /admin/login.
  *
- * Por que existir: hoje o professor depende do admin acionar
- * `reset-user-password` na pagina de Usuarios — nao ha auto-servico. Esta
- * edge function fecha a lacuna: o professor informa o e-mail cadastrado,
- * validamos contra `profiles` (role='teacher', is_active=true) e — se o
- * cadastro tem telefone com WhatsApp — geramos uma senha provisoria,
- * setamos `must_change_password=true` e enviamos via template
- * `senha_temporaria` direto pela UazAPI.
+ * Generaliza o antigo `professor-request-access`: aceita qualquer role
+ * não-privilegiado (admin, coordinator, teacher, user). O role
+ * `super_admin` é explicitamente bloqueado por segurança — o reset dele
+ * continua sendo manual via admin da plataforma (owner do projeto
+ * Supabase).
  *
- * Espelha 1:1 a logica do `guardian-request-access` (mesma rotina de
- * temp password, mesmo template, mesmas mensagens), trocando:
- *   - lookup de CPF → lookup de email/role
- *   - tabela de auditoria → `teacher_access_attempts` (migration 191)
+ * Fluxo:
+ *   1. Parse + valida email.
+ *   2. Rate-limit (3 envios/email/hora, 10 tentativas/ip/10min) via
+ *      tabela `user_access_attempts` (migration 199).
+ *   3. Lookup em profiles (role IN admin/coordinator/teacher/user,
+ *      is_active=true). Super_admin é filtrado pelo próprio `.in()` mas
+ *      há um guard explícito em profundidade.
+ *   4. Se tem telefone com WhatsApp, gera senha provisória, seta
+ *      must_change_password=true e envia via template `senha_temporaria`
+ *      pela UazAPI.
  *
- * Anti-abuso:
- *   - rate-limit por email (3 envios bem-sucedidos / 1h)
- *   - rate-limit por IP    (10 tentativas / 10min)
- *
- * Anti-enumeracao: o response NAO revela se o e-mail existe quando o
- * profile nao tem telefone — devolvemos a mesma mensagem generica para
- * "email_not_found" e "no_phone". Ja "no_whatsapp" devolve mensagem
- * especifica orientando contato com a coordenacao.
+ * Anti-enumeração: quando email não existe, não tem telefone, ou é
+ * super_admin, devolve sempre a mesma resposta genérica `queued` — é
+ * impossível distinguir os três casos do lado do cliente. Apenas
+ * `no_whatsapp` devolve mensagem específica orientando contato com a
+ * coordenação, por ser a situação mais comum e menos sensível.
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -81,7 +81,7 @@ function normalizePhoneBR(phone: string): string {
 
 type RequestBody = {
   email?: string;
-  /** URL do portal usada no template (ex.: https://app.escola.com.br/professor/login). */
+  /** URL do portal usada no template (ex.: https://app.escola.com.br/admin/login). */
   system_url?: string;
 };
 
@@ -93,7 +93,11 @@ type AttemptResult =
   | "rate_limited"
   | "whatsapp_send_failed"
   | "invalid_input"
-  | "wa_not_configured";
+  | "wa_not_configured"
+  | "blocked_role";
+
+/** Roles aceitos pelo auto-serviço de reset. Super_admin NÃO está aqui. */
+const ALLOWED_ROLES = ["admin", "coordinator", "teacher", "user"] as const;
 
 // ── Limites ─────────────────────────────────────────────────────────────────
 const MAX_SENT_PER_EMAIL_HOUR = 3;
@@ -115,9 +119,17 @@ Deno.serve(async (req: Request) => {
     req.headers.get("x-real-ip") || "";
   const ua = (req.headers.get("user-agent") ?? "").slice(0, 255);
 
-  async function logAttempt(email: string, result: AttemptResult): Promise<void> {
-    await supabaseAdmin.from("teacher_access_attempts").insert({
-      email, ip_address: ip || null, user_agent: ua || null, result,
+  async function logAttempt(
+    email: string,
+    result: AttemptResult,
+    attemptedRole: string | null = null,
+  ): Promise<void> {
+    await supabaseAdmin.from("user_access_attempts").insert({
+      email,
+      attempted_role: attemptedRole,
+      ip_address: ip || null,
+      user_agent: ua || null,
+      result,
     });
   }
 
@@ -146,14 +158,14 @@ Deno.serve(async (req: Request) => {
 
   const [{ count: emailSentCount }, { count: ipAttemptCount }] = await Promise.all([
     supabaseAdmin
-      .from("teacher_access_attempts")
+      .from("user_access_attempts")
       .select("id", { count: "exact", head: true })
       .eq("email", email)
       .eq("result", "sent")
       .gte("created_at", oneHourAgo),
     ip
       ? supabaseAdmin
-          .from("teacher_access_attempts")
+          .from("user_access_attempts")
           .select("id", { count: "exact", head: true })
           .eq("ip_address", ip)
           .gte("created_at", tenMinAgo)
@@ -169,12 +181,13 @@ Deno.serve(async (req: Request) => {
     }, 429);
   }
 
-  // ── 3. Lookup do profile (role=teacher + ativo) ──────────────────────────
+  // ── 3. Lookup do profile (roles permitidos + ativo) ─────────────────────
+  // Primeiro busca SEM filtro de role pra detectar super_admin (anti-enum
+  // + audit trail). Super_admin é bloqueado explicitamente.
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("id, full_name, email, phone, role, is_active")
     .eq("email", email)
-    .eq("role", "teacher")
     .eq("is_active", true)
     .maybeSingle();
 
@@ -183,12 +196,25 @@ Deno.serve(async (req: Request) => {
     return genericSuccess(); // anti-enumeracao
   }
 
-  const teacherId   = (profile as { id: string }).id;
-  const teacherName = (profile as { full_name: string | null }).full_name || "Professor(a)";
-  const phoneRaw    = (profile as { phone: string | null }).phone || "";
+  const userId   = (profile as { id: string }).id;
+  const userName = (profile as { full_name: string | null }).full_name || "Usuário(a)";
+  const phoneRaw = (profile as { phone: string | null }).phone || "";
+  const userRole = (profile as { role: string }).role;
+
+  // Guard: super_admin NUNCA passa pelo auto-serviço (defesa em profundidade).
+  if (userRole === "super_admin") {
+    await logAttempt(email, "blocked_role", "super_admin");
+    return genericSuccess(); // anti-enumeracao: não revela que é super_admin
+  }
+
+  // Qualquer role fora do whitelist (ex.: student) também bloqueia.
+  if (!ALLOWED_ROLES.includes(userRole as typeof ALLOWED_ROLES[number])) {
+    await logAttempt(email, "blocked_role", userRole);
+    return genericSuccess();
+  }
 
   if (!phoneRaw) {
-    await logAttempt(email, "no_phone");
+    await logAttempt(email, "no_phone", userRole);
     return genericSuccess(); // mesma mensagem generica (anti-enumeracao)
   }
 
@@ -207,7 +233,7 @@ Deno.serve(async (req: Request) => {
   const apiToken    = waCfg["api_token"]?.trim();
 
   if (!instanceUrl || !apiToken) {
-    await logAttempt(email, "wa_not_configured");
+    await logAttempt(email, "wa_not_configured", userRole);
     return json({
       status: "error",
       message: "Envio por WhatsApp temporariamente indisponível. Procure a coordenação da escola.",
@@ -245,7 +271,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!waExists) {
-    await logAttempt(email, "no_whatsapp");
+    await logAttempt(email, "no_whatsapp", userRole);
     return json({
       status: "no_whatsapp",
       message:
@@ -256,23 +282,27 @@ Deno.serve(async (req: Request) => {
   // ── 6. Reset senha + flag must_change_password ──────────────────────────
   const tempPassword = generateTempPassword();
 
-  const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(teacherId, {
+  const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     password: tempPassword,
   });
   if (updErr) {
-    await logAttempt(email, "whatsapp_send_failed");
+    await logAttempt(email, "whatsapp_send_failed", userRole);
     return json({ error: updErr.message }, 500);
   }
 
   await supabaseAdmin
     .from("profiles")
     .update({ must_change_password: true, updated_at: new Date().toISOString() })
-    .eq("id", teacherId);
+    .eq("id", userId);
 
   // ── 7. Envia template `senha_temporaria` ────────────────────────────────
-  const systemUrl = body.system_url ?? Deno.env.get("PROFESSOR_PORTAL_URL") ?? "";
+  const systemUrl =
+    body.system_url
+      ?? Deno.env.get("ADMIN_PORTAL_URL")
+      ?? Deno.env.get("PROFESSOR_PORTAL_URL")
+      ?? "";
   const variables: Record<string, string> = {
-    user_name:     teacherName,
+    user_name:     userName,
     temp_password: tempPassword,
     system_url:    systemUrl || "(acesse pelo site da escola)",
   };
@@ -283,12 +313,12 @@ Deno.serve(async (req: Request) => {
     .insert({
       template_id:       tplId,
       recipient_phone:   phoneRaw,
-      recipient_name:    teacherName,
+      recipient_name:    userName,
       rendered_content:  { body: renderedText, type: "text" },
       variables_used:    variables,
       status:            "queued",
-      related_module:    "auth_teacher",
-      related_record_id: teacherId,
+      related_module:    "auth_user",
+      related_record_id: userId,
     })
     .select("id")
     .single();
@@ -301,7 +331,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         number: numberBR,
         text:   renderedText,
-        ...(logId ? { track_id: logId, track_source: "professor-request-access" } : {}),
+        ...(logId ? { track_id: logId, track_source: "user-request-access" } : {}),
       }),
     });
     if (!sendResp.ok) {
@@ -327,14 +357,14 @@ Deno.serve(async (req: Request) => {
         .update({ status: "failed", error_message: message })
         .eq("id", logId);
     }
-    await logAttempt(email, "whatsapp_send_failed");
+    await logAttempt(email, "whatsapp_send_failed", userRole);
     return json({
       status: "error",
       message: "Não foi possível enviar a mensagem. Procure a coordenação da escola.",
     }, 502);
   }
 
-  await logAttempt(email, "sent");
+  await logAttempt(email, "sent", userRole);
   return json({
     status: "sent",
     message:
