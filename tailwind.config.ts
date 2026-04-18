@@ -98,10 +98,15 @@ export default {
             height: "0",
           },
         },
+        "pulse-soft": {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgb(var(--brand-secondary-rgb) / 0.55)" },
+          "50%":      { boxShadow: "0 0 0 10px rgb(var(--brand-secondary-rgb) / 0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-soft": "pulse-soft 2s ease-in-out infinite",
       },
     },
   },
