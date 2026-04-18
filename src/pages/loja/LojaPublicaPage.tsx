@@ -5,6 +5,7 @@ import { useStoreProducts } from '../../hooks/useStoreProducts';
 import ProductCard from '../../components/loja/ProductCard';
 import { useBranding } from '../../contexts/BrandingContext';
 import { useSettings } from '../../hooks/useSettings';
+import { useSEO } from '../../hooks/useSEO';
 import HeroSlideshow from '../../components/HeroSlideshow';
 import type { HeroScene, HeroSlideshowConfig } from '../../components/HeroSlideshow';
 
@@ -16,6 +17,7 @@ const DEFAULT_SLIDESHOW: HeroSlideshowConfig = {
 };
 
 export default function LojaPublicaPage() {
+  useSEO('loja');
   const { identity } = useBranding();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
