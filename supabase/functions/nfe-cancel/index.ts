@@ -12,6 +12,7 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { nuvemFiscalFetch } from "../_shared/nuvemFiscal.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +68,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: cfg } = await service
     .from("company_nfe_config")
-    .select("provider, api_base_url, api_token_enc")
+    .select("provider")
     .maybeSingle();
   if (!cfg) return json({ error: "NF-e nao configurada" }, 422);
 
@@ -97,25 +98,26 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const baseUrl = (cfg.api_base_url as string | null) || "https://api.nuvemfiscal.com.br";
-  const token = cfg.api_token_enc as string;
-
   let providerResponse: unknown = null;
   if (cfg.provider === "nuvem_fiscal") {
-    const res = await fetch(`${baseUrl}/nfe/${nfe.provider_nfe_id}/cancelamento`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ justificativa }),
-    });
-    providerResponse = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    try {
+      const res = await nuvemFiscalFetch(service, `/nfe/${nfe.provider_nfe_id}/cancelamento`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ justificativa }),
+      });
+      providerResponse = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return json({
+          error: "Falha ao cancelar na Nuvem Fiscal",
+          detail: providerResponse,
+          status: res.status,
+        }, 502);
+      }
+    } catch (e) {
       return json({
-        error: "Falha ao cancelar na Nuvem Fiscal",
-        detail: providerResponse,
-        status: res.status,
+        error: "Falha ao autenticar na Nuvem Fiscal",
+        detail: e instanceof Error ? e.message : String(e),
       }, 502);
     }
   } else {

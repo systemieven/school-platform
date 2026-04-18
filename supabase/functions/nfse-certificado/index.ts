@@ -15,6 +15,7 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { nuvemFiscalFetch } from "../_shared/nuvemFiscal.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -86,15 +87,12 @@ Deno.serve(async (req: Request) => {
   // Carrega config NFS-e
   const { data: cfg, error: cfgErr } = await service
     .from("company_nfse_config")
-    .select("api_base_url, api_token_enc, provider")
+    .select("provider")
     .single();
   if (cfgErr || !cfg) return json({ error: "NFS-e nao configurado" }, 422);
 
   if (cfg.provider !== "nuvem_fiscal") {
     return json({ error: "Provider ativo nao e Nuvem Fiscal" }, 422);
-  }
-  if (!cfg.api_token_enc) {
-    return json({ error: "API token da Nuvem Fiscal nao configurado" }, 422);
   }
 
   // CNPJ do emitente
@@ -105,15 +103,11 @@ Deno.serve(async (req: Request) => {
   const cnpjDigits = String((fiscal as { cnpj?: string } | null)?.cnpj ?? "").replace(/\D/g, "");
   if (!cnpjDigits) return json({ error: "CNPJ do emitente nao configurado" }, 422);
 
-  const baseUrl = (cfg.api_base_url as string | null) || "https://api.nuvemfiscal.com.br";
-  const url = `${baseUrl}/empresas/${cnpjDigits}/certificado`;
-  const token = cfg.api_token_enc as string;
+  const path = `/empresas/${cnpjDigits}/certificado`;
 
   try {
     if (action === "status") {
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await nuvemFiscalFetch(service, path);
       const data = await res.json().catch(() => ({}));
       if (!res.ok && res.status !== 404) {
         return json({ error: "Falha ao consultar certificado", detail: data, status: res.status }, 502);
@@ -125,10 +119,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "delete") {
-      const res = await fetch(url, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await nuvemFiscalFetch(service, path, { method: "DELETE" });
       if (!res.ok && res.status !== 404) {
         const data = await res.json().catch(() => ({}));
         return json({ error: "Falha ao remover certificado", detail: data, status: res.status }, 502);
@@ -148,12 +139,9 @@ Deno.serve(async (req: Request) => {
       return json({ error: "certificado (base64) e password sao obrigatorios" }, 400);
     }
 
-    const res = await fetch(url, {
+    const res = await nuvemFiscalFetch(service, path, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ certificado, password }),
     });
 

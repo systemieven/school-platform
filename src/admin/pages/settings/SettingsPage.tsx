@@ -35,6 +35,7 @@ import FiscalProfilesPanel from './FiscalProfilesPanel';
 import NfseSettingsPanel from './NfseSettingsPanel';
 import NfceSettingsPanel from './NfceSettingsPanel';
 import NfeSettingsPanel from './NfeSettingsPanel';
+import FiscalProviderCredentialsPanel from './FiscalProviderCredentialsPanel';
 import AiAgentsPanel, { type AiSubTab, AI_SUB_TABS } from './AiAgentsPanel';
 import SiteSettingsPanel, { type SiteTab, SITE_SUB_TABS } from './SiteSettingsPanel';
 import AuditLogsPage from '../audit/AuditLogsPage';
@@ -300,7 +301,7 @@ export default function SettingsPage() {
 
   const [siteSubTab, setSiteSubTab] = useState<SiteTab>('appearance');
   const [aiSubTab, setAiSubTab] = useState<AiSubTab>('overview');
-  const [fiscalSubTab, setFiscalSubTab] = useState<'nfe' | 'nfse' | 'nfce' | 'perfis'>('nfe');
+  const [fiscalSubTab, setFiscalSubTab] = useState<'provedor' | 'nfe' | 'nfse' | 'nfce' | 'perfis'>('provedor');
   const [waSubTab, setWaSubTab] = useState<WaSubTab>('templates');
   const [tabsCollapsed, setTabsCollapsed] = useState(() => {
     try { return localStorage.getItem(TABS_STORAGE_KEY) === 'true'; } catch { return false; }
@@ -690,6 +691,7 @@ export default function SettingsPage() {
               {/* Fiscal sub-tabs */}
               {activeTab === 'fiscal' && (() => {
                 const allFiscalSubs = [
+                  { key: 'provedor', label: 'Provedor', module: 'settings-fiscal' },
                   { key: 'nfe', label: 'NF-e', module: 'settings-fiscal-nfe' },
                   { key: 'nfse', label: 'NFS-e', module: 'settings-fiscal-nfse' },
                   { key: 'nfce', label: 'NFC-e', module: 'settings-fiscal-nfce' },
@@ -832,6 +834,7 @@ export default function SettingsPage() {
               ) : activeTab === 'ferramentas' ? (
                 <LostFoundSettingsPanel />
               ) : activeTab === 'fiscal' ? (
+                fiscalSubTab === 'provedor' ? <FiscalProviderCredentialsPanel /> :
                 fiscalSubTab === 'nfse' ? <NfseSettingsPanel /> :
                 fiscalSubTab === 'nfce' ? <NfceSettingsPanel /> :
                 fiscalSubTab === 'perfis' ? <FiscalProfilesPanel /> :

@@ -14,7 +14,8 @@
  * Body: { source, source_id, guardian_id, valor_servico, discriminacao, initiated_by }
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { nuvemFiscalFetch } from "../_shared/nuvemFiscal.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -138,31 +139,27 @@ function mapNuvemFiscalStatus(raw: string | undefined): ProviderResponse["status
 }
 
 async function callNuvemFiscal(
-  cfg: Record<string, unknown>,
+  service: SupabaseClient,
   dps: NuvemFiscalDps,
 ): Promise<ProviderResponse> {
-  const baseUrl = (cfg.api_base_url as string | null) || "https://api.nuvemfiscal.com.br";
-  const token = cfg.api_token_enc as string;
-
-  if (!token) {
+  let res: Response;
+  try {
+    res = await nuvemFiscalFetch(service, "/nfse/dps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dps),
+    });
+  } catch (e) {
     return {
       provider_nfse_id: "",
       link_pdf: null,
       xml_retorno: null,
       status: "rejeitada",
-      error_message: "API token da Nuvem Fiscal nao configurado",
+      error_message: e instanceof Error ? e.message : "Falha ao autenticar na Nuvem Fiscal",
     };
   }
 
-  const res = await fetch(`${baseUrl}/nfse/dps`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify(dps),
-  });
-
+  const baseUrl = res.url.replace(/\/nfse(?:\/.*)?$/, "");
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
@@ -514,7 +511,7 @@ Deno.serve(async (req: Request) => {
         serie: (cfg.serie as string) ?? "RPS",
       });
       dadosEnv = dps as unknown as Record<string, unknown>;
-      providerResult = await callNuvemFiscal(cfg as Record<string, unknown>, dps);
+      providerResult = await callNuvemFiscal(service, dps);
     } else {
       dadosEnv = { prestador, tomador, servico, numero, serie: cfg.serie };
       providerResult = await callGenericProvider(cfg as Record<string, unknown>, dadosEnv);
