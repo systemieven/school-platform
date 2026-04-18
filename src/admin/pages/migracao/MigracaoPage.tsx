@@ -330,13 +330,15 @@ interface GroupTimelineProps {
 }
 
 function GroupTimeline({ modules, statusMap, groupUnlocked, progress, maxSize, onImport, onUnlock }: GroupTimelineProps) {
+  // Padding horizontal constante aplicado em TODOS os grupos — garante que
+  // mesmo o grupo com mais módulos (A) fique visualmente centralizado,
+  // deslocando o avatar final para a mesma coluna em B e C.
+  const PAD = 1;
   const spacerCount = Math.max(0, maxSize - modules.length);
   // Distribui os spacers em volta das etapas (metade à esquerda, metade à
   // direita) para que os avatares das etapas fiquem centralizados no card.
-  // O avatar final de conclusão segue ancorado à direita — por isso ele fica
-  // fora dessa distribuição e mantém o alinhamento vertical entre grupos.
-  const leftSpacers = Math.floor(spacerCount / 2);
-  const rightSpacers = spacerCount - leftSpacers;
+  const leftSpacers = PAD + Math.floor(spacerCount / 2);
+  const rightSpacers = PAD + Math.ceil(spacerCount / 2);
   // Sequencial dentro do grupo: um módulo só desbloqueia depois que todos
   // anteriores (mesma ordem do catálogo) estiverem concluídos.
   let previousDone = true;
