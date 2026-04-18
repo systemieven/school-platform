@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Palette, Paintbrush, Navigation, FileEdit, Search, ShieldAlert } from 'lucide-react';
 import AppearanceSettingsPanel from './AppearanceSettingsPanel';
 import BrandingSettingsPanel from './BrandingSettingsPanel';
@@ -21,12 +22,24 @@ export const SITE_SUB_TABS: { key: SiteTab; label: string; icon: React.Component
 // ── Panel ───────────────────────────────────────────────────────────────────
 interface SiteSettingsPanelProps {
   activeTab: SiteTab;
+  /**
+   * Slot renderizado no canto direito da primeira linha (barra de tabs de
+   * página, quando há) ou no topo do painel. Usado pra alojar os botões
+   * "Salvar preset" / "Restaurar preset" que antes ficavam no header.
+   */
+  headerRight?: ReactNode;
 }
 
-export default function SiteSettingsPanel({ activeTab }: SiteSettingsPanelProps) {
+export default function SiteSettingsPanel({ activeTab, headerRight }: SiteSettingsPanelProps) {
+  // Sub-painéis sem tab-bar interna recebem o slot como linha solta no topo.
+  const withTopSlot = activeTab !== 'appearance' && headerRight;
+
   return (
     <div>
-      {activeTab === 'appearance' && <AppearanceSettingsPanel />}
+      {withTopSlot && (
+        <div className="flex items-center justify-end gap-1 px-6 pt-6">{headerRight}</div>
+      )}
+      {activeTab === 'appearance' && <AppearanceSettingsPanel headerRight={headerRight} />}
       {activeTab === 'branding' && <BrandingSettingsPanel />}
       {activeTab === 'navigation' && <NavigationSettingsPanel />}
       {activeTab === 'content' && <ContentSettingsPanel />}

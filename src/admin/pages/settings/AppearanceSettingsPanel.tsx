@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Loader2, Save, Check,
   Home, Baby, BookOpen, BookMarked, GraduationCap, MessageSquare,
@@ -316,7 +316,12 @@ function HeroFieldsBlock({
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function AppearanceSettingsPanel() {
+interface AppearanceSettingsPanelProps {
+  /** Slot renderizado à direita da barra de tabs (Home/Infantil/...). */
+  headerRight?: ReactNode;
+}
+
+export default function AppearanceSettingsPanel({ headerRight }: AppearanceSettingsPanelProps = {}) {
   const [pages, setPages]         = useState<AllPages>(DEFAULT_PAGES);
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
@@ -425,23 +430,28 @@ export default function AppearanceSettingsPanel() {
   return (
     <div className="p-6 space-y-5">
 
-      {/* ── Sub-tab bar ── */}
-      <div className="flex flex-wrap gap-1.5 w-fit rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
-        {SUB_TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            className={[
-              'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
-              activeTab === key
-                ? 'bg-brand-secondary text-brand-primary shadow-md shadow-brand-secondary/20'
-                : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
-            ].join(' ')}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
+      {/* ── Sub-tab bar + slot à direita (ex: Salvar/Restaurar preset) ── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex flex-wrap gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
+          {SUB_TABS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={[
+                'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
+                activeTab === key
+                  ? 'bg-brand-secondary text-brand-primary shadow-md shadow-brand-secondary/20'
+                  : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
+              ].join(' ')}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+        {headerRight && (
+          <div className="flex items-center gap-1">{headerRight}</div>
+        )}
       </div>
 
       {/* ── Home ── */}
