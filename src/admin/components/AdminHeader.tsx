@@ -6,6 +6,7 @@ import { useWhatsAppStatus } from '../contexts/WhatsAppStatusContext';
 import { ROLE_LABELS } from '../types/admin.types';
 import { Bell, ChevronDown, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, MessageCircle, UserCog } from 'lucide-react';
 import NotificationsPanel from './NotificationsPanel';
+import AiInsightsInbox from './AiInsightsInbox';
 import EditProfileDrawer from './EditProfileDrawer';
 import ChangePasswordDrawer from './ChangePasswordDrawer';
 import AdminBreadcrumbSearch from './AdminBreadcrumbSearch';
@@ -93,6 +94,9 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
             </span>
           </button>
         )}
+
+        {/* AI insights inbox */}
+        <AiInsightsInbox />
 
         {/* Bell */}
         <div className="relative">
