@@ -14,6 +14,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useSEO } from '../hooks/useSEO';
 import LegalConsent from '../components/LegalConsent';
 import HeroMedia from '../components/HeroMedia';
+import { InputField, TextareaField } from '../admin/components/FormField';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CONTACT_ICON_MAP: Record<string, any> = {
@@ -139,39 +140,8 @@ interface FormState {
 }
 
 // ── Small helpers ──────────────────────────────────────────────────────────
-function inputCls(error?: string) {
-  return [
-    'w-full pl-10 pr-4 py-3 rounded-xl border text-sm transition-colors',
-    'focus:outline-none focus:ring-2 focus:border-transparent',
-    error
-      ? 'border-red-400 bg-red-50 focus:ring-red-300'
-      : 'border-gray-200 bg-white focus:ring-brand-primary',
-  ].join(' ');
-}
-
-function Field({
-  label, required, error, icon: Icon, children,
-}: {
-  label: string; required?: boolean; error?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10" />
-        {children}
-      </div>
-      {error && (
-        <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
-          <XCircle className="w-3 h-3" /> {error}
-        </p>
-      )}
-    </div>
-  );
+function labelWithRequired(label: string, required?: boolean) {
+  return required ? `${label} *` : label;
 }
 
 function ToggleGroup<T extends string>({
@@ -480,42 +450,42 @@ export default function Contato() {
                         Dados pessoais
                       </h3>
                       <div className="space-y-4">
-                        <Field label="Nome completo" required={requiredFields.has('nome')} icon={User} error={errors.name}>
-                          <input
-                            type="text"
-                            placeholder="Seu nome completo"
-                            className={inputCls(errors.name)}
-                            value={form.name}
-                            onChange={(e) => set('name', e.target.value)}
-                          />
-                        </Field>
+                        <InputField
+                          label={labelWithRequired('Nome completo', requiredFields.has('nome'))}
+                          icon={User}
+                          type="text"
+                          placeholder="Seu nome completo"
+                          value={form.name}
+                          onChange={(e) => set('name', e.target.value)}
+                          error={errors.name}
+                        />
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <Field label="Celular" required={requiredFields.has('celular')} icon={Phone} error={errors.phone}>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              placeholder="(00) 00000-0000"
-                              maxLength={15}
-                              className={inputCls(errors.phone)}
-                              value={form.phone}
-                              onChange={(e) => set('phone', maskPhone(e.target.value))}
-                            />
-                          </Field>
+                          <InputField
+                            label={labelWithRequired('Celular', requiredFields.has('celular'))}
+                            icon={Phone}
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="(00) 00000-0000"
+                            maxLength={15}
+                            value={form.phone}
+                            onChange={(e) => set('phone', maskPhone(e.target.value))}
+                            error={errors.phone}
+                          />
 
-                          <Field label="E-mail" required={requiredFields.has('email')} icon={Mail} error={errors.email}>
-                            <input
-                              type="email"
-                              placeholder="email@exemplo.com (opcional)"
-                              className={inputCls(errors.email)}
-                              value={form.email}
-                              onChange={(e) => set('email', e.target.value)}
-                              onBlur={() => {
-                                if (form.email && !validateEmail(form.email))
-                                  setErrors((er) => ({ ...er, email: 'E-mail inválido' }));
-                              }}
-                            />
-                          </Field>
+                          <InputField
+                            label={labelWithRequired('E-mail', requiredFields.has('email'))}
+                            icon={Mail}
+                            type="email"
+                            placeholder="email@exemplo.com"
+                            value={form.email}
+                            onChange={(e) => set('email', e.target.value)}
+                            onBlur={() => {
+                              if (form.email && !validateEmail(form.email))
+                                setErrors((er) => ({ ...er, email: 'E-mail inválido' }));
+                            }}
+                            error={errors.email}
+                          />
                         </div>
 
                         {/* Melhor horário */}
@@ -660,42 +630,21 @@ export default function Contato() {
                     )}
 
                     {/* Mensagem / Observações */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        {selectedReason?.require_message
-                          ? <>Detalhe sua solicitação <span className="text-red-500">*</span></>
-                          : 'Observações ou dúvidas'
-                        }
-                      </label>
-                      {selectedReason?.require_message && (
-                        <p className="text-xs text-gray-400 mb-2">
-                          Descreva brevemente o motivo do seu contato para que possamos ajudar melhor.
-                        </p>
+                    <TextareaField
+                      label={labelWithRequired(
+                        selectedReason?.require_message ? 'Detalhe sua solicitação' : 'Observações ou dúvidas',
+                        !!selectedReason?.require_message,
                       )}
-                      <div className="relative">
-                        <MessageSquare className="absolute left-3 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" />
-                        <textarea
-                          rows={3}
-                          placeholder={selectedReason?.require_message
-                            ? 'Descreva o motivo do seu contato...'
-                            : 'Fique à vontade para escrever... (opcional)'
-                          }
-                          className={[
-                            'w-full pl-10 pr-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none transition-colors',
-                            errors.message
-                              ? 'border-red-400 bg-red-50 focus:ring-red-300'
-                              : 'border-gray-200 bg-white focus:ring-brand-primary',
-                          ].join(' ')}
-                          value={form.message}
-                          onChange={(e) => set('message', e.target.value)}
-                        />
-                      </div>
-                      {errors.message && (
-                        <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
-                          <XCircle className="w-3 h-3" /> {errors.message}
-                        </p>
-                      )}
-                    </div>
+                      rows={3}
+                      placeholder={selectedReason?.require_message
+                        ? 'Descreva o motivo do seu contato...'
+                        : 'Fique à vontade para escrever... (opcional)'
+                      }
+                      value={form.message}
+                      onChange={(e) => set('message', e.target.value)}
+                      error={errors.message}
+                      hint={selectedReason?.require_message ? 'Descreva brevemente o motivo do seu contato para que possamos ajudar melhor.' : undefined}
+                    />
 
                     {/* Legal consent */}
                     <LegalConsent checked={legalConsent} onChange={setLegalConsent} />

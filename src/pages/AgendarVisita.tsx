@@ -30,6 +30,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useSEO } from '../hooks/useSEO';
 import LegalConsent from '../components/LegalConsent';
 import HeroMedia from '../components/HeroMedia';
+import { InputField } from '../admin/components/FormField';
 
 // ─── Fallback constants (used when DB settings are not yet loaded) ───────────
 
@@ -264,12 +265,6 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
     </div>
   );
 }
-
-const inputCls =
-  'w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent placeholder-gray-400';
-
-const inputClsError =
-  'w-full pl-11 pr-4 py-3.5 rounded-xl border border-red-300 bg-red-50 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -965,61 +960,37 @@ export default function AgendarVisita() {
                     </p>
 
                     <div className="space-y-5">
-                      {/* Nome */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                          Nome completo <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                          <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => { setName(e.target.value); setErrors((er) => ({ ...er, name: '' })); }}
-                            placeholder="Seu nome completo"
-                            className={errors.name ? inputClsError : inputCls}
-                          />
-                        </div>
-                        {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
-                      </div>
+                      <InputField
+                        label="Nome completo *"
+                        icon={User}
+                        type="text"
+                        value={name}
+                        onChange={(e) => { setName(e.target.value); setErrors((er) => ({ ...er, name: '' })); }}
+                        placeholder="Seu nome completo"
+                        error={errors.name || undefined}
+                      />
 
-                      {/* Celular + Email */}
                       <div className="grid sm:grid-cols-2 gap-5">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                            Celular <span className="text-red-500">*</span>
-                          </label>
-                          <div className="relative">
-                            <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={phone}
-                              onChange={(e) => { setPhone(maskPhone(e.target.value)); setErrors((er) => ({ ...er, phone: '' })); }}
-                              onBlur={() => lookupByPhone(phone)}
-                              placeholder="(00) 00000-0000"
-                              maxLength={15}
-                              className={errors.phone ? inputClsError : inputCls}
-                            />
-                          </div>
-                          {errors.phone && <p className="mt-1 text-xs text-red-500">{errors.phone}</p>}
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                            E-mail <span className="text-gray-300 text-xs font-normal">(opcional)</span>
-                          </label>
-                          <div className="relative">
-                            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                            <input
-                              type="email"
-                              value={email}
-                              onChange={(e) => { setEmail(e.target.value); setErrors((er) => ({ ...er, email: '' })); }}
-                              placeholder="email@exemplo.com"
-                              className={errors.email ? inputClsError : inputCls}
-                            />
-                          </div>
-                          {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
-                        </div>
+                        <InputField
+                          label="Celular *"
+                          icon={Phone}
+                          type="text"
+                          inputMode="numeric"
+                          value={phone}
+                          onChange={(e) => { setPhone(maskPhone(e.target.value)); setErrors((er) => ({ ...er, phone: '' })); }}
+                          onBlur={() => lookupByPhone(phone)}
+                          placeholder="(00) 00000-0000"
+                          error={errors.phone || undefined}
+                        />
+                        <InputField
+                          label="E-mail (opcional)"
+                          icon={Mail}
+                          type="email"
+                          value={email}
+                          onChange={(e) => { setEmail(e.target.value); setErrors((er) => ({ ...er, email: '' })); }}
+                          placeholder="email@exemplo.com"
+                          error={errors.email || undefined}
+                        />
                       </div>
 
                       {/* Banner: agendamento existente */}
@@ -1126,21 +1097,22 @@ export default function AgendarVisita() {
                         </label>
 
                         {companions.map((c, i) => (
-                          <div key={i} className="flex gap-2 mb-2.5">
-                            <div className="relative flex-1">
-                              <Users className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                              <input
+                          <div key={i} className="flex gap-2 mb-2.5 items-start">
+                            <div className="flex-1">
+                              <InputField
+                                label={`Acompanhante ${i + 1}`}
+                                icon={Users}
                                 type="text"
                                 value={c}
                                 onChange={(e) => updateCompanion(i, e.target.value)}
                                 placeholder={`Nome do acompanhante ${i + 1}`}
-                                className={errors[`companion_${i}`] ? inputClsError : inputCls}
+                                error={errors[`companion_${i}`] || undefined}
                               />
                             </div>
                             <button
                               type="button"
                               onClick={() => removeCompanion(i)}
-                              className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-all duration-200"
+                              className="w-[52px] h-[52px] rounded-xl border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-all duration-200"
                               aria-label="Remover acompanhante"
                             >
                               <X className="w-4 h-4" />
