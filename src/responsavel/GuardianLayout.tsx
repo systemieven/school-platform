@@ -4,7 +4,7 @@ import { useGuardian } from './contexts/GuardianAuthContext';
 import GuardianProtectedRoute from './components/GuardianProtectedRoute';
 import {
   LayoutDashboard, Star, CalendarClock, Wallet, Megaphone,
-  CalendarDays, BookOpen, AlertCircle, CheckSquare, User,
+  CalendarDays, AlertCircle, CheckSquare, User,
   LogOut, Menu, X, ChevronDown, Users, FileText, RefreshCw,
   MessageSquareDot, DoorOpen, HeartPulse, ShoppingBag,
 } from 'lucide-react';
@@ -27,7 +27,6 @@ const NAV = [
   { path: '/responsavel/faltas',             label: 'Comunicar Falta', icon: MessageSquareDot },
   { path: '/responsavel/autorizacoes-saida', label: 'Saída Autorizada', icon: DoorOpen },
   { path: '/responsavel/pedidos',            label: 'Pedidos',         icon: ShoppingBag },
-  { path: '/responsavel/biblioteca',         label: 'Biblioteca',      icon: BookOpen },
   { path: '/responsavel/perfil',             label: 'Perfil',          icon: User },
 ];
 
