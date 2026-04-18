@@ -691,7 +691,7 @@ export default function SettingsPage() {
               {/* Fiscal sub-tabs */}
               {activeTab === 'fiscal' && (() => {
                 const allFiscalSubs = [
-                  { key: 'provedor', label: 'Provedor', module: 'settings-fiscal' },
+                  { key: 'provedor', label: 'Provedor', module: 'settings-fiscal-provider' },
                   { key: 'nfe', label: 'NF-e', module: 'settings-fiscal-nfe' },
                   { key: 'nfse', label: 'NFS-e', module: 'settings-fiscal-nfse' },
                   { key: 'nfce', label: 'NFC-e', module: 'settings-fiscal-nfce' },
@@ -834,7 +834,7 @@ export default function SettingsPage() {
               ) : activeTab === 'ferramentas' ? (
                 <LostFoundSettingsPanel />
               ) : activeTab === 'fiscal' ? (
-                fiscalSubTab === 'provedor' ? <FiscalProviderCredentialsPanel /> :
+                fiscalSubTab === 'provedor' && canView('settings-fiscal-provider') ? <FiscalProviderCredentialsPanel /> :
                 fiscalSubTab === 'nfse' ? <NfseSettingsPanel /> :
                 fiscalSubTab === 'nfce' ? <NfceSettingsPanel /> :
                 fiscalSubTab === 'perfis' ? <FiscalProfilesPanel /> :
