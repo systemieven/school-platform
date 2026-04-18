@@ -40,10 +40,13 @@ interface ProfessorAuthState {
   session: Session | null;
   professor: ProfessorProfile | null;
   teacherClasses: TeacherClass[];
+  /** Quando TRUE, ProtectedRoute redireciona para /professor/trocar-senha. Lido de profiles.must_change_password. */
+  mustChangePassword: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshClasses: () => Promise<void>;
+  clearMustChangePassword: () => void;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -52,10 +55,12 @@ const ProfessorAuthContext = createContext<ProfessorAuthState>({
   session: null,
   professor: null,
   teacherClasses: [],
+  mustChangePassword: false,
   loading: true,
   signIn: async () => ({}),
   signOut: async () => {},
   refreshClasses: async () => {},
+  clearMustChangePassword: () => {},
 });
 
 // ── Provider ──────────────────────────────────────────────────────────────────
@@ -64,6 +69,7 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
   const [session, setSession]             = useState<Session | null>(null);
   const [professor, setProfessor]         = useState<ProfessorProfile | null>(null);
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading]             = useState(true);
 
   const loadTeacherClasses = useCallback(async (teacherId: string) => {
@@ -137,13 +143,14 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
   const loadProfessor = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, email, avatar_url, role')
+      .select('id, full_name, email, avatar_url, role, must_change_password')
       .eq('id', userId)
       .eq('role', 'teacher')
       .single();
 
     if (!data) {
       setProfessor(null);
+      setMustChangePassword(false);
       return false;
     }
 
@@ -153,6 +160,7 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
       email: data.email,
       avatar_url: data.avatar_url,
     });
+    setMustChangePassword(Boolean((data as { must_change_password?: boolean | null }).must_change_password));
     await loadTeacherClasses(userId);
     return true;
   }, [loadTeacherClasses]);
@@ -180,6 +188,7 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
       } else {
         setProfessor(null);
         setTeacherClasses([]);
+        setMustChangePassword(false);
       }
     });
 
@@ -215,11 +224,17 @@ export function ProfessorAuthProvider({ children }: { children: React.ReactNode 
     await supabase.auth.signOut();
     setProfessor(null);
     setTeacherClasses([]);
+    setMustChangePassword(false);
   }, []);
+
+  const clearMustChangePassword = useCallback(() => setMustChangePassword(false), []);
 
   return (
     <ProfessorAuthContext.Provider
-      value={{ session, professor, teacherClasses, loading, signIn, signOut, refreshClasses }}
+      value={{
+        session, professor, teacherClasses, mustChangePassword, loading,
+        signIn, signOut, refreshClasses, clearMustChangePassword,
+      }}
     >
       {children}
     </ProfessorAuthContext.Provider>

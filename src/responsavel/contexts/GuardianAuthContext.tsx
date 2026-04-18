@@ -34,22 +34,27 @@ interface GuardianAuthState {
   guardian: GuardianProfile | null;
   students: StudentGuardian[];
   currentStudentId: string | null;
+  /** Quando TRUE, ProtectedRoute redireciona para /responsavel/trocar-senha. Lido de guardian_profiles.must_change_password (migration 075). */
+  mustChangePassword: boolean;
   loading: boolean;
   signIn: (cpf: string, password: string) => Promise<{ error?: string }>;
   /** First-access: verify CPF in student_guardians, then create auth user and sign in */
   firstAccess: (cpf: string, newPassword: string) => Promise<{ error?: string }>;
   setCurrentStudent: (id: string) => void;
   signOut: () => Promise<void>;
+  clearMustChangePassword: () => void;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
 const GuardianAuthContext = createContext<GuardianAuthState>({
-  session: null, guardian: null, students: [], currentStudentId: null, loading: true,
+  session: null, guardian: null, students: [], currentStudentId: null,
+  mustChangePassword: false, loading: true,
   signIn: async () => ({}),
   firstAccess: async () => ({}),
   setCurrentStudent: () => {},
   signOut: async () => {},
+  clearMustChangePassword: () => {},
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -75,6 +80,7 @@ export function GuardianAuthProvider({ children }: { children: React.ReactNode }
   const [guardian, setGuardian]             = useState<GuardianProfile | null>(null);
   const [students, setStudents]             = useState<StudentGuardian[]>([]);
   const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading]               = useState(true);
 
   const loadGuardian = useCallback(async (userId: string) => {
@@ -90,7 +96,9 @@ export function GuardianAuthProvider({ children }: { children: React.ReactNode }
         .eq('guardian_user_id', userId),
     ]);
 
-    setGuardian(profileRes.data as GuardianProfile | null);
+    const profile = profileRes.data as (GuardianProfile & { must_change_password?: boolean | null }) | null;
+    setGuardian(profile);
+    setMustChangePassword(Boolean(profile?.must_change_password));
     const studentList = (studentsRes.data ?? []) as unknown as StudentGuardian[];
     setStudents(studentList);
 
@@ -114,6 +122,7 @@ export function GuardianAuthProvider({ children }: { children: React.ReactNode }
         setGuardian(null);
         setStudents([]);
         setCurrentStudentId(null);
+        setMustChangePassword(false);
       }
     });
     return () => subscription.unsubscribe();
@@ -186,12 +195,16 @@ export function GuardianAuthProvider({ children }: { children: React.ReactNode }
     setGuardian(null);
     setStudents([]);
     setCurrentStudentId(null);
+    setMustChangePassword(false);
   }, []);
+
+  const clearMustChangePassword = useCallback(() => setMustChangePassword(false), []);
 
   return (
     <GuardianAuthContext.Provider value={{
-      session, guardian, students, currentStudentId, loading,
-      signIn, firstAccess, setCurrentStudent, signOut,
+      session, guardian, students, currentStudentId,
+      mustChangePassword, loading,
+      signIn, firstAccess, setCurrentStudent, signOut, clearMustChangePassword,
     }}>
       {children}
     </GuardianAuthContext.Provider>

@@ -139,11 +139,27 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Mark must_change_password = false and record timestamp
-  await supabaseAdmin
-    .from('profiles')
-    .update({ must_change_password: false, password_changed_at: new Date().toISOString() })
-    .eq('id', user.id);
+  // Mark must_change_password = false e registra timestamp em todas as
+  // tabelas-perfil onde o usuário pode existir. Cada UPDATE só afeta a linha
+  // correspondente — usuário sempre mora em UMA das três tabelas:
+  //   • profiles            → admin / super_admin / coordinator / teacher / user
+  //   • guardian_profiles   → responsável (portal /responsavel)
+  //   • students            → aluno (portal /portal)  [migration 189]
+  const now = new Date().toISOString();
+  await Promise.all([
+    supabaseAdmin
+      .from('profiles')
+      .update({ must_change_password: false, password_changed_at: now })
+      .eq('id', user.id),
+    supabaseAdmin
+      .from('guardian_profiles')
+      .update({ must_change_password: false, updated_at: now })
+      .eq('id', user.id),
+    supabaseAdmin
+      .from('students')
+      .update({ must_change_password: false, password_changed_at: now })
+      .eq('auth_user_id', user.id),
+  ]);
 
   // Store new password hash in history
   const newHash = await hashPassword(new_password, user.id);

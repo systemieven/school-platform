@@ -12,12 +12,14 @@ import EventsPage     from './pages/events/EventsPage';
 import FinanceiroPage from './pages/financeiro/FinanceiroPage';
 import ProfilePage    from './pages/profile/ProfilePage';
 import AchadosPerdidosPage from './pages/achados-perdidos/AchadosPerdidosPage';
+import TrocarSenhaPage from './pages/trocar-senha/TrocarSenhaPage';
 
 export default function PortalRoutes() {
   return (
     <StudentAuthProvider>
       <Routes>
         <Route path="login" element={<LoginPage />} />
+        <Route path="trocar-senha" element={<TrocarSenhaPage />} />
 
         <Route element={<PortalLayout />}>
           <Route index element={<DashboardPage />} />

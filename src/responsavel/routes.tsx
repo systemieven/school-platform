@@ -21,12 +21,14 @@ import SaudePage from './pages/saude/SaudePage';
 import PedidosPage from './pages/pedidos/PedidosPage';
 import PedidoDetalhePage from './pages/pedidos/PedidoDetalhePage';
 import AchadosPerdidosPage from './pages/achados-perdidos/AchadosPerdidosPage';
+import TrocarSenhaPage from './pages/trocar-senha/TrocarSenhaPage';
 
 export default function ResponsavelRoutes() {
   return (
     <GuardianAuthProvider>
       <Routes>
         <Route path="login" element={<LoginPage />} />
+        <Route path="trocar-senha" element={<TrocarSenhaPage />} />
 
         <Route element={<GuardianLayout />}>
           <Route index          element={<DashboardPage />} />

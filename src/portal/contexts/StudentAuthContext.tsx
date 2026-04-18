@@ -26,20 +26,25 @@ export interface StudentProfile {
 interface StudentAuthState {
   session:  Session | null;
   student:  StudentProfile | null;
+  /** Quando TRUE, ProtectedRoute redireciona para /portal/trocar-senha. Lido de students.must_change_password (migration 189). */
+  mustChangePassword: boolean;
   loading:  boolean;
   signIn:   (enrollmentNumber: string, password: string) => Promise<{ error?: string }>;
   /** First-access: verify CPF, then set password and create auth user */
   firstAccess: (enrollmentNumber: string, guardianCpf: string, newPassword: string) => Promise<{ error?: string }>;
   signOut:  () => Promise<void>;
+  /** Marca local após troca; evita refetch antes do redirect. */
+  clearMustChangePassword: () => void;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
 const StudentAuthContext = createContext<StudentAuthState>({
-  session: null, student: null, loading: true,
+  session: null, student: null, mustChangePassword: false, loading: true,
   signIn: async () => ({}),
   firstAccess: async () => ({}),
   signOut: async () => {},
+  clearMustChangePassword: () => {},
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -61,16 +66,24 @@ function normalizeCpf(cpf: string): string {
 export function StudentAuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession]   = useState<Session | null>(null);
   const [student, setStudent]   = useState<StudentProfile | null>(null);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading]   = useState(true);
 
   const loadStudent = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from('students')
-      .select('id, auth_user_id, enrollment_number, full_name, class_id, guardian_name, guardian_phone, birth_date')
+      .select('id, auth_user_id, enrollment_number, full_name, class_id, guardian_name, guardian_phone, birth_date, must_change_password')
       .eq('auth_user_id', userId)
       .eq('status', 'active')
       .single();
-    setStudent(data as StudentProfile | null);
+    if (data) {
+      const { must_change_password, ...rest } = data as StudentProfile & { must_change_password: boolean | null };
+      setStudent(rest as StudentProfile);
+      setMustChangePassword(Boolean(must_change_password));
+    } else {
+      setStudent(null);
+      setMustChangePassword(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -83,7 +96,7 @@ export function StudentAuthProvider({ children }: { children: React.ReactNode })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       if (s?.user) loadStudent(s.user.id);
-      else setStudent(null);
+      else { setStudent(null); setMustChangePassword(false); }
     });
     return () => subscription.unsubscribe();
   }, [loadStudent]);
@@ -163,10 +176,16 @@ export function StudentAuthProvider({ children }: { children: React.ReactNode })
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setStudent(null);
+    setMustChangePassword(false);
   }, []);
 
+  const clearMustChangePassword = useCallback(() => setMustChangePassword(false), []);
+
   return (
-    <StudentAuthContext.Provider value={{ session, student, loading, signIn, firstAccess, signOut }}>
+    <StudentAuthContext.Provider value={{
+      session, student, mustChangePassword, loading,
+      signIn, firstAccess, signOut, clearMustChangePassword,
+    }}>
       {children}
     </StudentAuthContext.Provider>
   );

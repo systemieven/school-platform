@@ -1,9 +1,10 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useStudentAuth } from '../contexts/StudentAuthContext';
 import { Loader2 } from 'lucide-react';
 
 export default function StudentProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useStudentAuth();
+  const { session, loading, mustChangePassword } = useStudentAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -14,6 +15,14 @@ export default function StudentProtectedRoute({ children }: { children: React.Re
   }
 
   if (!session) return <Navigate to="/portal/login" replace />;
+
+  // Gate de troca obrigatória — bloqueia tudo até completar; a própria
+  // página /portal/trocar-senha é roteada FORA do PortalLayout, então não
+  // entra neste guard. O check de pathname é defensivo para o caso de
+  // alguém aninhar a rota dentro do layout no futuro.
+  if (mustChangePassword && !location.pathname.endsWith('/trocar-senha')) {
+    return <Navigate to="/portal/trocar-senha" replace />;
+  }
 
   return <>{children}</>;
 }
