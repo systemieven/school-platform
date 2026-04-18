@@ -4,13 +4,15 @@ import { logAudit } from '../../../lib/audit';
 import { SettingsCard } from '../../components/SettingsCard';
 import {
   Save, Loader2, Check,
-  Building2, Image, Palette, Type,
+  Building2, Image, Palette, Type, Cookie,
 } from 'lucide-react';
 import ImageField from '../../components/ImageField';
 import FontPicker, { buildGoogleFontsUrl } from '../../components/FontPicker';
 import {
-  InputField, SelectField, SectionLabel, SectionDivider, INPUT_CLS,
+  InputField, SelectField, TextareaField, SectionLabel, SectionDivider, INPUT_CLS,
 } from '../../components/FormField';
+import { Toggle } from '../../components/Toggle';
+import RoutePicker from '../../components/RoutePicker';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,11 +49,23 @@ interface FontsFields {
   google_fonts_url: string;
 }
 
+interface CookiesFields {
+  enabled: boolean;
+  title: string;
+  message: string;
+  accept_label: string;
+  decline_label: string;
+  policy_label: string;
+  policy_route: string;
+  pulse: boolean;
+}
+
 interface SettingIds {
   identity: string | null;
   logos: string | null;
   colors: string | null;
   fonts: string | null;
+  cookies: string | null;
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
@@ -87,6 +101,19 @@ const DEFAULT_FONTS: FontsFields = {
   sans_weight: '400',
   admin_family: 'Sora',
   google_fonts_url: '',
+};
+
+const DEFAULT_COOKIES: CookiesFields = {
+  enabled: true,
+  title: 'Este site usa cookies',
+  message:
+    'Utilizamos cookies para melhorar sua experiência, analisar o tráfego e personalizar conteúdo. ' +
+    'Ao continuar navegando, você concorda com o uso destes cookies conforme descrito em nossa política.',
+  accept_label: 'Aceitar',
+  decline_label: 'Recusar',
+  policy_label: 'Política de Privacidade',
+  policy_route: '/politica-privacidade',
+  pulse: true,
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -145,14 +172,16 @@ export default function BrandingSettingsPanel() {
   const [logos, setLogos]       = useState<LogosFields>(DEFAULT_LOGOS);
   const [colors, setColors]     = useState<ColorsFields>(DEFAULT_COLORS);
   const [fonts, setFonts]       = useState<FontsFields>(DEFAULT_FONTS);
+  const [cookies, setCookies]   = useState<CookiesFields>(DEFAULT_COOKIES);
 
   const [origIdentity, setOrigIdentity] = useState<IdentityFields>(DEFAULT_IDENTITY);
   const [origLogos, setOrigLogos]       = useState<LogosFields>(DEFAULT_LOGOS);
   const [origColors, setOrigColors]     = useState<ColorsFields>(DEFAULT_COLORS);
   const [origFonts, setOrigFonts]       = useState<FontsFields>(DEFAULT_FONTS);
+  const [origCookies, setOrigCookies]   = useState<CookiesFields>(DEFAULT_COOKIES);
 
   const [ids, setIds] = useState<SettingIds>({
-    identity: null, logos: null, colors: null, fonts: null,
+    identity: null, logos: null, colors: null, fonts: null, cookies: null,
   });
 
   const [loading, setLoading]   = useState(true);
@@ -166,10 +195,10 @@ export default function BrandingSettingsPanel() {
       .from('system_settings')
       .select('id, key, value')
       .eq('category', 'branding')
-      .in('key', ['identity', 'logos', 'colors', 'fonts'])
+      .in('key', ['identity', 'logos', 'colors', 'fonts', 'cookies'])
       .then(({ data }) => {
         if (data) {
-          const newIds: SettingIds = { identity: null, logos: null, colors: null, fonts: null };
+          const newIds: SettingIds = { identity: null, logos: null, colors: null, fonts: null, cookies: null };
           for (const row of data) {
             const val = row.value as Record<string, unknown>;
             switch (row.key) {
@@ -197,6 +226,12 @@ export default function BrandingSettingsPanel() {
                 newIds.fonts = row.id as string;
                 break;
               }
+              case 'cookies': {
+                const v = { ...DEFAULT_COOKIES, ...val } as CookiesFields;
+                setCookies(v); setOrigCookies(v);
+                newIds.cookies = row.id as string;
+                break;
+              }
             }
           }
           setIds(newIds);
@@ -210,7 +245,8 @@ export default function BrandingSettingsPanel() {
     JSON.stringify(identity) !== JSON.stringify(origIdentity) ||
     JSON.stringify(logos) !== JSON.stringify(origLogos) ||
     JSON.stringify(colors) !== JSON.stringify(origColors) ||
-    JSON.stringify(fonts) !== JSON.stringify(origFonts);
+    JSON.stringify(fonts) !== JSON.stringify(origFonts) ||
+    JSON.stringify(cookies) !== JSON.stringify(origCookies);
 
   // ── Save ─────────────────────────────────────────────────────────────────
   async function upsertKey(
@@ -236,11 +272,12 @@ export default function BrandingSettingsPanel() {
   async function handleSave() {
     setSaving(true);
 
-    const [idIdentity, idLogos, idColors, idFonts] = await Promise.all([
+    const [idIdentity, idLogos, idColors, idFonts, idCookies] = await Promise.all([
       upsertKey('identity', identity as unknown as Record<string, unknown>, ids.identity),
       upsertKey('logos', logos as unknown as Record<string, unknown>, ids.logos),
       upsertKey('colors', colors as unknown as Record<string, unknown>, ids.colors),
       upsertKey('fonts', fonts as unknown as Record<string, unknown>, ids.fonts),
+      upsertKey('cookies', cookies as unknown as Record<string, unknown>, ids.cookies),
     ]);
 
     setIds({
@@ -248,18 +285,20 @@ export default function BrandingSettingsPanel() {
       logos: idLogos,
       colors: idColors,
       fonts: idFonts,
+      cookies: idCookies,
     });
 
     setOrigIdentity(identity);
     setOrigLogos(logos);
     setOrigColors(colors);
     setOrigFonts(fonts);
+    setOrigCookies(cookies);
 
     logAudit({
       action: 'update',
       module: 'settings',
       description: 'Configuracoes de branding atualizadas',
-      newData: { identity, logos, colors, fonts },
+      newData: { identity, logos, colors, fonts, cookies },
     });
 
     setSaving(false);
@@ -452,6 +491,94 @@ export default function BrandingSettingsPanel() {
               const url = buildGoogleFontsUrl([fonts.display_family, fonts.sans_family, f]);
               setFonts((s) => ({ ...s, admin_family: f, google_fonts_url: url }));
             }}
+          />
+        </div>
+      </SettingsCard>
+
+      {/* ─── 5. Aviso de Cookies ─────────────────────────────────────────── */}
+      <SettingsCard
+        collapseId="branding-cookies"
+        title="Aviso de Cookies"
+        description="Banner exibido no site público no primeiro acesso. Usa as cores da Marca."
+        icon={Cookie}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <SectionLabel>Exibir banner</SectionLabel>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Desative para não exibir o aviso no site público.
+            </p>
+          </div>
+          <Toggle
+            checked={cookies.enabled}
+            onChange={(v) => setCookies((s) => ({ ...s, enabled: v }))}
+            onColor="bg-emerald-500"
+          />
+        </div>
+
+        <SectionDivider />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InputField
+            label="Título"
+            value={cookies.title}
+            onChange={(e) => setCookies((s) => ({ ...s, title: e.target.value }))}
+            placeholder="Este site usa cookies"
+            maxLength={60}
+          />
+          <InputField
+            label="Texto do link da política"
+            value={cookies.policy_label}
+            onChange={(e) => setCookies((s) => ({ ...s, policy_label: e.target.value }))}
+            placeholder="Política de Privacidade"
+            maxLength={40}
+          />
+        </div>
+
+        <TextareaField
+          label="Mensagem"
+          value={cookies.message}
+          onChange={(e) => setCookies((s) => ({ ...s, message: e.target.value }))}
+          placeholder="Utilizamos cookies para..."
+          rows={4}
+          maxLength={400}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InputField
+            label="Botão aceitar"
+            value={cookies.accept_label}
+            onChange={(e) => setCookies((s) => ({ ...s, accept_label: e.target.value }))}
+            placeholder="Aceitar"
+            maxLength={20}
+          />
+          <InputField
+            label="Botão recusar"
+            value={cookies.decline_label}
+            onChange={(e) => setCookies((s) => ({ ...s, decline_label: e.target.value }))}
+            placeholder="Recusar"
+            maxLength={20}
+          />
+        </div>
+
+        <RoutePicker
+          label="Rota da política de privacidade"
+          value={cookies.policy_route}
+          onChange={(v) => setCookies((s) => ({ ...s, policy_route: v }))}
+        />
+
+        <SectionDivider />
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <SectionLabel>Efeito pulse no botão aceitar</SectionLabel>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Mesmo efeito de pulso usado no botão "Matrícula" da navbar.
+            </p>
+          </div>
+          <Toggle
+            checked={cookies.pulse}
+            onChange={(v) => setCookies((s) => ({ ...s, pulse: v }))}
+            onColor="bg-emerald-500"
           />
         </div>
       </SettingsCard>
