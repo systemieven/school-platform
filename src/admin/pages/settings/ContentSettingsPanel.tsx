@@ -6,7 +6,7 @@ import {
   Save, Loader2, Check,
   Star, Building2, BarChart3, Layers, Image as ImageIcon,
   Home, Baby, BookOpen, BookMarked, GraduationCap, Info,
-  BookHeart, Target, Award, Milestone,
+  BookHeart, Target, Award, Milestone, Cookie,
 } from 'lucide-react';
 import IconPicker from '../../components/IconPicker';
 import ImageField from '../../components/ImageField';
@@ -14,6 +14,8 @@ import {
   InputField, TextareaField, SectionLabel, SectionDivider,
   ArrayItemCard, AddButton,
 } from '../../components/FormField';
+import { Toggle } from '../../components/Toggle';
+import RoutePicker from '../../components/RoutePicker';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface FeatureItem {
@@ -169,6 +171,31 @@ const EMPTY_STATE: ContentState = {
   page_estrutura: { categories: [], destaques_title: 'Destaques da Estrutura', destaques: [], cta_title: 'Venha Conhecer Nossa Estrutura', cta_subtitle: '' },
 };
 
+// ── Cookies (armazenado em branding.cookies — RLS anon read) ─────────────────
+interface CookiesFields {
+  enabled: boolean;
+  title: string;
+  message: string;
+  accept_label: string;
+  decline_label: string;
+  policy_label: string;
+  policy_route: string;
+  pulse: boolean;
+}
+
+const DEFAULT_COOKIES: CookiesFields = {
+  enabled: true,
+  title: 'Este site usa cookies',
+  message:
+    'Utilizamos cookies para melhorar sua experiência, analisar o tráfego e personalizar conteúdo. ' +
+    'Ao continuar navegando, você concorda com o uso destes cookies conforme descrito em nossa política.',
+  accept_label: 'Aceitar',
+  decline_label: 'Recusar',
+  policy_label: 'Política de Privacidade',
+  policy_route: '/politica-privacidade',
+  pulse: true,
+};
+
 // ── Sub-tabs ────────────────────────────────────────────────────────────────
 type ContentTab = 'home' | 'infantil' | 'fund1' | 'fund2' | 'medio' | 'sobre' | 'estrutura';
 
@@ -202,6 +229,11 @@ export default function ContentSettingsPanel() {
   const [activeTab, setActiveTab] = useState<ContentTab>('home');
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Cookies (branding.cookies, carregado em paralelo) ──
+  const [cookies, setCookies] = useState<CookiesFields>(DEFAULT_COOKIES);
+  const [origCookies, setOrigCookies] = useState<CookiesFields>(DEFAULT_COOKIES);
+  const [cookiesId, setCookiesId] = useState<string | null>(null);
+
   // ── Load ──
   useEffect(() => {
     supabase
@@ -227,10 +259,27 @@ export default function ContentSettingsPanel() {
         }
         setLoading(false);
       });
+
+    supabase
+      .from('system_settings')
+      .select('id, value')
+      .eq('category', 'branding')
+      .eq('key', 'cookies')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const v = { ...DEFAULT_COOKIES, ...(data.value as Partial<CookiesFields>) };
+          setCookies(v);
+          setOrigCookies(v);
+          setCookiesId((data as { id: string }).id);
+        }
+      });
   }, []);
 
   // ── Change detection ──
-  const hasChanges = JSON.stringify(state) !== JSON.stringify(original);
+  const hasChanges =
+    JSON.stringify(state) !== JSON.stringify(original) ||
+    JSON.stringify(cookies) !== JSON.stringify(origCookies);
 
   // ── Updaters ──
   function updateKey<K extends ContentKey>(key: K, value: ContentState[K]) {
@@ -290,6 +339,26 @@ export default function ContentSettingsPanel() {
       }
     }
 
+    // ── Upsert cookies (branding.cookies) ──
+    if (JSON.stringify(cookies) !== JSON.stringify(origCookies)) {
+      if (cookiesId) {
+        const { error } = await supabase
+          .from('system_settings')
+          .update({ value: cookies as unknown as Record<string, unknown> })
+          .eq('id', cookiesId);
+        if (error) hasError = true;
+      } else {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .insert({ category: 'branding' as const, key: 'cookies', value: cookies as unknown as Record<string, unknown> })
+          .select('id')
+          .single();
+        if (error) hasError = true;
+        if (data) setCookiesId((data as { id: string }).id);
+      }
+      if (!hasError) setOrigCookies(cookies);
+    }
+
     setSaving(false);
     if (!hasError) {
       setOriginal(deepClone(state));
@@ -314,6 +383,94 @@ export default function ContentSettingsPanel() {
 
   return (
     <div className="p-6 space-y-5">
+
+      {/* ── Aviso de Cookies (global — aparece em todas as sub-abas) ── */}
+      <SettingsCard
+        collapseId="content-cookies"
+        title="Aviso de Cookies"
+        description="Banner exibido no site público no primeiro acesso. Usa as cores de Site > Marca."
+        icon={Cookie}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <SectionLabel>Exibir banner</SectionLabel>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Desative para não exibir o aviso no site público.
+            </p>
+          </div>
+          <Toggle
+            checked={cookies.enabled}
+            onChange={(v) => { setCookies((s) => ({ ...s, enabled: v })); setSaved(false); }}
+            onColor="bg-emerald-500"
+          />
+        </div>
+
+        <SectionDivider />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InputField
+            label="Título"
+            value={cookies.title}
+            onChange={(e) => { setCookies((s) => ({ ...s, title: e.target.value })); setSaved(false); }}
+            placeholder="Este site usa cookies"
+            maxLength={60}
+          />
+          <InputField
+            label="Texto do link da política"
+            value={cookies.policy_label}
+            onChange={(e) => { setCookies((s) => ({ ...s, policy_label: e.target.value })); setSaved(false); }}
+            placeholder="Política de Privacidade"
+            maxLength={40}
+          />
+        </div>
+
+        <TextareaField
+          label="Mensagem"
+          value={cookies.message}
+          onChange={(e) => { setCookies((s) => ({ ...s, message: e.target.value })); setSaved(false); }}
+          placeholder="Utilizamos cookies para..."
+          rows={4}
+          maxLength={400}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InputField
+            label="Botão aceitar"
+            value={cookies.accept_label}
+            onChange={(e) => { setCookies((s) => ({ ...s, accept_label: e.target.value })); setSaved(false); }}
+            placeholder="Aceitar"
+            maxLength={20}
+          />
+          <InputField
+            label="Botão recusar"
+            value={cookies.decline_label}
+            onChange={(e) => { setCookies((s) => ({ ...s, decline_label: e.target.value })); setSaved(false); }}
+            placeholder="Recusar"
+            maxLength={20}
+          />
+        </div>
+
+        <RoutePicker
+          label="Rota da política de privacidade"
+          value={cookies.policy_route}
+          onChange={(v) => { setCookies((s) => ({ ...s, policy_route: v })); setSaved(false); }}
+        />
+
+        <SectionDivider />
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <SectionLabel>Efeito pulse no botão aceitar</SectionLabel>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Mesmo efeito de pulso usado no botão "Matrícula" da navbar.
+            </p>
+          </div>
+          <Toggle
+            checked={cookies.pulse}
+            onChange={(v) => { setCookies((s) => ({ ...s, pulse: v })); setSaved(false); }}
+            onColor="bg-emerald-500"
+          />
+        </div>
+      </SettingsCard>
 
       {/* ── Sub-tab bar ── */}
       <div className="flex flex-wrap gap-1.5 w-fit rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
