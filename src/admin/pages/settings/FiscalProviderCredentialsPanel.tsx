@@ -176,7 +176,16 @@ export default function FiscalProviderCredentialsPanel() {
     try {
       const { data, error } = await supabase.functions.invoke('fiscal-provider-quotas', { body: {} });
       if (error) {
-        setQuotas({ ok: false, error: error.message });
+        // FunctionsHttpError carrega a Response real em error.context — parse pra pegar o body.
+        let detail = error.message;
+        const ctx = (error as { context?: Response }).context;
+        if (ctx && typeof ctx.text === 'function') {
+          try {
+            const body = await ctx.text();
+            if (body) detail = `${error.message} — ${body}`;
+          } catch { /* ignore */ }
+        }
+        setQuotas({ ok: false, error: detail });
       } else {
         setQuotas(data as QuotasResult);
       }
@@ -198,7 +207,15 @@ export default function FiscalProviderCredentialsPanel() {
     try {
       const { data, error } = await supabase.functions.invoke('fiscal-provider-test', { body: {} });
       if (error) {
-        setTestResult({ ok: false, error: error.message });
+        let detail = error.message;
+        const ctx = (error as { context?: Response }).context;
+        if (ctx && typeof ctx.text === 'function') {
+          try {
+            const body = await ctx.text();
+            if (body) detail = `${error.message} — ${body}`;
+          } catch { /* ignore */ }
+        }
+        setTestResult({ ok: false, error: detail });
       } else {
         setTestResult(data as TestResult);
       }
