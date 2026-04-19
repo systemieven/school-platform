@@ -27,11 +27,12 @@ import { usePermissions } from '../../contexts/PermissionsContext';
 import { supabase } from '../../../lib/supabase';
 import { DashboardHeader, AiInsightsWidget } from './widgets';
 import type { Period } from './widgets';
-import type { Profile, DashboardWidgetPref } from '../../types/admin.types';
+import type { Profile, DashboardWidgetPref, DashboardWidgetUserPref } from '../../types/admin.types';
 import { DASHBOARD_WIDGETS, WIDGET_LABELS, type DashboardWidget, type LoadCtx } from './registry';
 import { ROLE_LABELS } from './widgets/constants';
 import DashboardChartGrid from '../../components/DashboardChartGrid';
 import DashboardWidgetPrefsDrawer, { type RegistryWidgetMeta } from '../../components/DashboardWidgetPrefsDrawer';
+import { mergePrefs } from '../../lib/dashboardPrefs';
 
 export default function DashboardPage() {
   const { profile, hasRole } = useAdminAuth();
@@ -39,29 +40,70 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>('7d');
   const [results, setResults] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
-  const [prefs, setPrefs] = useState<DashboardWidgetPref[]>([]);
+  const [globalPrefs, setGlobalPrefs] = useState<DashboardWidgetPref[]>([]);
+  const [userPrefs, setUserPrefs] = useState<DashboardWidgetUserPref[]>([]);
   const [prefsDrawerOpen, setPrefsDrawerOpen] = useState(false);
+  const [customCharts, setCustomCharts] = useState<{ id: string; title: string }[]>([]);
 
   const isAdmin = hasRole('admin', 'super_admin');
 
-  // ── Carrega prefs do registry (visibilidade/ordem) ──────────────────────
+  // ── Carrega prefs (global da escola + per-user) em paralelo ─────────────
   useEffect(() => {
+    if (!profile?.id) return;
+    let alive = true;
+    (async () => {
+      const [globalRes, userRes] = await Promise.all([
+        supabase.from('dashboard_widget_prefs').select('*').eq('module', 'principal'),
+        supabase
+          .from('dashboard_widget_user_prefs')
+          .select('*')
+          .eq('user_id', profile.id)
+          .eq('module', 'principal'),
+      ]);
+      if (!alive) return;
+      if (globalRes.data) setGlobalPrefs(globalRes.data as DashboardWidgetPref[]);
+      if (userRes.data) setUserPrefs(userRes.data as DashboardWidgetUserPref[]);
+    })();
+    return () => { alive = false; };
+  }, [profile?.id]);
+
+  // Lista de graficos personalizados (mostrada no drawer para personalizacao
+  // per-user). Admin continua reordenando diretamente no grid para mudar o
+  // padrao da escola.
+  useEffect(() => {
+    if (!isAdmin) return;
     let alive = true;
     (async () => {
       const { data } = await supabase
-        .from('dashboard_widget_prefs')
-        .select('*')
-        .eq('module', 'principal');
-      if (alive && data) setPrefs(data as DashboardWidgetPref[]);
+        .from('dashboard_widgets')
+        .select('id, title')
+        .eq('module', 'principal')
+        .order('position');
+      if (alive && data) setCustomCharts(data as { id: string; title: string }[]);
     })();
     return () => { alive = false; };
-  }, []);
+  }, [isAdmin, prefsDrawerOpen]);
 
-  const prefsByWidget = useMemo(() => {
+  const globalPrefsByWidget = useMemo(() => {
     const m: Record<string, DashboardWidgetPref> = {};
-    prefs.forEach((p) => { m[p.registry_widget_id] = p; });
+    globalPrefs.forEach((p) => { m[p.registry_widget_id] = p; });
     return m;
-  }, [prefs]);
+  }, [globalPrefs]);
+
+  const userPrefsByWidget = useMemo(() => {
+    const m: Record<string, DashboardWidgetUserPref> = {};
+    userPrefs.forEach((p) => { m[p.registry_widget_id] = p; });
+    return m;
+  }, [userPrefs]);
+
+  // user > global > registry default — fonte única de verdade pra render.
+  const effectivePrefs = useMemo(() => {
+    return mergePrefs(
+      DASHBOARD_WIDGETS.map((w) => ({ id: w.id, order: w.order })),
+      globalPrefs,
+      userPrefs,
+    );
+  }, [globalPrefs, userPrefs]);
 
   // ── Quais widgets o usuário enxerga? ─────────────────────────────────────
   const visibleWidgets: DashboardWidget[] = useMemo(() => {
@@ -69,12 +111,10 @@ export default function DashboardPage() {
     return DASHBOARD_WIDGETS.filter((w) => {
       if (w.requireRole && !hasRole(...w.requireRole)) return false;
       if (!w.anyModuleKeys.some((k) => canView(k))) return false;
-      // Pref override: se existir pref e is_visible=false, esconde.
-      const pref = prefsByWidget[w.id];
-      if (pref && !pref.is_visible) return false;
-      return true;
+      // Visibilidade efetiva (user > global > default).
+      return effectivePrefs[w.id]?.is_visible !== false;
     });
-  }, [profile, canView, hasRole, prefsByWidget]);
+  }, [profile, canView, hasRole, effectivePrefs]);
 
   // ── Fetch em paralelo, apenas dos visíveis ──────────────────────────────
   const fetchAll = useCallback(async () => {
@@ -123,11 +163,9 @@ export default function DashboardPage() {
     ? `Resumo do que você acompanha como ${roleLabel}.`
     : 'Resumo dos seus módulos.';
 
-  // Ordena por pref.position se existir, senão por w.order.
-  const orderOf = (w: DashboardWidget) => {
-    const p = prefsByWidget[w.id];
-    return p ? p.position : w.order;
-  };
+  // Ordena pela posição efetiva (user > global > default).
+  const orderOf = (w: DashboardWidget) =>
+    effectivePrefs[w.id]?.position ?? w.order;
 
   const bySlot = (slot: DashboardWidget['slot']) =>
     visibleWidgets
@@ -174,7 +212,7 @@ export default function DashboardPage() {
         description={description}
         period={period}
         onPeriodChange={setPeriod}
-        actionSlot={isAdmin ? (
+        actionSlot={(
           <button
             onClick={() => setPrefsDrawerOpen(true)}
             className="btn-matricula-nav hidden sm:inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold
@@ -184,7 +222,7 @@ export default function DashboardPage() {
           >
             <Sliders className="w-4 h-4" /> Personalizar
           </button>
-        ) : null}
+        )}
       />
 
       {visibleWidgets.length === 0 ? (
@@ -265,16 +303,17 @@ export default function DashboardPage() {
         </>
       )}
 
-      {isAdmin && (
-        <DashboardWidgetPrefsDrawer
-          open={prefsDrawerOpen}
-          onClose={() => setPrefsDrawerOpen(false)}
-          module="principal"
-          registry={registryForPrefs}
-          prefsByWidget={prefsByWidget}
-          onSaved={(next) => setPrefs(next)}
-        />
-      )}
+      <DashboardWidgetPrefsDrawer
+        open={prefsDrawerOpen}
+        onClose={() => setPrefsDrawerOpen(false)}
+        module="principal"
+        registry={registryForPrefs}
+        customCharts={isAdmin ? customCharts : []}
+        globalPrefsByWidget={globalPrefsByWidget}
+        userPrefsByWidget={userPrefsByWidget}
+        onGlobalSaved={(next) => setGlobalPrefs(next)}
+        onUserSaved={(next) => setUserPrefs(next)}
+      />
     </div>
   );
 }

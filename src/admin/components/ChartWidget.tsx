@@ -14,6 +14,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts';
+import type { ReactNode } from 'react';
 import { Pencil, Trash2, TrendingUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { DashboardWidget, ChartPeriod } from '../types/admin.types';
@@ -473,9 +474,11 @@ interface ChartWidgetProps {
   widget: DashboardWidget;
   onEdit: () => void;
   onDelete: () => void;
+  /** Slot opcional para handle de drag-and-drop, renderizado à esquerda do título. */
+  dragHandle?: ReactNode;
 }
 
-export default function ChartWidget({ widget, onEdit, onDelete }: ChartWidgetProps) {
+export default function ChartWidget({ widget, onEdit, onDelete, dragHandle }: ChartWidgetProps) {
   const [data, setData] = useState<ChartDatum[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -612,8 +615,11 @@ export default function ChartWidget({ widget, onEdit, onDelete }: ChartWidgetPro
   return (
     <div className="group relative bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 h-[280px] flex flex-col hover:shadow-md transition-shadow duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{widget.title}</p>
+      <div className="flex items-center justify-between mb-3 flex-shrink-0 gap-2">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          {dragHandle}
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{widget.title}</p>
+        </div>
         {/* Action buttons — visible on hover */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button

@@ -1586,6 +1586,7 @@ Configuravel na aba Aparencia > Home:
 | 218 | `anon_read_branding_appearance_navigation` | 18/04 | ✅ **Fase 16 PR7** — Expande policy `SELECT` anônima em `system_settings` para `category IN ('branding','appearance','navigation','content')` com `key` whitelisted. Unifica a leitura pré-login das 4 categorias que alimentam a SPA pública. Substitui policies fragmentadas das migrations 34/35/36. |
 | 219 | `pre_screening_sessions_rls` | 18/04 | ✅ **Fase 16 PR8** — Corrige gap crítico: migration 208 habilitou RLS sem policies, bloqueando admins autenticados (aba "Chat" do `CandidatoDrawer` vazia em produção). Policies `pre_screening_sessions_admin_all` (`profiles.role IN (super_admin,admin)`) + `pre_screening_sessions_select_by_perm` (`get_effective_permissions('rh-seletivo', can_view)`). Edge functions via service-role continuam passando. |
 | 220 | `rh_pipeline_notifications` | 19/04 | ✅ **Fase 16 PR9** — Notificações WhatsApp automáticas no pipeline: `whatsapp_templates.category` CHECK estendido com `'rh-seletivo'`; `job_applications.notified_stages TEXT[]` (dedup); seed `system_settings.general.site_url` + `hr.required_docs`; trigger `trg_notify_on_rh_stage_change` (BEFORE UPDATE OF stage) dispara `auto-notify` via `pg_net.http_post` e marca `notified_stages` na mesma transação; 4 templates pt-BR (`rh_stage_entrevista/proposta/contratado/descartado`) com variáveis `candidate_first_name, job_title, school_name, schedule_url, careers_url, business_hours_text, required_docs_list`. Categoria `rh-seletivo` também em `whatsapp_template_categories` (aparece no editor de templates). |
+| 222 | `dashboard_user_prefs` | 19/04 | 🟡 **Fase 18** — Tabela `dashboard_widget_user_prefs` (UNIQUE `user_id+module+registry_widget_id`, `is_visible bool`, `position int`, `module CHECK ('principal','financeiro','academico')`). RLS estrito por dono (`auth.uid()`) — SELECT/INSERT/UPDATE/DELETE somente para o proprio usuario, sem bypass admin. Trigger `set_updated_at`. Habilita personalizacao per-user do dashboard com merge `user > global > registry default` (lib `src/admin/lib/dashboardPrefs.ts`). Drawer ganha tabs "Minha visao" / "Padrao da escola" (admin) + drag-and-drop via `@dnd-kit/sortable`. `DashboardChartGrid` ganha drag-reorder usando `dashboard_widgets.position` existente. |
 | 221 | `candidates_cpf_as_natural_key` | 19/04 | ✅ **Fase 16 PR10** — `DROP CONSTRAINT candidates_email_key` — CPF (UNIQUE desde 205) vira a chave humana do candidato; email pode mudar ao longo do tempo. Suporte no app: `src/lib/cpf.ts` + `supabase/functions/_shared/cpf.ts` com validador de checksum Receita Federal; `careers-intake` usa `upsertCandidateByCpf`; `CandidatoDrawer` expõe CPF/RG/birth_date/endereço com backfill a partir de `extracted_payload` do CV. |
 
 ### 7.4 RLS Policies
@@ -4906,6 +4907,50 @@ VALUES ('lost-found', 'Achados e Perdidos', 'Modulo de objetos encontrados e ges
 | 103 | `lost_found_items` — tabela principal com campos de status, reivindicacao e entrega |
 | 104 | `lost_found_events` — tabela de timeline por objeto; FK para `lost_found_items` |
 | 105 | `modules` INSERT para `lost-found`; `system_settings` INSERTs para as 5 configuracoes do modulo |
+
+---
+
+### 10.12B Fase 18 — Personalizacao do Dashboard Principal (per-user)
+
+> 🟡 **Em progresso** — migration 222, 2026-04-19.
+
+**Problema**: o dashboard principal (`/admin`) tem 22 widgets registrados em `src/admin/pages/dashboard/widgets/registry.tsx` e prefs globais por modulo em `dashboard_widget_prefs` (visibilidade + ordem). Quem edita o drawer "Personalizar" muda o dashboard de **todos** — coordenadores, financeiro e secretaria veem o mesmo layout, mesmo com prioridades muito diferentes. Reordenar com setinhas (`ArrowUp`/`ArrowDown`) tambem desestimula uso.
+
+**Objetivo**: cada usuario mostra/esconde e reordena os widgets do seu jeito (drag-and-drop). Admin mantem um padrao da escola (fallback para quem nunca personalizou). A area de graficos personalizados (`DashboardChartGrid`) tambem ganha drag-and-drop para super_admin reordenar charts sem editar campo a campo.
+
+**Como funciona**
+
+- **Nova tabela** `dashboard_widget_user_prefs` (migration 222) — UNIQUE `(user_id, module, registry_widget_id)`, RLS estrito por dono (`auth.uid()`), nem super_admin escreve pref alheia.
+- **Resolucao de prefs** (lib `src/admin/lib/dashboardPrefs.ts`, funcao pura `mergePrefs`): pref do usuario > pref global do modulo > default do registry.
+- **Drawer `DashboardWidgetPrefsDrawer`** ganha duas abas internas: **Minha visao** (todos veem; UPSERT em `dashboard_widget_user_prefs`) e **Padrao da escola** (so admin/super_admin; UPSERT em `dashboard_widget_prefs`). Setinhas saem; entra handle `<GripVertical>` com `@dnd-kit/sortable` (`KeyboardSensor` cobre acessibilidade). Botao "Resetar para padrao" apaga prefs do usuario.
+- **DashboardPage** carrega as duas tabelas em paralelo, deriva `effectivePrefsByWidget` via `mergePrefs`, e abre o botao "Personalizar" para todos os roles (nao apenas admin).
+- **DashboardChartGrid** envolve os charts em `DndContext`/`SortableContext`; `onDragEnd` faz UPSERT batch em `dashboard_widgets.position` (campo ja existente, sem alteracao de schema). Handle so aparece para admin/super_admin via `hasRole`; demais roles continuam read-only.
+- **ChartWidget** aceita prop opcional `dragHandle?: ReactNode` renderizada no header.
+- **Tipo** `DashboardWidgetUserPref` adicionado em `src/admin/types/admin.types.ts`.
+
+**Permissoes/RLS**
+
+- `dashboard_widget_user_prefs`: SELECT/INSERT/UPDATE/DELETE somente para o dono (`user_id = auth.uid()`). Sem bypass admin.
+- `dashboard_widget_prefs` (existente): mantem grants atuais (admin/super_admin).
+- Widgets cujo `anyModuleKeys` o usuario nao tem permissao continuam filtrados pelo `registryForPrefs` no drawer e por `canView()` no render.
+
+**Fora de escopo (follow-up)**
+
+- Replicar `mergePrefs` nos dashboards de Financeiro e Academico (trivial depois que o Principal estiver verde).
+- Tamanhos variaveis de widget (col-span 2/3) — slots fixos por enquanto.
+- Drag entre slots (KPI virar wide).
+
+**Codigo afetado**
+
+- `supabase/migrations/00000000000222_dashboard_user_prefs.sql` (novo)
+- `src/admin/lib/dashboardPrefs.ts` (novo)
+- `src/admin/pages/dashboard/DashboardPage.tsx` (merge + abrir drawer para todos)
+- `src/admin/components/DashboardWidgetPrefsDrawer.tsx` (tabs + dnd + reset)
+- `src/admin/components/DashboardChartGrid.tsx` (dnd + UPSERT batch)
+- `src/admin/components/ChartWidget.tsx` (prop `dragHandle`)
+- `src/admin/types/admin.types.ts` (tipo `DashboardWidgetUserPref`)
+
+Plano completo em `~/.claude/plans/leia-o-prd-se-o-cozy-kay.md`.
 
 ---
 

@@ -1679,6 +1679,18 @@ export interface DashboardWidgetPref {
   updated_at: string;
 }
 
+/** Preferência por usuário (apenas o dono lê/escreve via RLS). */
+export interface DashboardWidgetUserPref {
+  id: string;
+  user_id: string;
+  module: DashboardModule;
+  registry_widget_id: string;
+  is_visible: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WidgetConfig {
   period?: ChartPeriod;
   color_scheme?: string;

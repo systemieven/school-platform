@@ -266,7 +266,7 @@ export default function ChartBuilderDrawer({
           ) : saved ? (
             <><Check className="w-4 h-4" /> Salvo!</>
           ) : (
-            <><LayoutDashboard className="w-4 h-4" /> {isNew ? 'Criar gráfico' : 'Salvar alterações'}</>
+            <><LayoutDashboard className="w-4 h-4" /> {isNew ? 'Criar gráfico' : 'Salvar'}</>
           )}
         </button>
       </div>
