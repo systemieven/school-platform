@@ -104,10 +104,13 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   }
 
   if (source === 'contracts_by_segment') {
+    // Conta contratos ativos criados dentro do período selecionado.
     const { data } = await supabase
       .from('financial_contracts')
-      .select('status, school_class:school_classes(series:school_series(segment:school_segments(name)))')
-      .eq('status', 'active');
+      .select('status, created_at, school_class:school_classes(series:school_series(segment:school_segments(name)))')
+      .eq('status', 'active')
+      .gte('created_at', start + 'T00:00:00')
+      .lte('created_at', end + 'T23:59:59');
 
     type ContractRow = { school_class: { series: { segment: { name: string } | null } | null } | null };
     const agg: Record<string, number> = {};
@@ -140,7 +143,9 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   if (source === 'collection_funnel') {
     const { data } = await supabase
       .from('financial_installments')
-      .select('status, amount');
+      .select('status, amount, due_date')
+      .gte('due_date', start)
+      .lte('due_date', end);
 
     const labels: Record<string, string> = {
       paid: 'Pago', pending: 'Pendente', overdue: 'Vencido',
@@ -391,7 +396,11 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   // ── Secretaria ──────────────────────────────────────────────────────────────
 
   if (source === 'declaracoes_by_status') {
-    const { data } = await supabase.from('document_requests').select('status');
+    const { data } = await supabase
+      .from('document_requests')
+      .select('status, created_at')
+      .gte('created_at', start + 'T00:00:00')
+      .lte('created_at', end + 'T23:59:59');
     const labels: Record<string, string> = {
       pending: 'Pendente', approved: 'Aprovada', generating: 'Gerando',
       generated: 'Gerada', delivered: 'Entregue', rejected: 'Rejeitada',
@@ -421,7 +430,11 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   }
 
   if (source === 'transfers_by_type') {
-    const { data } = await supabase.from('student_transfers').select('type');
+    const { data } = await supabase
+      .from('student_transfers')
+      .select('type, effective_date')
+      .gte('effective_date', start)
+      .lte('effective_date', end);
     const labels: Record<string, string> = {
       internal: 'Interna', transfer_out: 'Transferência', trancamento: 'Trancamento', cancellation: 'Cancelamento',
     };
@@ -434,7 +447,11 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   }
 
   if (source === 'rematricula_funnel') {
-    const { data } = await supabase.from('reenrollment_applications').select('status');
+    const { data } = await supabase
+      .from('reenrollment_applications')
+      .select('status, created_at')
+      .gte('created_at', start + 'T00:00:00')
+      .lte('created_at', end + 'T23:59:59');
     const labels: Record<string, string> = {
       pending: 'Pendente', confirmed: 'Confirmada', signed: 'Assinada',
       contract_generated: 'Contrato', completed: 'Concluída', cancelled: 'Cancelada',
@@ -468,7 +485,11 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   }
 
   if (source === 'teacher_exams_by_status') {
-    const { data } = await supabase.from('class_exams').select('status');
+    const { data } = await supabase
+      .from('class_exams')
+      .select('status, exam_date')
+      .gte('exam_date', start)
+      .lte('exam_date', end);
     const labels: Record<string, string> = {
       draft: 'Rascunho', published: 'Publicada', applied: 'Aplicada', corrected: 'Corrigida',
     };
