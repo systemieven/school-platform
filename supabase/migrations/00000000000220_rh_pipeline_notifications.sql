@@ -117,6 +117,19 @@ CREATE TRIGGER trg_notify_on_rh_stage_change
   BEFORE UPDATE OF stage ON job_applications
   FOR EACH ROW EXECUTE FUNCTION notify_on_rh_stage_change();
 
+-- ── 4b) Categoria dinâmica no catálogo (exibida na UI de templates) ────────
+
+INSERT INTO whatsapp_template_categories (slug, label, color, variables, sort_order)
+VALUES (
+  'rh-seletivo', 'RH — Seleção', 'indigo',
+  ARRAY[
+    'candidate_name','candidate_first_name','job_title','job_area',
+    'school_name','business_hours_text','schedule_url','careers_url','required_docs_list'
+  ],
+  7
+)
+ON CONFLICT (slug) DO NOTHING;
+
 -- ── 5) Seed dos 4 templates ────────────────────────────────────────────────
 
 INSERT INTO whatsapp_templates (name, category, message_type, content, variables, trigger_event, trigger_conditions, is_active)
