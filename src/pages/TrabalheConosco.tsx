@@ -508,7 +508,7 @@ export default function TrabalheConosco() {
             </p>
 
             <div className="space-y-4 bg-white p-6 rounded-xl border border-gray-200">
-              <InputField
+              <InputField floating
                 label="Nome completo"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -516,7 +516,7 @@ export default function TrabalheConosco() {
                 required
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InputField
+                <InputField floating
                   label="E-mail"
                   type="email"
                   value={form.email}
@@ -524,7 +524,7 @@ export default function TrabalheConosco() {
                   icon={Mail}
                   required
                 />
-                <InputField
+                <InputField floating
                   label="Telefone / WhatsApp"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })}

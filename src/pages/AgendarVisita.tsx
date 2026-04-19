@@ -960,7 +960,7 @@ export default function AgendarVisita() {
                     </p>
 
                     <div className="space-y-5">
-                      <InputField
+                      <InputField floating
                         label="Nome completo *"
                         icon={User}
                         type="text"
@@ -971,7 +971,7 @@ export default function AgendarVisita() {
                       />
 
                       <div className="grid sm:grid-cols-2 gap-5">
-                        <InputField
+                        <InputField floating
                           label="Celular *"
                           icon={Phone}
                           type="text"
@@ -982,7 +982,7 @@ export default function AgendarVisita() {
                           placeholder="(00) 00000-0000"
                           error={errors.phone || undefined}
                         />
-                        <InputField
+                        <InputField floating
                           label="E-mail (opcional)"
                           icon={Mail}
                           type="email"
@@ -1099,7 +1099,7 @@ export default function AgendarVisita() {
                         {companions.map((c, i) => (
                           <div key={i} className="flex gap-2 mb-2.5 items-start">
                             <div className="flex-1">
-                              <InputField
+                              <InputField floating
                                 label={`Acompanhante ${i + 1}`}
                                 icon={Users}
                                 type="text"

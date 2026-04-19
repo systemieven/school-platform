@@ -121,7 +121,7 @@ export default function LoginPage() {
 
           {mode === 'login' ? (
             <form onSubmit={handleSubmit} className="space-y-5">
-              <InputField
+              <InputField floating
                 label="E-mail institucional"
                 icon={Mail}
                 type="email"
@@ -132,7 +132,7 @@ export default function LoginPage() {
                 autoComplete="email"
               />
 
-              <InputField
+              <InputField floating
                 label="Senha"
                 icon={Lock}
                 type={showPassword ? 'text' : 'password'}
@@ -212,7 +212,7 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <InputField
+              <InputField floating
                 label="E-mail cadastrado"
                 icon={Mail}
                 type="email"

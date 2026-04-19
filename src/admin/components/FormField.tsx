@@ -174,11 +174,17 @@ export interface InputFieldProps
   hint?: string;
   error?: string;
   maxLength?: number;
+  /**
+   * Label flutuante (dentro da borda). Default: `false` — label externa em cima
+   * do campo, padrão admin, alinhado com raw `<input className={INPUT_CLS}>`.
+   * Setar `true` apenas no site público e LoginPage (experiência mais imersiva).
+   */
+  floating?: boolean;
 }
 
 export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
   function InputField(
-    { label, icon, rightSlot, hint, error, maxLength, className, id, onFocus, onBlur, ...rest },
+    { label, icon, rightSlot, hint, error, maxLength, className, id, onFocus, onBlur, floating, ...rest },
     ref,
   ) {
     const reactId = useId();
@@ -187,6 +193,40 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
     const value = typeof rest.value === 'string' ? rest.value : '';
     const filled = value.length > 0 || !!rest.defaultValue;
 
+    // ── Modo padrão (admin): label externa, altura compacta, alinhada com INPUT_CLS
+    if (!floating) {
+      const Icon = icon;
+      const borderErr = error ? ' border-red-400' : '';
+      const padLeft = Icon ? ' pl-9' : '';
+      const padRight = rightSlot ? ' pr-10' : '';
+      return (
+        <div>
+          <label htmlFor={inputId} className={LABEL_CLS}>{label}</label>
+          <div className="relative">
+            {Icon && (
+              <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            )}
+            <input
+              ref={ref}
+              id={inputId}
+              maxLength={maxLength}
+              onFocus={(e) => { setFocused(true); onFocus?.(e); }}
+              onBlur={(e) => { setFocused(false); onBlur?.(e); }}
+              className={`${INPUT_CLS}${padLeft}${padRight}${borderErr}${className ? ` ${className}` : ''}`}
+              {...rest}
+            />
+            {rightSlot && (
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center">
+                {rightSlot}
+              </div>
+            )}
+          </div>
+          <FootLine error={error} hint={hint} max={maxLength} current={value.length} />
+        </div>
+      );
+    }
+
+    // ── Modo floating (site público + login): label dentro, altura maior
     return (
       <div>
         <FloatingShell
@@ -229,11 +269,13 @@ export interface TextareaFieldProps
   hint?: string;
   error?: string;
   maxLength?: number;
+  /** Label dentro da borda. Default `false` (externa, padrão admin). */
+  floating?: boolean;
 }
 
 export const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>(
   function TextareaField(
-    { label, hint, error, maxLength, className, id, onFocus, onBlur, ...rest },
+    { label, hint, error, maxLength, className, id, onFocus, onBlur, floating, ...rest },
     ref,
   ) {
     const reactId = useId();
@@ -241,7 +283,28 @@ export const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>
     const [focused, setFocused] = useState(false);
     const value = typeof rest.value === 'string' ? rest.value : '';
 
-    // Textarea: label sempre "flutuante" (fica no topo); borda + cor seguem foco.
+    // ── Modo padrão (admin): label externa
+    if (!floating) {
+      const borderErr = error ? ' border-red-400' : '';
+      return (
+        <div>
+          <label htmlFor={inputId} className={LABEL_CLS}>{label}</label>
+          <textarea
+            ref={ref}
+            id={inputId}
+            maxLength={maxLength}
+            rows={rest.rows ?? 3}
+            onFocus={(e) => { setFocused(true); onFocus?.(e); }}
+            onBlur={(e) => { setFocused(false); onBlur?.(e); }}
+            className={`${INPUT_CLS} resize-none${borderErr}${className ? ` ${className}` : ''}`}
+            {...rest}
+          />
+          <FootLine error={error} hint={hint} max={maxLength} current={value.length} />
+        </div>
+      );
+    }
+
+    // ── Modo floating (site público + login)
     const borderCls = error
       ? 'border-red-400 dark:border-red-500/70'
       : focused

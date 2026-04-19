@@ -450,7 +450,7 @@ export default function Contato() {
                         Dados pessoais
                       </h3>
                       <div className="space-y-4">
-                        <InputField
+                        <InputField floating
                           label={labelWithRequired('Nome completo', requiredFields.has('nome'))}
                           icon={User}
                           type="text"
@@ -461,7 +461,7 @@ export default function Contato() {
                         />
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <InputField
+                          <InputField floating
                             label={labelWithRequired('Celular', requiredFields.has('celular'))}
                             icon={Phone}
                             type="text"
@@ -473,7 +473,7 @@ export default function Contato() {
                             error={errors.phone}
                           />
 
-                          <InputField
+                          <InputField floating
                             label={labelWithRequired('E-mail', requiredFields.has('email'))}
                             icon={Mail}
                             type="email"
@@ -630,7 +630,7 @@ export default function Contato() {
                     )}
 
                     {/* Mensagem / Observações */}
-                    <TextareaField
+                    <TextareaField floating
                       label={labelWithRequired(
                         selectedReason?.require_message ? 'Detalhe sua solicitação' : 'Observações ou dúvidas',
                         !!selectedReason?.require_message,
