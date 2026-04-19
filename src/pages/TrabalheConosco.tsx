@@ -669,15 +669,20 @@ export default function TrabalheConosco() {
                 </div>
               )}
 
-              <div className="p-3 border-t border-gray-200 flex gap-2">
-                <input
-                  type="text"
+              <div className="p-3 border-t border-gray-200 flex gap-2 items-end">
+                <textarea
+                  rows={3}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendChat();
+                    }
+                  }}
                   disabled={sendingTurn || finalized}
-                  placeholder={finalized ? 'Entrevista finalizada.' : 'Escreva sua resposta…'}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none disabled:bg-gray-50"
+                  placeholder={finalized ? 'Entrevista finalizada.' : 'Escreva sua resposta… (Shift+Enter para nova linha)'}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none disabled:bg-gray-50 resize-none min-h-[72px] max-h-[180px] overflow-y-auto"
                 />
                 <button
                   onClick={handleSendChat}
