@@ -12,6 +12,7 @@ import {
   moveApplicationStage, type ApplicationStage, type JobApplicationWithRelations,
   type PreScreeningStatus,
 } from '../../hooks/useJobApplications';
+import { supabase } from '../../../lib/supabase';
 import VagaDrawer from './drawers/VagaDrawer';
 import CandidatoDrawer from './drawers/CandidatoDrawer';
 
@@ -261,6 +262,22 @@ function VagasTab() {
   const [status, setStatus] = useState<'all' | JobStatus>('all');
   const [selected, setSelected] = useState<JobOpening | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [candidateApp, setCandidateApp] = useState<JobApplicationWithRelations | null>(null);
+  const [candidateDrawerOpen, setCandidateDrawerOpen] = useState(false);
+
+  async function handleSelectCandidate(applicationId: string) {
+    const { data, error: err } = await supabase
+      .from('job_applications')
+      .select('*, candidate:candidates(*), job_opening:job_openings(id, title, department, employment_type)')
+      .eq('id', applicationId)
+      .maybeSingle();
+    if (err || !data) {
+      alert(err?.message ?? 'Candidato não encontrado.');
+      return;
+    }
+    setCandidateApp(data as JobApplicationWithRelations);
+    setCandidateDrawerOpen(true);
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -383,6 +400,14 @@ function VagasTab() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         job={selected}
+        onSaved={reload}
+        onSelectCandidate={handleSelectCandidate}
+      />
+
+      <CandidatoDrawer
+        open={candidateDrawerOpen}
+        onClose={() => setCandidateDrawerOpen(false)}
+        application={candidateApp}
         onSaved={reload}
       />
     </div>
