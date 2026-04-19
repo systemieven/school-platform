@@ -1,17 +1,39 @@
 import { useEffect, useState } from 'react';
 import {
   Briefcase, FileText, MapPin, Check, Loader2, Trash2, DollarSign,
+  Sparkles, UserCheck, ThumbsUp, ThumbsDown,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
 import { SelectDropdown } from '../../../components/FormField';
 import HtmlTemplateEditor from '../../../components/HtmlTemplateEditor';
 import { logAudit } from '../../../../lib/audit';
+import { supabase } from '../../../../lib/supabase';
 import {
   createJobOpening, updateJobOpening, deleteJobOpening,
   JOB_AREA_LABELS,
   type JobOpening, type JobOpeningInput, type JobStatus, type JobArea,
 } from '../../../hooks/useJobOpenings';
 import type { EmploymentType } from '../../../hooks/useStaff';
+
+// Linha devolvida pela RPC list_reserva_candidates_for_job (definida na 214).
+interface ReservaCandidateRow {
+  application_id: string;
+  candidate_name: string;
+  screener_score: number | null;
+  pre_screening_status: string;
+  extracted_summary: string | null;
+  interview_recommendation: string | null;
+  experience_json: unknown;
+  skills_json: unknown;
+}
+
+interface BestFitItem {
+  application_id: string;
+  score: number;
+  summary: string;
+  pros: string[];
+  cons: string[];
+}
 
 const inputCls =
   'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm transition-all';
@@ -38,27 +60,38 @@ const BLANK: Partial<JobOpeningInput> = {
   status: 'draft',
 };
 
-type TabKey = 'info' | 'descricao' | 'requisitos';
+type TabKey = 'info' | 'descricao' | 'requisitos' | 'reserva';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   job: JobOpening | null;
   onSaved: () => void;
+  onSelectCandidate?: (applicationId: string) => void;
 }
 
-export default function VagaDrawer({ open, onClose, job, onSaved }: Props) {
+export default function VagaDrawer({ open, onClose, job, onSaved, onSelectCandidate }: Props) {
   const [tab, setTab] = useState<TabKey>('info');
   const [form, setForm] = useState<Partial<JobOpeningInput>>(BLANK);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
+  const [bfLoading, setBfLoading] = useState(false);
+  const [bfError, setBfError] = useState('');
+  const [bfReservaCount, setBfReservaCount] = useState<number | null>(null);
+  const [bfItems, setBfItems] = useState<BestFitItem[] | null>(null);
+  const [bfNames, setBfNames] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (!open) return;
     setTab('info');
     setError('');
     setSaved(false);
+    setBfError('');
+    setBfItems(null);
+    setBfReservaCount(null);
+    setBfNames({});
     if (job) {
       const { id: _i, opened_at: _o, closed_at: _c, created_by: _cb, created_at: _ca, updated_at: _ua, ...rest } = job;
       setForm(rest);
@@ -137,10 +170,72 @@ export default function VagaDrawer({ open, onClose, job, onSaved }: Props) {
     }
   }
 
+  async function handleSuggestBestFit() {
+    if (!job || form.status !== 'published') return;
+    setBfLoading(true);
+    setBfError('');
+    setBfItems(null);
+    setBfReservaCount(null);
+    try {
+      const { data: reserva, error: rpcError } = await supabase.rpc(
+        'list_reserva_candidates_for_job',
+        { p_job_id: job.id },
+      );
+      if (rpcError) throw new Error(rpcError.message);
+      const rows = (reserva ?? []) as ReservaCandidateRow[];
+      setBfReservaCount(rows.length);
+      setBfNames(Object.fromEntries(rows.map((r) => [r.application_id, r.candidate_name])));
+      if (rows.length === 0) {
+        setBfItems([]);
+        return;
+      }
+      const candidates_json = JSON.stringify(
+        rows.map((r) => ({
+          application_id: r.application_id,
+          name: r.candidate_name,
+          screener_score: r.screener_score,
+          pre_screening_status: r.pre_screening_status,
+          summary: r.extracted_summary,
+          interview_recommendation: r.interview_recommendation,
+          experience: r.experience_json,
+          skills: r.skills_json,
+        })),
+      );
+      const { data, error: invokeError } = await supabase.functions.invoke('ai-orchestrator', {
+        body: {
+          agent_slug: 'best_fit_selector',
+          context: {
+            job_title: form.title ?? job.title,
+            job_requirements: form.requirements ?? '',
+            area_label: JOB_AREA_LABELS[(form.area ?? job.area) as JobArea],
+            candidates_json,
+          },
+        },
+      });
+      if (invokeError || (data as { error?: string } | null)?.error) {
+        throw new Error((data as { error?: string } | null)?.error ?? invokeError?.message ?? 'Falha na chamada');
+      }
+      const raw = (data as { text?: string }).text ?? '';
+      const jsonStart = raw.indexOf('{');
+      const jsonEnd = raw.lastIndexOf('}');
+      if (jsonStart < 0 || jsonEnd < 0) throw new Error('Resposta do agente sem JSON.');
+      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as { top?: BestFitItem[] };
+      const top = (parsed.top ?? []).slice(0, 5);
+      setBfItems(top);
+    } catch (e) {
+      setBfError(e instanceof Error ? e.message : 'Erro ao consultar best_fit_selector.');
+    } finally {
+      setBfLoading(false);
+    }
+  }
+
+  const showReservaTab = !isNew && form.status === 'published';
+
   const tabs: { key: TabKey; label: string; icon: typeof FileText }[] = [
     { key: 'info',        label: 'Informações', icon: Briefcase },
     { key: 'descricao',   label: 'Descrição',   icon: FileText },
     { key: 'requisitos',  label: 'Requisitos',  icon: MapPin },
+    ...(showReservaTab ? [{ key: 'reserva' as TabKey, label: 'Reserva', icon: UserCheck }] : []),
   ];
 
   return (
@@ -329,6 +424,117 @@ export default function VagaDrawer({ open, onClose, job, onSaved }: Props) {
             className={`${inputCls} min-h-[220px] resize-y font-mono text-xs`}
             placeholder={`Graduação em Matemática ou Pedagogia.\nMínimo 2 anos de experiência em sala de aula.\nDisponibilidade para trabalhar pela manhã.\n…`}
           />
+        </DrawerCard>
+      )}
+
+      {tab === 'reserva' && showReservaTab && (
+        <DrawerCard title="Sugestão da base reserva" icon={Sparkles}>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            O agente <code>best_fit_selector</code> analisa os candidatos da base reserva
+            na área <strong>{JOB_AREA_LABELS[(form.area ?? 'administrativa') as JobArea]}</strong>
+            {' '}e sugere os 5 com maior fit para esta vaga.
+          </p>
+
+          <button
+            type="button"
+            onClick={handleSuggestBestFit}
+            disabled={bfLoading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50 transition-colors"
+          >
+            {bfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {bfLoading ? 'Analisando…' : 'Sugerir candidatos da reserva'}
+          </button>
+
+          {bfError && (
+            <div className="mt-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-xl px-4 py-3">
+              {bfError}
+            </div>
+          )}
+
+          {!bfLoading && bfItems !== null && bfReservaCount === 0 && (
+            <div className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/40 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl py-8 px-4">
+              Nenhum candidato na base reserva para a área{' '}
+              {JOB_AREA_LABELS[(form.area ?? 'administrativa') as JobArea]} ainda.
+            </div>
+          )}
+
+          {!bfLoading && bfItems !== null && bfItems.length === 0 && bfReservaCount !== null && bfReservaCount > 0 && (
+            <div className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/40 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl py-8 px-4">
+              O agente avaliou {bfReservaCount} candidato{bfReservaCount > 1 ? 's' : ''} mas nenhum atingiu fit mínimo.
+            </div>
+          )}
+
+          {!bfLoading && bfItems && bfItems.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {bfItems.map((item, idx) => {
+                const scoreColor =
+                  item.score >= 70
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : item.score >= 40
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-gray-500 dark:text-gray-400';
+                const name = bfNames[item.application_id] ?? 'Candidato';
+                return (
+                  <div
+                    key={`${item.application_id}-${idx}`}
+                    className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-3 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <UserCheck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
+                          {name}
+                        </span>
+                      </div>
+                      <span className={`text-sm font-bold flex-shrink-0 ${scoreColor}`}>
+                        {item.score}/100
+                      </span>
+                    </div>
+                    {item.summary && (
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
+                        {item.summary}
+                      </p>
+                    )}
+                    {(item.pros?.length || item.cons?.length) ? (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {item.pros?.map((p, i) => (
+                          <span
+                            key={`p-${i}`}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
+                          >
+                            <ThumbsUp className="w-2.5 h-2.5" />
+                            {p}
+                          </span>
+                        ))}
+                        {item.cons?.map((c, i) => (
+                          <span
+                            key={`c-${i}`}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+                          >
+                            <ThumbsDown className="w-2.5 h-2.5" />
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {onSelectCandidate && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectCandidate(item.application_id);
+                          onClose();
+                        }}
+                        className="w-full mt-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <UserCheck className="w-3.5 h-3.5" />
+                        Abrir candidato
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </DrawerCard>
       )}
     </Drawer>
