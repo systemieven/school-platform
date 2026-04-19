@@ -6,7 +6,7 @@ import {
   Save, Loader2, Check,
   Star, Building2, BarChart3, Layers, Image as ImageIcon,
   Home, Baby, BookOpen, BookMarked, GraduationCap, Info,
-  BookHeart, Target, Award, Milestone, Cookie,
+  BookHeart, Target, Award, Milestone, Cookie, Briefcase, FileText,
 } from 'lucide-react';
 import IconPicker from '../../components/IconPicker';
 import ImageField from '../../components/ImageField';
@@ -197,7 +197,7 @@ const DEFAULT_COOKIES: CookiesFields = {
 };
 
 // ── Sub-tabs ────────────────────────────────────────────────────────────────
-type ContentTab = 'home' | 'infantil' | 'fund1' | 'fund2' | 'medio' | 'sobre' | 'estrutura';
+type ContentTab = 'home' | 'infantil' | 'fund1' | 'fund2' | 'medio' | 'sobre' | 'estrutura' | 'vagas';
 
 const SUB_TABS: { key: ContentTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'home',       label: 'Home',       icon: Home },
@@ -207,7 +207,29 @@ const SUB_TABS: { key: ContentTab; label: string; icon: React.ComponentType<{ cl
   { key: 'medio',      label: 'Médio',      icon: GraduationCap },
   { key: 'sobre',      label: 'Sobre',      icon: Info },
   { key: 'estrutura',  label: 'Estrutura',  icon: Building2 },
+  { key: 'vagas',      label: 'Vagas',      icon: Briefcase },
 ];
+
+// ── Vagas (conteúdo editorial da página /trabalhe-conosco) ───────────────────
+// Persiste em content.careers junto com rate_limit/max_upload_mb (editados em
+// /admin/configuracoes → RH). Cada painel lê a linha inteira e faz overlay só
+// da sua fatia ao salvar para não clobber o outro.
+interface VagasAreaContent { title: string; description: string; }
+interface VagasContent {
+  areas: Record<'pedagogica' | 'administrativa' | 'servicos_gerais', VagasAreaContent>;
+  reserva_copy: string;
+  lgpd_text: string;
+}
+
+const DEFAULT_VAGAS: VagasContent = {
+  areas: {
+    pedagogica:      { title: 'Pedagógica',      description: '' },
+    administrativa:  { title: 'Administrativa',  description: '' },
+    servicos_gerais: { title: 'Serviços gerais', description: '' },
+  },
+  reserva_copy: '',
+  lgpd_text: '',
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function deepClone<T>(obj: T): T {
@@ -233,6 +255,10 @@ export default function ContentSettingsPanel() {
   const [cookies, setCookies] = useState<CookiesFields>(DEFAULT_COOKIES);
   const [origCookies, setOrigCookies] = useState<CookiesFields>(DEFAULT_COOKIES);
   const [cookiesId, setCookiesId] = useState<string | null>(null);
+
+  // ── Vagas (content.careers, fatia editorial) ──
+  const [vagas, setVagas] = useState<VagasContent>(DEFAULT_VAGAS);
+  const [origVagas, setOrigVagas] = useState<VagasContent>(DEFAULT_VAGAS);
 
   // ── Load ──
   useEffect(() => {
@@ -274,12 +300,36 @@ export default function ContentSettingsPanel() {
           setCookiesId((data as { id: string }).id);
         }
       });
+
+    // content.careers — só a fatia editorial (areas + reserva_copy + lgpd_text).
+    // rate_limit/max_upload_mb ficam em /admin/configuracoes → RH.
+    supabase
+      .from('system_settings')
+      .select('value')
+      .eq('category', 'content')
+      .eq('key', 'careers')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) {
+          try {
+            const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+            const v: VagasContent = {
+              areas: { ...DEFAULT_VAGAS.areas, ...(parsed?.areas ?? {}) },
+              reserva_copy: typeof parsed?.reserva_copy === 'string' ? parsed.reserva_copy : '',
+              lgpd_text:    typeof parsed?.lgpd_text    === 'string' ? parsed.lgpd_text    : '',
+            };
+            setVagas(v);
+            setOrigVagas(v);
+          } catch { /* defaults */ }
+        }
+      });
   }, []);
 
   // ── Change detection ──
   const hasChanges =
     JSON.stringify(state) !== JSON.stringify(original) ||
-    JSON.stringify(cookies) !== JSON.stringify(origCookies);
+    JSON.stringify(cookies) !== JSON.stringify(origCookies) ||
+    JSON.stringify(vagas)   !== JSON.stringify(origVagas);
 
   // ── Updaters ──
   function updateKey<K extends ContentKey>(key: K, value: ContentState[K]) {
@@ -357,6 +407,46 @@ export default function ContentSettingsPanel() {
         if (data) setCookiesId((data as { id: string }).id);
       }
       if (!hasError) setOrigCookies(cookies);
+    }
+
+    // ── Upsert vagas (content.careers, fatia editorial com merge) ──
+    if (JSON.stringify(vagas) !== JSON.stringify(origVagas)) {
+      const { data: row } = await supabase
+        .from('system_settings')
+        .select('id, value')
+        .eq('category', 'content')
+        .eq('key', 'careers')
+        .maybeSingle();
+
+      let current: Record<string, unknown> = {};
+      if (row?.value) {
+        try {
+          current = typeof row.value === 'string'
+            ? JSON.parse(row.value)
+            : (row.value as Record<string, unknown>);
+        } catch { /* ignore */ }
+      }
+
+      const next = {
+        ...current,
+        areas: vagas.areas,
+        reserva_copy: vagas.reserva_copy,
+        lgpd_text: vagas.lgpd_text,
+      };
+
+      if (row?.id) {
+        const { error } = await supabase
+          .from('system_settings')
+          .update({ value: next })
+          .eq('id', (row as { id: string }).id);
+        if (error) hasError = true;
+      } else {
+        const { error } = await supabase
+          .from('system_settings')
+          .insert({ category: 'content' as const, key: 'careers', value: next });
+        if (error) hasError = true;
+      }
+      if (!hasError) setOrigVagas(vagas);
     }
 
     setSaving(false);
@@ -702,6 +792,14 @@ export default function ContentSettingsPanel() {
         <EstruturaContentEditor
           data={state.page_estrutura}
           onChange={(d) => updateKey('page_estrutura', d)}
+        />
+      )}
+
+      {/* ── Vagas (conteúdo editorial da /trabalhe-conosco) ── */}
+      {activeTab === 'vagas' && (
+        <VagasContentEditor
+          data={vagas}
+          onChange={(d) => { setVagas(d); setSaved(false); }}
         />
       )}
 
@@ -1287,6 +1385,96 @@ function EstruturaContentEditor({ data, onChange }: { data: EstruturaContent; on
         <TextareaField label="Subtítulo" value={data.cta_subtitle ?? ''}
           onChange={(e) => onChange({ ...data, cta_subtitle: e.target.value })}
           rows={2} maxLength={200} />
+      </SettingsCard>
+    </>
+  );
+}
+
+// ── Vagas Content Editor ────────────────────────────────────────────────────
+// Edita a fatia editorial de content.careers usada pela /trabalhe-conosco:
+// áreas de atuação (cards do passo 1) e copy da base reserva + LGPD.
+// Hero (badge/título/slideshow) fica em Site → Aparência → Vagas.
+// Parâmetros operacionais (rate-limit, tamanho do CV) ficam em Configurações → RH.
+
+function VagasContentEditor({
+  data,
+  onChange,
+}: {
+  data: VagasContent;
+  onChange: (d: VagasContent) => void;
+}) {
+  function setArea(
+    key: keyof VagasContent['areas'],
+    patch: Partial<VagasAreaContent>,
+  ) {
+    onChange({ ...data, areas: { ...data.areas, [key]: { ...data.areas[key], ...patch } } });
+  }
+
+  const AREA_LABELS: Record<keyof VagasContent['areas'], string> = {
+    pedagogica:      'Pedagógica',
+    administrativa:  'Administrativa',
+    servicos_gerais: 'Serviços gerais',
+  };
+
+  return (
+    <>
+      <SettingsCard
+        collapseId="content-vagas-areas"
+        title="Áreas de atuação"
+        icon={Briefcase}
+        description="Cards exibidos no passo 1 do wizard da página /trabalhe-conosco."
+      >
+        <div className="space-y-5">
+          {(Object.keys(AREA_LABELS) as (keyof VagasContent['areas'])[]).map((k) => (
+            <div key={k} className="space-y-2">
+              <SectionLabel>{AREA_LABELS[k]}</SectionLabel>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-1">
+                  <InputField
+                    label="Título"
+                    value={data.areas[k].title}
+                    onChange={(e) => setArea(k, { title: e.target.value })}
+                    maxLength={40}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <InputField
+                    label="Descrição curta"
+                    value={data.areas[k].description}
+                    onChange={(e) => setArea(k, { description: e.target.value })}
+                    maxLength={200}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        collapseId="content-vagas-copy"
+        title="Textos da página"
+        icon={FileText}
+        description="Copy da base reserva (exibido quando não há vagas abertas) e aviso LGPD do formulário."
+      >
+        <TextareaField
+          label="Copy — base reserva"
+          value={data.reserva_copy}
+          onChange={(e) => onChange({ ...data, reserva_copy: e.target.value })}
+          placeholder="Ex: No momento não temos vagas abertas para esta área, mas você pode deixar seu currículo na nossa base reserva…"
+          rows={4}
+          maxLength={500}
+          hint="Aparece no passo 2 quando a área escolhida não tem vaga aberta."
+        />
+        <TextareaField
+          label="Aviso LGPD (checkbox obrigatório)"
+          value={data.lgpd_text}
+          onChange={(e) => onChange({ ...data, lgpd_text: e.target.value })}
+          placeholder="Autorizo o tratamento dos meus dados pessoais para fins de recrutamento…"
+          rows={4}
+          maxLength={600}
+          hint="Texto vinculado ao checkbox obrigatório antes do envio do currículo."
+        />
       </SettingsCard>
     </>
   );
