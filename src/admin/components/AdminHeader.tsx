@@ -133,7 +133,7 @@ export default function AdminHeader({ sidebarCollapsed, onToggleSidebar }: Props
             >
               {/* Avatar with accent ring */}
               <div className="flex-shrink-0">
-                <div className="w-[52px] h-[52px] rounded-full p-[3px] bg-brand-secondary">
+                <div className="avatar-pulse-ring w-[52px] h-[52px] rounded-full p-[3px] bg-brand-secondary">
                   <div className="w-full h-full rounded-full overflow-hidden bg-brand-primary/10 dark:bg-white/10 flex items-center justify-center">
                     {profile.avatar_url ? (
                       <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />

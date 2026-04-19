@@ -74,7 +74,7 @@ export function DashboardHeader({
                   onClick={() => onPeriodChange(opt.key)}
                   className={`px-4 py-1.5 text-sm font-medium transition-all ${
                     period === opt.key
-                      ? 'rounded-full bg-brand-secondary text-brand-primary border border-brand-primary shadow-sm'
+                      ? 'rounded-full bg-brand-primary text-brand-secondary border border-brand-primary shadow-sm'
                       : 'rounded-lg border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                   }`}
                 >
