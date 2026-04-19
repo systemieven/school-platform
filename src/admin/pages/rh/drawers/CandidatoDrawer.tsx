@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   UserCircle2, FileText, ClipboardList, Sparkles, Upload, Check, Loader2,
   Trash2, ExternalLink, Mail, Phone, Linkedin, Globe, Briefcase, XCircle,
@@ -116,13 +116,9 @@ export default function CandidatoDrawer({
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
 
-  // Double-click confirm para exclusões (evita window.confirm que quebra a
-  // identidade visual do app). `armed` = estado "armado, aguardando 2º clique".
-  // Auto-desarma em 3s se não houver 2º clique.
+  // Exclusões com banner de confirmação no rodapé (só um ativo por vez).
   const [confirmDeleteApp, setConfirmDeleteApp] = useState(false);
   const [confirmDeleteCand, setConfirmDeleteCand] = useState(false);
-  const confirmAppTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const confirmCandTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isNew = !application;
 
@@ -173,8 +169,6 @@ export default function CandidatoDrawer({
     setChatError(null);
     setConfirmDeleteApp(false);
     setConfirmDeleteCand(false);
-    if (confirmAppTimer.current) clearTimeout(confirmAppTimer.current);
-    if (confirmCandTimer.current) clearTimeout(confirmCandTimer.current);
   }, [open, application, defaultJobOpeningId, jobs]);
 
   // #11: carrega histórico do chat de pré-triagem quando a aba "Chat" abre.
@@ -299,54 +293,30 @@ export default function CandidatoDrawer({
     }
   }
 
-  async function handleDelete() {
+  async function confirmDelete() {
     if (!application) return;
-    // Double-click pattern: 1º arma, 2º executa.
-    if (!confirmDeleteApp) {
-      setConfirmDeleteApp(true);
-      if (confirmAppTimer.current) clearTimeout(confirmAppTimer.current);
-      confirmAppTimer.current = setTimeout(() => setConfirmDeleteApp(false), 3000);
-      return;
-    }
-    if (confirmAppTimer.current) clearTimeout(confirmAppTimer.current);
-    setConfirmDeleteApp(false);
     setSaving(true);
     try {
-      await deleteJobApplication(application.id);
-      logAudit({
-        action: 'delete', module: 'rh-seletivo', recordId: application.id,
-        description: `Candidatura excluída`,
-      });
+      if (confirmDeleteCand && application.candidate) {
+        await deleteCandidate(application.candidate.id);
+        logAudit({
+          action: 'delete', module: 'rh-seletivo', recordId: application.candidate.id,
+          description: `Candidato excluído: ${application.candidate.full_name}`,
+        });
+      } else {
+        await deleteJobApplication(application.id);
+        logAudit({
+          action: 'delete', module: 'rh-seletivo', recordId: application.id,
+          description: `Candidatura excluída`,
+        });
+      }
+      setConfirmDeleteApp(false);
+      setConfirmDeleteCand(false);
       onSaved();
       onClose();
     } catch (e) {
       setSaving(false);
       setError(e instanceof Error ? e.message : 'Erro ao excluir.');
-    }
-  }
-
-  async function handleDeleteCandidate() {
-    if (!application?.candidate) return;
-    if (!confirmDeleteCand) {
-      setConfirmDeleteCand(true);
-      if (confirmCandTimer.current) clearTimeout(confirmCandTimer.current);
-      confirmCandTimer.current = setTimeout(() => setConfirmDeleteCand(false), 3000);
-      return;
-    }
-    if (confirmCandTimer.current) clearTimeout(confirmCandTimer.current);
-    setConfirmDeleteCand(false);
-    setSaving(true);
-    try {
-      await deleteCandidate(application.candidate.id);
-      logAudit({
-        action: 'delete', module: 'rh-seletivo', recordId: application.candidate.id,
-        description: `Candidato excluído: ${application.candidate.full_name}`,
-      });
-      onSaved();
-      onClose();
-    } catch (e) {
-      setSaving(false);
-      setError(e instanceof Error ? e.message : 'Erro ao excluir candidato.');
     }
   }
 
@@ -414,43 +384,86 @@ export default function CandidatoDrawer({
         </span>
       ) : null}
       footer={(
-        <div className="flex items-center gap-2">
-          {!isNew && (
+        <div className="flex flex-col gap-2">
+          {(confirmDeleteApp || confirmDeleteCand) && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-2.5 text-xs text-red-800 dark:text-red-200">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                {confirmDeleteCand ? (
+                  <>
+                    <strong>Excluir candidato permanentemente?</strong>{' '}
+                    Apaga o cadastro de <strong>{application?.candidate?.full_name}</strong> e <strong>todas as candidaturas</strong> dele (em qualquer vaga). Ação irreversível.
+                  </>
+                ) : (
+                  <>
+                    <strong>Excluir esta candidatura?</strong>{' '}
+                    Remove apenas o registro nesta vaga. O cadastro do candidato continua disponível para outras vagas.
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={saving}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Confirmar
+              </button>
+              <button
+                type="button"
+                onClick={() => { setConfirmDeleteApp(false); setConfirmDeleteCand(false); }}
+                disabled={saving}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            {!isNew && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setConfirmDeleteCand(false); setConfirmDeleteApp(true); }}
+                  disabled={saving}
+                  title="Remove somente esta candidatura (mantém o cadastro do candidato para outras vagas)."
+                  className="px-3 py-2 text-xs font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Candidatura
+                </button>
+                {application?.candidate && (
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmDeleteApp(false); setConfirmDeleteCand(true); }}
+                    disabled={saving}
+                    title="Remove o cadastro do candidato e TODAS as candidaturas dele (ação permanente, afeta outras vagas)."
+                    className="px-3 py-2 text-xs font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Candidato
+                  </button>
+                )}
+              </>
+            )}
+            <div className="flex-1" />
             <button
               type="button"
-              onClick={handleDelete}
+              onClick={onClose}
               disabled={saving}
-              title="Remove somente esta candidatura (mantém o cadastro do candidato para outras vagas)."
-              className={`px-3 py-2 text-xs font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 ${
-                confirmDeleteApp
-                  ? 'bg-red-600 text-white hover:bg-red-700 ring-2 ring-red-300 dark:ring-red-700'
-                  : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40'
-              }`}
+              className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
-              {confirmDeleteApp
-                ? <><AlertTriangle className="w-3.5 h-3.5" /> Confirmar exclusão?</>
-                : <><Trash2 className="w-3.5 h-3.5" /> Candidatura</>
-              }
+              Cancelar
             </button>
-          )}
-          <div className="flex-1" />
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className={`px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}
-          >
-            {saving || uploadingCv ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <UserCircle2 className="w-4 h-4" />}
-            {uploadingCv ? 'Enviando CV…' : saving ? 'Salvando…' : saved ? 'Salvo!' : isNew ? 'Criar candidatura' : 'Salvar alterações'}
-          </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className={`px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${saved ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-primary-dark text-white disabled:opacity-50'}`}
+            >
+              {saving || uploadingCv ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <UserCircle2 className="w-4 h-4" />}
+              {uploadingCv ? 'Enviando CV…' : saving ? 'Salvando…' : saved ? 'Salvo!' : isNew ? 'Criar candidatura' : 'Salvar alterações'}
+            </button>
+          </div>
         </div>
       )}
     >
@@ -582,29 +595,6 @@ export default function CandidatoDrawer({
                 className={inputCls}
               />
             </div>
-            {!isNew && application?.candidate && (
-              <div className="mt-2 space-y-1.5">
-                <button
-                  type="button"
-                  onClick={handleDeleteCandidate}
-                  disabled={saving}
-                  title="Remove o cadastro do candidato e TODAS as candidaturas dele (ação permanente, afeta outras vagas)."
-                  className={`w-full px-3 py-2 text-xs font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 ${
-                    confirmDeleteCand
-                      ? 'bg-red-600 text-white hover:bg-red-700 ring-2 ring-red-300 dark:ring-red-700 border border-red-700'
-                      : 'border border-red-200 dark:border-red-800 bg-white dark:bg-transparent text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                  }`}
-                >
-                  {confirmDeleteCand
-                    ? <><AlertTriangle className="w-3.5 h-3.5" /> Clique novamente para confirmar exclusão permanente</>
-                    : <><Trash2 className="w-3.5 h-3.5" /> Excluir candidato e todas as candidaturas</>
-                  }
-                </button>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
-                  Apaga o cadastro completo do candidato em todas as vagas.
-                </p>
-              </div>
-            )}
           </div>
         </DrawerCard>
         <DrawerCard title="Endereço" icon={MapPin}>
