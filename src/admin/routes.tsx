@@ -41,6 +41,7 @@ const FinancialReceivablesImportPage = lazy(() => import('./pages/migracao/Finan
 const FinancialPayablesImportPage    = lazy(() => import('./pages/migracao/FinancialPayablesImportPage'));
 const FinancialCashImportPage        = lazy(() => import('./pages/migracao/FinancialCashImportPage'));
 const UsersImportPage                = lazy(() => import('./pages/migracao/UsersImportPage'));
+const StaffImportPage                = lazy(() => import('./pages/migracao/StaffImportPage'));
 const StudentDetailPage    = lazy(() => import('./pages/school/StudentDetailPage'));
 const TeacherAreaPage      = lazy(() => import('./pages/teacher/TeacherAreaPage'));
 
@@ -234,6 +235,7 @@ export default function AdminRoutes() {
           <Route path="migracao/pagar"         element={<ModuleGuard moduleKey="data-migration"><LazyPage><FinancialPayablesImportPage /></LazyPage></ModuleGuard>} />
           <Route path="migracao/caixa"         element={<ModuleGuard moduleKey="data-migration"><LazyPage><FinancialCashImportPage /></LazyPage></ModuleGuard>} />
           <Route path="migracao/colaboradores" element={<ModuleGuard moduleKey="data-migration"><LazyPage><UsersImportPage /></LazyPage></ModuleGuard>} />
+          <Route path="migracao/colaboradores-rh" element={<ModuleGuard moduleKey="rh-colaboradores"><LazyPage><StaffImportPage /></LazyPage></ModuleGuard>} />
         </Route>
       </Routes>
     </AdminAuthProvider>
