@@ -24,6 +24,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { rateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
+import { cleanCpf, validateCpf } from "../_shared/cpf.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -192,9 +193,11 @@ Deno.serve(async (req: Request) => {
   const name = (body.candidate?.name ?? "").trim();
   const email = normalizeEmail(body.candidate?.email ?? "");
   const phone = normalizePhone(body.candidate?.phone ?? "");
+  const cpf = cleanCpf(body.candidate?.cpf ?? "");
   if (!name || name.length < 3) return json({ error: "nome_invalido" }, 400);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "email_invalido" }, 400);
   if (phone.length < 10) return json({ error: "telefone_invalido" }, 400);
+  if (!validateCpf(cpf)) return json({ error: "cpf_invalido" }, 400);
   if (!body.lgpd_consent) return json({ error: "lgpd_requerido" }, 422);
 
   const resume = body.resume;
@@ -224,11 +227,11 @@ Deno.serve(async (req: Request) => {
     jobRequirements = jo.requirements ?? null;
   }
 
-  // ---- Upsert candidate ------------------------------------------------------
+  // ---- Upsert candidate (chave natural = CPF) -------------------------------
   const { data: existingCand } = await service
     .from("candidates")
     .select("id")
-    .eq("email", email)
+    .eq("cpf", cpf)
     .maybeSingle();
 
   let candidateId: string;
@@ -238,8 +241,8 @@ Deno.serve(async (req: Request) => {
       .from("candidates")
       .update({
         full_name: name,
+        email,
         phone,
-        cpf: body.candidate?.cpf ?? null,
       })
       .eq("id", candidateId);
   } else {
@@ -247,9 +250,9 @@ Deno.serve(async (req: Request) => {
       .from("candidates")
       .insert({
         full_name: name,
+        cpf,
         email,
         phone,
-        cpf: body.candidate?.cpf ?? null,
       })
       .select("id")
       .single();

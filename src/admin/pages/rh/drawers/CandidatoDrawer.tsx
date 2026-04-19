@@ -11,8 +11,9 @@ import { supabase } from '../../../../lib/supabase';
 import { logAudit } from '../../../../lib/audit';
 import { renderInline } from '../../../../lib/renderInline';
 import {
-  upsertCandidateByEmail, deleteCandidate, type CandidateInput,
+  upsertCandidateByCpf, deleteCandidate, type CandidateInput,
 } from '../../../hooks/useCandidates';
+import { maskCpf, cleanCpf, validateCpf } from '../../../../lib/cpf';
 import {
   createJobApplication, updateJobApplication, deleteJobApplication,
   moveApplicationStage, uploadApplicationResume, getApplicationResumeSignedUrl,
@@ -205,6 +206,11 @@ export default function CandidatoDrawer({
       setTab('candidato');
       return;
     }
+    if (!validateCpf(cand.cpf ?? '')) {
+      setError('CPF inválido. Informe um CPF válido (11 dígitos).');
+      setTab('candidato');
+      return;
+    }
     // Vaga é opcional (cadastro reserva permite job_opening_id null).
     const targetJobId = jobOpeningId || null;
     // Área é obrigatória (fonte do kanban).
@@ -217,11 +223,11 @@ export default function CandidatoDrawer({
     setError('');
     try {
       // 1) Upsert do candidato por email
-      const candidate = await upsertCandidateByEmail({
+      const candidate = await upsertCandidateByCpf({
         full_name: cand.full_name?.trim(),
         email: cand.email?.trim(),
         phone: cand.phone?.trim() || null,
-        cpf: cand.cpf?.replace(/\D/g, '') || null,
+        cpf: cleanCpf(cand.cpf ?? ''),
         rg: cand.rg ?? null,
         cnh: cand.cnh ?? null,
         birth_date: cand.birth_date ?? null,
@@ -509,6 +515,21 @@ export default function CandidatoDrawer({
                   placeholder="(81) 99999-9999"
                 />
               </div>
+            </div>
+            <div>
+              <label className={labelCls}>CPF *</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={cand.cpf ? maskCpf(cand.cpf) : ''}
+                onChange={(e) => setCand((c) => ({ ...c, cpf: cleanCpf(e.target.value) || null }))}
+                className={`${inputCls} ${cand.cpf && cleanCpf(cand.cpf).length === 11 && !validateCpf(cand.cpf) ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                placeholder="000.000.000-00"
+                maxLength={14}
+              />
+              {cand.cpf && cleanCpf(cand.cpf).length === 11 && !validateCpf(cand.cpf) && (
+                <p className="mt-1 text-xs text-red-600">CPF inválido — verifique os dígitos.</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

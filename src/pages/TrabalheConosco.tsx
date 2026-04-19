@@ -24,6 +24,7 @@ import { useSEO } from '../hooks/useSEO';
 import { useSettings } from '../hooks/useSettings';
 import { extractPdfText } from '../lib/extractPdfText';
 import { renderInline } from '../lib/renderInline';
+import { maskCpf, cleanCpf, validateCpf } from '../lib/cpf';
 import HeroMedia from '../components/HeroMedia';
 import HeroSlideshow from '../components/HeroSlideshow';
 import type { HeroScene, HeroSlideshowConfig } from '../components/HeroSlideshow';
@@ -148,7 +149,7 @@ export default function TrabalheConosco() {
   const [isReserva, setIsReserva] = useState(false);
 
   // Passo 3
-  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', cpf: '' });
   const [lgpdOk, setLgpdOk] = useState(false);
   const [termsOk, setTermsOk] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -188,6 +189,7 @@ export default function TrabalheConosco() {
     form.name.trim().length >= 3
     && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())
     && form.phone.replace(/\D/g, '').length >= 10
+    && validateCpf(form.cpf)
     && !!file
     && lgpdOk
     && termsOk
@@ -250,6 +252,7 @@ export default function TrabalheConosco() {
             name: form.name.trim(),
             email: form.email.trim(),
             phone: form.phone.replace(/\D/g, ''),
+            cpf: cleanCpf(form.cpf),
           },
           resume: {
             filename: file.name,
@@ -535,6 +538,19 @@ export default function TrabalheConosco() {
                   icon={Phone}
                   required
                 />
+              </div>
+              <div>
+                <InputField floating
+                  label="CPF"
+                  value={maskCpf(form.cpf)}
+                  onChange={(e) => setForm({ ...form, cpf: cleanCpf(e.target.value) })}
+                  inputMode="numeric"
+                  maxLength={14}
+                  required
+                />
+                {form.cpf && cleanCpf(form.cpf).length === 11 && !validateCpf(form.cpf) && (
+                  <p className="mt-1 text-xs text-red-600">CPF inválido — verifique os dígitos.</p>
+                )}
               </div>
 
               {/* Upload */}

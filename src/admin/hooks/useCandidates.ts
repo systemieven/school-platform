@@ -73,18 +73,24 @@ export async function deleteCandidate(id: string): Promise<void> {
 }
 
 /**
- * Upsert by email — usado pela tela de cadastro manual e pelo fluxo público
- * (PR4). Se já existe candidato com o email, atualiza; senão cria.
+ * Upsert por CPF — chave natural do candidato. Usado pela tela de cadastro
+ * manual; o fluxo público valida o CPF no edge function. Se já existe
+ * candidato com esse CPF, atualiza (incluindo o email, caso tenha mudado);
+ * senão cria.
+ *
+ * CPF é persistido sempre como 11 dígitos (sem máscara).
  */
-export async function upsertCandidateByEmail(input: Partial<CandidateInput>): Promise<Candidate> {
-  if (!input.email) throw new Error('Email é obrigatório');
+export async function upsertCandidateByCpf(input: Partial<CandidateInput>): Promise<Candidate> {
+  const cpf = (input.cpf ?? '').replace(/\D/g, '');
+  if (cpf.length !== 11) throw new Error('CPF é obrigatório e deve ter 11 dígitos');
+  const normalized = { ...input, cpf };
   const { data: existing } = await supabase
     .from('candidates')
     .select('id')
-    .eq('email', input.email)
+    .eq('cpf', cpf)
     .maybeSingle();
   if (existing?.id) {
-    return updateCandidate(existing.id, input);
+    return updateCandidate(existing.id, normalized);
   }
-  return createCandidate(input);
+  return createCandidate(normalized);
 }
