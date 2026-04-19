@@ -8,6 +8,7 @@ import { Drawer, DrawerCard } from '../../../components/Drawer';
 import { SelectDropdown } from '../../../components/FormField';
 import { supabase } from '../../../../lib/supabase';
 import { logAudit } from '../../../../lib/audit';
+import { renderInline } from '../../../../lib/renderInline';
 import {
   upsertCandidateByEmail, deleteCandidate, type CandidateInput,
 } from '../../../hooks/useCandidates';
@@ -801,7 +802,9 @@ export default function CandidatoDrawer({
                       </span>
                     )}
                   </div>
-                  <p className="whitespace-pre-wrap">{m.text}</p>
+                  <p className="whitespace-pre-wrap">
+                    {m.role === 'assistant' ? renderInline(m.text) : m.text}
+                  </p>
                 </div>
               ))}
             </div>

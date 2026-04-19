@@ -23,6 +23,7 @@ import { supabase } from '../lib/supabase';
 import { useSEO } from '../hooks/useSEO';
 import { useSettings } from '../hooks/useSettings';
 import { extractPdfText } from '../lib/extractPdfText';
+import { renderInline } from '../lib/renderInline';
 import HeroMedia from '../components/HeroMedia';
 import HeroSlideshow from '../components/HeroSlideshow';
 import type { HeroScene, HeroSlideshowConfig } from '../components/HeroSlideshow';
@@ -632,7 +633,7 @@ export default function TrabalheConosco() {
                           : 'bg-gray-100 text-gray-900 rounded-bl-sm'
                       }`}
                     >
-                      {m.text}
+                      {m.role === 'assistant' ? renderInline(m.text) : m.text}
                     </div>
                   </div>
                 ))}
