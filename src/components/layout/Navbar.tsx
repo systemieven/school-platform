@@ -85,7 +85,7 @@ export default function Navbar() {
             <img
               src={logoUrl}
               alt={logoAlt}
-              className="h-20 w-auto"
+              className="h-24 w-auto"
             />
           </Link>
 
