@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
-  Users, Briefcase, UserPlus, CalendarCheck, Loader2, ArrowRight,
+  Users, Briefcase, UserPlus, CalendarCheck, Loader2,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import KpiCard from '../../components/KpiCard';
@@ -93,45 +92,6 @@ export default function RhDashboardPage() {
           icon={CalendarCheck}
           color="amber"
         />
-      </div>
-
-      {/* Atalhos para abas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link
-          to="/admin/rh?tab=colaboradores"
-          className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 hover:border-brand-primary hover:shadow-lg transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20">
-                <Briefcase className="w-5 h-5 text-emerald-500" />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-800 dark:text-white text-sm">Colaboradores</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Cadastro, documentos e contratos</p>
-              </div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-brand-primary transition-colors" />
-          </div>
-        </Link>
-
-        <Link
-          to="/admin/rh?tab=seletivo"
-          className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 hover:border-brand-primary hover:shadow-lg transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-900/20">
-                <UserPlus className="w-5 h-5 text-purple-500" />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-800 dark:text-white text-sm">Processo seletivo</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Vagas, candidatos e pipeline</p>
-              </div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-brand-primary transition-colors" />
-          </div>
-        </Link>
       </div>
     </div>
   );

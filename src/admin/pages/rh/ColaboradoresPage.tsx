@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  Briefcase, Search, Loader2, ShieldCheck, Plus, UserCircle2, Filter,
+  Search, Loader2, ShieldCheck, Plus, UserCircle2, Filter,
 } from 'lucide-react';
 import PermissionGate from '../../components/PermissionGate';
 import { useStaff, type Staff, type EmploymentType } from '../../hooks/useStaff';
@@ -62,20 +62,15 @@ export default function ColaboradoresPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header — titulo/subtitulo vivem na barra de titulo da aba (RhPage).
+          Aqui mantemos so o resumo contextual e o CTA. */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-brand-primary dark:text-brand-secondary" />
-            Colaboradores
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Cadastro de colaboradores da escola. {totalComAcesso > 0 && (
-              <span className="text-emerald-600 dark:text-emerald-400">
-                {totalComAcesso} com acesso ao sistema.
-              </span>
-            )}
-          </p>
+          {totalComAcesso > 0 && (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">
+              {totalComAcesso} com acesso ao sistema.
+            </p>
+          )}
         </div>
         <PermissionGate moduleKey="rh-colaboradores" action="create">
           <button

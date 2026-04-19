@@ -415,13 +415,15 @@ export default function VagaDrawer({ open, onClose, job, onSaved, onSelectCandid
       {tab === 'requisitos' && (
         <DrawerCard title="Requisitos" icon={MapPin}>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            Texto plano — entra no prompt do agente <code>resume_screener</code> (PR3) para
-            pontuar candidatos. Seja específico: habilidades, formação, experiência mínima.
+            Liste o que o candidato precisa ter para se encaixar nesta vaga.
+            Quanto mais claro e específico, melhor a triagem automática dos
+            currículos. Inclua, por exemplo: formação exigida, tempo mínimo
+            de experiência, habilidades necessárias e disponibilidade de horário.
           </p>
           <textarea
             value={form.requirements ?? ''}
             onChange={(e) => set('requirements', e.target.value || null)}
-            className={`${inputCls} min-h-[220px] resize-y font-mono text-xs`}
+            className={`${inputCls} min-h-[220px] resize-y text-sm`}
             placeholder={`Graduação em Matemática ou Pedagogia.\nMínimo 2 anos de experiência em sala de aula.\nDisponibilidade para trabalhar pela manhã.\n…`}
           />
         </DrawerCard>
