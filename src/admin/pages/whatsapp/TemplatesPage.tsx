@@ -93,12 +93,14 @@ const TRIGGER_MODULES = [
   { value: 'enrollment',   label: 'Pré-Matrícula' },
   { value: 'appointment',  label: 'Agendamento' },
   { value: 'contact',      label: 'Contato' },
+  { value: 'rh',           label: 'RH — Seleção' },
 ];
 
 const CATEGORY_TO_MODULE: Record<string, string> = {
   agendamento: 'appointment',
   matricula:   'enrollment',
   contato:     'contact',
+  'rh-seletivo': 'rh',
 };
 
 const TRIGGER_STATUS_BY_MODULE: Record<string, { value: string; label: string }[]> = {
@@ -131,6 +133,15 @@ const TRIGGER_STATUS_BY_MODULE: Record<string, { value: string; label: string }[
     { value: 'converted',     label: 'Convertido' },
     { value: 'resolved',      label: 'Resolvido' },
     { value: 'archived',      label: 'Arquivado' },
+  ],
+  rh: [
+    { value: '', label: 'Qualquer status' },
+    { value: 'novo',         label: 'Novo' },
+    { value: 'triagem',      label: 'Triagem' },
+    { value: 'entrevista',   label: 'Entrevista' },
+    { value: 'proposta',     label: 'Proposta' },
+    { value: 'contratado',   label: 'Contratado' },
+    { value: 'descartado',   label: 'Descartado' },
   ],
   '': [{ value: '', label: 'Qualquer status' }],
 };
