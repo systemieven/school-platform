@@ -61,7 +61,7 @@ interface TabDef {
   requiredModule: string;
 }
 
-// Ordem: Institucional primeiro, demais em ordem alfabética.
+// Ordem: Institucional sempre 1º (travado); demais em ordem alfabética por label.
 // Ao adicionar novos itens, insira em posição alfabética (exceto Institucional que é sempre o 1º).
 const TABS: TabDef[] = [
   {
@@ -101,33 +101,6 @@ const TABS: TabDef[] = [
     requiredModule: 'settings-attendance',
   },
   {
-    key: 'ferramentas',
-    label: 'Ferramentas',
-    shortLabel: 'Ferramentas',
-    icon: FileSearch,
-    categories: [],
-    description: 'Configure módulos de ferramentas como Achados e Perdidos.',
-    requiredModule: 'settings-ferramentas',
-  },
-  {
-    key: 'rh',
-    label: 'RH',
-    shortLabel: 'RH',
-    icon: Briefcase,
-    categories: [],
-    description: 'Conteúdo da página /trabalhe-conosco e parâmetros de captação de currículos.',
-    requiredModule: 'settings-rh',
-  },
-  {
-    key: 'fiscal',
-    label: 'Fiscal',
-    shortLabel: 'Fiscal',
-    icon: Receipt,
-    categories: ['fiscal'],
-    description: 'Dados do emitente NF-e, configurações de emissão e perfis fiscais.',
-    requiredModule: 'settings-fiscal',
-  },
-  {
     key: 'audit',
     label: 'Auditoria',
     shortLabel: 'Auditoria',
@@ -137,13 +110,13 @@ const TABS: TabDef[] = [
     requiredModule: 'audit',
   },
   {
-    key: 'contact',
-    label: 'Formulário de Contato',
-    shortLabel: 'Contato',
-    icon: MessageSquare,
-    categories: ['contact'],
-    description: 'Gerencie motivos de contato, campos obrigatórios e qualificação de leads.',
-    requiredModule: 'settings-contact',
+    key: 'ferramentas',
+    label: 'Ferramentas',
+    shortLabel: 'Ferramentas',
+    icon: FileSearch,
+    categories: [],
+    description: 'Configure módulos de ferramentas como Achados e Perdidos.',
+    requiredModule: 'settings-ferramentas',
   },
   {
     key: 'financial',
@@ -155,6 +128,24 @@ const TABS: TabDef[] = [
     requiredModule: 'settings-financial',
   },
   {
+    key: 'fiscal',
+    label: 'Fiscal',
+    shortLabel: 'Fiscal',
+    icon: Receipt,
+    categories: ['fiscal'],
+    description: 'Dados do emitente NF-e, configurações de emissão e perfis fiscais.',
+    requiredModule: 'settings-fiscal',
+  },
+  {
+    key: 'contact',
+    label: 'Formulário de Contato',
+    shortLabel: 'Contato',
+    icon: MessageSquare,
+    categories: ['contact'],
+    description: 'Gerencie motivos de contato, campos obrigatórios e qualificação de leads.',
+    requiredModule: 'settings-contact',
+  },
+  {
     key: 'ia',
     label: 'IA (Agentes)',
     shortLabel: 'IA',
@@ -162,15 +153,6 @@ const TABS: TabDef[] = [
     categories: [],
     description: 'Agentes de IA, prompts, providers (Anthropic/OpenAI) e monitoramento de uso.',
     requiredModule: 'settings-ia',
-  },
-  {
-    key: 'enrollment',
-    label: 'Pré-Matrícula',
-    shortLabel: 'Matrícula',
-    icon: GraduationCap,
-    categories: ['enrollment'],
-    description: 'Defina campos obrigatórios, documentos exigidos e regras do formulário.',
-    requiredModule: 'settings-enrollment',
   },
   {
     key: 'notifications',
@@ -189,6 +171,24 @@ const TABS: TabDef[] = [
     categories: [],
     description: 'Gerencie permissões por cargo e por usuário.',
     requiredModule: 'users',
+  },
+  {
+    key: 'enrollment',
+    label: 'Pré-Matrícula',
+    shortLabel: 'Matrícula',
+    icon: GraduationCap,
+    categories: ['enrollment'],
+    description: 'Defina campos obrigatórios, documentos exigidos e regras do formulário.',
+    requiredModule: 'settings-enrollment',
+  },
+  {
+    key: 'rh',
+    label: 'RH',
+    shortLabel: 'RH',
+    icon: Briefcase,
+    categories: [],
+    description: 'Conteúdo da página /trabalhe-conosco e parâmetros de captação de currículos.',
+    requiredModule: 'settings-rh',
   },
   {
     key: 'security',
