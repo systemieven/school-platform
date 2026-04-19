@@ -215,8 +215,11 @@ export default function DashboardPage() {
     return 'after-wide';
   })();
 
+  // `my-6` (em vez de `mt-8`) garante espaçamento top+bottom consistente com os
+  // demais blocos (kpis/charts/lists usam `mb-4`/`mb-6`) — necessário agora que
+  // o bloco pode ser posicionado entre quaisquer seções, não só após `wide`.
   const ChartsBlock = (
-    <div className="mt-8">
+    <div className="my-6">
       <DashboardChartGrid module="principal" />
     </div>
   );
