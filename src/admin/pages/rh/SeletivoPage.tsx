@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Briefcase, Kanban as KanbanIcon, Search, Loader2, Plus, UserCircle2, Filter,
-  Users,
+  Users, Clock, Sparkles, User,
 } from 'lucide-react';
 import PermissionGate from '../../components/PermissionGate';
 import {
@@ -44,6 +44,33 @@ function PreScreeningBadge({ status }: { status: PreScreeningStatus }) {
       </span>
     </div>
   );
+}
+
+// Dot colorido ao lado do label da coluna — espelha o padrão do /leads/kanban.
+const STAGE_DOT: Record<ApplicationStage, string> = {
+  novo:       '#3b82f6', // blue-500
+  triagem:    '#6366f1', // indigo-500
+  entrevista: '#a855f7', // purple-500
+  proposta:   '#f59e0b', // amber-500
+  contratado: '#10b981', // emerald-500
+  descartado: '#94a3b8', // slate-400
+};
+
+// Config do indicador mini de pré-triagem (usado como "priority dot" no topo
+// do card do kanban). Replica a semântica visual do PRIORITY_CONFIG do Leads.
+const PRESCREEN_INDICATOR: Record<
+  Exclude<PreScreeningStatus, null>,
+  { label: string; color: string; dot: string }
+> = {
+  pending:   { label: 'Pendente',  color: 'text-gray-500',    dot: 'bg-gray-400' },
+  running:   { label: 'Em curso',  color: 'text-amber-600',   dot: 'bg-amber-400 animate-pulse' },
+  completed: { label: 'Concluída', color: 'text-emerald-600', dot: 'bg-emerald-400' },
+  abandoned: { label: 'Abandonada', color: 'text-red-500',    dot: 'bg-red-400' },
+};
+
+function daysSince(iso: string): number {
+  const diff = Date.now() - new Date(iso).getTime();
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
 }
 
 type MainTab = 'vagas' | 'pipeline' | 'reserva';
@@ -429,21 +456,6 @@ function PipelineTab() {
   function openNew() { setSelected(null); setDrawerOpen(true); }
   function openEdit(app: JobApplicationWithRelations) { setSelected(app); setDrawerOpen(true); }
 
-  async function handleDrop(e: React.DragEvent<HTMLDivElement>, target: ApplicationStage) {
-    e.preventDefault();
-    const id = e.dataTransfer.getData('application/json') || draggingId;
-    setDraggingId(null);
-    if (!id) return;
-    const app = rows.find((r) => r.id === id);
-    if (!app || app.stage === target) return;
-    try {
-      await moveApplicationStage(id, target);
-      reload();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao mover.');
-    }
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
@@ -483,65 +495,22 @@ function PipelineTab() {
       ) : (
         <div className="flex gap-3 overflow-x-auto pb-2">
           {STAGE_ORDER.map((stage) => (
-            <div
+            <PipelineColumn
               key={stage}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => handleDrop(e, stage)}
-              className="flex-shrink-0 w-[260px] bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700 p-3"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${STAGE_COLOR[stage]}`}>
-                  {STAGE_LABEL[stage]}
-                </span>
-                <span className="text-xs text-gray-400">{byStage[stage].length}</span>
-              </div>
-              <div className="space-y-2 min-h-[120px]">
-                {byStage[stage].map((app) => (
-                  <div
-                    key={app.id}
-                    draggable
-                    onDragStart={(e) => {
-                      setDraggingId(app.id);
-                      e.dataTransfer.setData('application/json', app.id);
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    onDragEnd={() => setDraggingId(null)}
-                    onClick={() => openEdit(app)}
-                    className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-3 cursor-pointer hover:border-brand-primary dark:hover:border-brand-secondary transition-colors shadow-sm"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <UserCircle2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
-                        {app.candidate?.full_name ?? 'Candidato'}
-                      </span>
-                    </div>
-                    {app.job_opening && (
-                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate ml-6">
-                        {app.job_opening.title}
-                      </div>
-                    )}
-                    <PreScreeningBadge status={app.pre_screening_status} />
-                    {app.screener_score !== null && (
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-[10px] text-gray-400 uppercase tracking-wide">Score IA</span>
-                        <span className={`text-xs font-bold ${
-                          (app.screener_score ?? 0) >= 70 ? 'text-emerald-600 dark:text-emerald-400'
-                          : (app.screener_score ?? 0) >= 40 ? 'text-amber-600 dark:text-amber-400'
-                          : 'text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {app.screener_score}/100
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {byStage[stage].length === 0 && (
-                  <div className="text-[11px] text-gray-400 dark:text-gray-500 text-center py-6">
-                    Vazio
-                  </div>
-                )}
-              </div>
-            </div>
+              stage={stage}
+              apps={byStage[stage]}
+              onDropApp={(appId) => {
+                const app = rows.find((r) => r.id === appId);
+                if (!app || app.stage === stage) return;
+                moveApplicationStage(appId, stage)
+                  .then(reload)
+                  .catch((err) => alert(err instanceof Error ? err.message : 'Erro ao mover.'));
+              }}
+              onCardDragStart={(id) => setDraggingId(id)}
+              onCardDragEnd={() => setDraggingId(null)}
+              onCardClick={openEdit}
+              draggingId={draggingId}
+            />
           ))}
         </div>
       )}
@@ -553,6 +522,152 @@ function PipelineTab() {
         defaultJobOpeningId={jobFilter || undefined}
         onSaved={reload}
       />
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Coluna + Card do Pipeline — padrão visual espelhado do /leads/kanban
+// (cards arredondados, hover eleva shadow, priority-dot, badge de área,
+// footer com tempo e score).
+// ══════════════════════════════════════════════════════════════════════════════
+
+function PipelineColumn({
+  stage, apps, onDropApp, onCardDragStart, onCardDragEnd, onCardClick, draggingId,
+}: {
+  stage: ApplicationStage;
+  apps: JobApplicationWithRelations[];
+  onDropApp: (appId: string) => void;
+  onCardDragStart: (id: string) => void;
+  onCardDragEnd: () => void;
+  onCardClick: (app: JobApplicationWithRelations) => void;
+  draggingId: string | null;
+}) {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useRef(0);
+
+  return (
+    <div
+      className={`flex-shrink-0 w-64 flex flex-col rounded-2xl transition-colors ${
+        isDragOver ? 'bg-blue-50 dark:bg-blue-900/10' : 'bg-gray-50 dark:bg-gray-800/50'
+      }`}
+      onDragOver={(e) => e.preventDefault()}
+      onDragEnter={(e) => { e.preventDefault(); dragCounter.current++; setIsDragOver(true); }}
+      onDragLeave={() => { dragCounter.current--; if (dragCounter.current === 0) setIsDragOver(false); }}
+      onDrop={(e) => {
+        e.preventDefault();
+        dragCounter.current = 0;
+        setIsDragOver(false);
+        const id = e.dataTransfer.getData('application/json') || draggingId;
+        if (id) onDropApp(id);
+      }}
+    >
+      {/* Column header */}
+      <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: STAGE_DOT[stage] }} />
+        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex-1 truncate">
+          {STAGE_LABEL[stage]}
+        </span>
+        <span className="text-[10px] font-bold bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 w-5 h-5 rounded-full flex items-center justify-center border border-gray-200 dark:border-gray-600">
+          {apps.length}
+        </span>
+      </div>
+
+      {/* Cards */}
+      <div className={`flex-1 p-2 space-y-2 min-h-[120px] overflow-y-auto ${isDragOver ? 'ring-2 ring-inset ring-blue-300 dark:ring-blue-600 rounded-b-2xl' : ''}`}>
+        {apps.map((app) => (
+          <PipelineCard
+            key={app.id}
+            app={app}
+            onDragStart={(e) => {
+              onCardDragStart(app.id);
+              e.dataTransfer.setData('application/json', app.id);
+              e.dataTransfer.effectAllowed = 'move';
+            }}
+            onDragEnd={onCardDragEnd}
+            onClick={() => onCardClick(app)}
+          />
+        ))}
+        {apps.length === 0 && (
+          <div className="text-center py-6 text-gray-300 dark:text-gray-600">
+            <User className="w-6 h-6 mx-auto mb-1 opacity-50" />
+            <p className="text-[11px]">Arraste candidatos aqui</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PipelineCard({
+  app, onDragStart, onDragEnd, onClick,
+}: {
+  app: JobApplicationWithRelations;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+  onClick: () => void;
+}) {
+  const indicator = app.pre_screening_status ? PRESCREEN_INDICATOR[app.pre_screening_status] : null;
+  const days = daysSince(app.created_at);
+  const score = app.screener_score;
+  const scoreColor =
+    score == null ? '' :
+    score >= 70 ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' :
+    score >= 40 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400' :
+    'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400';
+
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={onClick}
+      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-brand-primary/20 dark:hover:border-brand-secondary/20 transition-all group select-none"
+    >
+      {/* Triagem IA + área */}
+      <div className="flex items-center gap-2 mb-2">
+        {indicator ? (
+          <div className={`flex items-center gap-1 text-[10px] font-medium ${indicator.color}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${indicator.dot}`} />
+            {indicator.label}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 text-[10px] font-medium text-gray-400">
+            <div className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+            Manual
+          </div>
+        )}
+        <span className="text-[10px] bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary dark:text-brand-secondary px-2 py-0.5 rounded-full font-medium ml-auto truncate max-w-[110px]">
+          {JOB_AREA_LABELS[app.area]}
+        </span>
+      </div>
+
+      {/* Nome */}
+      <p className="font-semibold text-sm text-gray-800 dark:text-white leading-tight mb-1 group-hover:text-brand-primary dark:group-hover:text-brand-secondary transition-colors truncate">
+        {app.candidate?.full_name ?? 'Candidato'}
+      </p>
+
+      {/* Vaga (ou base reserva) */}
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mb-2.5">
+        <Briefcase className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate">
+          {app.job_opening?.title ?? 'Base reserva'}
+        </span>
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 text-[10px] text-gray-400">
+          <Clock className="w-3 h-3" />
+          <span>{days === 0 ? 'hoje' : `${days}d aqui`}</span>
+        </div>
+        {score != null && (
+          <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${scoreColor}`}>
+            <Sparkles className="w-3 h-3" />
+            {score}/100
+          </span>
+        )}
+      </div>
     </div>
   );
 }
