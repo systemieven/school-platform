@@ -433,6 +433,47 @@ Deno.serve(async (req: Request) => {
         .from("job_applications")
         .update({ extracted_payload: extractedPayload })
         .eq("id", applicationId);
+
+      // Backfill em `candidates`: preenche só onde estiver NULL.
+      // Dados vindos do form (nome, email, phone, cpf) têm precedência; aqui
+      // complementamos com endereço, birth_date, docs e URLs extraídas do CV.
+      // Lógica em JS pra evitar UPDATE ruidoso quando nada muda.
+      const addr = (extractedPayload.address ?? {}) as Record<string, unknown>;
+      const asStr = (v: unknown): string | null =>
+        typeof v === "string" && v.trim() ? v.trim() : null;
+      const extracted: Record<string, string | null> = {
+        cpf: asStr(extractedPayload.cpf)?.replace(/\D/g, "") || null,
+        rg: asStr(extractedPayload.rg),
+        cnh: asStr(extractedPayload.cnh),
+        birth_date: asStr(extractedPayload.birth_date),
+        linkedin_url: asStr(extractedPayload.linkedin_url),
+        portfolio_url: asStr(extractedPayload.portfolio_url),
+        address_street: asStr(addr.street),
+        address_number: asStr(addr.number),
+        address_complement: asStr(addr.complement),
+        address_neighborhood: asStr(addr.neighborhood),
+        address_city: asStr(addr.city),
+        address_state: asStr(addr.state)?.toUpperCase() || null,
+        address_zip: asStr(addr.zip)?.replace(/\D/g, "") || null,
+      };
+      const { data: current } = await service
+        .from("candidates")
+        .select(
+          "cpf,rg,cnh,birth_date,linkedin_url,portfolio_url,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,address_zip",
+        )
+        .eq("id", candidateId)
+        .maybeSingle();
+      if (current) {
+        const patch: Record<string, string | null> = {};
+        for (const [k, v] of Object.entries(extracted)) {
+          if (v && !(current as Record<string, string | null>)[k]) {
+            patch[k] = v;
+          }
+        }
+        if (Object.keys(patch).length > 0) {
+          await service.from("candidates").update(patch).eq("id", candidateId);
+        }
+      }
     }
   }
 

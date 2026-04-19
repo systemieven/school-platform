@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
   UserCircle2, FileText, ClipboardList, Sparkles, Upload, Check, Loader2,
   Trash2, ExternalLink, Mail, Phone, Linkedin, Globe, Briefcase, XCircle,
-  FileSearch, MessagesSquare, MessageCircle, AlertTriangle, Award,
+  FileSearch, MessagesSquare, MessageCircle, AlertTriangle, Award, MapPin,
+  Calendar,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
 import { SelectDropdown } from '../../../components/FormField';
@@ -19,6 +20,7 @@ import {
   type ApplicationStage, type JobApplicationWithRelations,
 } from '../../../hooks/useJobApplications';
 import { useJobOpenings, JOB_AREA_LABELS, type JobArea } from '../../../hooks/useJobOpenings';
+import { useCepLookup } from '../../../hooks/useCepLookup';
 
 const inputCls =
   'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm transition-all';
@@ -31,6 +33,10 @@ function maskPhone(v: string): string {
   if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
   if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+function maskCep(v: string): string {
+  const d = v.replace(/\D/g, '').slice(0, 8);
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
 }
 
 interface Props {
@@ -77,6 +83,33 @@ export default function CandidatoDrawer({
   // Área (quando criar manualmente ou editar reserva)
   const [area, setArea] = useState<JobArea>('administrativa');
 
+  // CEP → preenche endereço automaticamente via ViaCEP.
+  const { lookup: lookupCep, loading: cepLoading } = useCepLookup();
+  async function handleCepBlur(raw: string) {
+    const addr = await lookupCep(raw);
+    if (!addr) return;
+    setCand((c) => ({
+      ...c,
+      address_street: addr.logradouro || c.address_street || null,
+      address_neighborhood: addr.bairro || c.address_neighborhood || null,
+      address_city: addr.municipio || c.address_city || null,
+      address_state: addr.uf || c.address_state || null,
+      address_zip: addr.cep || c.address_zip || null,
+    }));
+  }
+
+  // Campos obrigatórios pra promover pra staff na contratação.
+  const missingForHire = (() => {
+    const missing: string[] = [];
+    if (!cand.address_street) missing.push('endereço');
+    if (!cand.address_city) missing.push('cidade');
+    if (!cand.address_state) missing.push('UF');
+    if (!cand.address_zip) missing.push('CEP');
+    if (!cand.birth_date) missing.push('data de nascimento');
+    return missing;
+  })();
+  const showHireGap = (stage === 'proposta' || stage === 'contratado') && missingForHire.length > 0;
+
   // Histórico do chat de pré-triagem (read-only para admin).
   const [chat, setChat] = useState<ChatMessage[] | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
@@ -105,6 +138,10 @@ export default function CandidatoDrawer({
         full_name: c.full_name, email: c.email, phone: c.phone, cpf: c.cpf,
         rg: c.rg, cnh: c.cnh, birth_date: c.birth_date,
         linkedin_url: c.linkedin_url, portfolio_url: c.portfolio_url,
+        address_street: c.address_street, address_number: c.address_number,
+        address_complement: c.address_complement, address_neighborhood: c.address_neighborhood,
+        address_city: c.address_city, address_state: c.address_state,
+        address_zip: c.address_zip,
       } : {});
       setJobOpeningId(application.job_opening_id ?? '');
       setArea(application.area);
@@ -190,6 +227,13 @@ export default function CandidatoDrawer({
         birth_date: cand.birth_date ?? null,
         linkedin_url: cand.linkedin_url?.trim() || null,
         portfolio_url: cand.portfolio_url?.trim() || null,
+        address_street: cand.address_street?.trim() || null,
+        address_number: cand.address_number?.trim() || null,
+        address_complement: cand.address_complement?.trim() || null,
+        address_neighborhood: cand.address_neighborhood?.trim() || null,
+        address_city: cand.address_city?.trim() || null,
+        address_state: cand.address_state?.trim() || null,
+        address_zip: cand.address_zip?.replace(/\D/g, '') || null,
       });
 
       let appId: string;
@@ -423,6 +467,15 @@ export default function CandidatoDrawer({
 
       {/* ── Candidato ─────────────────────────────────────────────── */}
       {tab === 'candidato' && (
+        <>
+        {showHireGap && (
+          <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-200 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              Faltam dados pra efetivar contratação: <strong>{missingForHire.join(', ')}</strong>.
+            </span>
+          </div>
+        )}
         <DrawerCard title="Dados do candidato" icon={UserCircle2}>
           <div className="space-y-3">
             <div>
@@ -479,6 +532,15 @@ export default function CandidatoDrawer({
                 />
               </div>
             </div>
+            <div>
+              <label className={labelCls}><Calendar className="w-3 h-3 inline mr-1" />Data de nascimento</label>
+              <input
+                type="date"
+                value={cand.birth_date ?? ''}
+                onChange={(e) => setCand((c) => ({ ...c, birth_date: e.target.value || null }))}
+                className={inputCls}
+              />
+            </div>
             {!isNew && application?.candidate && (
               <div className="mt-2 space-y-1.5">
                 <button
@@ -504,6 +566,86 @@ export default function CandidatoDrawer({
             )}
           </div>
         </DrawerCard>
+        <DrawerCard title="Endereço" icon={MapPin}>
+          <div className="space-y-3">
+            <div>
+              <label className={labelCls}>CEP</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={cand.address_zip ? maskCep(cand.address_zip) : ''}
+                  onChange={(e) => setCand((c) => ({ ...c, address_zip: e.target.value.replace(/\D/g, '') || null }))}
+                  onBlur={(e) => handleCepBlur(e.target.value)}
+                  className={inputCls}
+                  placeholder="00000-000"
+                />
+                {cepLoading && (
+                  <Loader2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
+                )}
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Logradouro</label>
+              <input
+                type="text"
+                value={cand.address_street ?? ''}
+                onChange={(e) => setCand((c) => ({ ...c, address_street: e.target.value || null }))}
+                className={inputCls}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Número</label>
+                <input
+                  type="text"
+                  value={cand.address_number ?? ''}
+                  onChange={(e) => setCand((c) => ({ ...c, address_number: e.target.value || null }))}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Complemento</label>
+                <input
+                  type="text"
+                  value={cand.address_complement ?? ''}
+                  onChange={(e) => setCand((c) => ({ ...c, address_complement: e.target.value || null }))}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Bairro</label>
+              <input
+                type="text"
+                value={cand.address_neighborhood ?? ''}
+                onChange={(e) => setCand((c) => ({ ...c, address_neighborhood: e.target.value || null }))}
+                className={inputCls}
+              />
+            </div>
+            <div className="grid grid-cols-[1fr,80px] gap-3">
+              <div>
+                <label className={labelCls}>Cidade</label>
+                <input
+                  type="text"
+                  value={cand.address_city ?? ''}
+                  onChange={(e) => setCand((c) => ({ ...c, address_city: e.target.value || null }))}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>UF</label>
+                <input
+                  type="text"
+                  maxLength={2}
+                  value={cand.address_state ?? ''}
+                  onChange={(e) => setCand((c) => ({ ...c, address_state: e.target.value.toUpperCase() || null }))}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          </div>
+        </DrawerCard>
+        </>
       )}
 
       {/* ── CV ───────────────────────────────────────────────────── */}
