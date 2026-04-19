@@ -4912,7 +4912,7 @@ VALUES ('lost-found', 'Achados e Perdidos', 'Modulo de objetos encontrados e ges
 
 ### 10.12B Fase 18 — Personalizacao do Dashboard Principal (per-user)
 
-> 🟡 **Em progresso** — migration 222, 2026-04-19.
+> ✅ **Concluído — 2026-04-19.** Migration 222 aplicada; drag-and-drop com `@dnd-kit`, prefs per-user em `dashboard_widget_user_prefs` (RLS estrito por `auth.uid()`), abas "Minha visão" / "Padrão da escola" no drawer, reset button, e drag-reorder também nos charts personalizados do `DashboardChartGrid`. Botão "Personalizar" aberto para todos os roles.
 
 **Problema**: o dashboard principal (`/admin`) tem 22 widgets registrados em `src/admin/pages/dashboard/widgets/registry.tsx` e prefs globais por modulo em `dashboard_widget_prefs` (visibilidade + ordem). Quem edita o drawer "Personalizar" muda o dashboard de **todos** — coordenadores, financeiro e secretaria veem o mesmo layout, mesmo com prioridades muito diferentes. Reordenar com setinhas (`ArrowUp`/`ArrowDown`) tambem desestimula uso.
 

@@ -231,14 +231,16 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   }
 
   if (source === 'wa_messages_by_status') {
+    // Tabela correta é `whatsapp_message_log` (alinhada com o widget do registry
+    // `whatsapp.stats`). `whatsapp_messages` nunca existiu no schema.
     const { data } = await supabase
-      .from('whatsapp_messages')
+      .from('whatsapp_message_log')
       .select('status')
       .gte('created_at', start + 'T00:00:00')
       .lte('created_at', end + 'T23:59:59');
     const labels: Record<string, string> = {
-      sent: 'Enviada', delivered: 'Entregue', read: 'Lida',
-      failed: 'Falhou', queued: 'Na fila',
+      pending: 'Pendente', sent: 'Enviada', delivered: 'Entregue',
+      read: 'Lida', failed: 'Falhou',
     };
     const agg: Record<string, number> = {};
     (data ?? []).forEach((r: { status: string }) => {
