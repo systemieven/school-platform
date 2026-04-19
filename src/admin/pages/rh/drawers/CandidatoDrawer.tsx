@@ -11,7 +11,7 @@ import { supabase } from '../../../../lib/supabase';
 import { logAudit } from '../../../../lib/audit';
 import { renderInline } from '../../../../lib/renderInline';
 import {
-  upsertCandidateByCpf, deleteCandidate, type CandidateInput,
+  upsertCandidateByCpf, updateCandidate, deleteCandidate, type CandidateInput,
 } from '../../../hooks/useCandidates';
 import { maskCpf, cleanCpf, validateCpf } from '../../../../lib/cpf';
 import {
@@ -222,14 +222,18 @@ export default function CandidatoDrawer({
     setSaving(true);
     setError('');
     try {
-      // 1) Upsert do candidato por email
-      const candidate = await upsertCandidateByCpf({
+      // 1) Persiste o candidato.
+      //    - Em edição (application existe) atualizamos pelo id — evita criar
+      //      duplicata quando o CPF foi introduzido depois (candidato legado
+      //      tinha cpf=null e `upsertCandidateByCpf` não o encontraria).
+      //    - Em criação (novo), usa upsert por CPF (chave natural).
+      const payload: Partial<CandidateInput> = {
         full_name: cand.full_name?.trim(),
         email: cand.email?.trim(),
-        phone: cand.phone?.trim() || null,
+        phone: cand.phone?.replace(/\D/g, '') || null,
         cpf: cleanCpf(cand.cpf ?? ''),
-        rg: cand.rg ?? null,
-        cnh: cand.cnh ?? null,
+        rg: cand.rg?.trim() || null,
+        cnh: cand.cnh?.trim() || null,
         birth_date: cand.birth_date ?? null,
         linkedin_url: cand.linkedin_url?.trim() || null,
         portfolio_url: cand.portfolio_url?.trim() || null,
@@ -240,7 +244,10 @@ export default function CandidatoDrawer({
         address_city: cand.address_city?.trim() || null,
         address_state: cand.address_state?.trim() || null,
         address_zip: cand.address_zip?.replace(/\D/g, '') || null,
-      });
+      };
+      const candidate = application?.candidate?.id
+        ? await updateCandidate(application.candidate.id, payload)
+        : await upsertCandidateByCpf(payload);
 
       let appId: string;
       if (application) {
@@ -509,27 +516,40 @@ export default function CandidatoDrawer({
                 <label className={labelCls}><Phone className="w-3 h-3 inline mr-1" />Telefone</label>
                 <input
                   type="tel"
-                  value={cand.phone ?? ''}
+                  value={maskPhone(cand.phone ?? '')}
                   onChange={(e) => setCand((c) => ({ ...c, phone: maskPhone(e.target.value) }))}
                   className={inputCls}
                   placeholder="(81) 99999-9999"
+                  maxLength={15}
                 />
               </div>
             </div>
-            <div>
-              <label className={labelCls}>CPF *</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={cand.cpf ? maskCpf(cand.cpf) : ''}
-                onChange={(e) => setCand((c) => ({ ...c, cpf: cleanCpf(e.target.value) || null }))}
-                className={`${inputCls} ${cand.cpf && cleanCpf(cand.cpf).length === 11 && !validateCpf(cand.cpf) ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : ''}`}
-                placeholder="000.000.000-00"
-                maxLength={14}
-              />
-              {cand.cpf && cleanCpf(cand.cpf).length === 11 && !validateCpf(cand.cpf) && (
-                <p className="mt-1 text-xs text-red-600">CPF inválido — verifique os dígitos.</p>
-              )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>CPF *</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={cand.cpf ? maskCpf(cand.cpf) : ''}
+                  onChange={(e) => setCand((c) => ({ ...c, cpf: cleanCpf(e.target.value) || null }))}
+                  className={`${inputCls} ${cand.cpf && cleanCpf(cand.cpf).length === 11 && !validateCpf(cand.cpf) ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                />
+                {cand.cpf && cleanCpf(cand.cpf).length === 11 && !validateCpf(cand.cpf) && (
+                  <p className="mt-1 text-xs text-red-600">CPF inválido — verifique os dígitos.</p>
+                )}
+              </div>
+              <div>
+                <label className={labelCls}>RG</label>
+                <input
+                  type="text"
+                  value={cand.rg ?? ''}
+                  onChange={(e) => setCand((c) => ({ ...c, rg: e.target.value || null }))}
+                  className={inputCls}
+                  placeholder="00.000.000-0"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
