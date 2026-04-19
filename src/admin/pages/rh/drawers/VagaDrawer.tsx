@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
-  Briefcase, FileText, MapPin, Check, Loader2, Trash2, DollarSign,
+  Briefcase, FileText, MapPin, Check, Loader2, Trash2,
   Sparkles, UserCheck, ThumbsUp, ThumbsDown,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
 import { SelectDropdown } from '../../../components/FormField';
+import { CurrencyField } from '../../../components/CurrencyField';
 import HtmlTemplateEditor from '../../../components/HtmlTemplateEditor';
 import { logAudit } from '../../../../lib/audit';
 import { supabase } from '../../../../lib/supabase';
@@ -367,31 +368,21 @@ export default function VagaDrawer({ open, onClose, job, onSaved, onSelectCandid
               ))}
             </SelectDropdown>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>
-                  <DollarSign className="w-3 h-3 inline mr-1" />
-                  Salário mínimo
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.salary_range_min ?? ''}
-                  onChange={(e) => set('salary_range_min', e.target.value ? Number(e.target.value) : null)}
-                  className={inputCls}
-                  placeholder="0,00"
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Salário máximo</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.salary_range_max ?? ''}
-                  onChange={(e) => set('salary_range_max', e.target.value ? Number(e.target.value) : null)}
-                  className={inputCls}
-                  placeholder="0,00"
-                />
-              </div>
+              <CurrencyField
+                label="Salário mínimo"
+                value={form.salary_range_min}
+                onChange={(v) => set('salary_range_min', v)}
+                labelClassName={labelCls}
+                inputClassName={inputCls}
+                showIcon
+              />
+              <CurrencyField
+                label="Salário máximo"
+                value={form.salary_range_max}
+                onChange={(v) => set('salary_range_max', v)}
+                labelClassName={labelCls}
+                inputClassName={inputCls}
+              />
             </div>
           </div>
         </DrawerCard>
@@ -432,9 +423,9 @@ export default function VagaDrawer({ open, onClose, job, onSaved, onSelectCandid
       {tab === 'reserva' && showReservaTab && (
         <DrawerCard title="Sugestão da base reserva" icon={Sparkles}>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            O agente <code>best_fit_selector</code> analisa os candidatos da base reserva
-            na área <strong>{JOB_AREA_LABELS[(form.area ?? 'administrativa') as JobArea]}</strong>
-            {' '}e sugere os 5 com maior fit para esta vaga.
+            Analisamos os candidatos da base reserva da área{' '}
+            <strong>{JOB_AREA_LABELS[(form.area ?? 'administrativa') as JobArea]}</strong>{' '}
+            e sugerimos os 5 com maior aderência ao perfil desta vaga.
           </p>
 
           <button

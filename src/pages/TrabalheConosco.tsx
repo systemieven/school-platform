@@ -442,7 +442,10 @@ export default function TrabalheConosco() {
                       <div>
                         <h3 className="font-semibold text-gray-900">{o.title}</h3>
                         {o.description && (
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{o.description}</p>
+                          <div
+                            className="text-sm text-gray-600 mt-1 line-clamp-2 [&_p]:m-0 [&_br]:block"
+                            dangerouslySetInnerHTML={{ __html: o.description }}
+                          />
                         )}
                         <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
                           {o.employment_type && <span className="uppercase">{o.employment_type}</span>}

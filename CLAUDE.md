@@ -105,6 +105,29 @@ Regras obrigatórias:
 5. **Nunca** spinner CSS caseiro (`border-t-white rounded-full`) — sempre `<Loader2>` do Lucide.
 6. **Toggle ativo/inativo na barra de título:** quando o drawer tem um campo `is_active` (ativar/desativar o recurso), o toggle fica no lado direito do header, **antes** do botão fechar — nunca em SettingsCard separado dentro do body. Padrão: `<div className="flex items-center gap-3"><Toggle checked={form.is_active} onChange={...} onColor="bg-emerald-500" /><button onClick={onCancel}>...</button></div>`.
 
+## Padrão de campo monetário (R$)
+
+Campos monetários no admin usam `<CurrencyField>` de `src/admin/components/CurrencyField.tsx`. O estado guarda `number` em reais (ex.: `1500.5`); o componente formata "R$ 1.500,50" durante a digitação via máscara de dígitos — cada tecla extrai só dígitos, divide por 100 e reformata.
+
+Uso:
+
+```tsx
+<CurrencyField
+  label="Salário mínimo"
+  value={form.salary_range_min}
+  onChange={(v) => set('salary_range_min', v)}
+  showIcon
+/>
+```
+
+Em drawers que já definem `labelCls`/`inputCls` locais, passe via `labelClassName`/`inputClassName` para manter a aparência idêntica aos outros inputs do drawer.
+
+Regras:
+
+- **Nunca** usar `<input type="number">` para valores monetários — não formata em pt-BR, aceita notação científica e separador inconsistente.
+- Percentuais (`aliq_icms`, `aliq_pis`, etc.) ficam fora deste padrão e continuam com input numérico.
+- Helpers reutilizáveis em `src/admin/lib/currency.ts`: `formatBRL(n)` e `digitsToReais(str)`.
+
 ## Referências
 
 - `docs/PRD_V3.md` — PRD atual (seção 2.3 tem a arquitetura multi-cliente completa)
