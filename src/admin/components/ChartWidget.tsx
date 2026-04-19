@@ -289,15 +289,20 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   }
 
   if (source === 'grades_distribution') {
+    // A tabela `grades` não tem coluna `value`; a nota é `score`/`max_score`.
+    // Normalizamos para escala 0–10 antes de bucketizar.
     const { data } = await supabase
       .from('grades')
-      .select('value')
+      .select('score, max_score')
       .gte('created_at', start + 'T00:00:00')
       .lte('created_at', end + 'T23:59:59');
 
     const buckets: Record<string, number> = { '0–4': 0, '4–6': 0, '6–8': 0, '8–10': 0 };
-    (data ?? []).forEach((r: { value: number }) => {
-      const v = Number(r.value);
+    (data ?? []).forEach((r: { score: number | null; max_score: number | null }) => {
+      const score = Number(r.score);
+      const max = Number(r.max_score);
+      if (!Number.isFinite(score) || !Number.isFinite(max) || max <= 0) return;
+      const v = (score / max) * 10;
       if (v < 4) buckets['0–4']++;
       else if (v < 6) buckets['4–6']++;
       else if (v < 8) buckets['6–8']++;
@@ -307,34 +312,50 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   }
 
   if (source === 'learning_curve') {
+    // Colunas reais em `student_results`: `period1_avg`..`period4_avg` + `final_avg`.
+    // Não existe `period_label`/`final_average`. Derreto os 4 períodos em linhas
+    // para produzir a curva média da escola ao longo do ano.
     const { data } = await supabase
       .from('student_results')
-      .select('period_label, final_average')
-      .not('final_average', 'is', null)
-      .order('period_label');
+      .select('period1_avg, period2_avg, period3_avg, period4_avg')
+      .gte('created_at', start + 'T00:00:00')
+      .lte('created_at', end + 'T23:59:59');
 
+    type ResultRow = { period1_avg: number | null; period2_avg: number | null; period3_avg: number | null; period4_avg: number | null };
     const byPeriod: Record<string, { sum: number; count: number }> = {};
-    (data ?? []).forEach((r: { period_label: string; final_average: number }) => {
-      if (!byPeriod[r.period_label]) byPeriod[r.period_label] = { sum: 0, count: 0 };
-      byPeriod[r.period_label].sum += Number(r.final_average);
-      byPeriod[r.period_label].count++;
+    ((data ?? []) as ResultRow[]).forEach((r) => {
+      ([
+        ['1º bim', r.period1_avg],
+        ['2º bim', r.period2_avg],
+        ['3º bim', r.period3_avg],
+        ['4º bim', r.period4_avg],
+      ] as [string, number | null][]).forEach(([key, v]) => {
+        if (v == null) return;
+        if (!byPeriod[key]) byPeriod[key] = { sum: 0, count: 0 };
+        byPeriod[key].sum += Number(v);
+        byPeriod[key].count++;
+      });
     });
     return Object.entries(byPeriod)
-      .map(([period, d]) => ({ period, media: Math.round((d.sum / d.count) * 10) / 10 }))
-      .slice(-12);
+      .map(([period, d]) => ({ period, media: Math.round((d.sum / d.count) * 10) / 10 }));
   }
 
   if (source === 'alerts_by_severity') {
+    // `student_results` não tem `attendance_status`; derivamos do `attendance_pct`:
+    // <75% = Crítico, <85% = Alerta, >=85% = OK. Escolhido para cobrir o piso legal
+    // de 75% de presença exigido pela LDB.
     const { data } = await supabase
       .from('student_results')
-      .select('attendance_status')
-      .not('attendance_status', 'is', null);
+      .select('attendance_pct')
+      .not('attendance_pct', 'is', null);
 
-    const labels: Record<string, string> = { critical: 'Crítico', warning: 'Alerta', ok: 'OK' };
-    const agg: Record<string, number> = {};
-    (data ?? []).forEach((r: { attendance_status: string }) => {
-      const name = labels[r.attendance_status] ?? r.attendance_status;
-      agg[name] = (agg[name] ?? 0) + 1;
+    const agg: Record<string, number> = { 'Crítico': 0, 'Alerta': 0, 'OK': 0 };
+    (data ?? []).forEach((r: { attendance_pct: number }) => {
+      const pct = Number(r.attendance_pct);
+      if (!Number.isFinite(pct)) return;
+      if (pct < 75) agg['Crítico']++;
+      else if (pct < 85) agg['Alerta']++;
+      else agg['OK']++;
     });
     return Object.entries(agg).map(([name, value]) => ({ name, value }));
   }
