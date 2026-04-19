@@ -95,6 +95,69 @@ function fmtTime(t: string): string {
   return t.substring(0, 5);
 }
 
+// ── RH helpers ────────────────────────────────────────────────────────────────
+
+const JOB_AREA_LABELS: Record<string, string> = {
+  pedagogica: "Pedagógica",
+  administrativa: "Administrativa",
+  servicos_gerais: "Serviços Gerais",
+};
+
+const DAY_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function fmtHour(h: string): string {
+  // "07:00" → "7h" ; "07:30" → "7h30"
+  if (!h) return "";
+  const [hh, mm] = h.split(":");
+  const n = Number(hh);
+  if (Number.isNaN(n)) return h;
+  return mm && mm !== "00" ? `${n}h${mm}` : `${n}h`;
+}
+
+interface BusinessHoursDay {
+  open?: boolean;
+  start?: string;
+  end?: string;
+}
+
+function renderBusinessHours(raw: unknown): string {
+  let parsed: Record<string, BusinessHoursDay> | null = null;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    parsed = raw as Record<string, BusinessHoursDay>;
+  } else if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = null;
+    }
+  }
+  if (!parsed) return "Consultar secretaria";
+
+  // Agrupa dias contíguos com mesmo intervalo.
+  const groups: Array<{ from: number; to: number; label: string }> = [];
+  for (let d = 0; d < 7; d++) {
+    const day = parsed[String(d)];
+    if (!day?.open) continue;
+    const label = `${fmtHour(day.start ?? "")} às ${fmtHour(day.end ?? "")}`;
+    const last = groups[groups.length - 1];
+    if (last && last.to === d - 1 && last.label === label) {
+      last.to = d;
+    } else {
+      groups.push({ from: d, to: d, label });
+    }
+  }
+  if (groups.length === 0) return "Consultar secretaria";
+
+  return groups
+    .map((g) => {
+      const range = g.from === g.to
+        ? DAY_SHORT[g.from]
+        : `${DAY_SHORT[g.from]} a ${DAY_SHORT[g.to]}`;
+      return `${range}, ${g.label}`;
+    })
+    .join(" · ");
+}
+
 // ── Orchestrator helper ───────────────────────────────────────────────────────
 
 interface OrchestratorResult {
@@ -143,7 +206,7 @@ async function sendViaOrchestrator(params: {
 
 interface TriggerPayload {
   event: "on_create" | "on_status_change" | "on_reminder";
-  module: "agendamento" | "matricula" | "contato";
+  module: "agendamento" | "matricula" | "contato" | "rh-seletivo";
   record_id: string;
   old_status?: string;
   new_status?: string;
@@ -197,6 +260,7 @@ Deno.serve(async (req: Request) => {
       agendamento: "auto_notify_on_visit",
       matricula: "auto_notify_on_enrollment",
       contato: "auto_notify_on_contact",
+      "rh-seletivo": "auto_notify_on_rh",
     };
     const notifKey = moduleNotifKey[mod];
     if (notifKey) {
@@ -322,6 +386,73 @@ Deno.serve(async (req: Request) => {
       vars.contact_phone = rec.phone || "";
       vars.contact_reason = rec.contact_reason || "Não informado";
       vars.contact_status = rec.status || "";
+    } else if (mod === "rh-seletivo") {
+      const { data: app } = await service
+        .from("job_applications")
+        .select(
+          "id, area, stage, candidate:candidates(full_name, phone, email), job_opening:job_openings(title, department)",
+        )
+        .eq("id", record_id)
+        .maybeSingle();
+      if (!app) return json({ skipped: true, reason: "record_not_found" });
+
+      // O select retorna candidate/job_opening como objeto (FK → 1 linha).
+      // Tipagem do PostgREST às vezes marca como array; normalizamos.
+      const cand = (Array.isArray(app.candidate) ? app.candidate[0] : app.candidate) as
+        | { full_name?: string; phone?: string; email?: string }
+        | null;
+      const job = (Array.isArray(app.job_opening) ? app.job_opening[0] : app.job_opening) as
+        | { title?: string; department?: string }
+        | null;
+
+      if (!cand?.phone) {
+        console.log("[auto-notify] rh-seletivo: candidato sem phone, skipping");
+        return json({ skipped: true, reason: "no_phone" });
+      }
+
+      recipientPhone = cand.phone;
+      recipientName = cand.full_name || "Candidato";
+
+      const firstName = (cand.full_name ?? "").trim().split(/\s+/)[0] || "";
+      const areaKey = String(app.area || "");
+
+      // required_docs (hr) e site_url (general fallback se env ausente)
+      const { data: extraSettings } = await service
+        .from("system_settings")
+        .select("category, key, value")
+        .or("and(category.eq.hr,key.eq.required_docs),and(category.eq.general,key.eq.site_url)");
+
+      let requiredDocs: unknown = [];
+      let siteUrlSetting = "";
+      (extraSettings || []).forEach((s: { category: string; key: string; value: unknown }) => {
+        if (s.category === "hr" && s.key === "required_docs") requiredDocs = s.value;
+        if (s.category === "general" && s.key === "site_url") {
+          siteUrlSetting = typeof s.value === "string" ? s.value : "";
+        }
+      });
+      let docs: string[] = [];
+      if (Array.isArray(requiredDocs)) {
+        docs = (requiredDocs as unknown[]).map((d) => String(d));
+      } else if (typeof requiredDocs === "string") {
+        try {
+          const parsed = JSON.parse(requiredDocs);
+          if (Array.isArray(parsed)) docs = parsed.map((d) => String(d));
+        } catch { /* ignore */ }
+      }
+
+      const siteUrl =
+        (Deno.env.get("SITE_URL") || siteUrlSetting || "").replace(/\/+$/, "");
+
+      vars.candidate_name = cand.full_name ?? "";
+      vars.candidate_first_name = firstName;
+      vars.job_title = job?.title ?? "nossa base reserva";
+      vars.job_area = JOB_AREA_LABELS[areaKey] ?? areaKey;
+      vars.business_hours_text = renderBusinessHours(general.business_hours);
+      vars.schedule_url = siteUrl ? `${siteUrl}/agendar-visita` : "/agendar-visita";
+      vars.careers_url = siteUrl ? `${siteUrl}/trabalhe-conosco` : "/trabalhe-conosco";
+      vars.required_docs_list = docs.length > 0
+        ? docs.map((d) => `• ${d}`).join("\n")
+        : "Consultar secretaria";
     } else {
       return json({ skipped: true, reason: "unknown_module" });
     }
@@ -336,6 +467,7 @@ Deno.serve(async (req: Request) => {
       agendamento: ["agendamento"],
       matricula: ["matricula"],
       contato: ["contato"],
+      "rh-seletivo": ["rh-seletivo"],
     };
 
     const { data: templates } = await service
@@ -355,6 +487,7 @@ Deno.serve(async (req: Request) => {
       agendamento: ["agendamento", "appointment"],
       matricula: ["matricula", "enrollment"],
       contato: ["contato", "contact"],
+      "rh-seletivo": ["rh-seletivo", "rh"],
     };
     const validModuleNames = moduleAliases[mod] || [mod];
 
