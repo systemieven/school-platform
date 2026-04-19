@@ -20,6 +20,7 @@ const AVAILABLE_ROUTES = [
     { path: '/estrutura', label: 'Estrutura' },
     { path: '/contato', label: 'Contato' },
     { path: '/agendar-visita', label: 'Agendar Visita' },
+    { path: '/trabalhe-conosco', label: 'Trabalhe Conosco' },
   ]},
   { group: 'Segmentos', routes: [
     { path: '/educacao-infantil', label: 'Educacao Infantil' },
@@ -32,6 +33,7 @@ const AVAILABLE_ROUTES = [
   ]},
   { group: 'Loja', routes: [
     { path: '/loja', label: 'Loja' },
+    { path: '/loja/carrinho', label: 'Carrinho' },
   ]},
   { group: 'Portais', routes: [
     { path: '/portal/login',       label: 'Portal do Aluno' },
@@ -39,6 +41,7 @@ const AVAILABLE_ROUTES = [
   ]},
   { group: 'Atendimento', routes: [
     { path: '/atendimento', label: 'Atendimento (QR)' },
+    { path: '/painel-atendimento', label: 'Painel de Atendimento (TV)' },
   ]},
   { group: 'Legal', routes: [
     { path: '/politica-privacidade', label: 'Politica de Privacidade' },
