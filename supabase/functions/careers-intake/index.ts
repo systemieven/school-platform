@@ -260,32 +260,123 @@ Deno.serve(async (req: Request) => {
   }
 
   // ---- Create job_application -----------------------------------------------
-  const { data: app, error: appErr } = await service
+  const insertAppPayload = {
+    job_opening_id: body.job_opening_id ?? null,
+    candidate_id: candidateId,
+    area,
+    stage: "novo",
+    stage_position: 0,
+    source: "site",
+    pre_screening_status: "pending",
+    lgpd_consent_at: new Date().toISOString(),
+    lgpd_consent_version: lgpdVersion,
+    lgpd_consent_ip: clientIp,
+  };
+
+  const insertApplication = () => service
     .from("job_applications")
-    .insert({
-      job_opening_id: body.job_opening_id ?? null,
-      candidate_id: candidateId,
-      area,
-      stage: "novo",
-      stage_position: 0,
-      source: "site",
-      pre_screening_status: "pending",
-      lgpd_consent_at: new Date().toISOString(),
-      lgpd_consent_version: lgpdVersion,
-      lgpd_consent_ip: clientIp,
-    })
+    .insert(insertAppPayload)
     .select("id")
     .single();
 
-  if (appErr || !app) {
-    // Unique violation → candidato já aplicou para esta vaga/reserva
-    const code = (appErr as { code?: string } | null)?.code;
-    if (code === "23505") {
-      return json({ error: "ja_aplicou", detail: "Já existe uma candidatura sua para esta vaga/área." }, 409);
+  let appResult = await insertApplication();
+
+  // Recuperação condicional em caso de candidatura duplicada (unique violation).
+  // Regras:
+  //   pre_screening_status != 'completed'     → RETOMAR entrevista existente
+  //   pre_screening_status == 'completed':
+  //     stage == 'descartado'                → SUBSTITUIR (apaga e recria)
+  //     stage outro (pipeline ativo)         → BLOQUEAR (aguardar contato)
+  if (appResult.error && (appResult.error as { code?: string }).code === "23505") {
+    // Busca a candidatura conflitante (mesmo candidato + mesma vaga, ou
+    // mesmo candidato + mesma área para reserva).
+    let existingQ = service
+      .from("job_applications")
+      .select("id, stage, pre_screening_status, area")
+      .eq("candidate_id", candidateId);
+    existingQ = body.job_opening_id
+      ? existingQ.eq("job_opening_id", body.job_opening_id)
+      : existingQ.is("job_opening_id", null).eq("area", area);
+    const { data: existing } = await existingQ.maybeSingle();
+
+    if (!existing) {
+      // Conflito sem registro localizável — estado inconsistente.
+      return json({ error: "erro_candidatura", detail: appResult.error.message }, 500);
     }
-    return json({ error: "erro_candidatura", detail: appErr?.message }, 500);
+
+    if (existing.pre_screening_status === "completed") {
+      if (existing.stage === "descartado") {
+        // Substitui: cascade remove session + registros atrelados.
+        await service.from("job_applications").delete().eq("id", existing.id);
+        appResult = await insertApplication();
+      } else {
+        return json({
+          error: "candidatura_ativa",
+          detail: "Você já possui uma candidatura ativa em nosso processo. Aguarde o contato da instituição.",
+        });
+      }
+    } else {
+      // Retomar: devolve token da sessão existente (ou regenera se expirada).
+      const { data: existingSess } = await service
+        .from("pre_screening_sessions")
+        .select("id, token, status, expires_at")
+        .eq("application_id", existing.id)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const expired = existingSess ? new Date(existingSess.expires_at) < new Date() : true;
+      const inactive = existingSess?.status !== "active";
+      let resumeToken = existingSess?.token ?? null;
+
+      if (!existingSess || expired || inactive) {
+        const newToken = b64urlRandom(32);
+        const newExpires = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        if (existingSess) {
+          await service
+            .from("pre_screening_sessions")
+            .update({ token: newToken, status: "active", expires_at: newExpires })
+            .eq("id", existingSess.id);
+        } else {
+          const { data: freshSess } = await service
+            .from("pre_screening_sessions")
+            .insert({
+              application_id: existing.id,
+              token: newToken,
+              area: existing.area,
+              status: "active",
+              client_ip: clientIp,
+              user_agent: userAgent,
+            })
+            .select("id")
+            .single();
+          if (freshSess) {
+            await service
+              .from("job_applications")
+              .update({
+                pre_screening_session_id: freshSess.id,
+                pre_screening_status: "running",
+              })
+              .eq("id", existing.id);
+          }
+        }
+        resumeToken = newToken;
+      }
+
+      return json({
+        application_id: existing.id,
+        session_token: resumeToken!,
+        area: existing.area,
+        job_title: jobTitle,
+        resumed: true,
+      });
+    }
   }
-  const applicationId = app.id;
+
+  if (appResult.error || !appResult.data) {
+    return json({ error: "erro_candidatura", detail: appResult.error?.message }, 500);
+  }
+  const applicationId = appResult.data.id;
 
   // ---- Upload resume ---------------------------------------------------------
   const { bytes } = parseBase64(resume.content_base64);

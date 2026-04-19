@@ -60,17 +60,28 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
-  const caller = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const { data: userData, error: userErr } = await caller.auth.getUser();
-  if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
+  const token = authHeader.slice("Bearer ".length).trim();
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // Invocacao interna edge->edge (ex.: careers-interview-turn, ai-event-dispatcher,
+  // ai-scheduled-runner) usa service-role como Bearer. Nesses casos nao existe
+  // "user" a validar — confiamos direto. JWT de usuario final segue o caminho
+  // normal de validacao via auth.getUser().
+  let callerUserId: string | null = null;
+  if (token !== serviceKey) {
+    const caller = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: userData, error: userErr } = await caller.auth.getUser();
+    if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
+    callerUserId = userData.user.id;
+  }
 
   const service = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    serviceKey,
   );
 
   let body: { agent_slug?: string; context?: Record<string, unknown>; dry_run?: boolean };
@@ -139,7 +150,7 @@ Deno.serve(async (req: Request) => {
     const msg = (e as Error).message;
     await service.from("ai_usage_log").insert({
       agent_slug: agent.slug, provider: agent.provider, model: agent.model,
-      caller_user_id: userData.user.id, latency_ms: Date.now() - start,
+      caller_user_id: callerUserId, latency_ms: Date.now() - start,
       status: "error", error_message: msg, context_hash: ctxHash,
     });
     return json({ error: "Falha ao chamar worker", detail: msg }, 502);
@@ -153,7 +164,7 @@ Deno.serve(async (req: Request) => {
     agent_slug: agent.slug,
     provider: agent.provider,
     model: agent.model,
-    caller_user_id: userData.user.id,
+    caller_user_id: callerUserId,
     input_tokens: workerBody?.input_tokens ?? null,
     output_tokens: workerBody?.output_tokens ?? null,
     latency_ms: latency,
