@@ -99,6 +99,17 @@ export const FINANCIAL_SUBTAB_MODULE_KEYS = [
   'fornecedores',                  // cobre fornecedores + NF-e de entrada
 ] as const;
 
+// /admin/rh — src/admin/pages/rh/RhPage.tsx
+//
+// Umbrella RH: agrega Dashboard + Colaboradores + Processo seletivo como
+// sub-tabs. O menu lateral mostra "RH" se o usuario tem view em pelo menos
+// uma das tres chaves (mesmo padrao de Financeiro/Academico/Secretaria).
+export const RH_SUBTAB_MODULE_KEYS = [
+  'rh-dashboard',
+  'rh-colaboradores',
+  'rh-seletivo',
+] as const;
+
 // /admin/area-professor — src/admin/pages/area-professor/AreaProfessorPage.tsx
 //
 // Umbrella da Área do Professor: agrega Dashboard + Turmas (ambos sob

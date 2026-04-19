@@ -13,6 +13,7 @@ import {
   SECRETARIA_SUBTAB_MODULE_KEYS,
   FINANCIAL_SUBTAB_MODULE_KEYS,
   TEACHER_AREA_SUBTAB_MODULE_KEYS,
+  RH_SUBTAB_MODULE_KEYS,
 } from './lib/umbrella-modules';
 
 // Eager: auth pages (small, needed immediately)
@@ -82,9 +83,10 @@ const PortariaPage             = lazy(() => import('./pages/school/PortariaPage'
 // Fase 15 — Achados e Perdidos Digital
 const AchadosPerdidosPage      = lazy(() => import('./pages/school/AchadosPerdidosPage'));
 
-// Fase 16 — RH (colaboradores + processo seletivo)
-const ColaboradoresPage        = lazy(() => import('./pages/rh/ColaboradoresPage'));
-const SeletivoPage             = lazy(() => import('./pages/rh/SeletivoPage'));
+// Fase 16 — RH (umbrella com Dashboard + Colaboradores + Processo seletivo).
+// ColaboradoresPage e SeletivoPage sao montadas dentro de RhPage como abas;
+// nao sao mais lazy-importadas aqui pois deixaram de ter rota propria.
+const RhPage                   = lazy(() => import('./pages/rh/RhPage'));
 
 // Fase 14 — Loja, PDV e Estoque
 const LojaPage       = lazy(() => import('./pages/loja/LojaPage'));
@@ -204,9 +206,13 @@ export default function AdminRoutes() {
           {/* Fase 15 — Achados e Perdidos Digital */}
           <Route path="achados-perdidos" element={<ModuleGuard moduleKey="lost-found"><LazyPage><AchadosPerdidosPage /></LazyPage></ModuleGuard>} />
 
-          {/* Fase 16 — RH: cadastro de colaboradores + processo seletivo */}
-          <Route path="rh/colaboradores" element={<ModuleGuard moduleKey="rh-colaboradores"><LazyPage><ColaboradoresPage /></LazyPage></ModuleGuard>} />
-          <Route path="rh/seletivo"      element={<ModuleGuard moduleKey="rh-seletivo"><LazyPage><SeletivoPage /></LazyPage></ModuleGuard>} />
+          {/* Fase 16 — RH: umbrella com Dashboard + Colaboradores + Processo
+              seletivo como sub-tabs. RhPage filtra suas proprias tabs por
+              permissao granular. */}
+          <Route path="rh" element={<ModuleGuard anyModuleKeys={RH_SUBTAB_MODULE_KEYS}><LazyPage><RhPage /></LazyPage></ModuleGuard>} />
+          {/* Redirects de rotas legadas → /admin/rh?tab=X */}
+          <Route path="rh/colaboradores" element={<Navigate to="/admin/rh?tab=colaboradores" replace />} />
+          <Route path="rh/seletivo"      element={<Navigate to="/admin/rh?tab=seletivo" replace />} />
 
           {/* Fase 14 — Loja, PDV e Estoque.
               Umbrella: liberado quando o usuário tem `view` em pelo menos uma

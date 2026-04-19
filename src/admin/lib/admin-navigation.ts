@@ -7,6 +7,7 @@ import {
   SECRETARIA_SUBTAB_MODULE_KEYS,
   FINANCIAL_SUBTAB_MODULE_KEYS,
   TEACHER_AREA_SUBTAB_MODULE_KEYS,
+  RH_SUBTAB_MODULE_KEYS,
 } from './umbrella-modules';
 
 export const ADMIN_NAV: NavGroup[] = [
@@ -24,7 +25,11 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'Gestão',
+    // Os modulos funcionais grandes sao agrupados num unico bloco para
+    // facilitar a leitura. Cada item e uma umbrella (page-mae com tabs
+    // internas) e fica visivel se o usuario tem view em pelo menos uma
+    // sub-aba — semantica de `anyModuleKeys`.
+    label: 'Módulos do sistema',
     items: [
       {
         key: 'gestao',
@@ -32,90 +37,47 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Briefcase',
         path: '/admin/gestao',
         roles: ['super_admin', 'admin', 'coordinator'],
-        // Umbrella: visible iff user can view at least one Gestão sub-tab.
         anyModuleKeys: GESTAO_SUBTAB_MODULE_KEYS,
       },
-    ],
-  },
-  {
-    label: 'Financeiro',
-    items: [
       {
         key: 'financial',
         label: 'Financeiro',
         icon: 'DollarSign',
         path: '/admin/financeiro',
         roles: ['super_admin', 'admin', 'coordinator'],
-        // Umbrella: visible iff the user has view on at least one Financeiro
-        // sub-tab. Permite que um usuário com override granular (ex.: só
-        // `fornecedores:view` para importar NF-e) veja o menu e só a aba
-        // correspondente, sem precisar de permissão global 'financial'.
         anyModuleKeys: FINANCIAL_SUBTAB_MODULE_KEYS,
       },
-    ],
-  },
-  {
-    label: 'Acadêmico',
-    items: [
       {
         key: 'academico',
         label: 'Acadêmico',
         icon: 'BookOpenCheck',
         path: '/admin/academico',
         roles: ['super_admin', 'admin', 'coordinator'],
-        // Umbrella: visible iff user can view at least one Acadêmico sub-tab.
         anyModuleKeys: ACADEMICO_SUBTAB_MODULE_KEYS,
       },
-    ],
-  },
-  {
-    label: 'Secretaria',
-    items: [
       {
         key: 'secretaria',
         label: 'Secretaria Digital',
         icon: 'Archive',
         path: '/admin/secretaria',
         roles: ['super_admin', 'admin', 'coordinator'],
-        // Umbrella: visible iff user can view at least one Secretaria sub-tab.
         anyModuleKeys: SECRETARIA_SUBTAB_MODULE_KEYS,
       },
       {
-        key: 'portaria',
-        label: 'Portaria',
-        icon: 'ScanFace',
-        path: '/admin/portaria',
+        key: 'rh',
+        label: 'RH',
+        icon: 'Users',
+        path: '/admin/rh',
         roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'portaria',
+        anyModuleKeys: RH_SUBTAB_MODULE_KEYS,
       },
       {
-        key: 'achados-perdidos',
-        label: 'Achados e Perdidos',
-        icon: 'PackageSearch',
-        path: '/admin/achados-perdidos',
-        roles: ['super_admin', 'admin', 'coordinator', 'user'],
-        moduleKey: 'lost-found',
-      },
-    ],
-  },
-  {
-    label: 'RH',
-    items: [
-      {
-        key: 'rh-colaboradores',
-        label: 'Colaboradores',
-        icon: 'Briefcase',
-        path: '/admin/rh/colaboradores',
-        roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'rh-colaboradores',
-      },
-      {
-        key: 'rh-seletivo',
-        label: 'Processo seletivo',
-        icon: 'UserPlus',
-        path: '/admin/rh/seletivo',
-        roles: ['super_admin', 'admin', 'coordinator'],
-        moduleKey: 'rh-seletivo',
+        key: 'area-professor',
+        label: 'Área do Professor',
+        icon: 'GraduationCap',
+        path: '/admin/area-professor',
+        roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
+        anyModuleKeys: TEACHER_AREA_SUBTAB_MODULE_KEYS,
       },
     ],
   },
@@ -146,19 +108,24 @@ export const ADMIN_NAV: NavGroup[] = [
         roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
         moduleKey: 'library',
       },
-    ],
-  },
-  {
-    label: 'Área do Professor',
-    items: [
+      // Portaria e Achados/Perdidos foram movidos da antiga sessao
+      // "Secretaria" — sao itens institucionais autonomos, nao sub-tabs
+      // da Secretaria Digital.
       {
-        key: 'area-professor',
-        label: 'Área do Professor',
-        icon: 'GraduationCap',
-        path: '/admin/area-professor',
-        roles: ['super_admin', 'admin', 'coordinator', 'teacher'],
-        // Umbrella: visible iff user can view at least one sub-tab.
-        anyModuleKeys: TEACHER_AREA_SUBTAB_MODULE_KEYS,
+        key: 'portaria',
+        label: 'Portaria',
+        icon: 'ScanFace',
+        path: '/admin/portaria',
+        roles: ['super_admin', 'admin', 'coordinator'],
+        moduleKey: 'portaria',
+      },
+      {
+        key: 'achados-perdidos',
+        label: 'Achados e Perdidos',
+        icon: 'PackageSearch',
+        path: '/admin/achados-perdidos',
+        roles: ['super_admin', 'admin', 'coordinator', 'user'],
+        moduleKey: 'lost-found',
       },
     ],
   },
@@ -200,7 +167,6 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'ShoppingBag',
         path: '/admin/loja',
         roles: ['super_admin', 'admin', 'coordinator', 'user'],
-        // Umbrella: visible iff user can view at least one Loja sub-tab.
         anyModuleKeys: LOJA_SUBTAB_MODULE_KEYS,
       },
       {
@@ -222,7 +188,6 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: 'Settings',
         path: '/admin/configuracoes',
         roles: ['super_admin', 'admin'],
-        // Umbrella: visible iff user can view at least one Configurações sub-tab.
         anyModuleKeys: SETTINGS_SUBTAB_MODULE_KEYS,
       },
       {
