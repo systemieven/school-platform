@@ -253,10 +253,13 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   // ── Academic ───────────────────────────────────────────────────────────────
 
   if (source === 'class_occupancy') {
+    // Só alunos `status='active'` contam para ocupação — inativos, transferidos
+    // e formados distorceriam a taxa de ocupação.
     const { data } = await supabase
       .from('school_classes')
-      .select('name, capacity, students(id)')
-      .eq('is_active', true);
+      .select('name, capacity, students!inner(id, status)')
+      .eq('is_active', true)
+      .eq('students.status', 'active');
 
     type ClassRow = { name: string; capacity: number | null; students: { id: string }[] };
     return ((data ?? []) as unknown as ClassRow[]).map((c) => ({
@@ -268,10 +271,13 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   }
 
   if (source === 'attendance_by_class') {
+    // Embed filtra por aluno ativo — chamadas de alunos transferidos/formados
+    // poluiriam a média por turma.
     const { data } = await supabase
       .from('student_attendance')
-      .select('student:students(school_class:school_classes(name)), status')
+      .select('student:students!inner(status, school_class:school_classes(name)), status')
       .in('status', ['present', 'absent', 'late', 'justified'])
+      .eq('student.status', 'active')
       .gte('date', start)
       .lte('date', end);
 
@@ -361,10 +367,12 @@ async function loadData(source: string, period: ChartPeriod = '12months'): Promi
   }
 
   if (source === 'top_absences') {
+    // Apenas faltas de alunos ativos — transferidos acumulariam zeros forever.
     const { data } = await supabase
       .from('student_attendance')
-      .select('student:students(school_class:school_classes(name)), status')
+      .select('student:students!inner(status, school_class:school_classes(name)), status')
       .eq('status', 'absent')
+      .eq('student.status', 'active')
       .gte('date', start)
       .lte('date', end);
 
