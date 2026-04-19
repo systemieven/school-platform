@@ -322,50 +322,61 @@ export default function TrabalheConosco() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero — configurável em /admin/configuracoes → Site → Aparência → Vagas */}
-      <section className="relative overflow-hidden bg-brand-primary text-white">
-        {/* Fundo: slideshow novo quando configurado; caso contrário, imagem legada de content.careers.hero_image_url */}
-        {hasCustomHero ? (
-          <div className="absolute inset-0">
+      <section className="relative h-[80vh] min-h-[560px] overflow-hidden bg-brand-primary text-white">
+        {/* Fundo: slideshow (cenas) quando configurado; senão imagem legada; senão só o gradiente */}
+        <div className="absolute inset-0">
+          {hasCustomHero ? (
             <HeroSlideshow scenes={heroScenes} config={heroSlideshow} fallbackVideoUrl={heroVideoUrl} />
-            <div className="absolute inset-0 bg-brand-primary/60" />
-          </div>
-        ) : content.hero_image_url ? (
-          <div className="absolute inset-0 opacity-20">
-            <HeroMedia url={content.hero_image_url} />
-          </div>
-        ) : null}
+          ) : content.hero_image_url ? (
+            <HeroMedia url={content.hero_image_url} alt="" />
+          ) : null}
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/95 via-brand-primary/80 to-brand-primary-dark/70" />
+        </div>
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
-          {heroBadge && (
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-5">
-              <span className="w-2 h-2 bg-brand-secondary rounded-full animate-pulse" />
-              <span className="text-white/90 text-sm font-medium tracking-wide">{heroBadge}</span>
-            </div>
-          )}
-          <h1 className="text-3xl sm:text-5xl font-bold">
-            {(() => {
-              const title = heroTitle || 'Trabalhe conosco';
-              if (!heroHL || !title.includes(heroHL)) return title;
-              const parts = title.split(heroHL);
-              return <>{parts[0]}<span className="italic text-brand-secondary">{heroHL}</span>{parts[1]}</>;
-            })()}
-          </h1>
-          <p className="mt-4 text-white/90 text-lg max-w-2xl">
-            {heroSubtitle || 'Junte-se à nossa equipe e contribua com a formação da próxima geração.'}
-          </p>
-          {/* Stepper */}
-          <div className="mt-8 flex items-center gap-2 text-sm">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <div
-                key={n}
-                className={`h-1.5 rounded-full transition-all ${
-                  step >= n ? 'bg-white w-10' : 'bg-white/30 w-6'
-                }`}
-              />
-            ))}
+        {/* Slice diagonal decorativo (igual aos segmentos) */}
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gray-50 [clip-path:polygon(0_100%,100%_0,100%_100%)] z-10" />
+
+        <div className="relative z-[5] container mx-auto px-4 h-full flex items-center">
+          <div className="max-w-3xl">
+            {heroBadge && (
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
+                <span className="w-2 h-2 bg-brand-secondary rounded-full animate-pulse" />
+                <span className="text-white/90 text-sm font-medium tracking-wide">{heroBadge}</span>
+              </div>
+            )}
+
+            <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white leading-[0.95] mb-6 tracking-tight">
+              {(() => {
+                const title = heroTitle || 'Trabalhe conosco';
+                if (!heroHL || !title.includes(heroHL)) return title;
+                const parts = title.split(heroHL);
+                return <>{parts[0]}<span className="italic text-brand-secondary">{heroHL}</span>{parts[1]}</>;
+              })()}
+            </h1>
+
+            <div className="h-[3px] w-24 bg-gradient-to-r from-brand-secondary to-brand-secondary-light rounded-full mb-8" />
+
+            <p className="text-lg md:text-xl text-white/85 max-w-xl leading-relaxed">
+              {heroSubtitle || 'Junte-se à nossa equipe e contribua com a formação da próxima geração.'}
+            </p>
           </div>
         </div>
       </section>
+
+      {/* Stepper — abaixo do hero */}
+      <div className="bg-gray-50 border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex items-center gap-2">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <div
+              key={n}
+              className={`h-1.5 rounded-full transition-all ${
+                step >= n ? 'bg-brand-primary w-10' : 'bg-gray-300 w-6'
+              }`}
+            />
+          ))}
+          <span className="ml-3 text-xs font-medium text-gray-500">Passo {step} de 5</span>
+        </div>
+      </div>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
         {/* ─── Step 1 ─── */}
