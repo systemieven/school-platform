@@ -4,7 +4,7 @@ import {
   Home, Baby, BookOpen, BookMarked, GraduationCap, MessageSquare,
   CalendarCheck, ClipboardList, Info, Building2, Plus, Trash2, GripVertical,
   Image as ImageIcon, Video, Eye, EyeOff, Clock, Shuffle, ListOrdered,
-  Play, Layers, ShoppingBag,
+  Play, Layers, ShoppingBag, Briefcase,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { SettingsCard } from '../../components/SettingsCard';
@@ -88,16 +88,17 @@ interface HomeFields extends HeroMediaFields {
 }
 
 type LojaFields = HeroMediaFields;
+type VagasFields = HeroMediaFields;
 
 type ContatoFields = HeroFields;
 
 type PageKey =
   | 'home' | 'educacao_infantil' | 'fundamental_1' | 'fundamental_2'
   | 'ensino_medio' | 'contato' | 'visita' | 'matricula'
-  | 'sobre' | 'estrutura' | 'loja';
+  | 'sobre' | 'estrutura' | 'loja' | 'vagas';
 
 /** Páginas que usam o editor de hero+slideshow (em vez do hero simples). */
-type MediaPageKey = 'home' | 'loja';
+type MediaPageKey = 'home' | 'loja' | 'vagas';
 
 interface AllPages {
   home: HomeFields;
@@ -111,6 +112,7 @@ interface AllPages {
   sobre: HeroFields;
   estrutura: HeroFields;
   loja: LojaFields;
+  vagas: VagasFields;
 }
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -143,6 +145,7 @@ const DEFAULT_PAGES: AllPages = {
   sobre:            { badge: 'Conheça nossa história',          title: 'Sobre Nós',           highlight: 'Nós',    subtitle: '',                                                             image: '' },
   estrutura:        { badge: 'Conheça nossos espaços',          title: 'Nossa Estrutura',                   highlight: 'Estrutura',  subtitle: 'Ambientes modernos e acolhedores projetados para o melhor aprendizado.',                                                                     image: '' },
   loja:             { badge: 'Nossa Loja', title: 'Uniformes e Material', highlight: 'Material', subtitle: 'Compre com praticidade e receba em casa.', video_url: '', scenes: [], slideshow: { ...DEFAULT_SLIDESHOW } },
+  vagas:            { badge: 'Oportunidades', title: 'Trabalhe Conosco', highlight: 'Conosco', subtitle: 'Junte-se à nossa equipe e contribua com a formação da próxima geração.', video_url: '', scenes: [], slideshow: { ...DEFAULT_SLIDESHOW } },
 };
 
 // ── Sub-tabs ──────────────────────────────────────────────────────────────────
@@ -159,6 +162,7 @@ const SUB_TABS: { key: PageKey; label: string; icon: React.ComponentType<{ class
   { key: 'sobre',            label: 'Sobre',      icon: Info },
   { key: 'estrutura',        label: 'Estrutura',  icon: Building2 },
   { key: 'loja',             label: 'Loja',       icon: ShoppingBag },
+  { key: 'vagas',            label: 'Vagas',      icon: Briefcase },
 ];
 
 // Style aliases from shared FormField
@@ -444,34 +448,35 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
   return (
     <div className="p-6 space-y-5">
 
-      {/* ── Sub-tab bar + slot à direita (ex: Salvar/Restaurar preset) ── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex flex-wrap gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1">
-          {SUB_TABS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={[
-                'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
-                activeTab === key
-                  ? 'bg-brand-secondary text-brand-primary shadow-md shadow-brand-secondary/20'
-                  : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
-              ].join(' ')}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
-        {headerRight && (
-          <div className="flex items-center gap-1">{headerRight}</div>
-        )}
+      {/* ── Sub-tab bar (linha 1) ─────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1 w-fit">
+        {SUB_TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={[
+              'inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all duration-200',
+              activeTab === key
+                ? 'bg-brand-secondary text-brand-primary shadow-md shadow-brand-secondary/20'
+                : 'text-brand-primary dark:text-brand-secondary hover:bg-brand-primary/10 dark:hover:bg-brand-secondary/10',
+            ].join(' ')}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* ── Home / Loja (hero + slideshow) ────────────────────────────────
-          Ambas usam o mesmo editor de hero com slideshow + fallback de
-          vídeo. Home tem campos extras (segments) em ContentSettingsPanel. */}
-      {(activeTab === 'home' || activeTab === 'loja') && (() => {
+      {/* ── Salvar / Restaurar preset (linha 2, alinhado à direita) ─── */}
+      {headerRight && (
+        <div className="flex items-center justify-end gap-1">{headerRight}</div>
+      )}
+
+      {/* ── Home / Loja / Vagas (hero + slideshow) ────────────────────────
+          Todas usam o mesmo editor de hero com slideshow + fallback de
+          vídeo. Home tem campos extras (segments) em ContentSettingsPanel.
+          Vagas alimenta o hero do /trabalhe-conosco. */}
+      {(activeTab === 'home' || activeTab === 'loja' || activeTab === 'vagas') && (() => {
         const mediaKey = activeTab as MediaPageKey;
         const media = pages[mediaKey] as HeroMediaFields;
         const slideshow = media.slideshow ?? DEFAULT_SLIDESHOW;

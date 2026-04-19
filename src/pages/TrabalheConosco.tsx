@@ -24,6 +24,8 @@ import { useSEO } from '../hooks/useSEO';
 import { useSettings } from '../hooks/useSettings';
 import { extractPdfText } from '../lib/extractPdfText';
 import HeroMedia from '../components/HeroMedia';
+import HeroSlideshow from '../components/HeroSlideshow';
+import type { HeroScene, HeroSlideshowConfig } from '../components/HeroSlideshow';
 import LegalConsent from '../components/LegalConsent';
 import { InputField } from '../admin/components/FormField';
 
@@ -86,6 +88,13 @@ const AREA_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   GraduationCap, Briefcase, Wrench,
 };
 
+const DEFAULT_SLIDESHOW: HeroSlideshowConfig = {
+  default_duration: 8,
+  order: 'sequential',
+  transition: 'crossfade',
+  transition_duration: 1200,
+};
+
 const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
 
 function fileToBase64(file: File): Promise<string> {
@@ -117,6 +126,18 @@ export default function TrabalheConosco() {
   const content = (settings.careers ?? {}) as CareersContent;
   const areas = (content.areas ?? DEFAULT_AREAS) as Record<Area, AreaConfig>;
   const maxUploadMb = content.max_upload_mb ?? 5;
+
+  // Hero editável via /admin/configuracoes → Site → Aparência → Vagas
+  const { settings: appearanceSettings } = useSettings('appearance');
+  const vagasConfig = (appearanceSettings.vagas as Record<string, unknown> | undefined) ?? {};
+  const heroBadge     = (vagasConfig.badge as string | undefined)    || '';
+  const heroTitle     = (vagasConfig.title as string | undefined)    || content.hero_title || '';
+  const heroHL        = (vagasConfig.highlight as string | undefined) || '';
+  const heroSubtitle  = (vagasConfig.subtitle as string | undefined) || content.hero_subtitle || '';
+  const heroVideoUrl  = (vagasConfig.video_url as string | undefined) || '';
+  const heroScenes    = (vagasConfig.scenes as HeroScene[] | undefined) ?? [];
+  const heroSlideshow = (vagasConfig.slideshow as HeroSlideshowConfig | undefined) ?? DEFAULT_SLIDESHOW;
+  const hasCustomHero = heroScenes.length > 0 || !!heroVideoUrl;
 
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [area, setArea] = useState<Area | null>(null);
@@ -300,20 +321,37 @@ export default function TrabalheConosco() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero */}
+      {/* Hero — configurável em /admin/configuracoes → Site → Aparência → Vagas */}
       <section className="relative overflow-hidden bg-brand-primary text-white">
-        {content.hero_image_url && (
+        {/* Fundo: slideshow novo quando configurado; caso contrário, imagem legada de content.careers.hero_image_url */}
+        {hasCustomHero ? (
+          <div className="absolute inset-0">
+            <HeroSlideshow scenes={heroScenes} config={heroSlideshow} fallbackVideoUrl={heroVideoUrl} />
+            <div className="absolute inset-0 bg-brand-primary/60" />
+          </div>
+        ) : content.hero_image_url ? (
           <div className="absolute inset-0 opacity-20">
             <HeroMedia url={content.hero_image_url} />
           </div>
-        )}
+        ) : null}
+
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          {heroBadge && (
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-5">
+              <span className="w-2 h-2 bg-brand-secondary rounded-full animate-pulse" />
+              <span className="text-white/90 text-sm font-medium tracking-wide">{heroBadge}</span>
+            </div>
+          )}
           <h1 className="text-3xl sm:text-5xl font-bold">
-            {content.hero_title ?? 'Trabalhe conosco'}
+            {(() => {
+              const title = heroTitle || 'Trabalhe conosco';
+              if (!heroHL || !title.includes(heroHL)) return title;
+              const parts = title.split(heroHL);
+              return <>{parts[0]}<span className="italic text-brand-secondary">{heroHL}</span>{parts[1]}</>;
+            })()}
           </h1>
           <p className="mt-4 text-white/90 text-lg max-w-2xl">
-            {content.hero_subtitle
-              ?? 'Junte-se à nossa equipe e contribua com a formação da próxima geração.'}
+            {heroSubtitle || 'Junte-se à nossa equipe e contribua com a formação da próxima geração.'}
           </p>
           {/* Stepper */}
           <div className="mt-8 flex items-center gap-2 text-sm">
