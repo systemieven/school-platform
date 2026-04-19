@@ -48,6 +48,10 @@ export interface RegistryWidgetMeta {
 /** Prefixo usado em `registry_widget_id` para distinguir charts do registry. */
 export const CHART_PREFIX = 'chart:';
 
+/** ID sintético para o "bloco inteiro" de gráficos personalizados (DashboardChartGrid).
+ *  Permite ao usuário reposicionar o bloco entre os widgets do registry. */
+export const CUSTOM_CHARTS_ANCHOR_ID = '__custom_charts__';
+
 interface PrefRow {
   registry_widget_id: string;
   is_visible: boolean;
@@ -63,6 +67,10 @@ interface Props {
   registry: RegistryWidgetMeta[];
   /** Gráficos personalizados (apenas na aba "Minha visão"; admin reordena a global direto no grid). */
   customCharts?: { id: string; title: string }[];
+  /** Exibe um item sintético "Bloco de gráficos personalizados" na lista, permitindo
+   *  reposicionar a área inteira de gráficos entre os widgets. Usado no dashboard principal
+   *  onde o bloco é renderizado junto aos widgets do registry. */
+  showCustomChartsAnchor?: boolean;
   /** Prefs globais (padrão da escola). */
   globalPrefsByWidget: Record<string, DashboardWidgetPref>;
   /** Prefs do usuário logado. */
@@ -76,6 +84,7 @@ interface Props {
 export default function DashboardWidgetPrefsDrawer({
   open, onClose, module, registry,
   customCharts = [],
+  showCustomChartsAnchor = false,
   globalPrefsByWidget, userPrefsByWidget,
   onGlobalSaved, onUserSaved,
 }: Props) {
@@ -99,8 +108,15 @@ export default function DashboardWidgetPrefsDrawer({
           slot: 'Gráfico personalizado',
         }))
       : [];
-    return [...registry, ...chartItems];
-  }, [registry, customCharts, scope]);
+    const anchorItem: RegistryWidgetMeta[] = showCustomChartsAnchor
+      ? [{
+          id: CUSTOM_CHARTS_ANCHOR_ID,
+          label: 'Bloco de gráficos personalizados',
+          slot: 'Seção',
+        }]
+      : [];
+    return [...registry, ...chartItems, ...anchorItem];
+  }, [registry, customCharts, scope, showCustomChartsAnchor]);
 
   const initial = useMemo<PrefRow[]>(() => {
     const source = scope === 'user' ? userPrefsByWidget : globalPrefsByWidget;

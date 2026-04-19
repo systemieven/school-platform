@@ -31,8 +31,13 @@ import type { Profile, DashboardWidgetPref, DashboardWidgetUserPref } from '../.
 import { DASHBOARD_WIDGETS, WIDGET_LABELS, type DashboardWidget, type LoadCtx } from './registry';
 import { ROLE_LABELS } from './widgets/constants';
 import DashboardChartGrid from '../../components/DashboardChartGrid';
-import DashboardWidgetPrefsDrawer, { type RegistryWidgetMeta } from '../../components/DashboardWidgetPrefsDrawer';
+import DashboardWidgetPrefsDrawer, {
+  CUSTOM_CHARTS_ANCHOR_ID,
+  type RegistryWidgetMeta,
+} from '../../components/DashboardWidgetPrefsDrawer';
 import { mergePrefs } from '../../lib/dashboardPrefs';
+
+type CustomChartsAnchor = 'top' | 'after-kpis' | 'after-charts' | 'after-lists' | 'after-wide' | 'hidden';
 
 export default function DashboardPage() {
   const { profile, hasRole } = useAdminAuth();
@@ -180,6 +185,42 @@ export default function DashboardPage() {
   const lists = bySlot('list');
   const wide = bySlot('wide');
 
+  // ── Âncora do bloco de gráficos personalizados ───────────────────────────
+  // Usuário pode arrastar o bloco inteiro para qualquer posição no drawer.
+  // Resolvemos user > global > default(após wide) e mapeamos para uma das
+  // 5 âncoras de render: 'top' | 'after-kpis' | 'after-charts' | 'after-lists' | 'after-wide'.
+  const customChartsAnchor: CustomChartsAnchor = (() => {
+    if (!isAdmin) return 'hidden';
+    const userAnchor = userPrefsByWidget[CUSTOM_CHARTS_ANCHOR_ID];
+    const globalAnchor = globalPrefsByWidget[CUSTOM_CHARTS_ANCHOR_ID];
+    const pref = userAnchor ?? globalAnchor ?? null;
+    if (pref && pref.is_visible === false) return 'hidden';
+    if (!pref) return 'after-wide';
+
+    // Encontra o slot do widget imediatamente anterior na ordem efetiva.
+    // Se nenhum widget precede, renderiza no topo.
+    let lastSlot: DashboardWidget['slot'] | null = null;
+    let lastPos = -Infinity;
+    visibleWidgets.forEach((w) => {
+      const p = effectivePrefs[w.id]?.position ?? w.order;
+      if (p < pref.position && p > lastPos) {
+        lastPos = p;
+        lastSlot = w.slot;
+      }
+    });
+    if (lastSlot == null) return 'top';
+    if (lastSlot === 'kpi') return 'after-kpis';
+    if (lastSlot === 'chart') return 'after-charts';
+    if (lastSlot === 'list') return 'after-lists';
+    return 'after-wide';
+  })();
+
+  const ChartsBlock = (
+    <div className="mt-8">
+      <DashboardChartGrid module="principal" />
+    </div>
+  );
+
   const statColsClass =
     kpis.length >= 4 ? 'lg:grid-cols-4'
     : kpis.length === 3 ? 'lg:grid-cols-3'
@@ -250,6 +291,8 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
+          {customChartsAnchor === 'top' && ChartsBlock}
+
           {kpis.length > 0 && (
             <div className={`grid grid-cols-1 sm:grid-cols-2 ${statColsClass} gap-4 mb-6`}>
               {kpis.map((w) => (
@@ -257,6 +300,8 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+
+          {customChartsAnchor === 'after-kpis' && ChartsBlock}
 
           {charts.length > 0 && (
             <div className="grid lg:grid-cols-2 gap-4 mb-4">
@@ -266,6 +311,8 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {customChartsAnchor === 'after-charts' && ChartsBlock}
+
           {lists.length > 0 && (
             <div className="grid lg:grid-cols-2 gap-4 mb-4">
               {lists.map((w) => (
@@ -273,6 +320,8 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+
+          {customChartsAnchor === 'after-lists' && ChartsBlock}
 
           {wide.length > 0 && (
             <div className="space-y-4">
@@ -282,12 +331,9 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Gráficos personalizados (mesmo padrão dos dashboards Financeiro/Acadêmico). */}
-          {isAdmin && (
-            <div className="mt-8">
-              <DashboardChartGrid module="principal" />
-            </div>
-          )}
+          {/* Gráficos personalizados (mesmo padrão dos dashboards Financeiro/Acadêmico).
+              Posição é configurável via drawer "Personalizar" — esta é a âncora default. */}
+          {customChartsAnchor === 'after-wide' && ChartsBlock}
 
           {showAi && (
             <div className="mt-4">
@@ -309,6 +355,7 @@ export default function DashboardPage() {
         module="principal"
         registry={registryForPrefs}
         customCharts={isAdmin ? customCharts : []}
+        showCustomChartsAnchor={isAdmin}
         globalPrefsByWidget={globalPrefsByWidget}
         userPrefsByWidget={userPrefsByWidget}
         onGlobalSaved={(next) => setGlobalPrefs(next)}
