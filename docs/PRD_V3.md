@@ -5922,10 +5922,11 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 |----|----------|--------|------------|
 | PR1 | Cadastro autônomo + promoção | ✅ Concluído (2026-04-18) | 185, 186, 187 |
 | PR2 | Processo seletivo (kanban) | ✅ Concluído (2026-04-18) | 204, 205 |
-| PR3a | Agentes `resume_extractor`/`resume_screener` seedados + `extractPdfText.ts` | ✅ Concluído (2026-04-18) — botão manual será removido pelo PR3 | 206 |
-| PR3 | **Captação pública automática (área → vaga ou reserva → extrator → entrevistador)** | ⏳ Pendente | 207, 208, 209, 211 |
+| PR3a | Agentes `resume_extractor`/`resume_screener` seedados + `extractPdfText.ts` | ✅ Concluído (2026-04-18) — botão manual removido pelo PR3 | 206 |
+| PR3 | **Captação pública automática (área → vaga ou reserva → extrator → entrevistador)** | ✅ **Concluído (2026-04-18)** | 207, 208, 209, 211, 212 |
+| PR3.1 | **Hardening pós-auditoria** (cron expirar sessões, LGPD audit, promote reserva, badges kanban, histórico de chat read-only) | ⏳ Pendente — gaps listados em §10.17.A | 213 |
 | PR4 (opcional) | Agente `best_fit_selector` sobre a base reserva | ⏳ Pendente (v2) | — |
-| PR5 (opcional) | Importação em massa | ⏳ Pendente | 212 |
+| PR5 (opcional) | Importação em massa | ⏳ Pendente | 214 |
 
 > Numeração renumerada **+1 vs plano original** — migration 184 já existia (`dashboard_principal_widgets`). A migration 210 ficou com `nfe_stock_ledger` (módulo Financeiro), por isso a captação pública pula de 209 para 211.
 >
@@ -6028,7 +6029,9 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 **Pendência descoberta pelo replan**:
 - A aba "Análise IA" do `CandidatoDrawer` passa a ser **read-only** exibindo o relatório da entrevista + payload do perfil (DISC/STAR) gerados automaticamente pelo PR3. Botão manual sai.
 
-#### PR3 — Captação pública automática (⏳ pendente — substitui PR3a+PR4 originais)
+#### PR3 — Captação pública automática (✅ concluído 2026-04-18 — substitui PR3a+PR4 originais)
+
+> Replan do escopo: botão "Analisar com IA" manual foi **removido**. Fluxo passou a ser 100% automático a partir da submissão pública. PR3a continua sendo reaproveitado (seeds + `extractPdfText.ts`).
 
 **Visão**: candidato entra no site → escolhe área → vê vagas publicadas (ou segue para cadastro reserva se não houver) → preenche form mínimo (nome, email, telefone, upload CV PDF/JPG) → em background `resume_extractor` popula o cadastro → `pre_screening_interviewer` conduz chat curto contextualizado com vaga+dados extraídos → agradecimento. Candidatura chega pronta no kanban em `stage='triagem'` com relatório + perfil + CV baixável.
 
@@ -6136,6 +6139,76 @@ careers-interview-turn  ──► pre_screening_interviewer (contexto: vaga+extr
 - **Custo IA**: `resume_extractor` (~$0.004/CV) + `pre_screening_interviewer` (~$0.020/candidato, 4-6 turnos curtos) ≈ $0.024/candidato público; 100/mês ≈ $2.40.
 - **Abuso endpoint público**: rate-limit IP, captcha opcional (Turnstile), session TTL 30 min, limite 5 MB no upload.
 - **Migration numbering**: PR3 consome 207, 208, 209, 211 (pula 210 reservada ao `nfe_stock_ledger`). PR5 fica com 212.
+
+#### §10.17.A — Auditoria pós-entrega PR3 (gaps identificados 2026-04-18)
+
+Análise end-to-end do workflow real (produção `dinbwugbwnkrzljuocbs`) após deploy do PR3. Cada item abaixo foi validado contra schema + policies + cron schedule. Estão agrupados por severidade e endereçados no PR3.1.
+
+**A1 — Segurança / Compliance (bloqueadores para v1)**
+
+1. **Sem `pg_cron` para `expire_stale_pre_screening_sessions()`** — a função existe (migration 208), mas nenhum job a invoca. Verificado: `SELECT … FROM cron.job WHERE command ILIKE '%pre_screening%'` → vazio. Efeito: sessões abandonadas (candidato fechou o browser) ficam `active` para sempre; `job_applications.pre_screening_status` nunca vira `abandoned`; kanban não distingue "em chat" de "desistiu". **Fix**: agendar job a cada 15 min via `SELECT cron.schedule('expire_pre_screening_sessions', '*/15 * * * *', $$SELECT public.expire_stale_pre_screening_sessions()$$)` na migration 213.
+
+2. **Aceite LGPD sem audit trail** — `careers-intake` só valida `lgpd_consent === true` e descarta. Não há coluna persistindo timestamp/IP/versão do texto aceito. Efeito: impossível defender eventual questionamento. **Fix**: adicionar `lgpd_consent_at TIMESTAMPTZ`, `lgpd_consent_version TEXT` e `lgpd_consent_ip TEXT` em `job_applications` (migration 213) + popular no intake.
+
+3. **Sem rotina de purge para CVs descartados** — bucket `hr-documents/_recruitment/{id}/` acumula indefinidamente; LGPD exige descarte após fim da finalidade. **Fix**: job cron `purge_discarded_resumes` (180 dias após `rejected_at` ou `pre_screening_status='abandoned'`) removendo storage + anonymizando `candidates` (mantém `id`/`email_hash` para métrica).
+
+4. **`careers-intake` não escreve em `audit_logs`** — quem submeteu, quando, para qual vaga, IP, user-agent: nada persistido fora do registro da candidatura. **Fix**: `logAudit('create', 'rh-seletivo', ...)` no final do intake + variante em `careers-interview-turn` ao finalizar.
+
+**A2 — Funcional / Correção de bugs**
+
+5. **`promote_candidate_to_staff` quebra para reserva (`job_opening_id IS NULL`)** — a RPC faz `SELECT … INTO v_job FROM job_openings WHERE id = v_app.job_opening_id` e depois `INSERT INTO staff (..., position, department, employment_type, ...) VALUES (..., v_job.title, v_job.department, ..., v_job.employment_type, ...)`. Com reserva, `v_job` fica vazio → `position` NOT NULL falha, contratação trava. Exposição: admin pode tentar mover candidato da base reserva direto para `contratado` no kanban. **Fix**: na migration 213 reescrever RPC para aceitar reserva com fallback `position = v_app.area` (label amigável), `employment_type = 'clt'` default, e exigir campo `position` explícito via parâmetro opcional `p_position TEXT`.
+
+6. **Sem rollback transacional no `careers-intake`** — se upload do CV falha após o INSERT em `job_applications`, fica candidatura órfã (sem `resume_path`) e bloqueia retry do candidato (partial UNIQUE em `candidate_id, area WHERE job_opening_id IS NULL` dispara 409 `ja_aplicou`). **Fix**: envolver INSERT+upload em sequência com compensação — se upload falha, `DELETE FROM job_applications WHERE id = app_id`.
+
+7. **Stage `novo` após `pre_screening_status='completed'`** — candidatura com IA concluída ainda aparece na coluna "Novos" do kanban, misturada com leads crus. Admin não vê que o relatório está pronto sem abrir o drawer. **Fix**: dois caminhos possíveis — (a) promover automaticamente para `triagem` ao finalizar entrevista (simples); (b) manter `novo` mas adicionar **badge visual** no card ("IA ✓") e filtro "apenas pré-qualificados". Recomendado (b) para dar controle ao admin.
+
+8. **Sessão fixa de 30 min** — `pre_screening_sessions.expires_at DEFAULT (now() + interval '30 minutes')`. Candidatos com conectividade ruim ou que pausam para pensar podem estourar. Não é configurável. **Fix**: ler de `content.careers.session_ttl_minutes` no `careers-intake` ao criar sessão; expor campo no `RhSettingsPanel`.
+
+**A3 — UX / Operação**
+
+9. **Candidato não recebe email de confirmação** — nenhum trigger de notificação após submissão/entrevista concluída. **Fix** (v2): invocar `MessageOrchestrator` (Fase 11/12) após `should_finalize=true` com template `careers_confirmation`.
+
+10. **Token do candidato não persiste localmente** — se fechar o browser durante o chat, perde tudo. **Fix**: `localStorage.setItem('careers_session', JSON.stringify({token, application_id, expires_at}))` no step 4 do wizard, com botão "retomar entrevista" ao voltar à página.
+
+11. **Admin não vê histórico completo do chat** — drawer mostra apenas `interview_report` (markdown) + `interview_payload` (payload estruturado). As mensagens brutas estão em `pre_screening_sessions.messages JSONB` mas o admin não acessa. Útil para debug / disputa. **Fix**: aba **Chat** read-only no `CandidatoDrawer` lendo `pre_screening_sessions` via join na query já existente.
+
+12. **Criação manual de candidatura não pré-seleciona área da vaga** — no `CandidatoDrawer`, quando admin abre "Novo candidato" dentro de uma vaga filtrada, a área default é `'administrativa'` (state inicial fixo), mesmo se a vaga for `pedagogica`. Permite inconsistência (candidatura com `area='administrativa'` ligada a `job_opening.area='pedagogica'`). **Fix**: quando `defaultJobOpeningId` é passado, buscar `job_openings.area` e usar como valor inicial do state.
+
+13. **Sem indicador visual de `pre_screening_status` no kanban** — cards de "novo" não diferenciam: IA pendente? Rodando? Concluída? Abandonada? **Fix**: pequeno chip colorido no canto do card (padrão já existe em outros módulos via `STATUS_COLORS`).
+
+**A4 — Observabilidade**
+
+14. **Edge functions sem logging estruturado** — erros do orchestrator/upload só retornam via HTTP; nenhum `console.error` estruturado nem métrica. Debugging de produção depende de `supabase functions logs` ad-hoc. **Fix**: wrapper `logError(context, err)` em `_shared/observability.ts` gravando em `audit_logs` com `action='error'` e `module='rh-seletivo'`.
+
+15. **Rate-limit é per-IP in-memory** — reset no cold start da edge function, compartilhado entre todos os candidatos de uma mesma rede (colégio, proxy). Aceito para MVP; migrar para Redis/KV se volume crescer.
+
+**A5 — Contrato do settings**
+
+16. **Key de rate-limit tem dois nomes** — o seed em migration 211 grava `rate_limit`, o `RhSettingsPanel` grava `rate_limit`, o `careers-intake` tenta `rate_limit_per_hour ?? rate_limit ?? 10`. Funciona, mas é frágil. **Fix**: padronizar em `rate_limit_per_hour` e migrar value atual na migration 213 (`UPDATE system_settings SET value = jsonb_set(value - 'rate_limit', '{rate_limit_per_hour}', value->'rate_limit') WHERE category='content' AND key='careers' AND value ? 'rate_limit'`).
+
+**A6 — Testes / QA**
+
+17. **Sem teste E2E do fluxo público** — submissão + chat + finalização são cobertos só por happy path manual. Não há suite automatizada. **Fix** (pós-v1): playwright script cobrindo os 5 passos do wizard com mock do orchestrator.
+
+**Priorização para PR3.1** (migration 213):
+
+| # | Severidade | Item |
+|---|------------|------|
+| 1 | 🔴 Bloqueador | Cron `expire_stale_pre_screening_sessions` |
+| 2 | 🔴 Bloqueador | LGPD audit trail (`lgpd_consent_at/version/ip`) |
+| 5 | 🔴 Bloqueador | `promote_candidate_to_staff` para reserva |
+| 11 | 🟡 Alta | Aba "Chat" read-only no `CandidatoDrawer` |
+| 13 | 🟡 Alta | Badge `pre_screening_status` no kanban |
+| 4 | 🟢 Média | `audit_logs` em `careers-intake`/`careers-interview-turn` |
+| 12 | 🟢 Média | Pré-seleção de área ao criar candidatura manual |
+| 3, 8, 9, 10, 14, 16, 17 | 🔵 Backlog | v2 ou follow-up não bloqueante |
+
+**Itens já validados como OK** (auditoria confirmou):
+- ✅ Bucket `hr-documents` existe (privado, OK).
+- ✅ Policy anon `SELECT` em `job_openings` com `status='published'` (wizard consegue listar vagas sem JWT).
+- ✅ Policy anon `SELECT` em `system_settings` para `category IN ('content',...)` (RhSettingsPanel público-read OK).
+- ✅ `candidates` e `job_applications` sem policies anon (writes só via edge function com service_role).
+- ✅ Partial unique indexes funcionando (reserva aceita múltiplas áreas, vaga é unique por candidato).
 
 #### PR4 (opcional, pós-v1) — `best_fit_selector` sobre base reserva
 

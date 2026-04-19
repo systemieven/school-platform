@@ -153,13 +153,30 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
   const cfg = (cfgRow?.value ?? {}) as {
     rate_limit_per_hour?: number;
+    rate_limit?: number;
     max_upload_mb?: number;
+    lgpd_text?: string;
   };
   const maxUploadBytes = (cfg.max_upload_mb ?? 5) * 1024 * 1024;
-  const rlMax = cfg.rate_limit_per_hour ?? 10;
+  const rlMax = cfg.rate_limit_per_hour ?? cfg.rate_limit ?? 10;
+
+  // LGPD version = primeiros 12 chars do sha256 do texto vigente (ou "default").
+  async function sha256Hex(input: string): Promise<string> {
+    const buf = new TextEncoder().encode(input);
+    const digest = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+  const lgpdVersion = cfg.lgpd_text
+    ? (await sha256Hex(cfg.lgpd_text)).slice(0, 12)
+    : "default";
 
   const rl = rateLimit(req, { maxRequests: rlMax, windowMs: 60 * 60_000 });
   if (!rl.ok) return rateLimitResponse(rl, CORS);
+
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const userAgent = req.headers.get("user-agent") ?? null;
 
   let body: IntakeBody;
   try {
@@ -253,6 +270,9 @@ Deno.serve(async (req: Request) => {
       stage_position: 0,
       source: "site",
       pre_screening_status: "pending",
+      lgpd_consent_at: new Date().toISOString(),
+      lgpd_consent_version: lgpdVersion,
+      lgpd_consent_ip: clientIp,
     })
     .select("id")
     .single();
@@ -357,8 +377,6 @@ Deno.serve(async (req: Request) => {
 
   // ---- Create pre_screening_session -----------------------------------------
   const token = b64urlRandom(32);
-  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-  const userAgent = req.headers.get("user-agent") ?? null;
 
   const { data: session, error: sessErr } = await service
     .from("pre_screening_sessions")
