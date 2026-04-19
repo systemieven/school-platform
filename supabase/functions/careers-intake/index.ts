@@ -403,6 +403,23 @@ Deno.serve(async (req: Request) => {
     })
     .eq("id", applicationId);
 
+  // ---- Audit log (best-effort) ----------------------------------------------
+  await service.from("audit_logs").insert({
+    action: "create",
+    module: "rh-candidatos",
+    record_id: applicationId,
+    description: `Candidatura pública criada (área ${area}${jobTitle ? `, vaga "${jobTitle}"` : ', base reserva'})`,
+    new_data: {
+      candidate_id: candidateId,
+      area,
+      job_opening_id: body.job_opening_id ?? null,
+      source: "site",
+      lgpd_version: lgpdVersion,
+    },
+    ip_address: clientIp,
+    user_agent: userAgent,
+  }).then(() => {}, () => {}); // ignora erro de log — não bloqueia resposta
+
   return json({
     application_id: applicationId,
     session_token: token,

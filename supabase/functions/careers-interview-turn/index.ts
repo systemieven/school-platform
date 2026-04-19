@@ -242,6 +242,23 @@ Deno.serve(async (req: Request) => {
         interview_payload: finalReport.payload ?? null,
       })
       .eq("id", session.application_id);
+
+    // Audit log da finalização (best-effort — não bloqueia resposta).
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    const userAgent = req.headers.get("user-agent") ?? null;
+    await service.from("audit_logs").insert({
+      action: "update",
+      module: "rh-candidatos",
+      record_id: session.application_id,
+      description: "Pré-triagem IA finalizada pelo candidato",
+      new_data: {
+        session_id: session.id,
+        area: app.area,
+        turns: nextHistory.length,
+      },
+      ip_address: clientIp,
+      user_agent: userAgent,
+    }).then(() => {}, () => {});
   }
 
   return json({
