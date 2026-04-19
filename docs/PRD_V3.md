@@ -1573,6 +1573,20 @@ Configuravel na aba Aparencia > Home:
 | 204 | `job_openings` | 18/04 | ✅ **Fase 16 PR2** — Tabela `job_openings` (vagas abertas pela escola): `title`, `department`, `location`, `description` (HTML), `requirements` (texto plano, usado pelo prompt do `resume_screener` no PR3), `employment_type CHECK ('clt'|'pj'|'estagio'|'terceirizado')`, `salary_range_min/max`, `status CHECK ('draft'|'published'|'paused'|'closed')`, `opened_at/closed_at`. Trigger `set_job_opening_timestamps` auto-seta `opened_at` no primeiro `published` e `closed_at` no `closed`. RLS via módulo `rh-seletivo` + admin ALL + política SELECT anônima quando `status='published'` (preparação para `/trabalhe-conosco` no PR4). |
 | 205 | `candidates_and_applications` | 18/04 | ✅ **Fase 16 PR2** — `candidates` (UNIQUE email, CPF UNIQUE, CNH, LinkedIn/portfolio, endereço, `extracted_payload JSONB` reservado para PR3) + `job_applications` (FK opening+candidate UNIQUE, `stage CHECK ('novo'|'triagem'|'entrevista'|'proposta'|'contratado'|'descartado')`, `stage_position`, `source`, `resume_path`, campos do screener (`screener_score/summary/payload/screened_at`), campos do interviewer (`interview_report` markdown + `interview_payload` JSONB), `rejected_reason`, `hired_staff_id UUID NULL FK staff ON DELETE SET NULL`, `hired_at`). RPC `promote_candidate_to_staff(p_application_id UUID)` SECURITY DEFINER — copia dados do candidate+vaga para `staff` (idempotente). Trigger `trg_job_applications_promote` AFTER UPDATE OF stage WHEN `NEW.stage='contratado' AND OLD.stage<>'contratado'` cria staff automaticamente. |
 | 206 | `rh_resume_agents_seed` | 18/04 | ✅ **Fase 16 PR3** — Seed idempotente em `ai_agents` com `resume_screener` (Haiku 4.5, temperature=0.2, max_tokens=800, retorna `{score_0_100, pros[], cons[], recommendation, reasoning}`) e `resume_extractor` (Haiku 4.5, temperature=0.1, max_tokens=1200, retorna JSON estruturado com identificação, contato, endereço, `experience[]`, `education[]`, `skills[]`). Ambos os prompts usam wrapper defensivo `### USER RESUME (untrusted) … ### END RESUME` contra prompt injection. `ON CONFLICT (slug) DO UPDATE` permite re-seed ao ajustar prompts. Consumido pelo botão "Analisar com IA" do `CandidatoDrawer` via `ai-orchestrator`. |
+| 207 | `rh_careers_schema_alter` | 18/04 | ✅ **Fase 16 PR3** — `job_openings.area` CHECK `('pedagogica','administrativa','servicos_gerais')` + `job_applications`: `area` obrigatório, `job_opening_id` NULLable (reserva), `pre_screening_status` CHECK `('pending','running','completed','abandoned')`, `pre_screening_session_id UUID`. `DROP CONSTRAINT job_applications_job_opening_id_candidate_id_key` + partial UNIQUE `(job_opening_id, candidate_id) WHERE job_opening_id IS NOT NULL` (permite múltiplas reservas do mesmo CPF). |
+| 208 | `pre_screening_sessions` | 18/04 | ✅ **Fase 16 PR3** — Tabela de sessão anônima do chat público: `token TEXT UNIQUE` (32-byte base64url via `gen_random_bytes`), `status CHECK ('active','completed','abandoned','expired')`, `messages JSONB` (histórico `{role,text,at}`), `expires_at DEFAULT now()+30min`. `application_id UUID FK ON DELETE CASCADE`. Função `expire_stale_pre_screening_sessions()` para mover sessões vencidas. RLS service-role only (admin leitura adicionada no PR8/migration 219). |
+| 209 | `pre_screening_interviewer_seed` | 18/04 | ✅ **Fase 16 PR3** — Agente `pre_screening_interviewer` (Haiku 4.5 ou Sonnet 4.5, temperature=0.4, max_tokens=1500). System prompt conduz 4-6 turnos coletando DISC + STAR + motivação + disponibilidade + expectativa salarial. Ao `should_finalize=true`, retorna markdown + payload JSON estruturado (`disc_profile`, `star_scores`, `fit_summary`, `recommendation`). Wrapper anti-injection reforçado. |
+| 211 | `settings_rh_and_careers_content` | 18/04 | ✅ **Fase 16 PR3** — Módulo `settings-rh` (grupo settings, super_admin/admin ALL) + seed default `system_settings.content.careers` (hero_title/subtitle, areas_descriptions, reserva_copy, thank_you, lgpd_consent_text, rate_limit, session_ttl). |
+| 212 | `rh_extracted_payload` | 18/04 | ✅ **Fase 16 PR3** — `job_applications.extracted_payload JSONB` NULL — armazena o JSON do `resume_extractor` (identificação, endereço, experiência, formação, skills). Separado de `screener_payload` (vs vaga) e `interview_payload` (DISC/STAR). |
+| 213 | `careers_pr3_hardening` | 18/04 | ✅ **Fase 16 PR3.1** — Endereça gaps §10.17.A: (a) `cron.schedule('*/15 * * * *')` para `expire_stale_pre_screening_sessions`; (b) trilha LGPD em `job_applications` (`lgpd_consent_at TIMESTAMPTZ`, `lgpd_consent_version TEXT` com hash sha256, `lgpd_consent_ip TEXT`); (c) `promote_candidate_to_staff` reescrita para aceitar reserva (`job_opening_id IS NULL`) com parâmetros opcionais `p_position/p_department/p_employment_type` + fallback por `area`. |
+| 214 | `best_fit_selector_seed` | 18/04 | ✅ **Fase 16 PR4** — Agente `best_fit_selector` em `ai_agents` (Haiku 4.5, wrapper defensivo) + RPC `list_reserva_candidates_for_job(p_job_id UUID)` que agrega candidaturas reserva da mesma área da vaga. Consumido pela nova aba **Reserva** do `VagaDrawer` — ranqueia top-5 candidatos com score+pros+cons e CTA "Mover para triagem". |
+| 215 | `bulk_import_staff_grants` | 18/04 | ✅ **Fase 16 PR5** — `UPDATE role_permissions SET can_create=true WHERE role IN ('admin','super_admin') AND module_key='rh-colaboradores'` (pré-requisito da importação em massa). Edge function `bulk-import-staff` INSERTa em `staff` sem criar `auth.users`/`profiles`; wizard no hub `/admin/migracao` usa `ModuleImportWizard` padrão OP-1. |
+| 216 | `rh_dashboard_module` | 18/04 | ✅ **Fase 16 PR6** — Módulo granular `rh-dashboard` (grupo `rh`, position 299, ícone `LayoutDashboard`) + grants (super_admin ALL, admin/coordinator view-only). Habilita umbrella `/admin/rh` com sub-tabs Dashboard/Colaboradores/Processo seletivo (padrão Gestão/Financeiro/Acadêmico). |
+| 217 | `appearance_vagas_seed` | 18/04 | ✅ **Fase 16 PR7** — Seed idempotente de `system_settings.appearance.vagas` com `{badge:'Oportunidades', title:'Trabalhe Conosco', highlight:'Conosco', subtitle, video_url, image_url}`. Alimenta hero full-height de `/trabalhe-conosco` seguindo padrão whitelabel das demais páginas institucionais. Sub-aba **Vagas** em Config → Site → Aparência. |
+| 218 | `anon_read_branding_appearance_navigation` | 18/04 | ✅ **Fase 16 PR7** — Expande policy `SELECT` anônima em `system_settings` para `category IN ('branding','appearance','navigation','content')` com `key` whitelisted. Unifica a leitura pré-login das 4 categorias que alimentam a SPA pública. Substitui policies fragmentadas das migrations 34/35/36. |
+| 219 | `pre_screening_sessions_rls` | 18/04 | ✅ **Fase 16 PR8** — Corrige gap crítico: migration 208 habilitou RLS sem policies, bloqueando admins autenticados (aba "Chat" do `CandidatoDrawer` vazia em produção). Policies `pre_screening_sessions_admin_all` (`profiles.role IN (super_admin,admin)`) + `pre_screening_sessions_select_by_perm` (`get_effective_permissions('rh-seletivo', can_view)`). Edge functions via service-role continuam passando. |
+| 220 | `rh_pipeline_notifications` | 19/04 | ✅ **Fase 16 PR9** — Notificações WhatsApp automáticas no pipeline: `whatsapp_templates.category` CHECK estendido com `'rh-seletivo'`; `job_applications.notified_stages TEXT[]` (dedup); seed `system_settings.general.site_url` + `hr.required_docs`; trigger `trg_notify_on_rh_stage_change` (BEFORE UPDATE OF stage) dispara `auto-notify` via `pg_net.http_post` e marca `notified_stages` na mesma transação; 4 templates pt-BR (`rh_stage_entrevista/proposta/contratado/descartado`) com variáveis `candidate_first_name, job_title, school_name, schedule_url, careers_url, business_hours_text, required_docs_list`. Categoria `rh-seletivo` também em `whatsapp_template_categories` (aparece no editor de templates). |
+| 221 | `candidates_cpf_as_natural_key` | 19/04 | ✅ **Fase 16 PR10** — `DROP CONSTRAINT candidates_email_key` — CPF (UNIQUE desde 205) vira a chave humana do candidato; email pode mudar ao longo do tempo. Suporte no app: `src/lib/cpf.ts` + `supabase/functions/_shared/cpf.ts` com validador de checksum Receita Federal; `careers-intake` usa `upsertCandidateByCpf`; `CandidatoDrawer` expõe CPF/RG/birth_date/endereço com backfill a partir de `extracted_payload` do CV. |
 
 ### 7.4 RLS Policies
 
@@ -5897,7 +5911,7 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 
 ### 10.17 Fase 16 — Módulo RH (cadastro + processo seletivo + captação pública)
 
-**Status**: 🟡 Em progresso (plano aprovado em 2026-04-18, **PR1 concluído e aplicado em produção** 2026-04-18)
+**Status**: ✅ **Concluído (2026-04-19)** — PR1+PR2+PR3a+PR3+PR3.1+PR4+PR5 entregues, aplicados em produção (`dinbwugbwnkrzljuocbs`), com hardening de UX/segurança pós-auditoria (§10.17.B). Folha de pagamento permanece adiada para v2.
 
 **Contexto**: colaboradores antes eram apenas `profiles` (email/nome/role/sector_keys) — sem CPF, endereço, cargo, documentos. Colaboradores de serviços gerais/cozinha/zeladoria não deveriam ocupar linha em `auth.users`. Processo seletivo vivia em planilhas externas. A Fase 16 estabelece RH como cidadão de primeira classe com entidade `staff` autônoma, promoção opt-in para `profiles` via edge function, pipeline de contratação no admin e captação pública no site.
 
@@ -5924,9 +5938,14 @@ Adicionar widget novo: criar componente em `widgets/`, exportar via `widgets/ind
 | PR2 | Processo seletivo (kanban) | ✅ Concluído (2026-04-18) | 204, 205 |
 | PR3a | Agentes `resume_extractor`/`resume_screener` seedados + `extractPdfText.ts` | ✅ Concluído (2026-04-18) — botão manual removido pelo PR3 | 206 |
 | PR3 | **Captação pública automática (área → vaga ou reserva → extrator → entrevistador)** | ✅ **Concluído (2026-04-18)** | 207, 208, 209, 211, 212 |
-| PR3.1 | **Hardening pós-auditoria** (cron expirar sessões, LGPD audit, promote reserva, badges kanban, histórico de chat read-only) | ⏳ Pendente — gaps listados em §10.17.A | 213 |
-| PR4 (opcional) | Agente `best_fit_selector` sobre a base reserva | ⏳ Pendente (v2) | — |
-| PR5 (opcional) | Importação em massa | ⏳ Pendente | 214 |
+| PR3.1 | **Hardening pós-auditoria** (cron expirar sessões, LGPD audit, promote reserva, badges kanban, histórico de chat read-only, área pré-selecionada, `audit_logs` no intake) | ✅ Concluído (2026-04-18) | 213 |
+| PR4 | Agente `best_fit_selector` sobre a base reserva | ✅ Concluído (2026-04-18) | 214 |
+| PR5 | Importação em massa de colaboradores | ✅ Concluído (2026-04-18) | 215 |
+| PR6 | Umbrella RH + Dashboard | ✅ Concluído (2026-04-18) | 216 |
+| PR7 | Hero whitelabel `/trabalhe-conosco` + leitura anônima | ✅ Concluído (2026-04-18) | 217, 218 |
+| PR8 | RLS `pre_screening_sessions` (aba Chat quebrada em prod) | ✅ Concluído (2026-04-18) | 219 |
+| PR9 | Notificações WhatsApp automáticas no pipeline | ✅ Concluído (2026-04-19) | 220 |
+| PR10 | CPF como chave natural + hardening do wizard público | ✅ Concluído (2026-04-19) | 221 |
 
 > Numeração renumerada **+1 vs plano original** — migration 184 já existia (`dashboard_principal_widgets`). A migration 210 ficou com `nfe_stock_ledger` (módulo Financeiro), por isso a captação pública pula de 209 para 211.
 >
@@ -6233,6 +6252,97 @@ Análise end-to-end do workflow real (produção `dinbwugbwnkrzljuocbs`) após d
 6. **PR5** ⏳ opcional — bulk import.
 
 Commit/push via `./scripts/push-all.sh` a cada PR completo (branch `base`, sem force-push). Folha de pagamento e módulo `rh-folha` permanecem como ⏳ Pendente v2.
+
+#### §10.17.B — Entregas pós-PR3.1 (hardening de produção, PR4 → PR10)
+
+Depois do PR3.1 a Fase 16 recebeu 7 PRs incrementais endereçando os gaps da auditoria (§10.17.A) + operação real com o cliente Batista. Todas as migrations 213→221 estão aplicadas em `dinbwugbwnkrzljuocbs` e o código está no `base`/`main` via `./scripts/push-all.sh`.
+
+**PR4 — `best_fit_selector` (✅ 2026-04-18, migration 214)**
+- Seed do agente `best_fit_selector` em `ai_agents` (Haiku 4.5, wrapper defensivo, retorna top-5 com score+pros+cons).
+- RPC `list_reserva_candidates_for_job(p_job_id UUID)` agrega candidaturas reserva da mesma área da vaga para alimentar o agente.
+- Nova aba **Reserva** no `VagaDrawer` invoca o agente via `ai-orchestrator` e exibe cards rankeados com CTA "Mover para triagem" (cria/atualiza `job_applications` linkada à vaga).
+
+**PR5 — Importação em massa de colaboradores (✅ 2026-04-18, migration 215)**
+- Migration normaliza `role_permissions.can_create=true` em `rh-colaboradores` para admin/super_admin.
+- Edge function `bulk-import-staff` (`verify_jwt=true`) — INSERT em `staff` sem criar `auth.users`/`profiles` (padrão OP-1).
+- Reaproveita `ModuleImportWizard` com step opcional "Revisar" (`perRowOverrides`).
+- Registra chave `staff` em `migration_modules` para aparecer no hub `/admin/migracao`.
+
+**PR6 — Umbrella RH + Dashboard (✅ 2026-04-18, migration 216)**
+- Novo módulo granular `rh-dashboard` (grupo `rh`, position 299, ícone `LayoutDashboard`) em `modules` + defaults em `role_permissions` (super_admin ALL, admin/coordinator view-only).
+- `src/admin/pages/rh/RhPage.tsx` passa a ser umbrella com sub-tabs **Dashboard / Colaboradores / Processo seletivo** — mesmo padrão de `/admin/gestao` e `/admin/academico`.
+- Sidebar: grupo "RH" visível quando o usuário tem view em pelo menos uma das 3 chaves.
+- Dashboard mostra KPIs cross-submódulo (colaboradores ativos, vagas publicadas, candidatos por stage, taxa de conversão IA→entrevista).
+
+**PR7 — Hero whitelabel de `/trabalhe-conosco` (✅ 2026-04-18, migrations 217+218)**
+- `appearance.vagas` em `system_settings` com `{badge, title, highlight, subtitle, video_url, image_url, ...}` — mesma estrutura das páginas institucionais já whitelabel.
+- Nova sub-aba **Vagas** em `/admin/configuracoes → Site → Aparência` (drag-drop, preview).
+- `/trabalhe-conosco` renderiza hero full-height com stepper abaixo; conteúdo editorial (áreas, thank you, LGPD) migrado de `content.careers` → `content.vagas` para agrupar com o hero na mesma sub-aba.
+- Migration 218 **amplia leitura anônima** em `system_settings` para `category IN ('branding','appearance','navigation','content')` com `key` whitelisted — unifica RLS das 4 categorias que alimentam a SPA pública antes de qualquer login.
+
+**PR8 — RLS `pre_screening_sessions` (✅ 2026-04-18, migration 219)**
+- A migration 208 habilitou RLS na tabela sem criar policies — edge functions (service-role) passavam, mas **admin autenticado era bloqueado** e a aba "Chat" do `CandidatoDrawer` voltava vazia em produção (bug só reproduzível com JWT real).
+- Policies adicionadas:
+  - `pre_screening_sessions_admin_all` — `FOR ALL` a quem tem `profiles.role ∈ (super_admin,admin)`.
+  - `pre_screening_sessions_select_by_perm` — `FOR SELECT` via `get_effective_permissions('rh-seletivo', can_view)`.
+- Padrão espelha o de `job_applications`.
+
+**PR9 — Notificações WhatsApp no pipeline de RH (✅ 2026-04-19, migration 220)**
+- Antes: admin movia candidato no kanban e nada era enviado — comunicação manual via WhatsApp individual.
+- Agora: 4 transições (`entrevista`, `proposta`, `contratado`, `descartado`) disparam template automático via infra `auto-notify` (Fase 11/12), com dedup por stage.
+- **Banco**:
+  - `whatsapp_templates.category` CHECK estendido com `'rh-seletivo'`.
+  - Coluna `job_applications.notified_stages TEXT[] DEFAULT '{}'` — array de stages já notificados; idempotente (voltar/avançar não re-dispara).
+  - Seed de `system_settings.general.site_url` (fallback para `{{schedule_url}}`/`{{careers_url}}`) + `hr.required_docs` (lista para o template "contratado").
+  - Trigger `trg_notify_on_rh_stage_change` (BEFORE UPDATE OF stage) — valida `trigger_secret`, `pg_net.http_post` para `auto-notify`, marca `notified_stages` na mesma transação.
+  - Seed de `whatsapp_template_categories` com slug `rh-seletivo` + 9 variáveis (`candidate_name`, `candidate_first_name`, `job_title`, `job_area`, `school_name`, `business_hours_text`, `schedule_url`, `careers_url`, `required_docs_list`).
+  - Seed dos 4 templates com body padrão em pt-BR.
+- **Edge function `auto-notify`** (versão atual): novo branch `module === 'rh-seletivo'` resolve `candidates` + `job_openings` + `content.careers.thank_you_message`, monta variáveis e dispara via UazAPI. Dedup via `whatsapp_send_log` + marca de stage no BEFORE UPDATE.
+- **Frontend**: `TemplatesPage` ganhou tag "RH — Seleção" no editor (lê catálogo dinâmico de `whatsapp_template_categories`).
+
+**PR10 — CPF como chave natural + hardening do wizard público (✅ 2026-04-19, migration 221)**
+- **Mudança de chave de negócio**: migration 221 **remove** `candidates_email_key UNIQUE` — o CPF (já UNIQUE desde 205) passa a ser a identidade humana do candidato. Um mesmo CPF pode atualizar email ao longo do tempo.
+- **Validação**:
+  - `src/lib/cpf.ts` — `cleanCpf`, `maskCpf`, `validateCpf` (checksum oficial Receita Federal, rejeita sequências repetidas).
+  - `supabase/functions/_shared/cpf.ts` — cópia Deno (edge functions não importam de `src/`).
+- **Wizard público** (`/trabalhe-conosco`):
+  - CPF obrigatório no step 2, com máscara progressiva `000.000.000-00` e feedback visual de inválido.
+  - Phone com máscara (10/11 dígitos).
+  - Checkbox LGPD continua obrigatório; timestamp/IP/versão persistidos desde PR3.1.
+- **Edge function `careers-intake`**:
+  - `upsertCandidateByCpf` substitui `upsertCandidateByEmail` — lookup por CPF, atualiza email/telefone no UPDATE.
+  - Rejeita CPF inválido (400) antes do UPSERT.
+  - Sanitização: ignora `cpf === null` do CV extraído para não corromper candidatos legados.
+- **`CandidatoDrawer`** (admin):
+  - Novos campos: **CPF** (máscara + validador), **RG**, **data de nascimento**, endereço completo (`street/number/complement/neighborhood/city/state/zip`).
+  - Backfill automático: ao criar candidatura via wizard, `extracted_payload` do CV preenche endereço + birth_date — admin não precisa redigitar.
+  - **Alerta visual** acima do drawer quando há dados no `extracted_payload` que ainda não estão nos campos do candidato (ex.: candidato legado antes da extração): CTA "Preencher com dados do CV" copia em um clique.
+  - **Máscara de telefone** aplicada no campo — resolve bug de persistência (input salvava só dígitos, drawer lia formatado).
+  - **Chat da entrevista** (wizard público): `<textarea>` de 3 linhas com rolagem automática + Enter envia / Shift+Enter quebra linha. Bold `**texto**` renderizado via `src/lib/renderInline.tsx`.
+  - **Exclusão unificada com banner**: dois botões vermelhos no rodapé (**Candidatura** / **Candidato**). Clicar abre banner explicativo com o escopo exato (candidatura = só aquela linha; candidato = cadastro + todas as candidaturas) + Confirmar/Cancelar. Substitui o padrão antigo de duplo-clique com timer de 3s.
+- **Persistência corrigida**: bug em `updateCandidateByEmail` criava candidato órfão quando legacy tinha `cpf=null`. Drawer em modo edição agora usa `updateCandidate(application.candidate.id, ...)` direto.
+
+**Hardening do `{{schedule_url}}` (✅ 2026-04-19, sem migration)**
+- Gap descoberto em produção: template enviado com `https://agendar-visita` (sem host) porque `system_settings.general.site_url` estava vazio/parcial.
+- **Solução dinâmica**:
+  - `AdminLayout.tsx` faz upsert de `general.site_url = window.location.origin` no primeiro render, **apenas em origens públicas** (ignora localhost, `127.*`, `*.local`, redes privadas `10.*`/`192.168.*`/`172.16-31.*`).
+  - Se o admin já salvou uma URL válida (via Config > Institucional > **Domínio de Produção**), o sync não sobrescreve — campo manual funciona como trava.
+  - Edge function `auto-notify` valida com `new URL(...)` — valores sem host caem para path relativo `/agendar-visita` em vez de gerar link quebrado.
+- Novo card **Domínio de Produção** (ícone `Globe`) no topo de `/admin/configuracoes → Institucional` com o campo `site_url`.
+- Corrigido vazamento visual: chaves `lost_found_*` (category=`general` por migration 105) + `site_url` vazavam na "safety net" do final do painel institucional. Filtro atualizado.
+
+**Integração com edge function `auto-notify`** (resumo do contrato atual para o módulo `rh-seletivo`):
+- Input (body): `{ event: 'on_status_change', module: 'rh-seletivo', record_id, old_status, new_status }`.
+- Resolve candidato (`candidates`), vaga (`job_openings`), identidade (`system_settings.branding.identity`), `business_hours` (`system_settings.general.business_hours`), documentos (`system_settings.hr.required_docs`) e URL pública (`system_settings.general.site_url` ou env `SITE_URL`).
+- Monta variáveis padrão + `{{schedule_url}}` = `${siteUrl}/agendar-visita` e `{{careers_url}}` = `${siteUrl}/trabalhe-conosco`.
+- Dispara via UazAPI com dedup em `whatsapp_send_log`; marca `notified_stages` na mesma transação do trigger.
+
+**Itens de backlog que permanecem (pós-v1)**:
+- Rotina `pg_cron` para `purge_discarded_resumes` (180 dias) — ainda não implementada (§10.17.A item 3).
+- Email de confirmação ao candidato após submissão/finalização da entrevista (§10.17.A item 9) — depende de integração SMTP (hoje só WhatsApp).
+- `localStorage` do token da entrevista para retomar após fechar browser (§10.17.A item 10).
+- Teste E2E Playwright do wizard público (§10.17.A item 17).
+- Padronização do rate-limit key `rate_limit` → `rate_limit_per_hour` (§10.17.A item 16) — ainda em double-read defensivo no `careers-intake`.
 
 ---
 
