@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import {
   UserCircle2, FileText, ClipboardList, Sparkles, Upload, Check, Loader2,
   Trash2, ExternalLink, Mail, Phone, Linkedin, Globe, Briefcase, XCircle,
-  FileSearch, MessagesSquare,
+  FileSearch, MessagesSquare, MessageCircle,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
 import { SelectDropdown } from '../../../components/FormField';
+import { supabase } from '../../../../lib/supabase';
 import { logAudit } from '../../../../lib/audit';
 import {
   upsertCandidateByEmail, deleteCandidate, type CandidateInput,
@@ -41,7 +42,13 @@ interface Props {
   onSaved: () => void;
 }
 
-type TabKey = 'candidato' | 'cv' | 'extracao' | 'entrevista' | 'pipeline';
+type TabKey = 'candidato' | 'cv' | 'extracao' | 'entrevista' | 'chat' | 'pipeline';
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+  at: string;
+}
 
 export default function CandidatoDrawer({
   open, onClose, application, defaultJobOpeningId, onSaved,
@@ -68,6 +75,11 @@ export default function CandidatoDrawer({
 
   // Área (quando criar manualmente ou editar reserva)
   const [area, setArea] = useState<JobArea>('administrativa');
+
+  // Histórico do chat de pré-triagem (read-only para admin).
+  const [chat, setChat] = useState<ChatMessage[] | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   const isNew = !application;
 
@@ -100,13 +112,37 @@ export default function CandidatoDrawer({
     } else {
       setCand({});
       setJobOpeningId(defaultJobOpeningId ?? '');
-      setArea('administrativa');
+      // #12: se há vaga pré-selecionada, herda a área dela; senão cai em 'administrativa'.
+      const preselectedJob = defaultJobOpeningId
+        ? jobs.find((j) => j.id === defaultJobOpeningId)
+        : null;
+      setArea(preselectedJob?.area ?? 'administrativa');
       setSource('manual');
       setNotes('');
       setStage('novo');
       setRejectedReason('');
     }
-  }, [open, application, defaultJobOpeningId]);
+    setChat(null);
+    setChatError(null);
+  }, [open, application, defaultJobOpeningId, jobs]);
+
+  // #11: carrega histórico do chat de pré-triagem quando a aba "Chat" abre.
+  useEffect(() => {
+    if (tab !== 'chat' || !application?.pre_screening_session_id) return;
+    if (chat !== null || chatLoading) return;
+    setChatLoading(true);
+    setChatError(null);
+    supabase
+      .from('pre_screening_sessions')
+      .select('messages')
+      .eq('id', application.pre_screening_session_id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) setChatError(error.message);
+        else setChat(Array.isArray(data?.messages) ? (data!.messages as ChatMessage[]) : []);
+      })
+      .then(() => setChatLoading(false), () => setChatLoading(false));
+  }, [tab, application, chat, chatLoading]);
 
   async function handleSave() {
     if (!cand.full_name?.trim()) {
@@ -266,11 +302,13 @@ export default function CandidatoDrawer({
     | { pros?: string[]; cons?: string[]; recommendation?: string; score?: number; summary?: string }
     | null;
 
+  const hasChat = !!application?.pre_screening_session_id;
   const tabs: { key: TabKey; label: string; icon: typeof UserCircle2 }[] = [
     { key: 'candidato', label: 'Candidato', icon: UserCircle2 },
     { key: 'cv',        label: 'Currículo', icon: FileText },
     ...(!isNew ? [{ key: 'extracao'   as const, label: 'Extração',   icon: FileSearch }] : []),
     ...(!isNew ? [{ key: 'entrevista' as const, label: 'Entrevista IA', icon: Sparkles }] : []),
+    ...(hasChat ? [{ key: 'chat' as const, label: 'Chat', icon: MessageCircle }] : []),
     { key: 'pipeline',  label: 'Pipeline',  icon: ClipboardList },
   ];
 
@@ -656,6 +694,46 @@ export default function CandidatoDrawer({
                   </pre>
                 </details>
               )}
+            </div>
+          )}
+        </DrawerCard>
+      )}
+
+      {/* ── Chat da pré-triagem (read-only) ──────────────────────── */}
+      {tab === 'chat' && application && (
+        <DrawerCard title="Conversa com a IA" icon={MessageCircle}>
+          {chatLoading ? (
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 py-6 justify-center">
+              <Loader2 className="w-4 h-4 animate-spin" /> Carregando conversa…
+            </div>
+          ) : chatError ? (
+            <p className="text-xs text-red-600 dark:text-red-400">Erro ao carregar: {chatError}</p>
+          ) : !chat || chat.length === 0 ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Ainda não há mensagens nesta pré-triagem.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+              {chat.map((m, i) => (
+                <div
+                  key={i}
+                  className={`rounded-xl px-3 py-2 text-sm ${
+                    m.role === 'assistant'
+                      ? 'bg-brand-primary/5 dark:bg-brand-secondary/10 border border-brand-primary/15 dark:border-brand-secondary/20 text-gray-800 dark:text-gray-100'
+                      : 'bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 ml-6'
+                  }`}
+                >
+                  <div className="text-[10px] font-semibold uppercase tracking-wide mb-0.5 text-gray-400 dark:text-gray-500">
+                    {m.role === 'assistant' ? 'Entrevistadora IA' : 'Candidato'}
+                    {m.at && (
+                      <span className="ml-2 normal-case font-normal">
+                        {new Date(m.at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                  <p className="whitespace-pre-wrap">{m.text}</p>
+                </div>
+              ))}
             </div>
           )}
         </DrawerCard>

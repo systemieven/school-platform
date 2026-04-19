@@ -10,6 +10,7 @@ import {
 import {
   useJobApplications, STAGE_ORDER, STAGE_LABEL, STAGE_COLOR,
   moveApplicationStage, type ApplicationStage, type JobApplicationWithRelations,
+  type PreScreeningStatus,
 } from '../../hooks/useJobApplications';
 import VagaDrawer from './drawers/VagaDrawer';
 import CandidatoDrawer from './drawers/CandidatoDrawer';
@@ -23,6 +24,26 @@ const STATUS_COLORS: Record<JobStatus, string> = {
   paused:    'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
   closed:    'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
 };
+
+// Badge compacto do status de pré-triagem IA — aparece nos cards do kanban
+// e da base reserva quando o candidato veio via /trabalhe-conosco.
+function PreScreeningBadge({ status }: { status: PreScreeningStatus }) {
+  if (!status) return null;
+  const cfg: Record<Exclude<PreScreeningStatus, null>, { label: string; cls: string }> = {
+    pending:   { label: 'Triagem pendente',  cls: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300' },
+    running:   { label: 'Triagem em curso',  cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+    completed: { label: 'Triagem concluída', cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
+    abandoned: { label: 'Triagem abandonada', cls: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' },
+  };
+  const { label, cls } = cfg[status];
+  return (
+    <div className="mt-1.5 ml-6">
+      <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide ${cls}`}>
+        {label}
+      </span>
+    </div>
+  );
+}
 
 type MainTab = 'vagas' | 'pipeline' | 'reserva';
 
@@ -192,6 +213,7 @@ function ReservaTab() {
                         {app.candidate.email}
                       </div>
                     )}
+                    <PreScreeningBadge status={app.pre_screening_status} />
                     <div className="mt-2 flex items-center justify-between">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide ${STAGE_COLOR[app.stage]}`}>
                         {STAGE_LABEL[app.stage]}
@@ -482,6 +504,7 @@ function PipelineTab() {
                         {app.job_opening.title}
                       </div>
                     )}
+                    <PreScreeningBadge status={app.pre_screening_status} />
                     {app.screener_score !== null && (
                       <div className="mt-2 flex items-center justify-between">
                         <span className="text-[10px] text-gray-400 uppercase tracking-wide">Score IA</span>
