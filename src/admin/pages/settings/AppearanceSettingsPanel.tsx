@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Loader2, Save, Check,
   Home, Baby, BookOpen, BookMarked, GraduationCap, MessageSquare,
@@ -332,12 +332,7 @@ function HeroFieldsBlock({
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-interface AppearanceSettingsPanelProps {
-  /** Slot renderizado à direita da barra de tabs (Home/Infantil/...). */
-  headerRight?: ReactNode;
-}
-
-export default function AppearanceSettingsPanel({ headerRight }: AppearanceSettingsPanelProps = {}) {
+export default function AppearanceSettingsPanel() {
   const [pages, setPages]         = useState<AllPages>(DEFAULT_PAGES);
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
@@ -448,7 +443,9 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
   return (
     <div className="p-6 space-y-5">
 
-      {/* ── Sub-tab bar (linha 1) ─────────────────────────────────────── */}
+      {/* ── Sub-tab bar ────────────────────────────────────────────────
+          Salvar/Restaurar preset são renderizados pelo SiteSettingsPanel
+          acima deste painel (mesmo padrão das demais sub-abas de Site). */}
       <div className="flex flex-wrap gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-1 w-fit">
         {SUB_TABS.map(({ key, label, icon: Icon }) => (
           <button
@@ -466,11 +463,6 @@ export default function AppearanceSettingsPanel({ headerRight }: AppearanceSetti
           </button>
         ))}
       </div>
-
-      {/* ── Salvar / Restaurar preset (linha 2, alinhado à direita) ─── */}
-      {headerRight && (
-        <div className="flex items-center justify-end gap-1">{headerRight}</div>
-      )}
 
       {/* ── Home / Loja / Vagas (hero + slideshow) ────────────────────────
           Todas usam o mesmo editor de hero com slideshow + fallback de

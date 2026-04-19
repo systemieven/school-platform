@@ -31,15 +31,14 @@ interface SiteSettingsPanelProps {
 }
 
 export default function SiteSettingsPanel({ activeTab, headerRight }: SiteSettingsPanelProps) {
-  // Sub-painéis sem tab-bar interna recebem o slot como linha solta no topo.
-  const withTopSlot = activeTab !== 'appearance' && headerRight;
-
+  // Salvar/Restaurar preset ficam travados no topo em TODAS as sub-abas de Site,
+  // imediatamente acima da sub-tab bar interna (ou do primeiro card, quando não há).
   return (
     <div>
-      {withTopSlot && (
+      {headerRight && (
         <div className="flex items-center justify-end gap-1 px-6 pt-6">{headerRight}</div>
       )}
-      {activeTab === 'appearance' && <AppearanceSettingsPanel headerRight={headerRight} />}
+      {activeTab === 'appearance' && <AppearanceSettingsPanel />}
       {activeTab === 'branding' && <BrandingSettingsPanel />}
       {activeTab === 'navigation' && <NavigationSettingsPanel />}
       {activeTab === 'content' && <ContentSettingsPanel />}
