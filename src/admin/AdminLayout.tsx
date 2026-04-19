@@ -71,6 +71,15 @@ export default function AdminLayout() {
           .maybeSingle();
         const current = typeof data?.value === 'string' ? data.value : '';
         if (current === origin) return;
+        // Se já existe um valor válido (URL pública com host), respeita o que
+        // o admin configurou em /admin/configuracoes → Institucional. Só
+        // auto-popula quando o campo está vazio ou corrompido.
+        if (current) {
+          try {
+            const u = new URL(current);
+            if (u.host && u.protocol.startsWith('http')) return;
+          } catch { /* valor corrompido — cai no overwrite abaixo */ }
+        }
         if (data?.id) {
           await supabase.from('system_settings').update({ value: origin }).eq('id', data.id);
         } else {

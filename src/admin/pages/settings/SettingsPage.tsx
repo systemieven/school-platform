@@ -25,7 +25,7 @@ import {
   Users, User, FileText, Trash2, FileSearch,
   CalendarX2, Clock, Timer, ChevronDown, ChevronUp,
   Shield, CheckCircle2, TriangleAlert, Share2, Ticket, Instagram,
-  RotateCcw, Download, DollarSign, Receipt, Brain,
+  RotateCcw, Download, DollarSign, Receipt, Brain, Globe,
 } from 'lucide-react';
 import SecuritySettingsPanel from './SecuritySettingsPanel';
 import FinancialSettingsPanel from './FinancialSettingsPanel';
@@ -233,6 +233,7 @@ const KEY_META: Record<string, { label: string; placeholder?: string; secret?: b
   // general
   school_name:    { label: 'Nome da Instituição', placeholder: 'Ex: Minha Escola' },
   cnpj:           { label: 'CNPJ', placeholder: '00.000.000/0000-00' },
+  site_url:       { label: 'URL do site (produção)', placeholder: 'https://www.exemplo.com.br' },
   // address is rendered by AddressField — kept here as fallback only
   address:        { label: 'Endereço', placeholder: 'Rua, número, bairro, cidade/UF' },
   phone:          { label: 'Telefone', placeholder: '(00) 0000-0000', type: 'phone' },
@@ -1847,6 +1848,12 @@ const INST_GROUPS: {
   inlineKeys?: string[]; // pairs rendered side-by-side
 }[] = [
   {
+    title: 'Domínio de Produção',
+    subtitle: 'URL pública usada em templates WhatsApp ({{schedule_url}}, {{careers_url}}). Preencha com o domínio definitivo — protege contra sobrescrita acidental por sessões locais.',
+    icon: Globe,
+    keys: ['site_url'],
+  },
+  {
     title: 'Identificação',
     icon: Building2,
     keys: ['school_name', 'cnpj'],
@@ -2042,13 +2049,17 @@ function InstitutionalSettingsPanel({ settings, editValues, toStr, onChange, onS
         );
       })}
 
-      {/* Fields not in any group (safety net) — exclude keys managed elsewhere */}
+      {/* Fields not in any group (safety net) — exclude keys managed elsewhere.
+          Chaves lost_found_* vivem em category='general' (migration 105) mas
+          são renderizadas pelo LostFoundSettingsPanel — evitar vazamento aqui. */}
       {(() => {
         const KNOWN_KEYS = new Set([
           ...INST_GROUPS.flatMap((g) => g.keys),
           'pix', 'maintenance_message', 'maintenance_mode',
         ]);
-        return settings.filter((s) => !KNOWN_KEYS.has(s.key));
+        return settings.filter(
+          (s) => !KNOWN_KEYS.has(s.key) && !s.key.startsWith('lost_found_'),
+        );
       })().map((item) => {
           const meta = KEY_META[item.key] || { label: item.key };
           const isChanged = editValues[item.id] !== toStr(item.value);
