@@ -48,6 +48,19 @@ export default function AdminLayout() {
   useEffect(() => {
     const origin = window.location.origin.replace(/\/+$/, '');
     if (!origin) return;
+    // Só sincroniza origens públicas. Dev (localhost, 127.x, *.local, IPs de
+    // rede privada) nunca sobrescreve o valor de produção — senão abrir
+    // localhost sobrescreveria o site_url e quebraria {{schedule_url}} dos
+    // templates que disparam em produção.
+    const host = window.location.hostname;
+    const isDev =
+      host === 'localhost' ||
+      host.endsWith('.local') ||
+      /^127\./.test(host) ||
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+    if (isDev) return;
     (async () => {
       try {
         const { data } = await supabase
