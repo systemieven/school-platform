@@ -64,11 +64,23 @@ Deno.serve(async (req: Request) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   // Invocacao interna edge->edge (ex.: careers-interview-turn, ai-event-dispatcher,
-  // ai-scheduled-runner) usa service-role como Bearer. Nesses casos nao existe
-  // "user" a validar — confiamos direto. JWT de usuario final segue o caminho
-  // normal de validacao via auth.getUser().
+  // ai-scheduled-runner) usa service-role como Bearer. Detectamos via claim `role`
+  // do JWT — mais robusto do que igualdade string com o env var (que pode variar
+  // em whitespace ou, em alguns tiers, nao ser exposto ao runtime).
+  function jwtRole(jwt: string): string | null {
+    try {
+      const [, payload] = jwt.split(".");
+      if (!payload) return null;
+      const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+      const parsed = JSON.parse(atob(padded));
+      return typeof parsed?.role === "string" ? parsed.role : null;
+    } catch { return null; }
+  }
+
   let callerUserId: string | null = null;
-  if (token !== serviceKey) {
+  const role = jwtRole(token);
+  if (role !== "service_role" && token !== serviceKey) {
     const caller = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
