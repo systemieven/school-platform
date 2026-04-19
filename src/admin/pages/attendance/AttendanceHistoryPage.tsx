@@ -468,27 +468,7 @@ export default function AttendanceHistoryPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-brand-primary dark:text-white flex items-center gap-3">
-            <History className="w-8 h-8" />
-            Histórico de Atendimentos
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            {isSuperAdmin
-              ? 'Consulta de todos os atendimentos realizados.'
-              : 'Consulta dos seus atendimentos realizados.'}
-          </p>
-        </div>
-        <button
-          onClick={() => navigate('/admin/gestao')}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Voltar
-        </button>
-      </div>
+      {/* Titulo/subtitulo vivem na barra de titulo da aba (GestaoPage). */}
 
       {/* Date filter pills */}
       <div className="flex flex-wrap gap-2 mb-4">
