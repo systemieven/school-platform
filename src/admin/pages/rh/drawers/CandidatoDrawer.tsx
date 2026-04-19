@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   UserCircle2, FileText, ClipboardList, Sparkles, Upload, Check, Loader2,
   Trash2, ExternalLink, Mail, Phone, Linkedin, Globe, Briefcase, XCircle,
-  FileSearch, MessagesSquare, MessageCircle,
+  FileSearch, MessagesSquare, MessageCircle, AlertTriangle, Award,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
 import { SelectDropdown } from '../../../components/FormField';
@@ -81,6 +81,14 @@ export default function CandidatoDrawer({
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
 
+  // Double-click confirm para exclusões (evita window.confirm que quebra a
+  // identidade visual do app). `armed` = estado "armado, aguardando 2º clique".
+  // Auto-desarma em 3s se não houver 2º clique.
+  const [confirmDeleteApp, setConfirmDeleteApp] = useState(false);
+  const [confirmDeleteCand, setConfirmDeleteCand] = useState(false);
+  const confirmAppTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmCandTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isNew = !application;
 
   useEffect(() => {
@@ -124,6 +132,10 @@ export default function CandidatoDrawer({
     }
     setChat(null);
     setChatError(null);
+    setConfirmDeleteApp(false);
+    setConfirmDeleteCand(false);
+    if (confirmAppTimer.current) clearTimeout(confirmAppTimer.current);
+    if (confirmCandTimer.current) clearTimeout(confirmCandTimer.current);
   }, [open, application, defaultJobOpeningId, jobs]);
 
   // #11: carrega histórico do chat de pré-triagem quando a aba "Chat" abre.
@@ -231,7 +243,15 @@ export default function CandidatoDrawer({
 
   async function handleDelete() {
     if (!application) return;
-    if (!confirm(`Excluir candidatura de "${application.candidate?.full_name ?? 'candidato'}"? O cadastro do candidato permanecerá.`)) return;
+    // Double-click pattern: 1º arma, 2º executa.
+    if (!confirmDeleteApp) {
+      setConfirmDeleteApp(true);
+      if (confirmAppTimer.current) clearTimeout(confirmAppTimer.current);
+      confirmAppTimer.current = setTimeout(() => setConfirmDeleteApp(false), 3000);
+      return;
+    }
+    if (confirmAppTimer.current) clearTimeout(confirmAppTimer.current);
+    setConfirmDeleteApp(false);
     setSaving(true);
     try {
       await deleteJobApplication(application.id);
@@ -249,7 +269,14 @@ export default function CandidatoDrawer({
 
   async function handleDeleteCandidate() {
     if (!application?.candidate) return;
-    if (!confirm(`Excluir definitivamente o candidato "${application.candidate.full_name}" e TODAS as candidaturas dele?`)) return;
+    if (!confirmDeleteCand) {
+      setConfirmDeleteCand(true);
+      if (confirmCandTimer.current) clearTimeout(confirmCandTimer.current);
+      confirmCandTimer.current = setTimeout(() => setConfirmDeleteCand(false), 3000);
+      return;
+    }
+    if (confirmCandTimer.current) clearTimeout(confirmCandTimer.current);
+    setConfirmDeleteCand(false);
     setSaving(true);
     try {
       await deleteCandidate(application.candidate.id);
@@ -307,7 +334,7 @@ export default function CandidatoDrawer({
     { key: 'candidato', label: 'Candidato', icon: UserCircle2 },
     { key: 'cv',        label: 'Currículo', icon: FileText },
     ...(!isNew ? [{ key: 'extracao'   as const, label: 'Extração',   icon: FileSearch }] : []),
-    ...(!isNew ? [{ key: 'entrevista' as const, label: 'Entrevista IA', icon: Sparkles }] : []),
+    ...(!isNew ? [{ key: 'entrevista' as const, label: 'Entrevista', icon: Sparkles }] : []),
     ...(hasChat ? [{ key: 'chat' as const, label: 'Chat', icon: MessageCircle }] : []),
     { key: 'pipeline',  label: 'Pipeline',  icon: ClipboardList },
   ];
@@ -335,9 +362,17 @@ export default function CandidatoDrawer({
               type="button"
               onClick={handleDelete}
               disabled={saving}
-              className="px-3 py-2 text-xs font-medium rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              title="Remove somente esta candidatura (mantém o cadastro do candidato para outras vagas)."
+              className={`px-3 py-2 text-xs font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 ${
+                confirmDeleteApp
+                  ? 'bg-red-600 text-white hover:bg-red-700 ring-2 ring-red-300 dark:ring-red-700'
+                  : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40'
+              }`}
             >
-              <Trash2 className="w-3.5 h-3.5" /> Candidatura
+              {confirmDeleteApp
+                ? <><AlertTriangle className="w-3.5 h-3.5" /> Confirmar exclusão?</>
+                : <><Trash2 className="w-3.5 h-3.5" /> Candidatura</>
+              }
             </button>
           )}
           <div className="flex-1" />
@@ -444,14 +479,27 @@ export default function CandidatoDrawer({
               </div>
             </div>
             {!isNew && application?.candidate && (
-              <button
-                type="button"
-                onClick={handleDeleteCandidate}
-                disabled={saving}
-                className="w-full mt-2 px-3 py-2 text-xs font-medium rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-transparent text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Excluir candidato e todas as candidaturas
-              </button>
+              <div className="mt-2 space-y-1.5">
+                <button
+                  type="button"
+                  onClick={handleDeleteCandidate}
+                  disabled={saving}
+                  title="Remove o cadastro do candidato e TODAS as candidaturas dele (ação permanente, afeta outras vagas)."
+                  className={`w-full px-3 py-2 text-xs font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 ${
+                    confirmDeleteCand
+                      ? 'bg-red-600 text-white hover:bg-red-700 ring-2 ring-red-300 dark:ring-red-700 border border-red-700'
+                      : 'border border-red-200 dark:border-red-800 bg-white dark:bg-transparent text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                  }`}
+                >
+                  {confirmDeleteCand
+                    ? <><AlertTriangle className="w-3.5 h-3.5" /> Clique novamente para confirmar exclusão permanente</>
+                    : <><Trash2 className="w-3.5 h-3.5" /> Excluir candidato e todas as candidaturas</>
+                  }
+                </button>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
+                  Apaga o cadastro completo do candidato em todas as vagas.
+                </p>
+              </div>
             )}
           </div>
         </DrawerCard>
@@ -510,22 +558,26 @@ export default function CandidatoDrawer({
       )}
 
       {/* ── Extração do CV (read-only, preenchido pelo agente resume_extractor) ── */}
-      {tab === 'extracao' && application && (
+      {tab === 'extracao' && application && !extracted && (
         <DrawerCard title="Dados extraídos do currículo" icon={FileSearch}>
-          {!extracted ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              A extração do CV é feita automaticamente quando o candidato se inscreve via
-              /trabalhe-conosco. Se este candidato veio de cadastro manual, anexe o currículo e
-              a extração será executada no próximo salvamento.
-            </p>
-          ) : (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            A extração do CV é feita automaticamente quando o candidato se inscreve via
+            /trabalhe-conosco. Se este candidato veio de cadastro manual, anexe o currículo e
+            a extração será executada no próximo salvamento.
+          </p>
+        </DrawerCard>
+      )}
+      {tab === 'extracao' && application && extracted && (
+        <>
+          {/* Card 1 — Resumo (inclui summary, formação, experiência e score do screener) */}
+          <DrawerCard title="Resumo" icon={FileSearch}>
             <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-              {typeof extracted.summary === 'string' && extracted.summary.trim() && (
+              {typeof extracted.summary === 'string' && extracted.summary.trim() ? (
                 <div>
-                  <div className={labelCls}>Resumo</div>
+                  <div className={labelCls}>Resumo profissional</div>
                   <p className="whitespace-pre-wrap">{String(extracted.summary)}</p>
                 </div>
-              )}
+              ) : null}
               {Array.isArray(extracted.education) && extracted.education.length > 0 && (
                 <div>
                   <div className={labelCls}>Formação</div>
@@ -558,18 +610,6 @@ export default function CandidatoDrawer({
                   </ul>
                 </div>
               )}
-              {Array.isArray(extracted.skills) && extracted.skills.length > 0 && (
-                <div>
-                  <div className={labelCls}>Habilidades</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(extracted.skills as string[]).map((s, i) => (
-                      <span key={i} className="px-2 py-0.5 rounded-full text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
               {screener?.score !== undefined && (
                 <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
                   <div className={labelCls}>Score vs. vaga (resume_screener)</div>
@@ -585,118 +625,148 @@ export default function CandidatoDrawer({
                 </div>
               )}
             </div>
-          )}
-        </DrawerCard>
+          </DrawerCard>
+
+          {/* Card 2 — Habilidades (tags) */}
+          <DrawerCard title="Habilidades" icon={Award}>
+            {Array.isArray(extracted.skills) && extracted.skills.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {(extracted.skills as string[]).map((s, i) => (
+                  <span key={i} className="px-2.5 py-1 rounded-full text-[11px] bg-brand-primary/5 dark:bg-brand-secondary/10 border border-brand-primary/15 dark:border-brand-secondary/20 text-gray-700 dark:text-gray-200">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Nenhuma habilidade extraída do currículo.
+              </p>
+            )}
+          </DrawerCard>
+        </>
       )}
 
-      {/* ── Entrevista IA (read-only, pre_screening_interviewer) ──── */}
+      {/* ── Entrevista (read-only, pre_screening_interviewer) ──── */}
       {tab === 'entrevista' && application && (
-        <DrawerCard title="Entrevista de pré-candidatura" icon={Sparkles}>
-          {application.pre_screening_status === 'running' && (
-            <div className="mb-3 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Entrevista em andamento — o candidato ainda está respondendo.
-            </div>
+        <>
+          {/* Estados especiais (sem payload ainda) */}
+          {!application.interview_report && !interview && (
+            <DrawerCard title="Entrevista de pré-candidatura" icon={Sparkles}>
+              {application.pre_screening_status === 'running' ? (
+                <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Entrevista em andamento — o candidato ainda está respondendo.
+                </div>
+              ) : application.pre_screening_status === 'abandoned' ? (
+                <div className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+                  O candidato não concluiu a entrevista (sessão expirada ou abandonada).
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  A entrevista é conduzida automaticamente pelo agente
+                  <code> pre_screening_interviewer </code> após o candidato enviar o currículo em
+                  /trabalhe-conosco. Quando finalizar, o relatório e o payload estruturado aparecem aqui.
+                </p>
+              )}
+            </DrawerCard>
           )}
-          {application.pre_screening_status === 'abandoned' && (
-            <div className="mb-3 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
-              O candidato não concluiu a entrevista (sessão expirada ou abandonada).
-            </div>
-          )}
-          {!application.interview_report && !interview ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              A entrevista é conduzida automaticamente pelo agente
-              <code> pre_screening_interviewer </code> após o candidato enviar o currículo em
-              /trabalhe-conosco. Quando finalizar, o relatório e o payload estruturado aparecem aqui.
-            </p>
-          ) : (
-            <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
-              {interview?.fit_summary?.recommendation && (
-                <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${
-                    interview.fit_summary.recommendation === 'avancar'
-                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                      : interview.fit_summary.recommendation === 'considerar'
-                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                  }`}>
-                    Recomendação: {interview.fit_summary.recommendation}
-                  </span>
+
+          {/* Card 1 — Payload estruturado da pré-candidatura */}
+          {interview && (
+            <DrawerCard title="Entrevista de pré-candidatura" icon={Sparkles}>
+              {application.pre_screening_status === 'running' && (
+                <div className="mb-3 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Entrevista em andamento — o candidato ainda está respondendo.
                 </div>
               )}
-              {interview?.disc_profile && (
-                <div>
-                  <div className={labelCls}>Perfil DISC</div>
-                  <div className="flex gap-2 items-baseline mb-1">
-                    <span className="text-2xl font-bold text-brand-primary dark:text-brand-secondary">
-                      {interview.disc_profile.dominant ?? '—'}
+              <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
+                {interview.fit_summary?.recommendation && (
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${
+                      interview.fit_summary.recommendation === 'avancar'
+                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                        : interview.fit_summary.recommendation === 'considerar'
+                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                    }`}>
+                      Recomendação: {interview.fit_summary.recommendation}
                     </span>
-                    <span className="text-xs text-gray-400">(dominante)</span>
                   </div>
-                  {interview.disc_profile.scores && (
+                )}
+                {interview.disc_profile && (
+                  <div>
+                    <div className={labelCls}>Perfil DISC</div>
+                    <div className="flex gap-2 items-baseline mb-1">
+                      <span className="text-2xl font-bold text-brand-primary dark:text-brand-secondary">
+                        {interview.disc_profile.dominant ?? '—'}
+                      </span>
+                      <span className="text-xs text-gray-400">(dominante)</span>
+                    </div>
+                    {interview.disc_profile.scores && (
+                      <div className="flex gap-3 text-xs">
+                        {(['D','I','S','C'] as const).map((k) => (
+                          <span key={k}>
+                            <span className="font-semibold">{k}:</span> {interview.disc_profile!.scores![k] ?? '—'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {interview.disc_profile.notes && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{interview.disc_profile.notes}</p>
+                    )}
+                  </div>
+                )}
+                {interview.star_scores && (
+                  <div>
+                    <div className={labelCls}>Exemplo STAR</div>
                     <div className="flex gap-3 text-xs">
-                      {(['D','I','S','C'] as const).map((k) => (
+                      {(['situation','task','action','result'] as const).map((k) => (
                         <span key={k}>
-                          <span className="font-semibold">{k}:</span> {interview.disc_profile!.scores![k] ?? '—'}
+                          <span className="font-semibold capitalize">{k}:</span> {interview.star_scores![k] ?? '—'}/10
                         </span>
                       ))}
                     </div>
-                  )}
-                  {interview.disc_profile.notes && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{interview.disc_profile.notes}</p>
-                  )}
-                </div>
-              )}
-              {interview?.star_scores && (
-                <div>
-                  <div className={labelCls}>Exemplo STAR</div>
-                  <div className="flex gap-3 text-xs">
-                    {(['situation','task','action','result'] as const).map((k) => (
-                      <span key={k}>
-                        <span className="font-semibold capitalize">{k}:</span> {interview.star_scores![k] ?? '—'}/10
-                      </span>
-                    ))}
+                    {interview.star_scores.notes && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{interview.star_scores.notes}</p>
+                    )}
                   </div>
-                  {interview.star_scores.notes && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{interview.star_scores.notes}</p>
-                  )}
-                </div>
-              )}
-              {interview?.fit_summary?.pros && interview.fit_summary.pros.length > 0 && (
-                <div>
-                  <div className={labelCls}>Pontos fortes</div>
-                  <ul className="list-disc pl-4 space-y-0.5">
-                    {interview.fit_summary.pros.map((p, i) => <li key={i}>{p}</li>)}
-                  </ul>
-                </div>
-              )}
-              {interview?.fit_summary?.cons && interview.fit_summary.cons.length > 0 && (
-                <div>
-                  <div className={labelCls}>Pontos de atenção</div>
-                  <ul className="list-disc pl-4 space-y-0.5">
-                    {interview.fit_summary.cons.map((p, i) => <li key={i}>{p}</li>)}
-                  </ul>
-                </div>
-              )}
-              {(interview?.availability || interview?.salary_expectation) && (
-                <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
-                  {interview.availability && <div><strong>Disponibilidade:</strong> {interview.availability}</div>}
-                  {interview.salary_expectation && <div><strong>Expectativa salarial:</strong> {interview.salary_expectation}</div>}
-                </div>
-              )}
-              {application.interview_report && (
-                <details className="pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <summary className="cursor-pointer text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1">
-                    <MessagesSquare className="w-3.5 h-3.5" /> Relatório completo
-                  </summary>
-                  <pre className="mt-2 whitespace-pre-wrap text-xs text-gray-700 dark:text-gray-300 font-sans">
-                    {application.interview_report}
-                  </pre>
-                </details>
-              )}
-            </div>
+                )}
+                {interview.fit_summary?.pros && interview.fit_summary.pros.length > 0 && (
+                  <div>
+                    <div className={labelCls}>Pontos fortes</div>
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      {interview.fit_summary.pros.map((p, i) => <li key={i}>{p}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {interview.fit_summary?.cons && interview.fit_summary.cons.length > 0 && (
+                  <div>
+                    <div className={labelCls}>Pontos de atenção</div>
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      {interview.fit_summary.cons.map((p, i) => <li key={i}>{p}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {(interview.availability || interview.salary_expectation) && (
+                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+                    {interview.availability && <div><strong>Disponibilidade:</strong> {interview.availability}</div>}
+                    {interview.salary_expectation && <div><strong>Expectativa salarial:</strong> {interview.salary_expectation}</div>}
+                  </div>
+                )}
+              </div>
+            </DrawerCard>
           )}
-        </DrawerCard>
+
+          {/* Card 2 — Relatório completo em texto corrido */}
+          {application.interview_report && (
+            <DrawerCard title="Relatório completo" icon={MessagesSquare}>
+              <pre className="whitespace-pre-wrap text-xs text-gray-700 dark:text-gray-300 font-sans leading-relaxed">
+                {application.interview_report}
+              </pre>
+            </DrawerCard>
+          )}
+        </>
       )}
 
       {/* ── Chat da pré-triagem (read-only) ──────────────────────── */}
@@ -713,7 +783,7 @@ export default function CandidatoDrawer({
               Ainda não há mensagens nesta pré-triagem.
             </p>
           ) : (
-            <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+            <div className="space-y-2">
               {chat.map((m, i) => (
                 <div
                   key={i}
