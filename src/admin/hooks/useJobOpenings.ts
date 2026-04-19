@@ -4,9 +4,18 @@ import type { EmploymentType } from './useStaff';
 
 export type JobStatus = 'draft' | 'published' | 'paused' | 'closed';
 
+export type JobArea = 'pedagogica' | 'administrativa' | 'servicos_gerais';
+
+export const JOB_AREA_LABELS: Record<JobArea, string> = {
+  pedagogica: 'Pedagógica',
+  administrativa: 'Administrativa',
+  servicos_gerais: 'Serviços Gerais',
+};
+
 export interface JobOpening {
   id: string;
   title: string;
+  area: JobArea;
   department: string | null;
   location: string | null;
   description: string | null;

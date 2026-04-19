@@ -15,6 +15,7 @@ import EnsinoMedio       from './pages/EnsinoMedio';
 import Matricula         from './pages/Matricula';
 import Contato           from './pages/Contato';
 import AgendarVisita     from './pages/AgendarVisita';
+import TrabalheConosco   from './pages/TrabalheConosco';
 import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
 import TermosUso         from './pages/TermosUso';
 import Sobre             from './pages/Sobre';
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="matricula"            element={<Matricula />} />
           <Route path="contato"              element={<Contato />} />
           <Route path="agendar-visita"       element={<AgendarVisita />} />
+          <Route path="trabalhe-conosco"     element={<TrabalheConosco />} />
           <Route path="politica-privacidade" element={<PoliticaPrivacidade />} />
           <Route path="termos-de-uso"        element={<TermosUso />} />
           <Route path="sobre"                element={<Sobre />} />

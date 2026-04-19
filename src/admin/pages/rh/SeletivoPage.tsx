@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import {
   Briefcase, Kanban as KanbanIcon, Search, Loader2, Plus, UserCircle2, Filter,
+  Users,
 } from 'lucide-react';
 import PermissionGate from '../../components/PermissionGate';
-import { useJobOpenings, type JobOpening, type JobStatus } from '../../hooks/useJobOpenings';
+import {
+  useJobOpenings, JOB_AREA_LABELS, type JobOpening, type JobStatus, type JobArea,
+} from '../../hooks/useJobOpenings';
 import {
   useJobApplications, STAGE_ORDER, STAGE_LABEL, STAGE_COLOR,
   moveApplicationStage, type ApplicationStage, type JobApplicationWithRelations,
@@ -21,7 +24,7 @@ const STATUS_COLORS: Record<JobStatus, string> = {
   closed:    'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
 };
 
-type MainTab = 'vagas' | 'pipeline';
+type MainTab = 'vagas' | 'pipeline' | 'reserva';
 
 export default function SeletivoPage() {
   const [tab, setTab] = useState<MainTab>('vagas');
@@ -40,8 +43,9 @@ export default function SeletivoPage() {
 
       <div className="flex items-center gap-1 bg-white dark:bg-gray-800 rounded-xl p-1 border border-gray-100 dark:border-gray-700 w-fit">
         {[
-          { k: 'vagas' as const,    label: 'Vagas',    icon: Briefcase },
-          { k: 'pipeline' as const, label: 'Pipeline', icon: KanbanIcon },
+          { k: 'vagas' as const,    label: 'Vagas',        icon: Briefcase },
+          { k: 'pipeline' as const, label: 'Pipeline',     icon: KanbanIcon },
+          { k: 'reserva' as const,  label: 'Base reserva', icon: Users },
         ].map(({ k, label, icon: Icon }) => {
           const active = tab === k;
           return (
@@ -61,6 +65,166 @@ export default function SeletivoPage() {
 
       {tab === 'vagas' && <VagasTab />}
       {tab === 'pipeline' && <PipelineTab />}
+      {tab === 'reserva' && <ReservaTab />}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RESERVA TAB — candidatos sem vaga específica, agrupados por área
+// ══════════════════════════════════════════════════════════════════════════════
+
+function ReservaTab() {
+  const { rows, loading, error, reload } = useJobApplications();
+  const [search, setSearch] = useState('');
+  const [areaFilter, setAreaFilter] = useState<'all' | JobArea>('all');
+  const [selected, setSelected] = useState<JobApplicationWithRelations | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const reservas = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (r.job_opening_id) return false;
+      if (areaFilter !== 'all' && r.area !== areaFilter) return false;
+      if (!q) return true;
+      const name = (r.candidate?.full_name ?? '').toLowerCase();
+      const email = (r.candidate?.email ?? '').toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+  }, [rows, search, areaFilter]);
+
+  const byArea = useMemo(() => {
+    const m: Record<JobArea, JobApplicationWithRelations[]> = {
+      pedagogica: [], administrativa: [], servicos_gerais: [],
+    };
+    reservas.forEach((r) => m[r.area]?.push(r));
+    return m;
+  }, [reservas]);
+
+  function openEdit(app: JobApplicationWithRelations) {
+    setSelected(app);
+    setDrawerOpen(true);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-3 flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome ou email…"
+            className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+          />
+        </div>
+        <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-900 rounded-lg p-1">
+          <Filter className="w-3 h-3 text-gray-400 mx-1" />
+          <button
+            onClick={() => setAreaFilter('all')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              areaFilter === 'all'
+                ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            Todas
+          </button>
+          {(Object.keys(JOB_AREA_LABELS) as JobArea[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => setAreaFilter(k)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                areaFilter === k
+                  ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              {JOB_AREA_LABELS[k]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-gray-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" />
+          Carregando base reserva…
+        </div>
+      ) : error ? (
+        <div className="p-6 text-sm text-red-500 dark:text-red-400">{error}</div>
+      ) : reservas.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 py-16 text-center">
+          <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Nenhum candidato na base reserva com os filtros atuais.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {(Object.keys(JOB_AREA_LABELS) as JobArea[]).map((area) => (
+            <div
+              key={area}
+              className="bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700 p-3"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                  {JOB_AREA_LABELS[area]}
+                </span>
+                <span className="text-xs text-gray-400">{byArea[area].length}</span>
+              </div>
+              <div className="space-y-2 min-h-[120px]">
+                {byArea[area].map((app) => (
+                  <div
+                    key={app.id}
+                    onClick={() => openEdit(app)}
+                    className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-3 cursor-pointer hover:border-brand-primary dark:hover:border-brand-secondary transition-colors shadow-sm"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <UserCircle2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                        {app.candidate?.full_name ?? 'Candidato'}
+                      </span>
+                    </div>
+                    {app.candidate?.email && (
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate ml-6">
+                        {app.candidate.email}
+                      </div>
+                    )}
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide ${STAGE_COLOR[app.stage]}`}>
+                        {STAGE_LABEL[app.stage]}
+                      </span>
+                      {app.screener_score !== null && (
+                        <span className={`text-xs font-bold ${
+                          (app.screener_score ?? 0) >= 70 ? 'text-emerald-600 dark:text-emerald-400'
+                          : (app.screener_score ?? 0) >= 40 ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {app.screener_score}/100
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {byArea[area].length === 0 && (
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500 text-center py-6">
+                    Vazio
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <CandidatoDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        application={selected}
+        onSaved={reload}
+      />
     </div>
   );
 }

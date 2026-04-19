@@ -38,20 +38,27 @@ export const STAGE_COLOR: Record<ApplicationStage, string> = {
   descartado: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
 };
 
+export type PreScreeningStatus =
+  | 'pending' | 'running' | 'completed' | 'abandoned' | null;
+
 export interface JobApplication {
   id: string;
-  job_opening_id: string;
+  job_opening_id: string | null;
   candidate_id: string;
+  area: 'pedagogica' | 'administrativa' | 'servicos_gerais';
   stage: ApplicationStage;
   stage_position: number;
   source: string | null;
   resume_path: string | null;
+  extracted_payload: Record<string, unknown> | null;
   screener_score: number | null;
   screener_summary: string | null;
   screener_payload: Record<string, unknown> | null;
   screened_at: string | null;
   interview_report: string | null;
   interview_payload: Record<string, unknown> | null;
+  pre_screening_status: PreScreeningStatus;
+  pre_screening_session_id: string | null;
   rejected_reason: string | null;
   hired_staff_id: string | null;
   hired_at: string | null;
