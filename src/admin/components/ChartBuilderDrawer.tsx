@@ -168,23 +168,47 @@ export default function ChartBuilderDrawer({
         <div className="grid grid-cols-3 gap-2">
           {CHART_TYPES.map(({ type, label, Icon }) => {
             const isSelected = chartType === type;
+            // Marca como sugerido tipos que a fonte selecionada lista no `suggested`.
+            // Outros continuam clicáveis (escolha pessoal), apenas com tom mais sutil
+            // e sem o destaque "Recomendado".
+            const sourceMeta = sources.find((s) => s.value === dataSource);
+            const isSuggested = sourceMeta?.suggested?.includes(type) ?? false;
             return (
               <button
                 key={type}
                 type="button"
                 onClick={() => setChartType(type)}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
+                className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
                   isSelected
                     ? 'border-brand-primary bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary'
-                    : 'border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    : isSuggested
+                    ? 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-brand-primary/50 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-400 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
+                title={isSuggested ? 'Recomendado para esta fonte' : 'Disponível, mas pode não combinar com a fonte'}
               >
+                {isSuggested && !isSelected && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-400" aria-label="Recomendado" />
+                )}
                 <Icon className="w-5 h-5" />
                 <span className="text-[11px] font-medium leading-tight text-center">{label}</span>
               </button>
             );
           })}
         </div>
+        {dataSource && (() => {
+          const meta = sources.find((s) => s.value === dataSource);
+          const isSuggested = meta?.suggested?.includes(chartType) ?? false;
+          if (isSuggested || !meta) return null;
+          return (
+            <p className="mt-3 text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
+              ⚠️ Esta fonte funciona melhor como{' '}
+              <span className="font-semibold">
+                {meta.suggested.map((s) => CHART_TYPES.find((c) => c.type === s)?.label).filter(Boolean).join(' / ')}
+              </span>. O gráfico pode não exibir bem com o tipo escolhido.
+            </p>
+          );
+        })()}
       </DrawerCard>
 
       {/* ── Dados ── */}
