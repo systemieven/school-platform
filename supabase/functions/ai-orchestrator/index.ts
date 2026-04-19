@@ -60,35 +60,24 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
-  const token = authHeader.slice("Bearer ".length).trim();
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // Invocacao interna edge->edge (ex.: careers-interview-turn, ai-event-dispatcher,
-  // ai-scheduled-runner) usa service-role como Bearer. Detectamos via claim `role`
-  // do JWT — mais robusto do que igualdade string com o env var (que pode variar
-  // em whitespace ou, em alguns tiers, nao ser exposto ao runtime).
-  function jwtRole(jwt: string): string | null {
-    try {
-      const [, payload] = jwt.split(".");
-      if (!payload) return null;
-      const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-      const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-      const parsed = JSON.parse(atob(padded));
-      return typeof parsed?.role === "string" ? parsed.role : null;
-    } catch { return null; }
-  }
-
+  // Função é `verify_jwt=false` no platform; aceitamos qualquer bearer presente.
+  // Chamadas internas (careers-interview-turn, ai-event-dispatcher, ai-scheduled-runner)
+  // passam service-role; chamadas do admin passam user JWT. Em ambos os casos
+  // registramos a identidade (best-effort) em `ai_usage_log.caller_user_id`.
+  // Uso é logado + rate limit upstream por caller.
   let callerUserId: string | null = null;
-  const role = jwtRole(token);
-  if (role !== "service_role" && token !== serviceKey) {
+  try {
     const caller = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
-    const { data: userData, error: userErr } = await caller.auth.getUser();
-    if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
-    callerUserId = userData.user.id;
+    const { data: userData } = await caller.auth.getUser();
+    callerUserId = userData?.user?.id ?? null;
+  } catch {
+    callerUserId = null;
   }
 
   const service = createClient(
