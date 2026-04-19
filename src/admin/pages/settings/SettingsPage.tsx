@@ -1849,7 +1849,7 @@ const INST_GROUPS: {
 }[] = [
   {
     title: 'Domínio de Produção',
-    subtitle: 'URL pública usada em templates WhatsApp ({{schedule_url}}, {{careers_url}}). Preencha com o domínio definitivo — protege contra sobrescrita acidental por sessões locais.',
+    subtitle: 'URL pública do site, usada em links automáticos e integrações.',
     icon: Globe,
     keys: ['site_url'],
   },
