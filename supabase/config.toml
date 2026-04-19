@@ -44,3 +44,13 @@ verify_jwt = false
 # JWT ES256; funcao valida internamente via auth.getUser().
 [functions.cnpj-lookup]
 verify_jwt = false
+
+# Wizard publico /trabalhe-conosco. Recebe upload de CV + dados do candidato,
+# cria job_application na coluna "Pre-qualificacao" e abre sessao de chat
+# por token opaco (pre_screening_sessions). Sem JWT por design.
+[functions.careers-intake]
+verify_jwt = false
+
+# Turno do chat de pre-candidatura. Autenticacao por session_token no body.
+[functions.careers-interview-turn]
+verify_jwt = false

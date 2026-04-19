@@ -31,6 +31,7 @@ import SecuritySettingsPanel from './SecuritySettingsPanel';
 import FinancialSettingsPanel from './FinancialSettingsPanel';
 import AcademicoSettingsPanel from './AcademicoSettingsPanel';
 import LostFoundSettingsPanel from './LostFoundSettingsPanel';
+import RhSettingsPanel from './RhSettingsPanel';
 import FiscalProfilesPanel from './FiscalProfilesPanel';
 import NfseSettingsPanel from './NfseSettingsPanel';
 import NfceSettingsPanel from './NfceSettingsPanel';
@@ -107,6 +108,15 @@ const TABS: TabDef[] = [
     categories: [],
     description: 'Configure módulos de ferramentas como Achados e Perdidos.',
     requiredModule: 'settings-ferramentas',
+  },
+  {
+    key: 'rh',
+    label: 'RH',
+    shortLabel: 'RH',
+    icon: Briefcase,
+    categories: [],
+    description: 'Conteúdo da página /trabalhe-conosco e parâmetros de captação de currículos.',
+    requiredModule: 'settings-rh',
   },
   {
     key: 'fiscal',
@@ -511,7 +521,7 @@ export default function SettingsPage() {
   }
 
   // Tabs with their own custom panel never depend on the generic settings array
-  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial', 'academico', 'ferramentas', 'fiscal', 'ia'];
+  const CUSTOM_PANEL_TABS = ['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial', 'academico', 'ferramentas', 'rh', 'fiscal', 'ia'];
 
   // Tabs that have settings in the DB OR have a custom panel — gated by permission.
   const availableTabs = TABS.filter(
@@ -784,7 +794,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Fields */}
-            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit', 'financial', 'ferramentas', 'fiscal', 'nfse-config', 'ia'].includes(activeTab) ? '' : 'p-6'}>
+            <div className={['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'institutional', 'security', 'attendance', 'notifications', 'users', 'permissions', 'audit', 'financial', 'ferramentas', 'rh', 'fiscal', 'nfse-config', 'ia'].includes(activeTab) ? '' : 'p-6'}>
               {activeTab === 'whatsapp' ? (
                 <WhatsAppSettingsPanel activeSubTab={waSubTab} />
               ) : activeTab === 'visits' ? (
@@ -833,6 +843,8 @@ export default function SettingsPage() {
                 <FinancialSettingsPanel />
               ) : activeTab === 'ferramentas' ? (
                 <LostFoundSettingsPanel />
+              ) : activeTab === 'rh' ? (
+                <RhSettingsPanel />
               ) : activeTab === 'fiscal' ? (
                 fiscalSubTab === 'provedor' && canView('settings-fiscal-provider') ? <FiscalProviderCredentialsPanel /> :
                 fiscalSubTab === 'nfse' ? <NfseSettingsPanel /> :
@@ -877,7 +889,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Floating save — generic tabs (notifications, etc.) */}
-          {!['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial', 'fiscal', 'ferramentas', 'academico', 'ia'].includes(activeTab) && (
+          {!['whatsapp', 'visits', 'enrollment', 'contact', 'site', 'security', 'institutional', 'attendance', 'users', 'permissions', 'audit', 'financial', 'fiscal', 'ferramentas', 'rh', 'academico', 'ia'].includes(activeTab) && (
             <div className={`fixed bottom-6 right-8 z-30 transition-all duration-300 ${
               tabHasChanges || saving || saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
             }`}>

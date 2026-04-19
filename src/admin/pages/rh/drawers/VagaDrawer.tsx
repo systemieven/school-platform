@@ -8,7 +8,8 @@ import HtmlTemplateEditor from '../../../components/HtmlTemplateEditor';
 import { logAudit } from '../../../../lib/audit';
 import {
   createJobOpening, updateJobOpening, deleteJobOpening,
-  type JobOpening, type JobOpeningInput, type JobStatus,
+  JOB_AREA_LABELS,
+  type JobOpening, type JobOpeningInput, type JobStatus, type JobArea,
 } from '../../../hooks/useJobOpenings';
 import type { EmploymentType } from '../../../hooks/useStaff';
 
@@ -26,6 +27,7 @@ const STATUS_LABELS: Record<JobStatus, string> = {
 
 const BLANK: Partial<JobOpeningInput> = {
   title: '',
+  area: 'administrativa',
   department: null,
   location: null,
   description: '',
@@ -242,6 +244,15 @@ export default function VagaDrawer({ open, onClose, job, onSaved }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <SelectDropdown
+                label="Área *"
+                value={form.area ?? 'administrativa'}
+                onChange={(e) => set('area', e.target.value as JobArea)}
+              >
+                {(Object.keys(JOB_AREA_LABELS) as JobArea[]).map((k) => (
+                  <option key={k} value={k}>{JOB_AREA_LABELS[k]}</option>
+                ))}
+              </SelectDropdown>
+              <SelectDropdown
                 label="Vínculo *"
                 value={form.employment_type ?? 'clt'}
                 onChange={(e) => set('employment_type', e.target.value as EmploymentType)}
@@ -250,16 +261,16 @@ export default function VagaDrawer({ open, onClose, job, onSaved }: Props) {
                   <option key={k} value={k}>{EMPLOYMENT_LABELS[k]}</option>
                 ))}
               </SelectDropdown>
-              <SelectDropdown
-                label="Status *"
-                value={form.status ?? 'draft'}
-                onChange={(e) => set('status', e.target.value as JobStatus)}
-              >
-                {(Object.keys(STATUS_LABELS) as JobStatus[]).map((k) => (
-                  <option key={k} value={k}>{STATUS_LABELS[k]}</option>
-                ))}
-              </SelectDropdown>
             </div>
+            <SelectDropdown
+              label="Status *"
+              value={form.status ?? 'draft'}
+              onChange={(e) => set('status', e.target.value as JobStatus)}
+            >
+              {(Object.keys(STATUS_LABELS) as JobStatus[]).map((k) => (
+                <option key={k} value={k}>{STATUS_LABELS[k]}</option>
+              ))}
+            </SelectDropdown>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>

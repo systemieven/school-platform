@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import {
   UserCircle2, FileText, ClipboardList, Sparkles, Upload, Check, Loader2,
   Trash2, ExternalLink, Mail, Phone, Linkedin, Globe, Briefcase, XCircle,
+  FileSearch, MessagesSquare,
 } from 'lucide-react';
 import { Drawer, DrawerCard } from '../../../components/Drawer';
 import { SelectDropdown } from '../../../components/FormField';
 import { logAudit } from '../../../../lib/audit';
-import { supabase } from '../../../../lib/supabase';
-import { extractPdfText } from '../../../../lib/extractPdfText';
 import {
   upsertCandidateByEmail, deleteCandidate, type CandidateInput,
 } from '../../../hooks/useCandidates';
@@ -17,7 +16,7 @@ import {
   STAGE_ORDER, STAGE_LABEL, STAGE_COLOR,
   type ApplicationStage, type JobApplicationWithRelations,
 } from '../../../hooks/useJobApplications';
-import { useJobOpenings } from '../../../hooks/useJobOpenings';
+import { useJobOpenings, JOB_AREA_LABELS, type JobArea } from '../../../hooks/useJobOpenings';
 
 const inputCls =
   'w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:border-brand-primary dark:focus:border-brand-secondary focus:ring-2 focus:ring-brand-primary/20 outline-none text-sm transition-all';
@@ -42,7 +41,7 @@ interface Props {
   onSaved: () => void;
 }
 
-type TabKey = 'candidato' | 'cv' | 'triagem' | 'pipeline';
+type TabKey = 'candidato' | 'cv' | 'extracao' | 'entrevista' | 'pipeline';
 
 export default function CandidatoDrawer({
   open, onClose, application, defaultJobOpeningId, onSaved,
@@ -67,9 +66,8 @@ export default function CandidatoDrawer({
   const [cvUrl, setCvUrl] = useState<string | null>(null);
   const [uploadingCv, setUploadingCv] = useState(false);
 
-  // Análise IA
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analyzeError, setAnalyzeError] = useState('');
+  // Área (quando criar manualmente ou editar reserva)
+  const [area, setArea] = useState<JobArea>('administrativa');
 
   const isNew = !application;
 
@@ -80,7 +78,6 @@ export default function CandidatoDrawer({
     setSaved(false);
     setCvFile(null);
     setCvUrl(null);
-    setAnalyzeError('');
     if (application) {
       const c = application.candidate;
       setCand(c ? {
@@ -88,7 +85,8 @@ export default function CandidatoDrawer({
         rg: c.rg, cnh: c.cnh, birth_date: c.birth_date,
         linkedin_url: c.linkedin_url, portfolio_url: c.portfolio_url,
       } : {});
-      setJobOpeningId(application.job_opening_id);
+      setJobOpeningId(application.job_opening_id ?? '');
+      setArea(application.area);
       setSource(application.source ?? 'manual');
       setNotes(application.notes ?? '');
       setStage(application.stage);
@@ -102,6 +100,7 @@ export default function CandidatoDrawer({
     } else {
       setCand({});
       setJobOpeningId(defaultJobOpeningId ?? '');
+      setArea('administrativa');
       setSource('manual');
       setNotes('');
       setStage('novo');
@@ -120,8 +119,11 @@ export default function CandidatoDrawer({
       setTab('candidato');
       return;
     }
-    if (!jobOpeningId) {
-      setError('Selecione uma vaga.');
+    // Vaga é opcional (cadastro reserva permite job_opening_id null).
+    const targetJobId = jobOpeningId || null;
+    // Área é obrigatória (fonte do kanban).
+    if (!area) {
+      setError('Selecione uma área.');
       setTab('pipeline');
       return;
     }
@@ -156,8 +158,9 @@ export default function CandidatoDrawer({
         });
       } else {
         const created = await createJobApplication({
-          job_opening_id: jobOpeningId,
+          job_opening_id: targetJobId,
           candidate_id: candidate.id,
+          area,
           stage,
           source: source || null,
           notes: notes || null,
@@ -250,107 +253,24 @@ export default function CandidatoDrawer({
     }
   }
 
-  /**
-   * Executa o agente `resume_screener`:
-   * 1. Baixa o PDF via signed URL (ou usa o arquivo local se ainda não foi salvo).
-   * 2. Extrai texto client-side com pdfjs-dist.
-   * 3. Chama ai-orchestrator com { job_title, job_requirements, resume_text }.
-   * 4. Faz UPDATE em job_applications (score/summary/payload/screened_at).
-   */
-  async function handleAnalyzeWithAi() {
-    if (!application) return;
-    setAnalyzeError('');
-    setAnalyzing(true);
-    try {
-      // 1) Conseguir o PDF
-      let pdfSource: File | Blob | ArrayBuffer;
-      if (cvFile) {
-        pdfSource = cvFile;
-      } else if (application.resume_path) {
-        const signed = cvUrl ?? (await getApplicationResumeSignedUrl(application.resume_path));
-        const res = await fetch(signed);
-        if (!res.ok) throw new Error(`Falha ao baixar CV (HTTP ${res.status})`);
-        pdfSource = await res.blob();
-      } else {
-        throw new Error('Anexe um currículo antes de analisar.');
-      }
-
-      // 2) Extrair texto
-      const { text, truncated } = await extractPdfText(pdfSource);
-      if (!text.trim()) throw new Error('Não foi possível extrair texto do PDF (pode ser um PDF escaneado).');
-
-      // 3) Buscar dados da vaga
-      const job = application.job_opening ?? jobs.find((j) => j.id === application.job_opening_id);
-      const jobTitle = job?.title ?? 'Vaga sem título';
-      const jobReqs = (application.job_opening as { requirements?: string } | undefined)?.requirements
-        ?? jobs.find((j) => j.id === application.job_opening_id)?.requirements
-        ?? '(nenhum requisito cadastrado)';
-
-      // 4) Chamar ai-orchestrator
-      const { data, error: invErr } = await supabase.functions.invoke('ai-orchestrator', {
-        body: {
-          agent_slug: 'resume_screener',
-          context: {
-            job_title: jobTitle,
-            job_requirements: jobReqs,
-            resume_text: text,
-          },
-        },
-      });
-      if (invErr) throw invErr;
-      const rawText = (data as { text?: string })?.text ?? '';
-      let parsed: {
-        score_0_100?: number;
-        pros?: string[];
-        cons?: string[];
-        recommendation?: string;
-        reasoning?: string;
-      };
-      try {
-        // O modelo pode retornar JSON com ou sem cercas ```
-        const cleaned = rawText.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-        parsed = JSON.parse(cleaned);
-      } catch {
-        throw new Error('O agente retornou um JSON inválido. Tente novamente.');
-      }
-
-      const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score_0_100 ?? 0))));
-      const summary = parsed.reasoning?.trim() || null;
-
-      // 5) Persistir
-      await updateJobApplication(application.id, {
-        screener_score: score,
-        screener_summary: summary,
-        screener_payload: {
-          pros: parsed.pros ?? [],
-          cons: parsed.cons ?? [],
-          recommendation: parsed.recommendation ?? null,
-          reasoning: parsed.reasoning ?? null,
-          truncated,
-        },
-        screened_at: new Date().toISOString(),
-      });
-      logAudit({
-        action: 'update', module: 'rh-seletivo', recordId: application.id,
-        description: `Triagem IA executada (score ${score}/100)`,
-      });
-      onSaved();
-      setTab('triagem');
-    } catch (e) {
-      setAnalyzeError(e instanceof Error ? e.message : 'Erro ao analisar currículo.');
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
+  // Leitura dos payloads gerados automaticamente pelo fluxo /trabalhe-conosco.
+  const extracted = (application?.extracted_payload ?? null) as Record<string, unknown> | null;
+  const interview = (application?.interview_payload ?? null) as {
+    disc_profile?: { dominant?: string; scores?: Record<string, number>; notes?: string };
+    star_scores?: { situation?: number; task?: number; action?: number; result?: number; notes?: string };
+    fit_summary?: { pros?: string[]; cons?: string[]; recommendation?: string };
+    availability?: string | null;
+    salary_expectation?: string | null;
+  } | null;
   const screener = application?.screener_payload as
-    | { pros?: string[]; cons?: string[]; recommendation?: string; reasoning?: string }
+    | { pros?: string[]; cons?: string[]; recommendation?: string; score?: number; summary?: string }
     | null;
 
   const tabs: { key: TabKey; label: string; icon: typeof UserCircle2 }[] = [
     { key: 'candidato', label: 'Candidato', icon: UserCircle2 },
     { key: 'cv',        label: 'Currículo', icon: FileText },
-    ...(!isNew ? [{ key: 'triagem' as const,  label: 'Análise IA', icon: Sparkles }] : []),
+    ...(!isNew ? [{ key: 'extracao'   as const, label: 'Extração',   icon: FileSearch }] : []),
+    ...(!isNew ? [{ key: 'entrevista' as const, label: 'Entrevista IA', icon: Sparkles }] : []),
     { key: 'pipeline',  label: 'Pipeline',  icon: ClipboardList },
   ];
 
@@ -551,85 +471,190 @@ export default function CandidatoDrawer({
         </DrawerCard>
       )}
 
-      {/* ── Análise IA (screener) ─────────────────────────────────── */}
-      {tab === 'triagem' && application && (
-        <DrawerCard title="Análise do agente de triagem" icon={Sparkles}>
-          <div className="mb-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleAnalyzeWithAi}
-              disabled={analyzing || (!application.resume_path && !cvFile)}
-              className="px-3 py-2 text-xs font-semibold rounded-xl bg-brand-primary hover:bg-brand-primary-dark text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {analyzing
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <Sparkles className="w-3.5 h-3.5" />}
-              {analyzing
-                ? 'Analisando…'
-                : application.screened_at ? 'Reanalisar com IA' : 'Analisar com IA'}
-            </button>
-            {application.screened_at && (
-              <span className="text-[11px] text-gray-400">
-                Última análise: {new Date(application.screened_at).toLocaleString('pt-BR')}
-              </span>
-            )}
-          </div>
-          {analyzeError && (
-            <div className="mb-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs rounded-xl px-3 py-2">
-              {analyzeError}
-            </div>
-          )}
-          {!application.screened_at ? (
+      {/* ── Extração do CV (read-only, preenchido pelo agente resume_extractor) ── */}
+      {tab === 'extracao' && application && (
+        <DrawerCard title="Dados extraídos do currículo" icon={FileSearch}>
+          {!extracted ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Candidatura ainda não passou pela triagem IA. Anexe o currículo (PDF) e clique em
-              <strong> Analisar com IA</strong> para que o agente <code>resume_screener</code> pontue
-              a compatibilidade com os requisitos da vaga.
+              A extração do CV é feita automaticamente quando o candidato se inscreve via
+              /trabalhe-conosco. Se este candidato veio de cadastro manual, anexe o currículo e
+              a extração será executada no próximo salvamento.
             </p>
           ) : (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Score</div>
+            <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+              {typeof extracted.summary === 'string' && extracted.summary.trim() && (
+                <div>
+                  <div className={labelCls}>Resumo</div>
+                  <p className="whitespace-pre-wrap">{String(extracted.summary)}</p>
+                </div>
+              )}
+              {Array.isArray(extracted.education) && extracted.education.length > 0 && (
+                <div>
+                  <div className={labelCls}>Formação</div>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {(extracted.education as unknown[]).map((e, i) => (
+                      <li key={i}>
+                        {typeof e === 'string'
+                          ? e
+                          : JSON.stringify(e)
+                              .replace(/[{}"]/g, '')
+                              .replace(/,/g, ' · ')}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(extracted.experience) && extracted.experience.length > 0 && (
+                <div>
+                  <div className={labelCls}>Experiência</div>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {(extracted.experience as unknown[]).map((e, i) => (
+                      <li key={i}>
+                        {typeof e === 'string'
+                          ? e
+                          : JSON.stringify(e)
+                              .replace(/[{}"]/g, '')
+                              .replace(/,/g, ' · ')}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(extracted.skills) && extracted.skills.length > 0 && (
+                <div>
+                  <div className={labelCls}>Habilidades</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(extracted.skills as string[]).map((s, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-full text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {screener?.score !== undefined && (
+                <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <div className={labelCls}>Score vs. vaga (resume_screener)</div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold text-brand-primary dark:text-brand-secondary">
-                      {application.screener_score ?? '—'}
+                    <span className="text-2xl font-bold text-brand-primary dark:text-brand-secondary">
+                      {screener.score ?? '—'}
                     </span>
                     <span className="text-xs text-gray-400">/100</span>
                   </div>
-                </div>
-                {screener?.recommendation && (
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${
-                    screener.recommendation === 'hire' || screener.recommendation === 'avancar'
-                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                      : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                  }`}>
-                    {screener.recommendation}
-                  </span>
-                )}
-              </div>
-              {application.screener_summary && (
-                <div>
-                  <div className={labelCls}>Resumo</div>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                    {application.screener_summary}
-                  </p>
+                  {screener.summary && (
+                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">{screener.summary}</p>
+                  )}
                 </div>
               )}
-              {screener?.pros && screener.pros.length > 0 && (
+            </div>
+          )}
+        </DrawerCard>
+      )}
+
+      {/* ── Entrevista IA (read-only, pre_screening_interviewer) ──── */}
+      {tab === 'entrevista' && application && (
+        <DrawerCard title="Entrevista de pré-candidatura" icon={Sparkles}>
+          {application.pre_screening_status === 'running' && (
+            <div className="mb-3 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Entrevista em andamento — o candidato ainda está respondendo.
+            </div>
+          )}
+          {application.pre_screening_status === 'abandoned' && (
+            <div className="mb-3 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+              O candidato não concluiu a entrevista (sessão expirada ou abandonada).
+            </div>
+          )}
+          {!application.interview_report && !interview ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              A entrevista é conduzida automaticamente pelo agente
+              <code> pre_screening_interviewer </code> após o candidato enviar o currículo em
+              /trabalhe-conosco. Quando finalizar, o relatório e o payload estruturado aparecem aqui.
+            </p>
+          ) : (
+            <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
+              {interview?.fit_summary?.recommendation && (
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${
+                    interview.fit_summary.recommendation === 'avancar'
+                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                      : interview.fit_summary.recommendation === 'considerar'
+                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                  }`}>
+                    Recomendação: {interview.fit_summary.recommendation}
+                  </span>
+                </div>
+              )}
+              {interview?.disc_profile && (
+                <div>
+                  <div className={labelCls}>Perfil DISC</div>
+                  <div className="flex gap-2 items-baseline mb-1">
+                    <span className="text-2xl font-bold text-brand-primary dark:text-brand-secondary">
+                      {interview.disc_profile.dominant ?? '—'}
+                    </span>
+                    <span className="text-xs text-gray-400">(dominante)</span>
+                  </div>
+                  {interview.disc_profile.scores && (
+                    <div className="flex gap-3 text-xs">
+                      {(['D','I','S','C'] as const).map((k) => (
+                        <span key={k}>
+                          <span className="font-semibold">{k}:</span> {interview.disc_profile!.scores![k] ?? '—'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {interview.disc_profile.notes && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{interview.disc_profile.notes}</p>
+                  )}
+                </div>
+              )}
+              {interview?.star_scores && (
+                <div>
+                  <div className={labelCls}>Exemplo STAR</div>
+                  <div className="flex gap-3 text-xs">
+                    {(['situation','task','action','result'] as const).map((k) => (
+                      <span key={k}>
+                        <span className="font-semibold capitalize">{k}:</span> {interview.star_scores![k] ?? '—'}/10
+                      </span>
+                    ))}
+                  </div>
+                  {interview.star_scores.notes && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{interview.star_scores.notes}</p>
+                  )}
+                </div>
+              )}
+              {interview?.fit_summary?.pros && interview.fit_summary.pros.length > 0 && (
                 <div>
                   <div className={labelCls}>Pontos fortes</div>
-                  <ul className="list-disc pl-4 text-sm text-gray-700 dark:text-gray-300 space-y-0.5">
-                    {screener.pros.map((p, i) => <li key={i}>{p}</li>)}
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {interview.fit_summary.pros.map((p, i) => <li key={i}>{p}</li>)}
                   </ul>
                 </div>
               )}
-              {screener?.cons && screener.cons.length > 0 && (
+              {interview?.fit_summary?.cons && interview.fit_summary.cons.length > 0 && (
                 <div>
                   <div className={labelCls}>Pontos de atenção</div>
-                  <ul className="list-disc pl-4 text-sm text-gray-700 dark:text-gray-300 space-y-0.5">
-                    {screener.cons.map((p, i) => <li key={i}>{p}</li>)}
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {interview.fit_summary.cons.map((p, i) => <li key={i}>{p}</li>)}
                   </ul>
                 </div>
+              )}
+              {(interview?.availability || interview?.salary_expectation) && (
+                <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+                  {interview.availability && <div><strong>Disponibilidade:</strong> {interview.availability}</div>}
+                  {interview.salary_expectation && <div><strong>Expectativa salarial:</strong> {interview.salary_expectation}</div>}
+                </div>
+              )}
+              {application.interview_report && (
+                <details className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <summary className="cursor-pointer text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1">
+                    <MessagesSquare className="w-3.5 h-3.5" /> Relatório completo
+                  </summary>
+                  <pre className="mt-2 whitespace-pre-wrap text-xs text-gray-700 dark:text-gray-300 font-sans">
+                    {application.interview_report}
+                  </pre>
+                </details>
               )}
             </div>
           )}
@@ -641,12 +666,21 @@ export default function CandidatoDrawer({
         <DrawerCard title="Candidatura e pipeline" icon={ClipboardList}>
           <div className="space-y-3">
             <SelectDropdown
-              label="Vaga *"
+              label="Área *"
+              value={area}
+              onChange={(e) => setArea(e.target.value as JobArea)}
+            >
+              {(Object.keys(JOB_AREA_LABELS) as JobArea[]).map((k) => (
+                <option key={k} value={k}>{JOB_AREA_LABELS[k]}</option>
+              ))}
+            </SelectDropdown>
+            <SelectDropdown
+              label="Vaga (opcional — deixe em branco para base reserva)"
               value={jobOpeningId}
               onChange={(e) => setJobOpeningId(e.target.value)}
               disabled={!isNew}
             >
-              <option value="">Selecione…</option>
+              <option value="">— Base reserva —</option>
               {jobs.map((j) => (
                 <option key={j.id} value={j.id}>
                   {j.title}{j.department ? ` — ${j.department}` : ''}
