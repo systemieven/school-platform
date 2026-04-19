@@ -440,8 +440,17 @@ Deno.serve(async (req: Request) => {
         } catch { /* ignore */ }
       }
 
-      const siteUrl =
-        (Deno.env.get("SITE_URL") || siteUrlSetting || "").replace(/\/+$/, "");
+      // Normaliza a URL: precisa ter protocolo e um host. Valores parciais
+      // (ex.: "https://" ou "example.com") geram links quebrados tipo
+      // "https://agendar-visita", então caímos pro path relativo nesse caso.
+      const rawSiteUrl = (Deno.env.get("SITE_URL") || siteUrlSetting || "").trim();
+      let siteUrl = "";
+      try {
+        if (rawSiteUrl) {
+          const u = new URL(rawSiteUrl);
+          if (u.host) siteUrl = `${u.protocol}//${u.host}`.replace(/\/+$/, "");
+        }
+      } catch { /* URL inválida — deixa siteUrl vazio */ }
 
       vars.candidate_name = cand.full_name ?? "";
       vars.candidate_first_name = firstName;

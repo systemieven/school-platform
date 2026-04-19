@@ -6,6 +6,7 @@ import AiContextualNudge from './components/AiContextualNudge';
 import { WhatsAppStatusProvider } from './contexts/WhatsAppStatusContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
 import { useBranding } from '../contexts/BrandingContext';
+import { supabase } from '../lib/supabase';
 
 const STORAGE_KEY = 'admin_sidebar_collapsed';
 
@@ -36,6 +37,41 @@ export default function AdminLayout() {
     }
     // Cleanup: remove dark class when leaving admin
     return () => { document.documentElement.classList.remove('dark'); };
+  }, []);
+
+  // Sincroniza `system_settings.general.site_url` com `window.location.origin`
+  // no primeiro carregamento do admin. Assim o edge function `auto-notify`
+  // (que roda via DB trigger e não tem origin HTTP) sempre recebe a URL
+  // pública correta pra renderizar {{schedule_url}} e {{careers_url}}.
+  // Segue o mesmo padrão de `system_url` usado nos fluxos de senha temporária,
+  // mas persistido no DB em vez de enviado no body (trigger não tem acesso).
+  useEffect(() => {
+    const origin = window.location.origin.replace(/\/+$/, '');
+    if (!origin) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('system_settings')
+          .select('id, value')
+          .eq('category', 'general')
+          .eq('key', 'site_url')
+          .maybeSingle();
+        const current = typeof data?.value === 'string' ? data.value : '';
+        if (current === origin) return;
+        if (data?.id) {
+          await supabase.from('system_settings').update({ value: origin }).eq('id', data.id);
+        } else {
+          await supabase.from('system_settings').insert({
+            category: 'general',
+            key: 'site_url',
+            value: origin,
+            description: 'URL pública do site (auto-sincronizado pelo admin a cada carregamento).',
+          });
+        }
+      } catch {
+        // Silencioso: não-admin ou RLS bloqueou — edge function usa fallback.
+      }
+    })();
   }, []);
 
   const toggle = useCallback(() => {
